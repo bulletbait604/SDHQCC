@@ -755,11 +755,11 @@ export default function HomePage() {
               
               {isAdmin && (
                 <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-50'}`}>
-                  <h4 className={`font-semibold mb-3 flex items-center ${darkMode ? 'text-white' : ''}`}>
+                  <h4 className={`font-semibold mb-3 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                     <Crown className="w-4 h-4 mr-2 text-sdhq-green-500" />
                     {t.subscribers} ({subscribers.length})
                   </h4>
-                  <div className="flex space-x-2">
+                  <div className="flex space-x-2 mb-3">
                     <input
                       type="text"
                       value={newSubscriberUsername}
@@ -767,7 +767,7 @@ export default function HomePage() {
                       placeholder="Username"
                       className={`flex-1 px-3 py-1.5 rounded border text-sm ${
                         darkMode 
-                          ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
+                          ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
                           : 'bg-white border-gray-300'
                       }`}
                       onKeyPress={(e) => e.key === 'Enter' && handleAddSubscriber()}
@@ -779,6 +779,34 @@ export default function HomePage() {
                     >
                       <Plus className="w-4 h-4" />
                     </Button>
+                  </div>
+                  {/* Subscriber List */}
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {subscribers.length === 0 ? (
+                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No subscribers yet.</p>
+                    ) : (
+                      subscribers.map((sub: Subscriber) => (
+                        <div 
+                          key={sub.id}
+                          className={`flex items-center justify-between p-2 rounded border ${
+                            darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-200'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2">
+                            <CheckCircle className="w-4 h-4 text-sdhq-green-500 flex-shrink-0" />
+                            <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{sub.username}</span>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleRemoveSubscriber(sub.id)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
