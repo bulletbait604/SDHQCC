@@ -605,8 +605,8 @@ export default function HomePage() {
 
                   {/* Subscribers Management - Admin Only */}
                   {isAdmin && (
-                    <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-50'}`}>
-                      <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : ''}`}>
+                    <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
+                      <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                         <Crown className="w-5 h-5 mr-2 text-sdhq-green-500" />
                         {t.subscribers}
                       </h4>
@@ -635,20 +635,20 @@ export default function HomePage() {
                       </div>
                       
                       {/* Subscribers List */}
-                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                      <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}">
                         {subscribers.length === 0 ? (
-                          <p className={`text-sm ${subtitleClasses}`}>No subscribers yet.</p>
+                          <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No subscribers yet.</p>
                         ) : (
                           subscribers.map((sub: Subscriber) => (
                             <div 
                               key={sub.id}
-                              className={`flex items-center justify-between p-2 rounded ${
-                                darkMode ? 'bg-sdhq-dark-800' : 'bg-white'
+                              className={`flex items-center justify-between p-2 rounded border ${
+                                darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-200'
                               }`}
                             >
                               <div className="flex items-center space-x-2">
-                                <CheckCircle className="w-4 h-4 text-sdhq-green-500" />
-                                <span className={darkMode ? 'text-white' : 'text-gray-900'}>{sub.username}</span>
+                                <CheckCircle className="w-4 h-4 text-sdhq-green-500 flex-shrink-0" />
+                                <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{sub.username}</span>
                               </div>
                               <Button 
                                 variant="ghost" 
