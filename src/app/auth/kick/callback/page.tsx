@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 export default function KickCallbackPage() {
+  const router = useRouter()
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [errorMessage, setErrorMessage] = useState<string>('')
 
@@ -60,8 +62,10 @@ export default function KickCallbackPage() {
 
         setStatus('success')
 
+        // Short delay to show success message, then navigate
         setTimeout(() => {
-          window.location.href = '/'
+          router.push('/')
+          router.refresh()
         }, 1500)
       } catch (err: any) {
         setStatus('error')
@@ -70,7 +74,7 @@ export default function KickCallbackPage() {
     }
 
     handleCallback()
-  }, [])
+  }, [router])
 
   return (
     <div className="min-h-screen flex items-center justify-center">
