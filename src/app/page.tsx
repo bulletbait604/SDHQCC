@@ -706,26 +706,26 @@ export default function HomePage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-md w-full p-6 shadow-2xl`}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : ''}`}>{t.settings}</h3>
+              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.settings}</h3>
               <button 
                 onClick={() => setShowSettings(false)}
-                className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : ''}`}
+                className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'text-gray-600'}`}
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             
             <div className="space-y-4">
-              <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-50'}`}>
+              <div className={`p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-dark-600' : 'bg-white border-gray-200'}`}>
                 <div className="flex items-center justify-between">
-                  <span className={darkMode ? 'text-white' : ''}>{t.language}</span>
+                  <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.language}</span>
                   <select 
                     value={language}
                     onChange={(e) => handleLanguageChange(e.target.value as Language)}
                     className={`px-3 py-1 rounded border ${
                       darkMode 
                         ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
-                        : 'bg-white border-gray-300'
+                        : 'bg-white border-gray-300 text-gray-900'
                     }`}
                   >
                     <option value="en">English</option>
@@ -736,16 +736,16 @@ export default function HomePage() {
                 </div>
               </div>
               
-              <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-50'}`}>
+              <div className={`p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-dark-600' : 'bg-white border-gray-200'}`}>
                 <div className="flex items-center justify-between">
-                  <span className={darkMode ? 'text-white' : ''}>
+                  <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                     {darkMode ? t.darkMode : t.lightMode}
                   </span>
                   <Button 
                     variant="outline" 
                     size="sm"
                     onClick={toggleDarkMode}
-                    className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
+                    className={darkMode ? 'border-sdhq-dark-600 text-white' : 'border-gray-300 text-gray-900'}
                   >
                     {darkMode ? <Sun className="w-4 h-4 mr-1" /> : <Moon className="w-4 h-4 mr-1" />}
                     {darkMode ? t.lightMode : t.darkMode}
@@ -754,7 +754,7 @@ export default function HomePage() {
               </div>
               
               {isAdmin && (
-                <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-50'}`}>
+                <div className={`p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-dark-600' : 'bg-white border-gray-200'}`}>
                   <h4 className={`font-semibold mb-3 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                     <Crown className="w-4 h-4 mr-2 text-sdhq-green-500" />
                     {t.subscribers} ({subscribers.length})
