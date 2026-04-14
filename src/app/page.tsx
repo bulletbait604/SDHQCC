@@ -154,14 +154,14 @@ export default function HomePage() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 pt-2 pb-8">
         {!user ? (
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center max-w-md">
               <img 
                 src="https://iili.io/BeYpM5F.md.png" 
                 alt="SDHQ Creator Corner" 
-                className="h-24 mx-auto mb-4"
+                className="h-40 mx-auto mb-4"
               />
               <h2 className="text-2xl font-bold gradient-text mb-4">Welcome to SDHQ Creator Corner</h2>
               <p className="text-gray-600 mb-8">
