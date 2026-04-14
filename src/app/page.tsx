@@ -548,7 +548,7 @@ export default function HomePage() {
             <TabsContent value="algorithms-explained">
               <div className={`text-center py-12 ${cardClasses}`}>
                 <TrendingUp className="w-16 h-16 mx-auto mb-4 text-sdhq-cyan-500" />
-                <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : ''}`}>{t.algorithmsExplained}</h3>
+                <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.algorithmsExplained}</h3>
                 <p className={`${textClasses} max-w-2xl mx-auto`}>
                   {t.algorithmsDesc}
                 </p>
@@ -559,7 +559,7 @@ export default function HomePage() {
             <TabsContent value="tag-generator-free">
               <div className={`text-center py-12 ${cardClasses}`}>
                 <Hash className="w-16 h-16 mx-auto mb-4 text-sdhq-cyan-500" />
-                <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : ''}`}>{t.tagGeneratorFree}</h3>
+                <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorFree}</h3>
                 <p className={`${textClasses} max-w-2xl mx-auto`}>
                   {t.tagFreeDesc}
                 </p>
@@ -570,7 +570,7 @@ export default function HomePage() {
             <TabsContent value="tag-generator-paid">
               <div className={`text-center py-12 ${cardClasses}`}>
                 <Hash className="w-16 h-16 mx-auto mb-4 text-sdhq-green-500" />
-                <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : ''}`}>{t.tagGeneratorPaid}</h3>
+                <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorPaid}</h3>
                 <p className={`${textClasses} max-w-2xl mx-auto`}>
                   {t.tagPaidDesc}
                 </p>
@@ -581,7 +581,7 @@ export default function HomePage() {
             <TabsContent value="clip-analyzer">
               <div className={`text-center py-12 ${cardClasses}`}>
                 <Video className="w-16 h-16 mx-auto mb-4 text-sdhq-green-500" />
-                <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : ''}`}>{t.clipAnalyzer}</h3>
+                <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.clipAnalyzer}</h3>
                 <p className={`${textClasses} max-w-2xl mx-auto`}>
                   {t.clipAnalyzerDesc}
                 </p>
@@ -592,7 +592,7 @@ export default function HomePage() {
             <TabsContent value="content-analyzer">
               <div className={`text-center py-12 ${cardClasses}`}>
                 <Brain className="w-16 h-16 mx-auto mb-4 text-sdhq-green-500" />
-                <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : ''}`}>{t.contentAnalyzer}</h3>
+                <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.contentAnalyzer}</h3>
                 <p className={`${textClasses} max-w-2xl mx-auto`}>
                   {t.contentAnalyzerDesc}
                 </p>
@@ -602,7 +602,7 @@ export default function HomePage() {
 
             <TabsContent value="settings">
               <div className={`py-8 ${cardClasses}`}>
-                <h3 className={`text-2xl font-bold mb-6 text-center ${darkMode ? 'text-white' : ''}`}>{t.settings}</h3>
+                <h3 className={`text-2xl font-bold mb-6 text-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.settings}</h3>
                 
                 <div className="max-w-2xl mx-auto space-y-6 px-6">
                   {/* Language Setting */}
@@ -610,7 +610,7 @@ export default function HomePage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <Globe className="w-5 h-5 text-sdhq-cyan-500" />
-                        <span className={`font-medium ${darkMode ? 'text-white' : ''}`}>{t.language}</span>
+                        <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.language}</span>
                       </div>
                       <select 
                         value={language}
@@ -634,7 +634,7 @@ export default function HomePage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         {darkMode ? <Sun className="w-5 h-5 text-sdhq-green-400" /> : <Moon className="w-5 h-5 text-sdhq-cyan-500" />}
-                        <span className={`font-medium ${darkMode ? 'text-white' : ''}`}>
+                        <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                           {darkMode ? t.darkMode : t.lightMode}
                         </span>
                       </div>
@@ -772,6 +772,9 @@ export default function HomePage() {
               </p>
               <p className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
                 {t.footerTagline}
+              </p>
+              <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Support: Bulletbait604@gmail.com
               </p>
             </div>
             <div className="flex space-x-4">
