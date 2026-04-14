@@ -19,7 +19,8 @@ import {
   X,
   Plus,
   Trash2,
-  CheckCircle
+  CheckCircle,
+  ExternalLink
 } from 'lucide-react'
 import { createKickAuthURL } from '@/lib/kick-oauth'
 
@@ -192,6 +193,12 @@ export default function HomePage() {
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([])
   const [showSubscribePopup, setShowSubscribePopup] = useState(false)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
+  
+  // Verification states
+  const [verificationCode, setVerificationCode] = useState<string>('')
+  const [isVerified, setIsVerified] = useState<boolean>(false)
+  const [showVerificationPopup, setShowVerificationPopup] = useState(false)
+  const [verificationStatus, setVerificationStatus] = useState<'idle' | 'listening' | 'verified' | 'failed'>('idle')
 
   const t = translations[language]
   const isAdmin = user ? ADMIN_USERNAMES.includes(user.username) : false
@@ -316,6 +323,106 @@ export default function HomePage() {
 
   const handleRemoveSubscriber = (id: string) => {
     setSubscribers(subscribers.filter(sub => sub.id !== id))
+  }
+
+  // Verification functions
+  const generateVerificationCode = () => {
+    const code = 'VERIFY-' + Math.random().toString(36).substring(2, 8).toUpperCase()
+    setVerificationCode(code)
+    return code
+  }
+
+  const startVerification = async () => {
+    setShowSubscribePopup(false)
+    setShowVerificationPopup(true)
+    setVerificationStatus('listening')
+    
+    const code = generateVerificationCode()
+    
+    try {
+      // Step 1: Get chatroom ID
+      const response = await fetch('https://kick.com/api/v2/channels/bulletbait604')
+      const data = await response.json()
+      const chatroomId = data.chatroom?.id
+      
+      if (!chatroomId) {
+        console.error('Could not get chatroom ID')
+        setVerificationStatus('failed')
+        return
+      }
+      
+      // Step 2 & 3: Connect to WebSocket and subscribe
+      const ws = new WebSocket('wss://ws-us2.pusher.com/app/d9138d9b7c1b5f5a5b3a?protocol=7&client=js&version=7.0.3&flash=false')
+      
+      ws.onopen = () => {
+        // Subscribe to chatroom channel
+        ws.send(JSON.stringify({
+          event: 'pusher:subscribe',
+          data: {
+            channel: `chatrooms.${chatroomId}.v2`
+          }
+        }))
+      }
+      
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data)
+        
+        // Step 4: Listen for ChatMessageEvent
+        if (message.event === 'App\\Events\\ChatMessageEvent') {
+          const msgData = JSON.parse(message.data)
+          const { username, message: text, badges } = msgData
+          
+          // Check if message contains verification code
+          if (text && text.includes(code)) {
+            // Step 5: Check if sender has Subscriber badge
+            const hasSubscriberBadge = badges && badges.some((badge: any) => 
+              badge.type === 'subscriber' || badge.text === 'Subscriber'
+            )
+            
+            if (hasSubscriberBadge) {
+              // Step 6: Mark as verified
+              setIsVerified(true)
+              setVerificationStatus('verified')
+              
+              // Add to verified subscribers list
+              const verifiedUser = {
+                id: Date.now().toString(),
+                username: username,
+                addedAt: new Date().toISOString()
+              }
+              setSubscribers(prev => [...prev, verifiedUser])
+              
+              // Close WebSocket
+              ws.close()
+              
+              // Close popup after 3 seconds
+              setTimeout(() => {
+                setShowVerificationPopup(false)
+              }, 3000)
+            } else {
+              console.log('User does not have Subscriber badge')
+            }
+          }
+        }
+      }
+      
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error)
+        setVerificationStatus('failed')
+      }
+      
+      // Timeout after 5 minutes
+      setTimeout(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.close()
+          setVerificationStatus('failed')
+        }
+      }, 300000)
+      
+    } catch (error) {
+      console.error('Verification error:', error)
+      setVerificationStatus('failed')
+    }
   }
 
   const handleLanguageChange = (lang: Language) => {
@@ -1047,6 +1154,13 @@ export default function HomePage() {
                   Subscribe Now
                 </Button>
                 <Button
+                  onClick={startVerification}
+                  className="flex-1 bg-sdhq-cyan-600 hover:bg-sdhq-cyan-700 text-white"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Verify Now
+                </Button>
+                <Button
                   variant="outline"
                   onClick={() => setShowSubscribePopup(false)}
                   className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
@@ -1083,6 +1197,93 @@ export default function HomePage() {
               >
                 Cancel
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Verification Popup */}
+      {showVerificationPopup && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-md w-full p-6 shadow-2xl`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                {verificationStatus === 'verified' ? 'Verified!' : 'Verify Subscription'}
+              </h3>
+              <button 
+                onClick={() => setShowVerificationPopup(false)}
+                className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'text-gray-600'}`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {verificationStatus === 'listening' && (
+                <>
+                  <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Copy and paste this code in the Kick chat to verify your subscription:
+                  </p>
+                  
+                  <div className={`p-4 rounded-lg border-2 border-dashed text-center ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
+                    <p className={`text-2xl font-mono font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                      {verificationCode}
+                    </p>
+                  </div>
+                  
+                  <div className="flex items-center justify-center space-x-2 text-sm">
+                    <div className="w-4 h-4 border-2 border-sdhq-cyan-500 border-t-transparent rounded-full animate-spin" />
+                    <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>
+                      Listening for verification code in chat...
+                    </span>
+                  </div>
+                  
+                  <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                    Make sure you have a Subscriber badge on Kick. The verification will timeout after 5 minutes.
+                  </p>
+                  
+                  <Button
+                    onClick={() => window.open('https://kick.com/bulletbait604', '_blank')}
+                    className="w-full bg-sdhq-green-600 hover:bg-sdhq-green-700 text-white"
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Go to Kick Chat
+                  </Button>
+                </>
+              )}
+              
+              {verificationStatus === 'verified' && (
+                <div className="text-center py-4">
+                  <CheckCircle className="w-16 h-16 mx-auto mb-4 text-sdhq-green-500" />
+                  <p className={`text-lg font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    Verification Complete!
+                  </p>
+                  <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    You now have access to all premium features.
+                  </p>
+                </div>
+              )}
+              
+              {verificationStatus === 'failed' && (
+                <div className="text-center py-4">
+                  <X className="w-16 h-16 mx-auto mb-4 text-red-500" />
+                  <p className={`text-lg font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    Verification Failed
+                  </p>
+                  <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Could not verify your subscription. Please try again.
+                  </p>
+                  <Button
+                    onClick={() => {
+                      setVerificationStatus('idle')
+                      setShowVerificationPopup(false)
+                    }}
+                    className="mt-4"
+                  >
+                    Close
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
