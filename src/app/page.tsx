@@ -115,15 +115,6 @@ export default function HomePage() {
                     <p className="font-semibold text-gray-800">{user.display_name}</p>
                     <p className="text-sm text-gray-600">@{user.username}</p>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleVerifySubscription}
-                    className="ml-2"
-                  >
-                    <Shield className="w-4 h-4 mr-1" />
-                    Verify Subscription
-                  </Button>
                 </div>
               ) : (
                 <div /> /* Empty spacer when not logged in */
@@ -138,7 +129,7 @@ export default function HomePage() {
                     <Settings className="w-4 h-4 mr-1" />
                     Settings
                   </Button>
-                  <Button variant="outline" size="sm" onClick={handleLogout}>
+                  <Button variant="destructive" size="sm" onClick={handleLogout}>
                     <LogOut className="w-4 h-4 mr-1" />
                     Logout
                   </Button>
