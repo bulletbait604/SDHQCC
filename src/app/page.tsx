@@ -61,6 +61,9 @@ export default function HomePage() {
     setUser(null)
     if (typeof window !== 'undefined') {
       localStorage.removeItem('kickUser')
+      localStorage.removeItem('kickAccessToken')
+      // Refresh to landing page
+      window.location.href = '/'
     }
   }
 
@@ -91,8 +94,15 @@ export default function HomePage() {
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-sdhq-cyan-200">
         <div className="container mx-auto px-4 py-4">
+          {/* Title always visible */}
+          <div className="text-center mb-4">
+            <h1 className="text-3xl font-bold gradient-text">SDHQ Creator Corner</h1>
+            <p className="text-sm text-gray-600">Optimize content for ANY platform</p>
+          </div>
+          
+          {/* User info and actions bar */}
           <div className="flex items-center justify-between">
-            {/* Left side - User info */}
+            {/* Left side - User info (only when logged in) */}
             <div className="flex items-center space-x-4">
               {user ? (
                 <div className="flex items-center space-x-3">
@@ -100,11 +110,11 @@ export default function HomePage() {
                     <img 
                       src={user.profile_image_url} 
                       alt={user.display_name}
-                      className="w-10 h-10 rounded-full border-2 border-sdhq-cyan-300"
+                      className="w-12 h-12 rounded-full border-2 border-sdhq-cyan-300"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-sdhq-cyan-400 to-sdhq-green-400 flex items-center justify-center">
-                      <User className="w-5 h-5 text-black" />
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-r from-sdhq-cyan-400 to-sdhq-green-400 flex items-center justify-center">
+                      <User className="w-6 h-6 text-black" />
                     </div>
                   )}
                   <div>
@@ -122,10 +132,7 @@ export default function HomePage() {
                   </Button>
                 </div>
               ) : (
-                <div>
-                  <h1 className="text-2xl font-bold gradient-text">SDHQ Creator Corner</h1>
-                  <p className="text-sm text-gray-600">Optimize content for ANY platform</p>
-                </div>
+                <div /> /* Empty spacer when not logged in */
               )}
             </div>
             
