@@ -635,7 +635,7 @@ export default function HomePage() {
                       </div>
                       
                       {/* Subscribers List */}
-                      <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}">
+                      <div className={`space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
                         {subscribers.length === 0 ? (
                           <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No subscribers yet.</p>
                         ) : (
