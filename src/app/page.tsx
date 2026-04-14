@@ -26,7 +26,7 @@ interface KickUser {
 export default function HomePage() {
   const [user, setUser] = useState<KickUser | null>(null)
   const [mounted, setMounted] = useState(false)
-  const [activeTab, setActiveTab] = useState('algorithm-info')
+  const [activeTab, setActiveTab] = useState('algorithms-explained')
 
   useEffect(() => {
     setMounted(true)
@@ -94,10 +94,14 @@ export default function HomePage() {
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-sdhq-cyan-200">
         <div className="container mx-auto px-4 py-4">
-          {/* Title always visible */}
+          {/* Logo always visible */}
           <div className="text-center mb-4">
-            <h1 className="text-3xl font-bold gradient-text">SDHQ Creator Corner</h1>
-            <p className="text-sm text-gray-600">Optimize content for ANY platform</p>
+            <img 
+              src="https://iili.io/BeYpM5F.md.png" 
+              alt="SDHQ Creator Corner" 
+              className="h-16 mx-auto"
+            />
+            <p className="text-sm text-gray-600 mt-2">Optimize content for ANY platform</p>
           </div>
           
           {/* User info and actions bar */}
@@ -164,10 +168,12 @@ export default function HomePage() {
         {!user ? (
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center max-w-md">
-              <div className="w-20 h-20 bg-gradient-to-r from-sdhq-cyan-400 to-sdhq-green-400 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Crown className="w-10 h-10 text-black" />
-              </div>
-              <h2 className="text-3xl font-bold gradient-text mb-4">SDHQ Creator Corner</h2>
+              <img 
+                src="https://iili.io/BeYpM5F.md.png" 
+                alt="SDHQ Creator Corner" 
+                className="h-24 mx-auto mb-4"
+              />
+              <h2 className="text-2xl font-bold gradient-text mb-4">Welcome to SDHQ Creator Corner</h2>
               <p className="text-gray-600 mb-8">
                 Optimize long and short form content for ANY platform with AI-powered insights and tools.
               </p>
@@ -179,9 +185,9 @@ export default function HomePage() {
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="grid w-full grid-cols-6">
-              <TabsTrigger value="algorithm-info" className="flex items-center space-x-2">
+              <TabsTrigger value="algorithms-explained" className="flex items-center space-x-2">
                 <TrendingUp className="w-4 h-4" />
-                <span className="hidden sm:inline">Algorithm Info</span>
+                <span className="hidden sm:inline">Algorithms Explained</span>
               </TabsTrigger>
               <TabsTrigger value="tag-generator-free" className="flex items-center space-x-2">
                 <Hash className="w-4 h-4" />
@@ -209,10 +215,10 @@ export default function HomePage() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="algorithm-info">
+            <TabsContent value="algorithms-explained">
               <div className="text-center py-12">
                 <TrendingUp className="w-16 h-16 mx-auto mb-4 text-sdhq-cyan-500" />
-                <h3 className="text-2xl font-bold mb-4">Algorithm Information</h3>
+                <h3 className="text-2xl font-bold mb-4">Algorithms Explained</h3>
                 <p className="text-gray-600 max-w-2xl mx-auto">
                   Get detailed insights into how different platform algorithms work and how to optimize your content for maximum reach and engagement.
                 </p>
