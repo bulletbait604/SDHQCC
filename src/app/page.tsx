@@ -36,6 +36,12 @@ interface Subscriber {
   addedAt: string
 }
 
+interface ActivityLogEntry {
+  id: string
+  username: string
+  timestamp: string
+}
+
 type Language = 'en' | 'es' | 'fr' | 'de';
 
 interface AppSettings {
@@ -183,6 +189,9 @@ export default function HomePage() {
   const [newSubscriberUsername, setNewSubscriberUsername] = useState('')
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false)
   const [showTerms, setShowTerms] = useState(false)
+  const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([])
+  const [showSubscribePopup, setShowSubscribePopup] = useState(false)
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
 
   const t = translations[language]
   const isAdmin = user ? ADMIN_USERNAMES.includes(user.username) : false
@@ -196,6 +205,7 @@ export default function HomePage() {
       const storedLanguage = localStorage.getItem('sdhq-language') as Language
       const storedDarkMode = localStorage.getItem('sdhq-darkmode')
       const storedSubscribers = localStorage.getItem('sdhq-subscribers')
+      const storedActivityLog = localStorage.getItem('sdhq-activity-log')
       
       if (storedUser) {
         try {
@@ -221,6 +231,14 @@ export default function HomePage() {
           console.error('Error loading subscribers:', error)
         }
       }
+      
+      if (storedActivityLog) {
+        try {
+          setActivityLog(JSON.parse(storedActivityLog))
+        } catch (error) {
+          console.error('Error loading activity log:', error)
+        }
+      }
     }
   }, [])
 
@@ -236,6 +254,24 @@ export default function HomePage() {
       localStorage.setItem('sdhq-subscribers', JSON.stringify(subscribers))
     }
   }, [subscribers])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sdhq-activity-log', JSON.stringify(activityLog))
+    }
+  }, [activityLog])
+
+  // Track user login
+  useEffect(() => {
+    if (user && typeof window !== 'undefined') {
+      const newEntry: ActivityLogEntry = {
+        id: Date.now().toString(),
+        username: user.username,
+        timestamp: new Date().toISOString()
+      }
+      setActivityLog(prev => [newEntry, ...prev].slice(0, 100)) // Keep last 100 entries
+    }
+  }, [user?.id]) // Only run when user ID changes (login)
 
   const handleLogin = async () => {
     try {
@@ -258,7 +294,12 @@ export default function HomePage() {
   }
 
   const handleVerifySubscription = () => {
-    alert('Subscription verification coming soon!')
+    setShowSubscribePopup(true)
+  }
+
+  const handleClearActivityLog = () => {
+    setActivityLog([])
+    setShowClearConfirm(false)
   }
 
   const handleAddSubscriber = () => {
@@ -355,6 +396,11 @@ export default function HomePage() {
                       {isAdmin && (
                         <span className="px-2 py-0.5 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black text-xs font-bold rounded-full">
                           {t.admin}
+                        </span>
+                      )}
+                      {!isAdmin && (
+                        <span className="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full">
+                          Unverified
                         </span>
                       )}
                     </div>
@@ -664,6 +710,51 @@ export default function HomePage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Activity Feed - Admin Only */}
+                  {isAdmin && (
+                    <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className={`font-semibold flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                          <TrendingUp className="w-5 h-5 mr-2 text-sdhq-green-500" />
+                          Activity Feed
+                        </h4>
+                        {activityLog.length > 0 && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setShowClearConfirm(true)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Clear
+                          </Button>
+                        )}
+                      </div>
+                      
+                      <div className={`space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                        {activityLog.length === 0 ? (
+                          <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No activity yet.</p>
+                        ) : (
+                          activityLog.map((entry: ActivityLogEntry) => (
+                            <div 
+                              key={entry.id}
+                              className={`flex items-center justify-between p-2 rounded border ${
+                                darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-200'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-2">
+                                <User className="w-4 h-4 text-sdhq-cyan-500 flex-shrink-0" />
+                                <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{entry.username}</span>
+                              </div>
+                              <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                {new Date(entry.timestamp).toLocaleString()}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </TabsContent>
@@ -908,6 +999,87 @@ export default function HomePage() {
                 <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : ''}`}>7. Termination</h4>
                 <p>We reserve the right to terminate or suspend your account at any time for violations of these terms or for any other reason at our discretion.</p>
               </section>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Subscribe Popup */}
+      {showSubscribePopup && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-md w-full p-6 shadow-2xl`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Subscribe to Access</h3>
+              <button 
+                onClick={() => setShowSubscribePopup(false)}
+                className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'text-gray-600'}`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                You need to subscribe to Bulletbait604 on Kick to unlock premium features and remove the Unverified status.
+              </p>
+              
+              <div className={`p-4 rounded-lg border ${darkMode ? 'border-sdhq-dark-600 bg-sdhq-dark-700' : 'border-gray-200 bg-gray-50'}`}>
+                <p className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Subscribe at:</p>
+                <a 
+                  href="https://kick.com/bulletbait604/subscribe" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-sdhq-cyan-500 hover:text-sdhq-cyan-400 font-medium break-all"
+                >
+                  https://kick.com/bulletbait604/subscribe
+                </a>
+              </div>
+              
+              <div className="flex space-x-2">
+                <Button
+                  onClick={() => window.open('https://kick.com/bulletbait604/subscribe', '_blank')}
+                  className="flex-1 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
+                >
+                  <Shield className="w-4 h-4 mr-2" />
+                  Subscribe Now
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowSubscribePopup(false)}
+                  className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear Activity Log Confirmation */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-sm w-full p-6 shadow-2xl`}>
+            <h3 className={`text-xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Clear Activity Log?</h3>
+            <p className={`text-sm mb-6 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              Are you sure you want to clear all activity log entries? This action cannot be undone.
+            </p>
+            <div className="flex space-x-2">
+              <Button
+                variant="destructive"
+                onClick={handleClearActivityLog}
+                className="flex-1"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Yes, Clear
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowClearConfirm(false)}
+                className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
+              >
+                Cancel
+              </Button>
             </div>
           </div>
         </div>
