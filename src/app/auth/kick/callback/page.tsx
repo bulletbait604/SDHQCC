@@ -11,7 +11,6 @@ export default function KickCallbackPage() {
       const urlParams = new URLSearchParams(window.location.search)
       const code = urlParams.get('code')
       const error = urlParams.get('error')
-      const state = urlParams.get('state')
 
       if (error) {
         setStatus('error')
@@ -25,12 +24,20 @@ export default function KickCallbackPage() {
         return
       }
 
+      // Get the code verifier stored before redirect
+      const codeVerifier = sessionStorage.getItem('kickCodeVerifier')
+
+      if (!codeVerifier) {
+        setStatus('error')
+        setErrorMessage('Missing code verifier. Please try logging in again.')
+        return
+      }
+
       try {
-        // Exchange the authorization code for tokens
         const response = await fetch('/api/auth/kick/token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code }),
+          body: JSON.stringify({ code, codeVerifier }),
         })
 
         if (!response.ok) {
@@ -40,19 +47,19 @@ export default function KickCallbackPage() {
 
         const data = await response.json()
 
-        // Store user data in localStorage
         if (data.user) {
           localStorage.setItem('kickUser', JSON.stringify(data.user))
         }
 
-        // Store tokens
         if (data.accessToken) {
           localStorage.setItem('kickAccessToken', data.accessToken)
         }
 
+        // Clean up
+        sessionStorage.removeItem('kickCodeVerifier')
+
         setStatus('success')
 
-        // Redirect back to main page
         setTimeout(() => {
           window.location.href = '/'
         }, 1500)

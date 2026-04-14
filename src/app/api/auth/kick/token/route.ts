@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
-    const { code } = await request.json()
+    const { code, codeVerifier } = await request.json()
 
-    if (!code) {
-      return NextResponse.json({ error: 'Authorization code is required' }, { status: 400 })
+    if (!code || !codeVerifier) {
+      return NextResponse.json({ error: 'Authorization code and code verifier are required' }, { status: 400 })
     }
 
     const clientId = process.env.NEXT_PUBLIC_KICK_CLIENT_ID
@@ -16,8 +16,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing KICK OAuth configuration' }, { status: 500 })
     }
 
-    // Exchange authorization code for access token
-    const tokenResponse = await fetch('https://kick.com/api/oauth/token', {
+    // Correct KICK token endpoint: https://id.kick.com/oauth/token
+    const tokenResponse = await fetch('https://id.kick.com/oauth/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -28,13 +28,14 @@ export async function POST(request: NextRequest) {
         client_id: clientId,
         client_secret: clientSecret,
         redirect_uri: redirectUri,
+        code_verifier: codeVerifier,
       }),
     })
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text()
       console.error('KICK token exchange failed:', errorData)
-      return NextResponse.json({ error: 'Token exchange failed' }, { status: 400 })
+      return NextResponse.json({ error: 'Token exchange failed', details: errorData }, { status: 400 })
     }
 
     const tokenData = await tokenResponse.json()

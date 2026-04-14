@@ -3,17 +3,18 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { 
-  User, 
-  LogOut, 
-  Settings, 
-  Shield, 
-  Hash, 
-  Video, 
+import {
+  User,
+  LogOut,
+  Settings,
+  Shield,
+  Hash,
+  Video,
   Brain,
   TrendingUp,
   Crown
 } from 'lucide-react'
+import { createKickAuthURL } from '@/lib/kick-oauth'
 
 interface KickUser {
   id: string
@@ -45,14 +46,15 @@ export default function HomePage() {
   }, [])
 
   const handleLogin = async () => {
-    // Store the current tab for redirect
-    if (typeof window !== 'undefined') {
+    try {
+      const { url, codeVerifier } = await createKickAuthURL()
+      // Store code verifier for the callback
+      sessionStorage.setItem('kickCodeVerifier', codeVerifier)
       sessionStorage.setItem('kickAuthReturn', window.location.pathname)
+      window.location.href = url
+    } catch (error) {
+      console.error('Failed to create KICK auth URL:', error)
     }
-    
-    // Redirect to Kick OAuth
-    const authUrl = `https://kick.com/api/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_KICK_CLIENT_ID}&redirect_uri=${encodeURIComponent(window.location.origin + '/auth/kick/callback')}&response_type=code&scope=user:read+chat:read+chat:write+channel:read&state=${generateRandomString()}`
-    window.location.href = authUrl
   }
 
   const handleLogout = () => {
