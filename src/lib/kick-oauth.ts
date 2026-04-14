@@ -1,9 +1,9 @@
-// Simplified KICK OAuth implementation without Arctic
+// KICK OAuth implementation with proper endpoints
 export async function createKickAuthURL() {
   const state = generateRandomString();
   const scopes = ["user:read", "chat:read", "chat:write", "channel:read"];
-  const clientId = process.env.KICK_CLIENT_ID;
-  const redirectUri = process.env.KICK_REDIRECT_URI || `${process.env.NEXT_PUBLIC_SITE_URL}/auth/kick/callback`;
+  const clientId = process.env.NEXT_PUBLIC_KICK_CLIENT_ID;
+  const redirectUri = process.env.NEXT_PUBLIC_KICK_REDIRECT_URI || window.location.origin + '/auth/kick/callback';
   
   const url = `https://kick.com/api/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scopes.join('+')}&state=${state}`;
   
@@ -12,7 +12,6 @@ export async function createKickAuthURL() {
 
 export async function validateKickAuthorizationCode(code: string) {
   try {
-    // This is a simplified implementation - you'll need to implement the actual token exchange
     const response = await fetch('https://kick.com/api/oauth/token', {
       method: 'POST',
       headers: {
@@ -21,9 +20,9 @@ export async function validateKickAuthorizationCode(code: string) {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code: code,
-        client_id: process.env.KICK_CLIENT_ID!,
+        client_id: process.env.NEXT_PUBLIC_KICK_CLIENT_ID!,
         client_secret: process.env.KICK_CLIENT_SECRET!,
-        redirect_uri: process.env.KICK_REDIRECT_URI || `${process.env.NEXT_PUBLIC_SITE_URL}/auth/kick/callback`,
+        redirect_uri: process.env.NEXT_PUBLIC_KICK_REDIRECT_URI || window.location.origin + '/auth/kick/callback',
       }),
     });
 
