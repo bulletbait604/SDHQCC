@@ -183,7 +183,7 @@ export default function HomePage() {
   const [mounted, setMounted] = useState(false)
   const [activeTab, setActiveTab] = useState('algorithms-explained')
   const [language, setLanguage] = useState<Language>('en')
-  const [darkMode, setDarkMode] = useState(false)
+  const [darkMode, setDarkMode] = useState(true)
   const [showSettings, setShowSettings] = useState(false)
   const [subscribers, setSubscribers] = useState<Subscriber[]>([])
   const [newSubscriberUsername, setNewSubscriberUsername] = useState('')
