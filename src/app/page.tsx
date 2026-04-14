@@ -911,10 +911,10 @@ export default function HomePage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 shadow-2xl`}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : ''}`}>{t.privacyPolicy}</h3>
+              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.privacyPolicy}</h3>
               <button 
                 onClick={() => setShowPrivacyPolicy(false)}
-                className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : ''}`}
+                className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'text-gray-600'}`}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -922,27 +922,27 @@ export default function HomePage() {
             
             <div className={`space-y-4 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
               <section>
-                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : ''}`}>1. Information We Collect</h4>
+                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>1. Information We Collect</h4>
                 <p>We collect information you provide directly to us when you create an account, including your Kick username, profile picture, and email address. We also collect usage data related to your content analysis activities.</p>
               </section>
               
               <section>
-                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : ''}`}>2. How We Use Your Information</h4>
+                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>2. How We Use Your Information</h4>
                 <p>We use your information to provide AI-powered content analysis services, improve our algorithms, and personalize your experience. Your content data is processed to generate optimization recommendations.</p>
               </section>
               
               <section>
-                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : ''}`}>3. Data Security</h4>
+                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>3. Data Security</h4>
                 <p>We implement appropriate technical and organizational measures to protect your personal information. However, no method of transmission over the Internet is 100% secure.</p>
               </section>
               
               <section>
-                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : ''}`}>4. Third-Party Services</h4>
+                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>4. Third-Party Services</h4>
                 <p>We use Kick OAuth for authentication. Your use of Kick is subject to Kick&apos;s Privacy Policy and Terms of Service.</p>
               </section>
               
               <section>
-                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : ''}`}>5. Your Rights</h4>
+                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>5. Your Rights</h4>
                 <p>You can access, update, or delete your account information at any time by contacting us or through your account settings.</p>
               </section>
             </div>
@@ -955,10 +955,10 @@ export default function HomePage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 shadow-2xl`}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : ''}`}>{t.termsOfService}</h3>
+              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.termsOfService}</h3>
               <button 
                 onClick={() => setShowTerms(false)}
-                className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : ''}`}
+                className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'text-gray-600'}`}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -966,37 +966,37 @@ export default function HomePage() {
             
             <div className={`space-y-4 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
               <section>
-                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : ''}`}>1. Acceptance of Terms</h4>
+                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>1. Acceptance of Terms</h4>
                 <p>By accessing and using SDHQ Creator Corner, you agree to be bound by these Terms of Service. If you do not agree, please do not use our service.</p>
               </section>
               
               <section>
-                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : ''}`}>2. Description of Service</h4>
+                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>2. Description of Service</h4>
                 <p>SDHQ Creator Corner provides AI-powered content analysis tools that help creators optimize their content for various platforms. Our services include algorithm insights, tag generation, clip analysis, and content optimization recommendations.</p>
               </section>
               
               <section>
-                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : ''}`}>3. User Accounts</h4>
+                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>3. User Accounts</h4>
                 <p>You must authenticate through Kick to use our service. You are responsible for maintaining the security of your account and for all activities that occur under your account.</p>
               </section>
               
               <section>
-                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : ''}`}>4. Subscription and Payments</h4>
+                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>4. Subscription and Payments</h4>
                 <p>Some features require a valid subscription. Free features are available to all users. Premium features require an active subscription or admin privileges.</p>
               </section>
               
               <section>
-                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : ''}`}>5. Content Analysis</h4>
+                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>5. Content Analysis</h4>
                 <p>By using our analysis tools, you grant us permission to process your content data to generate recommendations. We do not store your original content files.</p>
               </section>
               
               <section>
-                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : ''}`}>6. Limitation of Liability</h4>
+                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>6. Limitation of Liability</h4>
                 <p>Our recommendations are AI-generated suggestions and do not guarantee specific results. You are solely responsible for the content you create and publish.</p>
               </section>
               
               <section>
-                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : ''}`}>7. Termination</h4>
+                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>7. Termination</h4>
                 <p>We reserve the right to terminate or suspend your account at any time for violations of these terms or for any other reason at our discretion.</p>
               </section>
             </div>
