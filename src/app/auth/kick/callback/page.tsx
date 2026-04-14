@@ -62,10 +62,9 @@ export default function KickCallbackPage() {
 
         setStatus('success')
 
-        // Short delay to show success message, then navigate
+        // Short delay to show success message, then force full page reload
         setTimeout(() => {
-          router.push('/')
-          router.refresh()
+          window.location.href = '/'
         }, 1500)
       } catch (err: any) {
         setStatus('error')
