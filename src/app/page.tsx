@@ -94,16 +94,6 @@ export default function HomePage() {
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-sdhq-cyan-200">
         <div className="container mx-auto px-4 py-4">
-          {/* Logo always visible */}
-          <div className="text-center mb-4">
-            <img 
-              src="https://iili.io/BeYpM5F.md.png" 
-              alt="SDHQ Creator Corner" 
-              className="h-16 mx-auto"
-            />
-            <p className="text-sm text-gray-600 mt-2">Optimize content for ANY platform</p>
-          </div>
-          
           {/* User info and actions bar */}
           <div className="flex items-center justify-between">
             {/* Left side - User info (only when logged in) */}
