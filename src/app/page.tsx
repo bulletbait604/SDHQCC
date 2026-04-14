@@ -392,11 +392,11 @@ export default function HomePage() {
               {/* Language Selector */}
               <select 
                 value={language}
-                onChange={(e) => handleLanguageChange(e.target.value as Language)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleLanguageChange(e.target.value as Language)}
                 className={`px-3 py-1.5 rounded-md text-sm border ${
                   darkMode 
                     ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
-                    : 'bg-white border-sdhq-cyan-200'
+                    : 'bg-white border-sdhq-cyan-200 text-gray-900'
                 }`}
               >
                 <option value="en">EN</option>
@@ -639,7 +639,7 @@ export default function HomePage() {
                         {subscribers.length === 0 ? (
                           <p className={`text-sm ${subtitleClasses}`}>No subscribers yet.</p>
                         ) : (
-                          subscribers.map((sub) => (
+                          subscribers.map((sub: Subscriber) => (
                             <div 
                               key={sub.id}
                               className={`flex items-center justify-between p-2 rounded ${
@@ -648,7 +648,7 @@ export default function HomePage() {
                             >
                               <div className="flex items-center space-x-2">
                                 <CheckCircle className="w-4 h-4 text-sdhq-green-500" />
-                                <span className={darkMode ? 'text-white' : ''}>{sub.username}</span>
+                                <span className={darkMode ? 'text-white' : 'text-gray-900'}>{sub.username}</span>
                               </div>
                               <Button 
                                 variant="ghost" 
