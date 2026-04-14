@@ -45,8 +45,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No access token received' }, { status: 400 })
     }
 
-    // Fetch user data using the access token
-    const userResponse = await fetch('https://api.kick.com/public/v1/user', {
+    // Fetch user data using the access token - correct endpoint is /users (not /user)
+    const userResponse = await fetch('https://api.kick.com/public/v1/users', {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
@@ -55,7 +55,18 @@ export async function POST(request: NextRequest) {
     let user = null
     if (userResponse.ok) {
       const userData = await userResponse.json()
-      user = userData.data || userData
+      // Kick returns { data: [ { user_id, name, email, profile_picture } ] }
+      if (userData.data && userData.data.length > 0) {
+        const kickUser = userData.data[0]
+        // Map Kick fields to our interface
+        user = {
+          id: kickUser.user_id,
+          username: kickUser.name,
+          display_name: kickUser.name,
+          profile_image_url: kickUser.profile_picture,
+          email: kickUser.email
+        }
+      }
     }
 
     return NextResponse.json({
