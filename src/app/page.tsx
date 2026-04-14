@@ -34,13 +34,17 @@ export default function HomePage() {
     // Check for existing user session
     if (typeof window !== 'undefined') {
       const storedUser = localStorage.getItem('kickUser')
+      console.log('Main page - storedUser from localStorage:', storedUser)
       if (storedUser) {
         try {
           const parsedUser = JSON.parse(storedUser)
+          console.log('Main page - parsed user:', parsedUser)
           setUser(parsedUser)
         } catch (error) {
           console.error('Error loading stored user:', error)
         }
+      } else {
+        console.log('Main page - no stored user found')
       }
     }
   }, [])

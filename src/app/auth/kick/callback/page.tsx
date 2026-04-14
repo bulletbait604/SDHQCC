@@ -48,9 +48,13 @@ export default function KickCallbackPage() {
         }
 
         const data = await response.json()
+        console.log('Token API response:', data)
 
         if (data.user) {
           localStorage.setItem('kickUser', JSON.stringify(data.user))
+          console.log('User stored in localStorage:', data.user)
+        } else {
+          console.error('No user data in response')
         }
 
         if (data.accessToken) {
