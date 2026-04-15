@@ -329,7 +329,7 @@ export default function HomePage() {
               localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
               localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
               setLastUpdated(data.lastUpdated)
-              setPlatforms(platforms.map(p => ({
+              setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
                 ...p,
                 data: data.data[p.id] || null
               })))
