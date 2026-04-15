@@ -199,6 +199,7 @@ export default function HomePage() {
   const [isVerified, setIsVerified] = useState<boolean>(false)
   const [showVerificationPopup, setShowVerificationPopup] = useState(false)
   const [verificationStatus, setVerificationStatus] = useState<'idle' | 'listening' | 'verified' | 'failed'>('idle')
+  const [showPaymentConfirm, setShowPaymentConfirm] = useState(false)
 
   const t = translations[language]
   const isAdmin = user ? ADMIN_USERNAMES.includes(user.username) : false
@@ -213,6 +214,11 @@ export default function HomePage() {
       const storedDarkMode = localStorage.getItem('sdhq-darkmode')
       const storedSubscribers = localStorage.getItem('sdhq-subscribers')
       const storedActivityLog = localStorage.getItem('sdhq-activity-log')
+      const storedVerified = localStorage.getItem('isVerified')
+      
+      if (storedVerified) {
+        setIsVerified(storedVerified === 'true')
+      }
       
       if (storedUser) {
         try {
@@ -302,6 +308,11 @@ export default function HomePage() {
 
   const handleVerifySubscription = () => {
     setShowSubscribePopup(true)
+    // Generate payment code when opening popup
+    setTimeout(() => {
+      const code = generatePaymentCode()
+      if (code) setPaymentCode(code)
+    }, 0)
   }
 
   const handleClearActivityLog = () => {
@@ -323,6 +334,73 @@ export default function HomePage() {
 
   const handleRemoveSubscriber = (id: string) => {
     setSubscribers(subscribers.filter(sub => sub.id !== id))
+  }
+
+  // Payment verification function
+  const generatePaymentCode = () => {
+    if (!user) return ''
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase()
+    return `SDHQ-${user.username}-${random}`
+  }
+  
+  const [paymentCode, setPaymentCode] = useState('')
+  
+  const initiatePayPalPayment = () => {
+    const code = generatePaymentCode()
+    if (code) {
+      setPaymentCode(code)
+      // Store pending payment
+      localStorage.setItem('pendingPayment', JSON.stringify({
+        code,
+        username: user?.username,
+        timestamp: Date.now()
+      }))
+    }
+  }
+  
+  const checkPaymentStatus = async () => {
+    if (!paymentCode || !user) {
+      alert('No payment code found. Please click "Pay $4.99" first to generate a code.')
+      return
+    }
+    
+    try {
+      const response = await fetch('/api/check-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          paymentCode,
+          username: user.username,
+        }),
+      })
+      
+      const data = await response.json()
+      
+      if (data.verified) {
+        // Payment verified - unlock premium features
+        setIsVerified(true)
+        localStorage.setItem('isVerified', 'true')
+        localStorage.setItem('verifiedUsername', user.username)
+        
+        // Add to subscribers list for admin visibility
+        const verifiedUser = {
+          id: Date.now().toString(),
+          username: user.username,
+          addedAt: new Date().toISOString()
+        }
+        setSubscribers(prev => [...prev, verifiedUser])
+        
+        alert(`Payment verified! Transaction ID: ${data.transactionId}\nAmount: $${data.amount}\n\nPremium features are now unlocked!`)
+        setShowSubscribePopup(false)
+      } else {
+        alert(data.message || 'Payment not found. Make sure you:\n1. Completed the PayPal payment\n2. Included the code in the payment note/memo')
+      }
+    } catch (error) {
+      console.error('Payment check failed:', error)
+      alert('Failed to verify payment. Please try again in a moment.')
+    }
   }
 
   // Verification functions
@@ -1119,7 +1197,7 @@ export default function HomePage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-md w-full p-6 shadow-2xl`}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Subscribe to Access</h3>
+              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Unlock Premium Features</h3>
               <button 
                 onClick={() => setShowSubscribePopup(false)}
                 className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'text-gray-600'}`}
@@ -1130,35 +1208,68 @@ export default function HomePage() {
             
             <div className="space-y-4">
               <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                You need to subscribe to Bulletbait604 on Kick to unlock premium features and remove the Unverified status.
+                Unlock all premium features and remove the Unverified status with a one-time payment.
               </p>
               
-              <div className={`p-4 rounded-lg border ${darkMode ? 'border-sdhq-dark-600 bg-sdhq-dark-700' : 'border-gray-200 bg-gray-50'}`}>
-                <p className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Subscribe at:</p>
-                <a 
-                  href="https://kick.com/bulletbait604/subscribe" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-sdhq-cyan-500 hover:text-sdhq-cyan-400 font-medium break-all"
-                >
-                  https://kick.com/bulletbait604/subscribe
-                </a>
+              {paymentCode ? (
+                <div className={`p-4 rounded-lg border-2 border-dashed ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
+                  <p className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <strong>Step 1:</strong> Copy this code and paste it in the PayPal payment note/memo:
+                  </p>
+                  <p className={`text-xl font-mono font-bold text-center ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                    {paymentCode}
+                  </p>
+                  <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    This code links your payment to your account.
+                  </p>
+                </div>
+              ) : null}
+              
+              <div className={`p-4 rounded-lg border ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
+                <p className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PayPal:</p>
+                <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  $4.99 USD - One-time payment
+                </p>
               </div>
               
               <div className="flex space-x-2">
                 <Button
-                  onClick={() => window.open('https://kick.com/bulletbait604/subscribe', '_blank')}
+                  onClick={() => {
+                    initiatePayPalPayment()
+                    window.open(`https://www.paypal.com/paypalme/bulletbait604/4.99`, '_blank')
+                  }}
                   className="flex-1 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
                 >
-                  <Shield className="w-4 h-4 mr-2" />
-                  Subscribe Now
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Pay $4.99
                 </Button>
                 <Button
-                  onClick={startVerification}
-                  className="flex-1 bg-sdhq-cyan-600 hover:bg-sdhq-cyan-700 text-white"
+                  variant="outline"
+                  onClick={() => {
+                    initiatePayPalPayment()
+                    window.open('https://www.paypal.com/paypalme/bulletbait604', '_blank')
+                  }}
+                  className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
+                >
+                  Donate More
+                </Button>
+              </div>
+              
+              {paymentCode && (
+                <div className={`p-3 rounded-lg border ${darkMode ? 'border-sdhq-green-500 bg-sdhq-green-500/10' : 'border-sdhq-green-500 bg-sdhq-green-50'}`}>
+                  <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    <strong className={darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}>Step 2:</strong> After completing payment on PayPal, click below to verify. The system will check your payment code.
+                  </p>
+                </div>
+              )}
+              
+              <div className="flex space-x-2">
+                <Button
+                  onClick={() => setShowPaymentConfirm(true)}
+                  className="flex-1 bg-sdhq-green-600 hover:bg-sdhq-green-700 text-white"
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />
-                  Verify Now
+                  I&apos;ve Paid - Unlock Now
                 </Button>
                 <Button
                   variant="outline"
@@ -1168,6 +1279,10 @@ export default function HomePage() {
                   Close
                 </Button>
               </div>
+              
+              <p className={`text-xs text-center ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                Or subscribe free on Kick: <a href="https://kick.com/bulletbait604/subscribe" target="_blank" rel="noopener noreferrer" className="text-sdhq-cyan-500 hover:underline">kick.com/bulletbait604/subscribe</a>
+              </p>
             </div>
           </div>
         </div>
@@ -1284,6 +1399,57 @@ export default function HomePage() {
                   </Button>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Confirmation Popup */}
+      {showPaymentConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-sm w-full p-6 shadow-2xl`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Confirm Payment</h3>
+              <button 
+                onClick={() => setShowPaymentConfirm(false)}
+                className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-700 text-white' : 'text-gray-600'}`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className={`p-4 rounded-lg border-2 border-yellow-500 ${darkMode ? 'bg-yellow-500/10' : 'bg-yellow-50'}`}>
+                <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                  Did you paste your code in the notes/memo?
+                </p>
+                <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                  Your code: <strong className={darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}>{paymentCode}</strong>
+                </p>
+                <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Without this code in your PayPal payment note, we cannot verify your payment.
+                </p>
+              </div>
+              
+              <div className="flex space-x-2">
+                <Button
+                  onClick={() => {
+                    setShowPaymentConfirm(false)
+                    checkPaymentStatus()
+                  }}
+                  className="flex-1 bg-sdhq-green-600 hover:bg-sdhq-green-700 text-white"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Yes, I Pasted It
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPaymentConfirm(false)}
+                  className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
+                >
+                  Go Back
+                </Button>
+              </div>
             </div>
           </div>
         </div>
