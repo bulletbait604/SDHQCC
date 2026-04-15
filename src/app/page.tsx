@@ -216,75 +216,36 @@ export default function HomePage() {
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false)
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<string>('Loading...')
-// Initial algorithm data - embedded directly in the component
-const initialAlgorithmData: Record<string, AlgorithmData> = {
-  'tiktok': {
-    keyChanges: 'TikTok algorithm prioritizes watch time and engagement. Content that keeps users watching longer gets promoted. The algorithm considers likes, comments, shares, and video completion rates.',
-    editingTips: 'Use trending sounds, fast cuts, and on-screen text. Hook viewers in the first 3 seconds. Keep videos under 60 seconds for best performance. Add captions for accessibility.',
-    postingTips: 'Post consistently, 3-5 times a day during peak hours (7-9 AM, 12-2 PM, 5-7 PM). Test different times to find when your audience is most active.',
-    titleTips: 'Use engaging questions or strong calls to action. Keep captions concise but descriptive. Use relevant hashtags (3-5) in your niche.',
-    descriptionTips: 'Include relevant hashtags, ask questions to encourage comments, and use emojis strategically. Add a call-to-action to boost engagement.'
-  },
-  'instagram': {
-    keyChanges: 'Instagram algorithm favors engagement, interests, and timeliness. Reels are currently prioritized in the feed. The algorithm considers likes, comments, saves, shares, and time spent on posts.',
-    editingTips: 'High-quality visuals are essential. Use trending audio for Reels. Create diverse content formats (carousels, Reels, Stories). Use text overlays for accessibility.',
-    postingTips: 'Post during optimal times (11 AM-1 PM, 7-9 PM). Use all features including Reels, Stories, and Lives. Consistency is key - aim for daily posts.',
-    titleTips: 'Use strong hooks, emojis, and clear value propositions. Keep feed captions short but informative. Reels can have longer, more detailed captions.',
-    descriptionTips: 'Use relevant hashtags (5-10), include call-to-actions, and ask engaging questions. Utilize keywords for search optimization.'
-  },
-  'youtube-shorts': {
-    keyChanges: 'YouTube Shorts algorithm focuses on watch time, loop rate, and engagement within the Shorts feed. Shorts that get rewatched perform better. The algorithm considers views, likes, comments, and shares.',
-    editingTips: 'Use vertical video format (9:16). Fast pacing with captivating hooks in the first 3 seconds. Use YouTube Shorts features like text and stickers.',
-    postingTips: 'Post daily, especially during prime mobile usage hours (6-10 AM, 6-10 PM). Consistency helps build momentum with the algorithm.',
-    titleTips: 'Create short, descriptive, keyword-rich titles. Include #Shorts in your title or description for better discoverability.',
-    descriptionTips: 'Write brief descriptions with relevant hashtags. Link to related long-form content to drive traffic to your main videos.'
-  },
-  'youtube-long': {
-    keyChanges: 'YouTube long-form algorithm prioritizes watch time, audience retention, and personalized recommendations. Videos that keep viewers watching longer get recommended more.',
-    editingTips: 'Focus on high-quality production with clear audio. Use engaging storytelling and strong intros/outros. Add chapters for longer videos to improve navigation.',
-    postingTips: 'Maintain a consistent schedule. Optimize for SEO with relevant keywords. Promote across other platforms. Analyze audience retention data regularly.',
-    titleTips: 'Create compelling, keyword-rich titles that create curiosity or clearly state value. Your thumbnail is equally important for CTR.',
-    descriptionTips: 'Write detailed descriptions with keywords, timestamps, links to resources, and social media. Encourage comments and engagement.'
-  },
-  'facebook-reels': {
-    keyChanges: 'Facebook Reels algorithm emphasizes entertainment, discovery, and creator consistency. Similar to Instagram Reels. Content that sparks conversation and sharing performs better.',
-    editingTips: 'Use vertical video format with trending audio. Create engaging visuals with text overlays. Keep content concise and entertaining.',
-    postingTips: 'Post regularly during peak Facebook usage (9-11 AM, 1-3 PM). Cross-post from Instagram Reels for efficiency. Test different content types.',
-    titleTips: 'Write catchy, benefit-driven titles. Use emojis and clear calls to action. Make it clear what value viewers will get.',
-    descriptionTips: 'Include relevant hashtags, ask engaging questions, and add links to other content or products when appropriate.'
-  }
-}
-
   const [platforms, setPlatforms] = useState<Platform[]>([
     {
       id: 'tiktok',
       name: 'TikTok',
       image: 'https://iili.io/Bep916P.webp',
-      data: initialAlgorithmData['tiktok']
+      data: null
     },
     {
       id: 'instagram',
       name: 'Instagram',
       image: 'https://iili.io/BepIskv.png',
-      data: initialAlgorithmData['instagram']
+      data: null
     },
     {
       id: 'youtube-shorts',
       name: 'YouTube Shorts',
       image: 'https://iili.io/Bep23il.webp',
-      data: initialAlgorithmData['youtube-shorts']
+      data: null
     },
     {
       id: 'youtube-long',
       name: 'YouTube Long',
       image: 'https://iili.io/Bep23il.webp',
-      data: initialAlgorithmData['youtube-long']
+      data: null
     },
     {
       id: 'facebook-reels',
       name: 'Facebook Reels',
       image: 'https://iili.io/Bepazil.png',
-      data: initialAlgorithmData['facebook-reels']
+      data: null
     }
   ])
 
@@ -352,7 +313,6 @@ const initialAlgorithmData: Record<string, AlgorithmData> = {
       if (storedAlgorithmData) {
         try {
           const algorithmData = JSON.parse(storedAlgorithmData)
-          console.log('[Client] Loading from localStorage:', Object.keys(algorithmData))
           setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
             ...p,
             data: algorithmData[p.id] || null
@@ -362,27 +322,17 @@ const initialAlgorithmData: Record<string, AlgorithmData> = {
         }
       } else {
         // Fetch algorithm data from API
-        console.log('[Client] Fetching from API...')
         fetch('/api/algorithms')
-          .then(res => {
-            console.log('[Client] API response status:', res.status)
-            return res.json()
-          })
+          .then(res => res.json())
           .then(data => {
-            console.log('[Client] API data received, keys:', Object.keys(data))
-            console.log('[Client] data.data keys:', data.data ? Object.keys(data.data) : 'no data.data')
             if (data.data) {
               localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
               localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
               setLastUpdated(data.lastUpdated)
-              setPlatforms(prevPlatforms => {
-                const updated = prevPlatforms.map(p => ({
-                  ...p,
-                  data: data.data[p.id] || null
-                }))
-                console.log('[Client] Updated platforms:', updated.map(p => ({id: p.id, hasData: !!p.data})))
-                return updated
-              })
+              setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
+                ...p,
+                data: data.data[p.id] || null
+              })))
             }
           })
           .catch(error => console.error('Error fetching algorithm data:', error))

@@ -133,7 +133,6 @@ export async function POST() {
   const data: any = { data: {} }
 
   for (const platform of platforms) {
-    console.log(`Researching ${platform.name}...`)
     const result = await researchAlgorithm(platform.name, apiKey!)
     if (result) {
       data.data[platform.id] = result
