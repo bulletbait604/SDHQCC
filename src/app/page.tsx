@@ -558,6 +558,20 @@ export default function HomePage() {
               )}
             </div>
             
+            {/* Center - Logo */}
+            <div className="flex-1 flex justify-center">
+              {user && (
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 flex items-center justify-center">
+                    <span className="text-black font-bold text-sm">SD</span>
+                  </div>
+                  <span className={`font-bold text-lg ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    SDHQ
+                  </span>
+                </div>
+              )}
+            </div>
+            
             {/* Right side - Actions */}
             <div className="flex items-center space-x-3">
               {/* Dark Mode Toggle */}
