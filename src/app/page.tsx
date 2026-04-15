@@ -304,7 +304,11 @@ export default function HomePage() {
         }
       }
 
-      // Load algorithm data
+      // Load algorithm data from API on every page load
+      setIsLoadingAlgorithms(true)
+      setAlgorithmError(null)
+      
+      // First, try to load cached data for immediate display
       const storedAlgorithmData = localStorage.getItem('sdhq-algorithm-data')
       const storedLastUpdated = localStorage.getItem('sdhq-algorithm-updated')
       
@@ -315,43 +319,45 @@ export default function HomePage() {
       if (storedAlgorithmData) {
         try {
           const algorithmData = JSON.parse(storedAlgorithmData)
+          // Show cached data immediately while fetching fresh data
           setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
             ...p,
             data: algorithmData[p.id] || null
           })))
         } catch (error) {
-          console.error('Error loading algorithm data:', error)
+          console.error('Error loading cached algorithm data:', error)
         }
-      } else {
-        // Fetch algorithm data from API
-        setIsLoadingAlgorithms(true)
-        setAlgorithmError(null)
-        fetch('/api/algorithms')
-          .then(res => {
-            if (!res.ok) {
-              throw new Error(`API error: ${res.status}`)
-            }
-            return res.json()
-          })
-          .then(data => {
-            if (data.data) {
-              localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
-              localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
-              setLastUpdated(data.lastUpdated)
-              setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
-                ...p,
-                data: data.data[p.id] || null
-              })))
-            }
-          })
-          .catch(error => {
-            console.error('Error fetching algorithm data:', error)
-            setAlgorithmError('Failed to load algorithm data. Click refresh to try again.')
-          })
-          .finally(() => {
-            setIsLoadingAlgorithms(false)
-          })
       }
+      
+      // Always fetch fresh data from API
+      fetch('/api/algorithms')
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`API error: ${res.status}`)
+          }
+          return res.json()
+        })
+        .then(data => {
+          if (data.data) {
+            localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
+            localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
+            setLastUpdated(data.lastUpdated)
+            setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
+              ...p,
+              data: data.data[p.id] || null
+            })))
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching algorithm data:', error)
+          // Only show error if we don't have cached data
+          if (!storedAlgorithmData) {
+            setAlgorithmError('Failed to load algorithm data. Click refresh to try again.')
+          }
+        })
+        .finally(() => {
+          setIsLoadingAlgorithms(false)
+        })
     }
   }, [])
 
