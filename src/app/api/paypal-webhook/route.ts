@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// Simple in-memory storage for verified payments (resets on deploy)
+// In production, use Redis, database, or Vercel KV
+declare global {
+  var verifiedPayments: Map<string, any>
+}
+
+if (!global.verifiedPayments) {
+  global.verifiedPayments = new Map()
+}
+
 // PayPal IPN verification endpoint
 export async function POST(req: NextRequest) {
   try {
@@ -58,19 +68,22 @@ export async function POST(req: NextRequest) {
           const username = match[1]
           const amount = parseFloat(ipnData.mc_gross || '0')
           
-          // Store verified payment (in production, use a database)
+          // Store verified payment in global Map
           const verifiedPayment = {
             username,
             amount,
             transactionId: ipnData.txn_id,
             verifiedAt: new Date().toISOString(),
             paymentStatus,
-            verificationCode
+            verificationCode,
+            currency: ipnData.mc_currency || 'CAD'
           }
           
-          // In production, save to database
-          // For now, we'll store in a JSON file or memory
-          console.log('Payment verified for user:', username, verifiedPayment)
+          // Store by verification code for lookup
+          global.verifiedPayments.set(verificationCode, verifiedPayment)
+          
+          console.log('Payment verified and stored for user:', username, verifiedPayment)
+          console.log('Total stored payments:', global.verifiedPayments.size)
           
           // Return success to PayPal
           return NextResponse.json({ status: 'success', username, amount })

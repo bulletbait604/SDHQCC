@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// Reference to global verified payments from webhook
+declare global {
+  var verifiedPayments: Map<string, any>
+}
+
 // Get PayPal access token
 async function getPayPalAccessToken() {
   const clientId = process.env.PAYPAL_CLIENT_ID
@@ -114,35 +119,71 @@ export async function POST(req: NextRequest) {
       )
     }
     
-    // Check if PayPal credentials are configured
-    if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
-      return NextResponse.json(
-        { error: 'PayPal API not configured' },
-        { status: 500 }
-      )
+    // Check if we have any stored payments from webhook
+    if (!global.verifiedPayments) {
+      global.verifiedPayments = new Map()
     }
     
-    // Get PayPal access token
-    const accessToken = await getPayPalAccessToken()
+    console.log('Checking payment for code:', paymentCode)
+    console.log('Stored payments count:', global.verifiedPayments.size)
+    console.log('Stored payment codes:', Array.from(global.verifiedPayments.keys()))
     
-    // Search for transaction
-    const transaction = await searchPayPalTransaction(accessToken, paymentCode, username)
+    // Look for the payment code in stored payments
+    const verifiedPayment = global.verifiedPayments.get(paymentCode)
     
-    if (transaction) {
-      console.log('Payment verified:', transaction)
+    if (verifiedPayment) {
+      console.log('Payment found in storage:', verifiedPayment)
       
-      // Save to verified payments in localStorage (client-side will handle this)
+      // Verify the username matches
+      if (verifiedPayment.username !== username) {
+        return NextResponse.json({
+          verified: false,
+          message: 'Payment code does not match username.',
+        })
+      }
+      
+      // Check amount is at least $6.99
+      if (verifiedPayment.amount < 6.99) {
+        return NextResponse.json({
+          verified: false,
+          message: `Payment amount $${verifiedPayment.amount} is less than required $6.99 CAD.`,
+        })
+      }
+      
       return NextResponse.json({
         verified: true,
-        transactionId: transaction.transactionId,
-        amount: transaction.amount,
-        timestamp: transaction.timestamp,
+        transactionId: verifiedPayment.transactionId,
+        amount: verifiedPayment.amount,
+        currency: verifiedPayment.currency || 'CAD',
+        timestamp: verifiedPayment.verifiedAt,
       })
+    }
+    
+    // Try PayPal API as fallback (for manual verification)
+    if (process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET) {
+      try {
+        const accessToken = await getPayPalAccessToken()
+        const transaction = await searchPayPalTransaction(accessToken, paymentCode, username)
+        
+        if (transaction) {
+          console.log('Payment verified via PayPal API:', transaction)
+          return NextResponse.json({
+            verified: true,
+            transactionId: transaction.transactionId,
+            amount: transaction.amount,
+            currency: transaction.currency,
+            timestamp: transaction.timestamp,
+          })
+        }
+      } catch (paypalError) {
+        console.error('PayPal API fallback failed:', paypalError)
+        // Continue to return not found message
+      }
     }
     
     return NextResponse.json({
       verified: false,
-      message: 'Payment not found. Make sure you:\n1. Completed the PayPal payment\n2. Included the code in the payment note/memo',
+      message: 'Payment not found. Make sure you:\n1. Completed the PayPal payment\n2. Included the code in the PayPal payment note/memo\n3. Wait a moment for PayPal to process (can take 1-2 minutes)',
     })
     
   } catch (error) {
