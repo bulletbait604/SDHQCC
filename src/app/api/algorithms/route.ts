@@ -110,14 +110,18 @@ const placeholderData = {
 export async function GET() {
   const storedData = await readData()
   
+  console.log('[API] readData returned:', JSON.stringify(storedData).substring(0, 200))
+  
   // If no stored data exists, return placeholder data
   if (!storedData.lastUpdated || Object.keys(storedData.data).length === 0) {
+    console.log('[API] Returning placeholder data')
     return NextResponse.json({
       data: placeholderData,
       lastUpdated: new Date().toISOString()
     })
   }
   
+  console.log('[API] Returning stored data')
   return NextResponse.json(storedData)
 }
 

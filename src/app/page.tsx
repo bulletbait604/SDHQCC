@@ -313,6 +313,7 @@ export default function HomePage() {
       if (storedAlgorithmData) {
         try {
           const algorithmData = JSON.parse(storedAlgorithmData)
+          console.log('[Client] Loading from localStorage:', Object.keys(algorithmData))
           setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
             ...p,
             data: algorithmData[p.id] || null
@@ -322,17 +323,27 @@ export default function HomePage() {
         }
       } else {
         // Fetch algorithm data from API
+        console.log('[Client] Fetching from API...')
         fetch('/api/algorithms')
-          .then(res => res.json())
+          .then(res => {
+            console.log('[Client] API response status:', res.status)
+            return res.json()
+          })
           .then(data => {
+            console.log('[Client] API data received, keys:', Object.keys(data))
+            console.log('[Client] data.data keys:', data.data ? Object.keys(data.data) : 'no data.data')
             if (data.data) {
               localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
               localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
               setLastUpdated(data.lastUpdated)
-              setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
-                ...p,
-                data: data.data[p.id] || null
-              })))
+              setPlatforms(prevPlatforms => {
+                const updated = prevPlatforms.map(p => ({
+                  ...p,
+                  data: data.data[p.id] || null
+                }))
+                console.log('[Client] Updated platforms:', updated.map(p => ({id: p.id, hasData: !!p.data})))
+                return updated
+              })
             }
           })
           .catch(error => console.error('Error fetching algorithm data:', error))
