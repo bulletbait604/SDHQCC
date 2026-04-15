@@ -562,11 +562,13 @@ export default function HomePage() {
             <div className="flex-1 flex justify-center">
               {user && (
                 <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 flex items-center justify-center">
-                    <span className="text-black font-bold text-sm">SD</span>
-                  </div>
+                  <img 
+                    src="https://iili.io/BebhdFf.png" 
+                    alt="SDHQ Logo"
+                    className="w-8 h-8"
+                  />
                   <span className={`font-bold text-lg ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                    SDHQ
+                    SDHQ Creator Corner
                   </span>
                 </div>
               )}
