@@ -41,7 +41,7 @@ interface ActivityLogEntry {
   id: string
   username: string
   timestamp: string
-  action: 'login' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired'
+  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired'
   details?: string
 }
 
@@ -298,6 +298,18 @@ export default function HomePage() {
   }
 
   const handleLogout = () => {
+    // Log logout activity
+    if (user && isAdmin) {
+      const logoutEntry: ActivityLogEntry = {
+        id: Date.now().toString(),
+        username: user.username,
+        timestamp: new Date().toISOString(),
+        action: 'logout',
+        details: 'User logged out'
+      }
+      setActivityLog(prev => [logoutEntry, ...prev].slice(0, 100))
+    }
+    
     setUser(null)
     if (typeof window !== 'undefined') {
       localStorage.removeItem('kickUser')
@@ -855,6 +867,8 @@ export default function HomePage() {
                           activityLog.map((entry: ActivityLogEntry) => {
                             const getActionColor = () => {
                               switch (entry.action) {
+                                case 'login': return 'text-blue-500'
+                                case 'logout': return 'text-purple-500'
                                 case 'payment_success': return 'text-green-500'
                                 case 'payment_failed': return 'text-red-500'
                                 case 'verification_attempt': return 'text-yellow-500'
@@ -864,11 +878,13 @@ export default function HomePage() {
                             }
                             const getActionIcon = () => {
                               switch (entry.action) {
-                                case 'payment_success': return '✅'
-                                case 'payment_failed': return '❌'
-                                case 'verification_attempt': return '🔍'
-                                case 'access_expired': return '⏰'
-                                default: return '👤'
+                                case 'login': return ''
+                                case 'logout': return ' '
+                                case 'payment_success': return ''
+                                case 'payment_failed': return ''
+                                case 'verification_attempt': return ''
+                                case 'access_expired': return ''
+                                default: return ''
                               }
                             }
                             return (
