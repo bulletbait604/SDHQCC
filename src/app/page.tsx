@@ -216,6 +216,8 @@ export default function HomePage() {
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false)
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<string>('Loading...')
+  const [isLoadingAlgorithms, setIsLoadingAlgorithms] = useState<boolean>(false)
+  const [algorithmError, setAlgorithmError] = useState<string | null>(null)
   const [platforms, setPlatforms] = useState<Platform[]>([
     {
       id: 'tiktok',
@@ -322,6 +324,8 @@ export default function HomePage() {
         }
       } else {
         // Fetch algorithm data from API
+        setIsLoadingAlgorithms(true)
+        setAlgorithmError(null)
         fetch('/api/algorithms')
           .then(res => {
             if (!res.ok) {
@@ -342,6 +346,10 @@ export default function HomePage() {
           })
           .catch(error => {
             console.error('Error fetching algorithm data:', error)
+            setAlgorithmError('Failed to load algorithm data. Click refresh to try again.')
+          })
+          .finally(() => {
+            setIsLoadingAlgorithms(false)
           })
       }
     }
@@ -794,9 +802,50 @@ export default function HomePage() {
                   <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                     {t.algorithmsExplained}
                   </h3>
-                  <p className={`${subtitleClasses} text-sm`}>
-                    Updates {lastUpdated}
-                  </p>
+                  <div className="flex items-center gap-3">
+                    {isLoadingAlgorithms && (
+                      <span className={`${subtitleClasses} text-sm`}>Loading...</span>
+                    )}
+                    {algorithmError && (
+                      <span className="text-red-500 text-sm">{algorithmError}</span>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsLoadingAlgorithms(true)
+                        setAlgorithmError(null)
+                        fetch('/api/algorithms')
+                          .then(res => {
+                            if (!res.ok) throw new Error(`API error: ${res.status}`)
+                            return res.json()
+                          })
+                          .then(data => {
+                            if (data.data) {
+                              localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
+                              localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
+                              setLastUpdated(data.lastUpdated)
+                              setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
+                                ...p,
+                                data: data.data[p.id] || null
+                              })))
+                            }
+                          })
+                          .catch(error => {
+                            console.error('Error refreshing algorithm data:', error)
+                            setAlgorithmError('Failed to refresh data')
+                          })
+                          .finally(() => setIsLoadingAlgorithms(false))
+                      }}
+                      disabled={isLoadingAlgorithms}
+                    >
+                      {isLoadingAlgorithms ? 'Loading...' : 'Refresh'}
+                    </Button>
+                    <p className={`${subtitleClasses} text-sm`}>
+                      Last updated: {lastUpdated}
+                    </p>
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
