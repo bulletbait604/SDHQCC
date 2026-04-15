@@ -313,7 +313,7 @@ export default function HomePage() {
       if (storedAlgorithmData) {
         try {
           const algorithmData = JSON.parse(storedAlgorithmData)
-          setPlatforms(platforms.map(p => ({
+          setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
             ...p,
             data: algorithmData[p.id] || null
           })))
