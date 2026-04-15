@@ -202,7 +202,7 @@ export default function HomePage() {
 
   const t = translations[language]
   const isAdmin = user ? ADMIN_USERNAMES.includes(user.username) : false
-  const isSubscribed = user ? (isVerified || subscribers.some(sub => sub.username === user.username)) : false
+  const isSubscribed = user ? (isVerified || subscribers.some(sub => sub.username.toLowerCase() === user.username.toLowerCase())) : false
 
   useEffect(() => {
     setMounted(true)
