@@ -202,6 +202,7 @@ export default function HomePage() {
 
   const t = translations[language]
   const isAdmin = user ? ADMIN_USERNAMES.includes(user.username) : false
+  const isSubscribed = user ? (isVerified || subscribers.some(sub => sub.username === user.username)) : false
 
   useEffect(() => {
     setMounted(true)
@@ -527,7 +528,12 @@ export default function HomePage() {
                           {t.admin}
                         </span>
                       )}
-                      {!isAdmin && (
+                      {!isAdmin && isSubscribed && (
+                        <span className="px-2 py-0.5 bg-gradient-to-r from-sdhq-green-500 to-sdhq-cyan-500 text-black text-xs font-bold rounded-full">
+                          Subscribed
+                        </span>
+                      )}
+                      {!isAdmin && !isSubscribed && (
                         <span className="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full">
                           Unverified
                         </span>
@@ -535,7 +541,7 @@ export default function HomePage() {
                     </div>
                     <p className={`text-sm ${subtitleClasses}`}>@{user.username}</p>
                   </div>
-                  {!isAdmin && (
+                  {!isAdmin && !isSubscribed && (
                     <Button 
                       variant="outline" 
                       size="sm" 
