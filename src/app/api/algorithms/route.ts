@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import OpenAI from 'openai'
 
 const platforms = [
   { id: 'tiktok', name: 'TikTok' },
@@ -36,6 +35,7 @@ async function writeData(data: any) {
 }
 
 async function researchAlgorithm(platform: string, apiKey: string) {
+  const { default: OpenAI } = await import('openai')
   const openai = new OpenAI({ apiKey })
   
   const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
