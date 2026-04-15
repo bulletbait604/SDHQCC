@@ -323,7 +323,12 @@ export default function HomePage() {
       } else {
         // Fetch algorithm data from API
         fetch('/api/algorithms')
-          .then(res => res.json())
+          .then(res => {
+            if (!res.ok) {
+              throw new Error(`API error: ${res.status}`)
+            }
+            return res.json()
+          })
           .then(data => {
             if (data.data) {
               localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
@@ -335,7 +340,9 @@ export default function HomePage() {
               })))
             }
           })
-          .catch(error => console.error('Error fetching algorithm data:', error))
+          .catch(error => {
+            console.error('Error fetching algorithm data:', error)
+          })
       }
     }
   }, [])
