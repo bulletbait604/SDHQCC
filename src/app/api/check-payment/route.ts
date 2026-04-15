@@ -4,11 +4,24 @@ import { NextRequest, NextResponse } from 'next/server'
 async function getPayPalAccessToken() {
   const clientId = process.env.PAYPAL_CLIENT_ID
   const clientSecret = process.env.PAYPAL_CLIENT_SECRET
+  
+  console.log('PayPal credentials check:', {
+    hasClientId: !!clientId,
+    hasClientSecret: !!clientSecret,
+    mode: process.env.PAYPAL_MODE || 'not set'
+  })
+  
+  if (!clientId || !clientSecret) {
+    throw new Error('PayPal credentials not configured')
+  }
+  
   const isSandbox = process.env.PAYPAL_MODE !== 'live'
   
   const baseUrl = isSandbox 
     ? 'https://api-m.sandbox.paypal.com' 
     : 'https://api-m.paypal.com'
+  
+  console.log('Using PayPal URL:', baseUrl)
   
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
   
@@ -22,7 +35,9 @@ async function getPayPalAccessToken() {
   })
   
   if (!response.ok) {
-    throw new Error(`Failed to get access token: ${response.status}`)
+    const errorText = await response.text()
+    console.error('PayPal token error:', response.status, errorText)
+    throw new Error(`Failed to get access token: ${response.status} - ${errorText}`)
   }
   
   const data = await response.json()
@@ -132,8 +147,9 @@ export async function POST(req: NextRequest) {
     
   } catch (error) {
     console.error('Check payment error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Failed to verify payment'
     return NextResponse.json(
-      { error: 'Failed to verify payment' },
+      { error: errorMessage },
       { status: 500 }
     )
   }
