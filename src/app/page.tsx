@@ -199,6 +199,40 @@ export default function HomePage() {
   // Verification states
   const [isVerified, setIsVerified] = useState<boolean>(false)
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false)
+  const [expandedCard, setExpandedCard] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<string>('Loading...')
+  const [platforms, setPlatforms] = useState([
+    {
+      id: 'tiktok',
+      name: 'TikTok',
+      image: 'https://iili.io/Bep916P.webp',
+      data: null
+    },
+    {
+      id: 'instagram',
+      name: 'Instagram',
+      image: 'https://iili.io/BepIskv.png',
+      data: null
+    },
+    {
+      id: 'youtube-shorts',
+      name: 'YouTube Shorts',
+      image: 'https://iili.io/Bep23il.webp',
+      data: null
+    },
+    {
+      id: 'youtube-long',
+      name: 'YouTube Long',
+      image: 'https://iili.io/Bep23il.webp',
+      data: null
+    },
+    {
+      id: 'facebook-reels',
+      name: 'Facebook Reels',
+      image: 'https://iili.io/Bepazil.png',
+      data: null
+    }
+  ])
 
   const t = translations[language]
   const isAdmin = user ? ADMIN_USERNAMES.includes(user.username) : false
@@ -251,6 +285,42 @@ export default function HomePage() {
         } catch (error) {
           console.error('Error loading activity log:', error)
         }
+      }
+
+      // Load algorithm data
+      const storedAlgorithmData = localStorage.getItem('sdhq-algorithm-data')
+      const storedLastUpdated = localStorage.getItem('sdhq-algorithm-updated')
+      
+      if (storedLastUpdated) {
+        setLastUpdated(storedLastUpdated)
+      }
+      
+      if (storedAlgorithmData) {
+        try {
+          const algorithmData = JSON.parse(storedAlgorithmData)
+          setPlatforms(platforms.map(p => ({
+            ...p,
+            data: algorithmData[p.id] || null
+          })))
+        } catch (error) {
+          console.error('Error loading algorithm data:', error)
+        }
+      } else {
+        // Fetch algorithm data from API
+        fetch('/api/algorithms')
+          .then(res => res.json())
+          .then(data => {
+            if (data.data) {
+              localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
+              localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
+              setLastUpdated(data.lastUpdated)
+              setPlatforms(platforms.map(p => ({
+                ...p,
+                data: data.data[p.id] || null
+              })))
+            }
+          })
+          .catch(error => console.error('Error fetching algorithm data:', error))
       }
     }
   }, [])
@@ -697,13 +767,104 @@ export default function HomePage() {
             </TabsList>
 
             <TabsContent value="algorithms-explained">
-              <div className={`text-center py-12 ${cardClasses}`}>
-                <TrendingUp className="w-16 h-16 mx-auto mb-4 text-sdhq-cyan-500" />
-                <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.algorithmsExplained}</h3>
-                <p className={`${textClasses} max-w-2xl mx-auto`}>
-                  {t.algorithmsDesc}
-                </p>
-                <p className={`${subtitleClasses} mt-4`}>{t.comingSoon}</p>
+              <div className="space-y-6">
+                <div className={`flex items-center justify-between mb-6`}>
+                  <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {t.algorithmsExplained}
+                  </h3>
+                  <p className={`${subtitleClasses} text-sm`}>
+                    Updates {lastUpdated}
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {platforms.map((platform) => (
+                    <div
+                      key={platform.id}
+                      className={`${cardClasses} cursor-pointer transition-all duration-300 hover:shadow-lg ${
+                        expandedCard === platform.id ? 'col-span-1 md:col-span-2 lg:col-span-3' : ''
+                      }`}
+                      onClick={() => setExpandedCard(expandedCard === platform.id ? null : platform.id)}
+                    >
+                      <div className="p-4">
+                        <div className="flex items-center space-x-4 mb-4">
+                          <img
+                            src={platform.image}
+                            alt={platform.name}
+                            className="w-12 h-12 rounded-lg"
+                          />
+                          <h4 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                            {platform.name}
+                          </h4>
+                        </div>
+                        
+                        {expandedCard === platform.id ? (
+                          <div className="space-y-4 mt-4">
+                            {platform.data && (
+                              <>
+                                <div>
+                                  <h5 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-2`}>
+                                    Key Changes
+                                  </h5>
+                                  <p className={`${textClasses} text-sm`}>{platform.data.keyChanges}</p>
+                                </div>
+                                <div>
+                                  <h5 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-2`}>
+                                    Editing Tips
+                                  </h5>
+                                  <p className={`${textClasses} text-sm`}>{platform.data.editingTips}</p>
+                                </div>
+                                <div>
+                                  <h5 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-2`}>
+                                    Posting Tips
+                                  </h5>
+                                  <p className={`${textClasses} text-sm`}>{platform.data.postingTips}</p>
+                                </div>
+                                <div>
+                                  <h5 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-2`}>
+                                    Title Tips
+                                  </h5>
+                                  <p className={`${textClasses} text-sm`}>{platform.data.titleTips}</p>
+                                </div>
+                                <div>
+                                  <h5 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-2`}>
+                                    Description Tips
+                                  </h5>
+                                  <p className={`${textClasses} text-sm`}>{platform.data.descriptionTips}</p>
+                                </div>
+                              </>
+                            )}
+                            {!platform.data && (
+                              <p className={`${subtitleClasses} text-sm`}>Loading algorithm data...</p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {platform.data && (
+                              <>
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-2 h-2 rounded-full bg-sdhq-cyan-500"></div>
+                                  <p className={`${textClasses} text-sm`}>{platform.data.keyChanges.substring(0, 80)}...</p>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-2 h-2 rounded-full bg-sdhq-green-500"></div>
+                                  <p className={`${textClasses} text-sm`}>{platform.data.editingTips.substring(0, 80)}...</p>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-2 h-2 rounded-full bg-sdhq-cyan-500"></div>
+                                  <p className={`${textClasses} text-sm`}>{platform.data.postingTips.substring(0, 80)}...</p>
+                                </div>
+                              </>
+                            )}
+                            {!platform.data && (
+                              <p className={`${subtitleClasses} text-sm`}>Loading algorithm data...</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </TabsContent>
 
