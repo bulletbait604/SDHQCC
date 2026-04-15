@@ -67,11 +67,11 @@ async function searchPayPalTransaction(accessToken: string, paymentCode: string,
     const customField = transactionInfo?.custom_field || ''
     
     if (memo.includes(paymentCode) || customField.includes(paymentCode)) {
-      // Verify payment amount is at least $4.99
+      // Verify payment amount is at least $6.99 CAD
       const amount = parseFloat(transactionInfo?.transaction_amount?.value || '0')
       const currency = transactionInfo?.transaction_amount?.currency_code
       
-      if (amount >= 4.99 && currency === 'USD') {
+      if (amount >= 6.99 && currency === 'CAD') {
         return {
           verified: true,
           transactionId: transactionInfo?.transaction_id,

@@ -41,6 +41,8 @@ interface ActivityLogEntry {
   id: string
   username: string
   timestamp: string
+  action: 'login' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired'
+  details?: string
 }
 
 type Language = 'en' | 'es' | 'fr' | 'de';
@@ -277,7 +279,8 @@ export default function HomePage() {
       const newEntry: ActivityLogEntry = {
         id: Date.now().toString(),
         username: user.username,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        action: 'login'
       }
       setActivityLog(prev => [newEntry, ...prev].slice(0, 100)) // Keep last 100 entries
     }
@@ -357,9 +360,19 @@ export default function HomePage() {
   
   const checkPaymentStatus = async () => {
     if (!paymentCode || !user) {
-      alert('No payment code found. Please click "Pay $4.99" first to generate a code.')
+      alert('No payment code found. Please click "Pay $6.99" first to generate a code.')
       return
     }
+    
+    // Log verification attempt
+    const attemptEntry: ActivityLogEntry = {
+      id: Date.now().toString(),
+      username: user.username,
+      timestamp: new Date().toISOString(),
+      action: 'verification_attempt',
+      details: `Payment verification attempt - Code: ${paymentCode}`
+    }
+    setActivityLog(prev => [attemptEntry, ...prev].slice(0, 100))
     
     try {
       const response = await fetch('/api/check-payment', {
@@ -380,6 +393,7 @@ export default function HomePage() {
         setIsVerified(true)
         localStorage.setItem('isVerified', 'true')
         localStorage.setItem('verifiedUsername', user.username)
+        localStorage.setItem('verificationExpiry', (Date.now() + 30 * 24 * 60 * 60 * 1000).toString()) // 30 days
         
         // Add to subscribers list for admin visibility
         const verifiedUser = {
@@ -389,9 +403,29 @@ export default function HomePage() {
         }
         setSubscribers(prev => [...prev, verifiedUser])
         
-        alert(`Payment verified! Transaction ID: ${data.transactionId}\nAmount: $${data.amount}\n\nPremium features are now unlocked!`)
+        // Log successful payment
+        const successEntry: ActivityLogEntry = {
+          id: Date.now().toString(),
+          username: user.username,
+          timestamp: new Date().toISOString(),
+          action: 'payment_success',
+          details: `Payment verified - TxID: ${data.transactionId}, Amount: ${data.amount} ${data.currency}`
+        }
+        setActivityLog(prev => [successEntry, ...prev].slice(0, 100))
+        
+        alert(`Payment verified! Transaction ID: ${data.transactionId}\nAmount: $${data.amount} ${data.currency}\n\nPremium features unlocked for 30 days!`)
         setShowSubscribePopup(false)
       } else {
+        // Log failed payment
+        const failedEntry: ActivityLogEntry = {
+          id: Date.now().toString(),
+          username: user.username,
+          timestamp: new Date().toISOString(),
+          action: 'payment_failed',
+          details: `Payment verification failed - Code: ${paymentCode}`
+        }
+        setActivityLog(prev => [failedEntry, ...prev].slice(0, 100))
+        
         alert(data.message || 'Payment not found. Make sure you:\n1. Completed the PayPal payment\n2. Included the code in the payment note/memo')
       }
     } catch (error) {
@@ -814,26 +848,56 @@ export default function HomePage() {
                         )}
                       </div>
                       
-                      <div className={`space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                      <div className={`space-y-2 max-h-80 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
                         {activityLog.length === 0 ? (
                           <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No activity yet.</p>
                         ) : (
-                          activityLog.map((entry: ActivityLogEntry) => (
-                            <div 
-                              key={entry.id}
-                              className={`flex items-center justify-between p-2 rounded border ${
-                                darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-200'
-                              }`}
-                            >
-                              <div className="flex items-center space-x-2">
-                                <User className="w-4 h-4 text-sdhq-cyan-500 flex-shrink-0" />
-                                <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{entry.username}</span>
+                          activityLog.map((entry: ActivityLogEntry) => {
+                            const getActionColor = () => {
+                              switch (entry.action) {
+                                case 'payment_success': return 'text-green-500'
+                                case 'payment_failed': return 'text-red-500'
+                                case 'verification_attempt': return 'text-yellow-500'
+                                case 'access_expired': return 'text-orange-500'
+                                default: return 'text-sdhq-cyan-500'
+                              }
+                            }
+                            const getActionIcon = () => {
+                              switch (entry.action) {
+                                case 'payment_success': return '✅'
+                                case 'payment_failed': return '❌'
+                                case 'verification_attempt': return '🔍'
+                                case 'access_expired': return '⏰'
+                                default: return '👤'
+                              }
+                            }
+                            return (
+                              <div 
+                                key={entry.id}
+                                className={`p-2 rounded border ${
+                                  darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-200'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-sm">{getActionIcon()}</span>
+                                    <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{entry.username}</span>
+                                    <span className={`text-xs font-semibold uppercase ${getActionColor()}`}>
+                                      {entry.action.replace('_', ' ')}
+                                    </span>
+                                  </div>
+                                  <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                    {new Date(entry.timestamp).toLocaleString()}
+                                  </span>
+                                </div>
+                                {entry.details && (
+                                  <p className={`text-xs mt-1 pl-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    {entry.details}
+                                  </p>
+                                )}
                               </div>
-                              <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                {new Date(entry.timestamp).toLocaleString()}
-                              </span>
-                            </div>
-                          ))
+                            )
+                          })
                         )}
                       </div>
                     </div>
@@ -1106,7 +1170,7 @@ export default function HomePage() {
             
             <div className="space-y-4">
               <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                Unlock all premium features and remove the Unverified status with a one-time payment.
+                Unlock all premium features for 30 days with a $6.99 CAD payment.
               </p>
               
               {paymentCode ? (
@@ -1126,7 +1190,7 @@ export default function HomePage() {
               <div className={`p-4 rounded-lg border ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
                 <p className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PayPal:</p>
                 <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  $4.99 USD - One-time payment
+                  $6.99 CAD - 30 Days Access
                 </p>
               </div>
               
@@ -1134,12 +1198,12 @@ export default function HomePage() {
                 <Button
                   onClick={() => {
                     initiatePayPalPayment()
-                    window.open(`https://www.paypal.com/paypalme/bulletbait604/4.99`, '_blank')
+                    window.open(`https://www.paypal.com/paypalme/bulletbait604/6.99`, '_blank')
                   }}
                   className="flex-1 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
                 >
                   <ExternalLink className="w-4 h-4 mr-2" />
-                  Pay $4.99
+                  Pay $6.99
                 </Button>
                 <Button
                   variant="outline"
@@ -1178,9 +1242,6 @@ export default function HomePage() {
                 </Button>
               </div>
               
-              <p className={`text-xs text-center ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                Or subscribe free on Kick: <a href="https://kick.com/bulletbait604/subscribe" target="_blank" rel="noopener noreferrer" className="text-sdhq-cyan-500 hover:underline">kick.com/bulletbait604/subscribe</a>
-              </p>
             </div>
           </div>
         </div>
