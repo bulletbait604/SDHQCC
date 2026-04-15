@@ -22,7 +22,14 @@ export async function POST(req: NextRequest) {
       ipnData[key] = value
     })
     
-    console.log('PayPal IPN Received:', ipnData)
+    console.log('========================================')
+    console.log('WEBHOOK RECEIVED at', new Date().toISOString())
+    console.log('========================================')
+    console.log('PayPal IPN Data:', JSON.stringify(ipnData, null, 2))
+    console.log('Payment Status:', ipnData.payment_status)
+    console.log('Transaction ID:', ipnData.txn_id)
+    console.log('Custom/Memo:', ipnData.custom || ipnData.memo)
+    console.log('Amount:', ipnData.mc_gross, ipnData.mc_currency)
     
     // Verify IPN with PayPal
     const verificationParams = new URLSearchParams()
@@ -50,6 +57,7 @@ export async function POST(req: NextRequest) {
     console.log('PayPal Verification Status:', verificationStatus)
     
     if (verificationStatus === 'VERIFIED') {
+      console.log('✅ PAYMENT VERIFIED BY PAYPAL')
       // Payment is verified
       const paymentStatus = ipnData.payment_status
       const txnType = ipnData.txn_type
