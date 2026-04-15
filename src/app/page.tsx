@@ -47,6 +47,21 @@ interface ActivityLogEntry {
 
 type Language = 'en' | 'es' | 'fr' | 'de';
 
+interface AlgorithmData {
+  keyChanges: string
+  editingTips: string
+  postingTips: string
+  titleTips: string
+  descriptionTips: string
+}
+
+interface Platform {
+  id: string
+  name: string
+  image: string
+  data: AlgorithmData | null
+}
+
 interface AppSettings {
   language: Language;
   darkMode: boolean;
@@ -201,7 +216,7 @@ export default function HomePage() {
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false)
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<string>('Loading...')
-  const [platforms, setPlatforms] = useState([
+  const [platforms, setPlatforms] = useState<Platform[]>([
     {
       id: 'tiktok',
       name: 'TikTok',
