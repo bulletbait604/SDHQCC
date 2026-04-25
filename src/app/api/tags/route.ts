@@ -140,6 +140,9 @@ export async function POST(request: Request) {
     
     console.log('[TAGS API] Hashy result:', hashyResult)
     
+    // Add artificial delay to simulate Hashy "thinking" and processing
+    await new Promise(resolve => setTimeout(resolve, 2500))
+    
     return NextResponse.json({
       tags: hashyResult.generatedTags.slice(0, count),
       platform,
