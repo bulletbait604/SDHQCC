@@ -316,6 +316,57 @@ function generateBaseTagsForPlatform(platform: string): string[] {
       'facebook', 'facebookreels', 'fbreels', 'meta', 'facebookvideo',
       'facebookviral', 'facebookgaming', 'facebooklive', 'facebookcreator',
       'facebookgrowth', 'reelsfacebook'
+    ],
+    'twitch': [
+      'twitch', 'twitchtv', 'twitchstreamer', 'twitchstream', 'twitchchat',
+      'twitchcommunity', 'twitchprime', 'twitchsubs', 'twitchviewer', 'twitchviewers',
+      'twitchgaming', 'twitchirl', 'twitchcreative', 'twitchmusic', 'twitchjustchatting',
+      'twitchraid', 'twitchhost', 'twitchdrops', 'twitchbits', 'twitchdonation',
+      'twitchemote', 'twitchkappa', 'twitchpogchamp', 'twitchlul', 'twitchmonkas',
+      'twitchkekw', 'twitchomegalul', 'twitchforsen', 'twitchxqc', 'twitchpokimane',
+      'twitchninja', 'twitchshroud', 'twitchtimthetatman', 'twitchsummit1g',
+      'twitchlirik', 'twitchsodapoppin', 'twitchdocm77', 'twitchasmonkgold',
+      'twitchesl_csgo', 'twitchn0thing', 'twitchreckful', 'twitchmizkif',
+      'twitchjakenbakelive', 'twitchmoistcr1tikal', 'twitchhasanabi', 'twitchpokimanelol',
+      'twitchninja', 'twitchshroud', 'twitchtimthetatman', 'twitchsummit1g',
+      'twitchlirik', 'twitchsodapoppin', 'twitchdocm77', 'twitchasmonkgold',
+      'twitchesl_csgo', 'twitchn0thing', 'twitchreckful', 'twitchmizkif',
+      'twitchjakenbakelive', 'twitchmoistcr1tikal', 'twitchhasanabi', 'twitchpokimanelol'
+    ],
+    'kick': [
+      'kick', 'kickcom', 'kickstreamer', 'kickstream', 'kickchat', 'kickcommunity',
+      'kickgaming', 'kickirl', 'kickcreative', 'kickmusic', 'kickjustchatting',
+      'kickraid', 'kickhost', 'kicksub', 'kickviewer', 'kickviewers',
+      'kickemote', 'kickemotes', 'kickbits', 'kickdonation', 'kicktips',
+      'kickadinsross', 'kickxqc', 'kicktrainwreckstv', 'kickdestiny', 'kickmizkif',
+      'kickhassan', 'kickjakenbakelive', 'kickmoistcr1tikal', 'kickadinsross',
+      'kickxqc', 'kicktrainwreckstv', 'kickdestiny', 'kickmizkif', 'kickhassan',
+      'kickjakenbakelive', 'kickmoistcr1tikal'
+    ],
+    'youtubelive': [
+      'youtubelive', 'youtube', 'live', 'stream', 'youtube', 'live', 'stream',
+      'youtubelivestream', 'youtubelivechat', 'youtubelivecommunity', 'youtubelivegaming',
+      'youtubeliveirl', 'youtubelivemusic', 'youtubelivecreative', 'youtubelivejustchatting',
+      'youtubelivepremiere', 'youtubeliveevents', 'youtubeliveconcerts', 'youtubelivesports',
+      'youtubelivenews', 'youtubelivepodcast', 'youtubeliveinterview', 'youtubeliveqanda',
+      'youtubelivegiveaway', 'youtubeliveraid', 'youtubelivehost', 'youtubelivesub',
+      'youtubelivedonation', 'youtubelivesuperchat', 'youtubelivemembership', 'youtubelivejoin'
+    ],
+    'facebooklive': [
+      'facebooklive', 'fb', 'live', 'facebook', 'live', 'stream', 'facebooklivestream',
+      'facebooklivevideo', 'facebooklivechat', 'facebooklivecommunity', 'facebooklivegaming',
+      'facebookliveirl', 'facebooklivemusic', 'facebooklivecreative', 'facebooklivejustchatting',
+      'facebookliveevents', 'facebookliveconcerts', 'facebooklivesports', 'facebooklivenews',
+      'facebooklivepodcast', 'facebookliveinterview', 'facebookliveqanda', 'facebooklivegiveaway',
+      'facebooklivereaction', 'facebooklivecomment', 'facebooklivelike', 'facebookliveshare',
+      'facebooklivegroup', 'facebooklivepage', 'facebookliveprofile', 'facebooklivebroadcast'
+    ],
+    'trovo': [
+      'trovo', 'trovolive', 'trovostream', 'trovostreamer', 'trovochat', 'trovocommunity',
+      'trovogaming', 'trovoirl', 'trovocreative', 'trovomusic', 'trovojustchatting',
+      'trovoraid', 'trovohost', 'trovosub', 'trovoviewer', 'trovoviewers',
+      'trovoemote', 'trovoemotes', 'trovobits', 'trovodonation', 'trovotips',
+      'trovogrowth', 'trovopartner', 'trovoaffiliate', 'trovoexclusive', 'trovoprogram'
     ]
   }
   
@@ -367,6 +418,52 @@ function generateTagsFromDescription(description: string, platformTags: string[]
   const wordFeatures = extractWordFeatures(descLower)
   const descriptionWords = wordFeatures.map(f => f.word)
   
+  // Synonym expansion for better semantic matching
+  const synonymMap: Record<string, string[]> = {
+    'good': ['great', 'excellent', 'amazing', 'awesome', 'fantastic', 'wonderful', 'superb', 'outstanding', 'brilliant', 'perfect'],
+    'bad': ['terrible', 'awful', 'horrible', 'poor', 'dreadful', 'lousy', 'subpar', 'inferior', 'lackluster'],
+    'big': ['huge', 'massive', 'large', 'giant', 'enormous', 'colossal', 'immense', 'vast', 'gigantic', 'monstrous'],
+    'small': ['tiny', 'little', 'mini', 'micro', 'petite', 'compact', 'small', 'minute', 'diminutive'],
+    'fast': ['quick', 'rapid', 'swift', 'speedy', 'hasty', 'brisk', 'accelerated', 'instant', 'lightning'],
+    'slow': ['sluggish', 'leisurely', 'gradual', 'unhurried', 'delayed', 'lagging', 'crawling', 'plodding'],
+    'funny': ['hilarious', 'humorous', 'comical', 'amusing', 'entertaining', 'witty', 'laughable', 'comic'],
+    'scary': ['terrifying', 'frightening', 'horror', 'spooky', 'creepy', 'eerie', 'chilling', 'alarming'],
+    'cool': ['awesome', 'amazing', 'impressive', 'incredible', 'fantastic', 'rad', 'sick', 'dope', 'lit'],
+    'hard': ['difficult', 'challenging', 'tough', 'demanding', 'arduous', 'complex', 'complicated'],
+    'easy': ['simple', 'effortless', 'straightforward', 'basic', 'uncomplicated', 'painless', 'breeze'],
+    'new': ['fresh', 'recent', 'latest', 'modern', 'current', 'upcoming', 'brand', 'just', 'released'],
+    'old': ['ancient', 'vintage', 'classic', 'aged', 'outdated', 'obsolete', 'antique', 'historic'],
+    'best': ['top', 'greatest', 'finest', 'ultimate', 'supreme', 'premium', 'elite', 'superior'],
+    'worst': ['poorest', 'lowest', 'bottom', 'terrible', 'awful', 'dreadful', 'abysmal'],
+    'happy': ['joyful', 'cheerful', 'delighted', 'pleased', 'glad', 'content', 'satisfied', 'ecstatic'],
+    'sad': ['unhappy', 'miserable', 'depressed', 'sorrowful', 'gloomy', 'downcast', 'melancholy'],
+    'angry': ['mad', 'furious', 'irate', 'enraged', 'livid', 'outraged', 'incensed'],
+    'smart': ['intelligent', 'clever', 'brilliant', 'genius', 'bright', 'sharp', 'wise', 'brainy'],
+    'stupid': ['dumb', 'idiotic', 'foolish', 'unintelligent', 'dense', 'slow', 'dimwitted'],
+    'beautiful': ['gorgeous', 'stunning', 'lovely', 'attractive', 'pretty', 'handsome', 'elegant'],
+    'ugly': ['hideous', 'unattractive', 'unsightly', 'repulsive', 'grotesque', 'homely'],
+    'important': ['significant', 'crucial', 'vital', 'essential', 'critical', 'major', 'key'],
+    'unimportant': ['trivial', 'insignificant', 'minor', 'negligible', 'irrelevant', 'petty'],
+    'popular': ['famous', 'wellknown', 'trending', 'viral', 'hot', 'mainstream', 'celebrated'],
+    'unpopular': ['obscure', 'unknown', 'niche', 'underrated', 'overlooked', 'forgotten'],
+    'win': ['victory', 'triumph', 'success', 'conquer', 'defeat', 'beat', 'overcome', 'prevail'],
+    'lose': ['defeat', 'failure', 'loss', 'fall', 'crash', 'bust', 'fail', 'collapse'],
+    'play': ['game', 'gaming', 'match', 'compete', 'battle', 'challenge', 'engage'],
+    'watch': ['view', 'see', 'observe', 'look', 'witness', 'spectate', 'monitor'],
+    'make': ['create', 'build', 'construct', 'produce', 'generate', 'craft', 'develop'],
+    'get': ['obtain', 'acquire', 'receive', 'gain', 'secure', 'achieve', 'earn'],
+    'go': ['travel', 'move', 'proceed', 'head', 'journey', 'venture', 'proceed']
+  }
+  
+  // Expand description words with synonyms
+  const expandedWords = [...descriptionWords]
+  for (let i = 0; i < descriptionWords.length; i++) {
+    const word = descriptionWords[i]
+    if (synonymMap[word]) {
+      expandedWords.push(...synonymMap[word])
+    }
+  }
+  
   // N-gram analysis: detect word sequences (2-grams and 3-grams)
   const extractNgrams = (words: string[], n: number): string[] => {
     const ngrams: string[] = []
@@ -384,7 +481,12 @@ function generateTagsFromDescription(description: string, platformTags: string[]
     positive: ['amazing', 'awesome', 'epic', 'insane', 'crazy', 'incredible', 'best', 'perfect', 'love', 'beautiful', 'stunning', 'fantastic', 'great', 'good', 'nice', 'cool', 'lit', 'fire', 'dope', 'sick', 'legendary', 'godlike', 'master', 'pro', 'skilled', 'talented'],
     negative: ['bad', 'terrible', 'awful', 'worst', 'hate', 'ugly', 'disgusting', 'fail', 'failed', 'mistake', 'error', 'wrong', 'broken', 'trash', 'garbage', 'stupid', 'dumb', 'idiotic', 'ridiculous', 'pathetic', 'weak', 'noob', 'beginner', 'amateur'],
     excitement: ['omg', 'wow', 'holy', 'shock', 'surprise', 'unbelievable', 'mindblowing', 'unreal', 'crazy', 'insane', 'epic', 'huge', 'massive', 'giant', 'colossal', 'enormous', 'infinite', 'limitless', 'ultimate', 'final', 'endgame'],
-    action: ['kill', 'win', 'destroy', 'crush', 'dominate', 'smash', 'beat', 'defeat', 'conquer', 'capture', 'steal', 'rob', 'escape', 'survive', 'escape', 'rescue', 'save', 'protect', 'defend', 'attack', 'fight', 'battle', 'war']
+    action: ['kill', 'win', 'destroy', 'crush', 'dominate', 'smash', 'beat', 'defeat', 'conquer', 'capture', 'steal', 'rob', 'escape', 'survive', 'escape', 'rescue', 'save', 'protect', 'defend', 'attack', 'fight', 'battle', 'war'],
+    calm: ['calm', 'peaceful', 'relaxed', 'chill', 'chilling', 'zen', 'meditation', 'meditate', 'serene', 'tranquil', 'quiet', 'silent', 'still', 'gentle', 'soft', 'mellow', 'soothing', 'comfortable', 'easy', 'slow', 'steady', 'balanced', 'harmonious', 'mindful', 'present', 'focused', 'centered', 'grounded', 'peace', 'silence', 'rest', 'resting', 'sleepy', 'cozy', 'warm', 'safe', 'secure'],
+    curious: ['curious', 'interest', 'interesting', 'wonder', 'wondering', 'question', 'questions', 'ask', 'asking', 'explore', 'exploring', 'discover', 'discovery', 'learn', 'learning', 'study', 'studying', 'research', 'investigate', 'investigation', 'mystery', 'mysterious', 'unknown', 'secret', 'secrets', 'hidden', 'find', 'finding', 'search', 'searching', 'look', 'looking', 'seek', 'seeking', 'knowledge', 'information', 'facts', 'truth', 'answers', 'why', 'how', 'what', 'when', 'where', 'who'],
+    nostalgic: ['nostalgic', 'nostalgia', 'memories', 'memory', 'remember', 'remembering', 'reminisce', 'reminiscing', 'flashback', 'flashbacks', 'old', 'old', 'school', 'classic', 'vintage', 'retro', 'past', 'childhood', 'kid', 'growing', 'up', 'back', 'then', 'those', 'days', 'good', 'old', 'days', 'times', 'era', 'decade', 'year', 'years', 'ago', 'used', 'to', 'miss', 'missing', 'wish', 'wishing', 'throwback', 'tbh', 'remember', 'when', 'the', 'good', 'times'],
+    proud: ['proud', 'pride', 'accomplished', 'achievement', 'achieve', 'success', 'successful', 'victory', 'win', 'winner', 'champion', 'championship', 'trophy', 'medal', 'award', 'honored', 'honor', 'respect', 'respected', 'dignity', 'worthy', 'deserving', 'earned', 'deserve', 'worked', 'hard', 'effort', 'dedication', 'commitment', 'perseverance', 'overcome', 'challenge', 'challenges', 'obstacle', 'obstacles', 'goal', 'goals', 'dream', 'dreams', 'come', 'true', 'milestone', 'progress', 'improvement', 'growth', 'better', 'best', 'version', 'confident', 'confidence'],
+    hopeful: ['hope', 'hopeful', 'hoping', 'optimistic', 'optimism', 'positive', 'positivity', 'believe', 'believing', 'belief', 'faith', 'trust', 'wish', 'wishing', 'dream', 'dreaming', 'aspire', 'aspiring', 'ambition', 'ambitious', 'future', 'tomorrow', 'someday', 'soon', 'eventually', 'possibility', 'possible', 'potential', 'chance', 'opportunity', 'bright', 'better', 'improve', 'improvement', 'change', 'changing', 'new', 'fresh', 'start', 'beginning', 'promise', 'promising', 'look', 'forward', 'anticipate', 'anticipation', 'expect', 'expecting', 'confidence', 'assure', 'assured', 'certain', 'sure']
   }
   
   let detectedSentiment: string | null = null
@@ -413,7 +515,12 @@ function generateTagsFromDescription(description: string, platformTags: string[]
     'league': ['league', 'lol', 'leagueoflegends', 'teemo', 'yasuo', 'zed', 'ahri', 'garen', 'darius', 'thresh', 'blitzcrank', 'jinx', 'lux', 'zed', 'master', 'yi', 'jungle', 'mid', 'top', 'adc', 'support', 'rank', 'challenger', 'diamond', 'gold', 'silver', 'bronze'],
     'roblox': ['roblox', 'obby', 'tower', 'hell', 'adopt', 'me', 'brookhaven', 'blox', 'fruits', 'murder', 'mystery', 'pet', 'simulator', 'tycoon', 'ninja', 'legends', 'brawl', 'stars', 'arsenal', 'mm2', 'mad', 'city'],
     'genshin': ['genshin', 'impact', 'teyvat', 'mondstadt', 'liyue', 'inazuma', 'sumeru', 'fontaine', 'natlan', 'zhongli', 'raiden', 'venti', 'nahida', 'furina', 'mualani', 'xilonen', 'citlali', 'chasca', 'archon', 'vision', 'element', 'pyro', 'hydro', 'anemo', 'electro', 'geo', 'cryo', 'dendro'],
-    'overwatch': ['overwatch', 'ow', 'ow2', 'tracer', 'soldier', 'reaper', 'widowmaker', 'mercy', 'dva', 'reinhardt', 'zarya', 'genji', 'hanzo', 'junkrat', 'mei', 'torbjorn', 'winston', 'symmetra', 'pharah', 'ana', 'bastion', 'zenyatta', 'lucio', 'mccree', 'cassidy', 'sigma', 'wrecking', 'ball', 'ashe', 'baptiste', 'echo', 'sojourn', 'kiriko', 'ramattra', 'junker', 'queen', 'lifeweaver', 'venture', 'mauga']
+    'overwatch': ['overwatch', 'ow', 'ow2', 'tracer', 'soldier', 'reaper', 'widowmaker', 'mercy', 'dva', 'reinhardt', 'zarya', 'genji', 'hanzo', 'junkrat', 'mei', 'torbjorn', 'winston', 'symmetra', 'pharah', 'ana', 'bastion', 'zenyatta', 'lucio', 'mccree', 'cassidy', 'sigma', 'wrecking', 'ball', 'ashe', 'baptiste', 'echo', 'sojourn', 'kiriko', 'ramattra', 'junker', 'queen', 'lifeweaver', 'venture', 'mauga'],
+    'pubg': ['pubg', 'playerunknown', 'battlegrounds', 'erangel', 'miramar', 'sanhok', 'karakin', 'taego', 'deston', 'vikendi', 'drop', 'parachute', 'loot', 'crate', 'airdrop', 'zone', 'circle', 'blue', 'red', 'winner', 'chicken', 'dinner', 'kill', 'frag', 'm416', 'akm', 'awm', 'kar98k', 'pan', 'ugl', 'vehicle', 'car', 'buggy', 'boat', 'squad', 'duo', 'solo', 'rank', 'conqueror', 'ace', 'tier'],
+    'csgo': ['csgo', 'cs2', 'counter', 'strike', 'global', 'offensive', 'dust2', 'mirage', 'inferno', 'nuke', 'overpass', 'cache', 'train', 'vertigo', 'ancient', 'anubis', 'awp', 'ak47', 'm4a4', 'm4a1s', 'deagle', 'usp', 'p250', 'fiveseven', 'tec9', 'glock', 'knife', 'defuse', 'plant', 'bomb', 't', 'ct', 'clutch', 'ace', 'rush', 'b', 'a', 'mid', 'eco', 'force', 'buy', 'full', 'save', 'rank', 'global', 'elite', 'faceit', 'esea', 'mm', 'premier', 'major', 'katowice', 'cologne', 'stockholm'],
+    'dota2': ['dota', 'dota2', 'defense', 'ancients', 'mid', 'lane', 'support', 'carry', 'offlane', 'jungle', 'roam', 'gank', 'ward', 'stack', 'pull', 'creep', 'wave', 'tower', 'barracks', 'ancient', 'throne', 'roshan', 'aegis', 'cheese', 'rune', 'bounty', 'power', 'illusion', 'courier', 'tp', 'scroll', 'buyback', 'kill', 'death', 'assist', 'deny', 'last', 'hit', 'hook', 'pudge', 'invoker', 'meepo', 'arc', 'warden', 'primal', 'beast', 'manta', 'bkb', 'blink', 'daedalus', 'abyssal', 'rank', 'mmr', 'medal', 'divine', 'ancient', 'legend', 'archon', 'herald', 'guardian', 'crusader', 'immortal'],
+    'r6': ['rainbow', 'six', 'siege', 'r6s', 'ubisoft', 'operator', 'defender', 'attacker', 'sledge', 'ash', 'thermite', 'thatcher', 'montagne', 'twitch', 'doc', 'rook', 'glaz', 'fuze', 'kapkan', 'blitz', 'iq', 'bandit', 'jager', 'mute', 'castle', 'pulse', 'valkyrie', 'caveira', 'frost', 'buck', 'blackbeard', 'capitao', 'hibana', 'echo', 'jackal', 'mira', 'lesion', 'ela', 'vigil', 'dokkaebi', 'zofia', 'lion', 'alibi', 'maestro', 'nomad', 'kaid', 'clash', 'maverick', 'mozzie', 'gridlock', 'nokk', 'warden', 'goyo', 'amaru', 'kali', 'wamai', 'ace', 'melusi', 'oryx', 'iana', 'zero', 'aruni', 'flores', 'thunderbird', 'azami', 'sens', 'tachanka', 'reinforce', 'barricade', 'drone', 'cam', 'camera', 'wall', 'breach', 'hatch', 'shield', 'gadget', 'ability', 'ult', 'ultimate', 'rank', 'diamond', 'platinum', 'gold', 'silver', 'bronze', 'copper', 'unranked', 'casual', 'quick', 'match', 'ranked', 'pro', 'league', 'major', 'six', 'invitational'],
+    'destiny2': ['destiny', 'destiny2', 'd2', 'guardian', 'titan', 'hunter', 'warlock', 'light', 'darkness', 'stasis', 'strand', 'arc', 'solar', 'void', 'crucible', 'gambit', 'raid', 'dungeon', 'strike', 'nightfall', 'vanguard', 'savathun', 'xivu', 'arath', 'witness', 'traveler', 'ghost', 'exotic', 'legendary', 'rare', 'common', 'engram', 'loot', 'drop', 'world', 'drop', 'quest', 'mission', 'patrol', 'public', 'event', 'lost', 'sector', 'ascendant', 'challenge', 'pinnacle', 'craft', 'crafting', 'pattern', 'resonant', 'adept', 'master', 'grandmaster', 'trials', 'iron', 'banner', 'control', 'clash', 'rumble', 'mayhem', 'supremacy', 'lockdown', 'skirmish', 'elimination', 'survival', 'countdown', 'breakthrough', 'scavenger', 'zone', 'control', 'rift', 'dreadnaught', 'moon', 'europa', 'tangled', 'shore', 'dreaming', 'city', 'edz', 'cosmodrome', 'nessus', 'io', 'mars', 'mercury', 'titan', 'reef', 'tower', 'farm', 'grind', 'meta', 'pvp', 'pve', 'endgame', 'season', 'pass', 'artifact', 'mod', 'build', 'subclass', 'super', 'grenade', 'melee', 'class', 'ability', 'weapon', 'armor', 'ornament', 'shader', 'transmat', 'fast', 'travel', 'sparrow', 'ship', 'ghost', 'shell', 'emblem', 'title', 'seal', 'triumph', 'score', 'collection', 'vault', 'postmaster', 'eververse', 'silver', 'bright', 'dust', 'legend', 'mark', 'forsaken', 'shadowkeep', 'beyond', 'light', 'witch', 'queen', 'herald', 'final', 'shape', 'lightfall']
   }
   
   // Detect the primary game by counting keyword matches
@@ -447,7 +554,13 @@ function generateTagsFromDescription(description: string, platformTags: string[]
     'fashion': ['fashion', 'style', 'outfit', 'ootd', 'outfitoftheday', 'clothes', 'clothing', 'dress', 'shirt', 'jeans', 'shoes', 'sneakers', 'accessories', 'jewelry', 'makeup', 'beauty', 'skincare', 'hair', 'hairstyle', 'trend', 'trending', 'designer', 'brand', 'shopping', 'haul', 'lookbook', 'model', 'influencer'],
     'tech': ['tech', 'technology', 'gadget', 'phone', 'iphone', 'android', 'laptop', 'computer', 'pc', 'gamingpc', 'setup', 'desk', 'keyboard', 'mouse', 'monitor', 'headset', 'review', 'unboxing', 'comparison', 'apple', 'samsung', 'google', 'microsoft', 'software', 'app', 'application', 'coding', 'programming', 'developer', 'code'],
     'pets': ['pet', 'dog', 'cat', 'puppy', 'kitten', 'cute', 'adorable', 'animal', 'vet', 'vetlife', 'petlife', 'dogsofinstagram', 'catsofinstagram', 'petlover', 'adopt', 'rescue', 'shelter', 'breed', 'training', 'trick', 'funny', 'cuteanimals', 'furry', 'furfriend'],
-    'lifestyle': ['lifestyle', 'morning', 'routine', 'night', 'day', 'daily', 'vlog', 'vlogger', 'life', 'living', 'home', 'house', 'apartment', 'room', 'bedroom', 'decor', 'decoration', 'organization', 'clean', 'cleaning', 'productivity', 'motivation', 'inspiration', 'goals', 'habit', 'selfcare', 'mentalhealth']
+    'lifestyle': ['lifestyle', 'morning', 'routine', 'night', 'day', 'daily', 'vlog', 'vlogger', 'life', 'living', 'home', 'house', 'apartment', 'room', 'bedroom', 'decor', 'decoration', 'organization', 'clean', 'cleaning', 'productivity', 'motivation', 'inspiration', 'goals', 'habit', 'selfcare', 'mentalhealth'],
+    'streaming': ['stream', 'streaming', 'live', 'streamer', 'broadcast', 'livestream', 'go', 'live', 'live', 'now', 'chat', 'chatting', 'community', 'viewer', 'viewers', 'audience', 'follower', 'followers', 'sub', 'subs', 'subscriber', 'subscribers', 'donate', 'donation', 'tip', 'tips', 'bits', 'cheers', 'gift', 'support', 'patron', 'patreon', 'membership', 'emote', 'emotes', 'emoji', 'reaction', 'raid', 'raiding', 'host', 'hosting', 'collab', 'collaboration', 'overlay', 'alert', 'goal', 'milestone', 'giveaway', 'tournament', 'obs', 'twitch', 'kick', 'youtube', 'facebook', 'trovo', 'mod', 'moderator', 'admin', 'partner', 'affiliate', 'bot', 'charity', 'fundraiser', 'podcast', 'interview', 'qanda', 'ama', 'panel', 'discussion', 'news', 'update', 'event', 'marathon', '24hour', 'setup', 'tech', 'equipment', 'webcam', 'microphone', 'lighting'],
+    'education': ['education', 'learn', 'learning', 'study', 'studying', 'school', 'college', 'university', 'student', 'students', 'teacher', 'professor', 'class', 'course', 'lesson', 'tutorial', 'lecture', 'exam', 'test', 'quiz', 'homework', 'assignment', 'project', 'research', 'thesis', 'dissertation', 'degree', 'diploma', 'certificate', 'online', 'course', 'mooc', 'skill', 'skills', 'knowledge', 'academic', 'scholarship', 'graduation', 'graduate'],
+    'diy': ['diy', 'do', 'it', 'yourself', 'craft', 'crafts', 'handmade', 'homemade', 'project', 'projects', 'build', 'building', 'make', 'making', 'create', 'creating', 'fix', 'repair', 'restore', 'upcycle', 'repurpose', 'hack', 'lifehack', 'tips', 'tricks', 'tutorial', 'howto', 'guide', 'woodworking', 'sewing', 'knitting', 'crochet', 'embroidery', 'jewelry', 'making', 'pottery', 'ceramics', 'scrapbooking', 'origami', 'calligraphy'],
+    'photography': ['photography', 'photo', 'photographer', 'camera', 'lens', 'shoot', 'shooting', 'portrait', 'landscape', 'street', 'nature', 'wildlife', 'wedding', 'event', 'studio', 'editing', 'edit', 'lightroom', 'photoshop', 'preset', 'filter', 'composition', 'exposure', 'aperture', 'shutter', 'iso', 'focus', 'depth', 'field', 'bokeh', 'drone', 'aerial', 'cinematography', 'videography', 'video', 'film', 'analog', 'digital', 'mirrorless', 'dslr', 'instant', 'polaroid'],
+    'finance': ['finance', 'money', 'financial', 'invest', 'investing', 'investment', 'stock', 'stocks', 'trading', 'trader', 'market', 'crypto', 'cryptocurrency', 'bitcoin', 'ethereum', 'blockchain', 'nft', 'budget', 'budgeting', 'save', 'saving', 'savings', 'debt', 'credit', 'loan', 'bank', 'banking', 'account', 'wealth', 'rich', 'income', 'passive', 'income', 'side', 'hustle', 'entrepreneur', 'business', 'startup', 'economy', 'tax', 'retirement', 'pension', 'insurance', 'real', 'estate', 'property'],
+    'entertainment': ['entertainment', 'movie', 'movies', 'film', 'films', 'cinema', 'tv', 'television', 'show', 'shows', 'series', 'episode', 'netflix', 'hulu', 'disney', 'plus', 'amazon', 'prime', 'hbo', 'max', 'anime', 'animation', 'cartoon', 'comedy', 'drama', 'horror', 'thriller', 'action', 'sci-fi', 'fantasy', 'romance', 'documentary', 'reality', 'tv', 'celebrity', 'actor', 'actress', 'director', 'producer', 'review', 'trailer', 'spoiler', 'binge', 'watch', 'watching']
   }
   
   // Subject detection - identify animals, nature, objects, scenarios
@@ -457,7 +570,12 @@ function generateTagsFromDescription(description: string, platformTags: string[]
     'scenarios': ['talking', 'talk', 'conversation', 'conversations', 'chat', 'chats', 'speaking', 'speak', 'voice', 'voices', 'saying', 'said', 'says', 'dancing', 'dance', 'dancer', 'dancers', 'singing', 'sing', 'singer', 'song', 'playing', 'play', 'player', 'running', 'run', 'runner', 'walking', 'walk', 'walker', 'swimming', 'swim', 'swimmer', 'flying', 'fly', 'flight', 'jumping', 'jump', 'eating', 'eat', 'drinking', 'drink', 'sleeping', 'sleep', 'fighting', 'fight', 'fighting', 'arguing', 'argue', 'laughing', 'laugh', 'crying', 'cry', 'smiling', 'smile', 'screaming', 'scream', 'shouting', 'shout', 'whispering', 'whisper', 'yelling', 'yell', 'kissing', 'kiss', 'hugging', 'hug', 'holding', 'hold', 'sitting', 'sit', 'standing', 'stand', 'lying', 'lie', 'laying', 'lay', 'falling', 'fall', 'rising', 'rise', 'climbing', 'climb'],
     'objects': ['car', 'cars', 'vehicle', 'vehicles', 'truck', 'trucks', 'bus', 'buses', 'train', 'trains', 'plane', 'planes', 'boat', 'boats', 'ship', 'ships', 'bicycle', 'bicycle', 'bike', 'bikes', 'motorcycle', 'motorcycles', 'house', 'home', 'homes', 'building', 'buildings', 'apartment', 'apartments', 'room', 'rooms', 'door', 'doors', 'window', 'windows', 'wall', 'walls', 'floor', 'floors', 'ceiling', 'ceilings', 'roof', 'roofs', 'furniture', 'chair', 'chairs', 'table', 'tables', 'bed', 'beds', 'sofa', 'sofas', 'couch', 'couches', 'desk', 'desks', 'shelf', 'shelves', 'lamp', 'lamps', 'light', 'lights', 'phone', 'phones', 'computer', 'computers', 'laptop', 'laptops', 'television', 'tv', 'television', 'television', 'screen', 'screens', 'camera', 'cameras', 'watch', 'watches', 'clock', 'clocks', 'mirror', 'mirrors', 'glass', 'cup', 'cups', 'plate', 'plates', 'bowl', 'bowls', 'fork', 'forks', 'spoon', 'spoons', 'knife', 'knives', 'book', 'books', 'pen', 'pens', 'pencil', 'pencils', 'paper', 'papers', 'bag', 'bags', 'box', 'boxes', 'bottle', 'bottles', 'can', 'cans', 'jar', 'jars'],
     'people': ['people', 'person', 'human', 'humans', 'man', 'men', 'woman', 'women', 'boy', 'boys', 'girl', 'girls', 'kid', 'kids', 'child', 'children', 'baby', 'babies', 'infant', 'infants', 'toddler', 'toddlers', 'teen', 'teens', 'teenager', 'teenagers', 'adult', 'adults', 'elderly', 'senior', 'seniors', 'old', 'young', 'family', 'families', 'friend', 'friends', 'couple', 'couples', 'group', 'groups', 'crowd', 'crowds', 'audience', 'audiences', 'stranger', 'strangers', 'neighbor', 'neighbors', 'colleague', 'colleagues', 'coworker', 'coworkers', 'boss', 'bosses', 'teacher', 'teachers', 'student', 'students', 'doctor', 'doctors', 'nurse', 'nurses', 'police', 'officer', 'officers', 'soldier', 'soldiers', 'actor', 'actors', 'actress', 'actresses', 'singer', 'singers', 'dancer', 'dancers', 'artist', 'artists', 'writer', 'writers', 'author', 'authors'],
-    'emotions': ['happy', 'happiness', 'joy', 'joyful', 'sad', 'sadness', 'unhappy', 'angry', 'anger', 'mad', 'furious', 'excited', 'excitement', 'thrilled', 'scared', 'scare', 'fear', 'afraid', 'terrified', 'surprised', 'surprise', 'shocked', 'love', 'loving', 'hate', 'hating', 'dislike', 'funny', 'humor', 'humorous', 'serious', 'dramatic', 'emotional', 'feel', 'feeling', 'feelings', 'mood', 'moods', 'calm', 'peaceful', 'relaxed', 'stressed', 'worried', 'anxious', 'nervous', 'confident', 'proud', 'embarrassed', 'ashamed', 'guilty', 'jealous', 'envious', 'grateful', 'thankful', 'hopeful', 'hope', 'desperate', 'lonely', 'alone', 'bored', 'boring', 'interested', 'curious', 'confused', 'puzzled', 'amazed', 'impressed', 'disappointed', 'proud', 'satisfied', 'content']
+    'emotions': ['happy', 'happiness', 'joy', 'joyful', 'sad', 'sadness', 'unhappy', 'angry', 'anger', 'mad', 'furious', 'excited', 'excitement', 'thrilled', 'scared', 'scare', 'fear', 'afraid', 'terrified', 'surprised', 'surprise', 'shocked', 'love', 'loving', 'hate', 'hating', 'dislike', 'funny', 'humor', 'humorous', 'serious', 'dramatic', 'emotional', 'feel', 'feeling', 'feelings', 'mood', 'moods', 'calm', 'peaceful', 'relaxed', 'stressed', 'worried', 'anxious', 'nervous', 'confident', 'proud', 'embarrassed', 'ashamed', 'guilty', 'jealous', 'envious', 'grateful', 'thankful', 'hopeful', 'hope', 'desperate', 'lonely', 'alone', 'bored', 'boring', 'interested', 'curious', 'confused', 'puzzled', 'amazed', 'impressed', 'disappointed', 'proud', 'satisfied', 'content'],
+    'food': ['food', 'foods', 'meal', 'meals', 'dish', 'dishes', 'cuisine', 'recipe', 'recipes', 'ingredient', 'ingredients', 'cooking', 'cook', 'baking', 'bake', 'fried', 'grilled', 'roasted', 'boiled', 'steamed', 'raw', 'fresh', 'organic', 'healthy', 'unhealthy', 'junk', 'fast', 'food', 'snack', 'snacks', 'drink', 'drinks', 'beverage', 'beverages', 'water', 'juice', 'soda', 'coffee', 'tea', 'milk', 'beer', 'wine', 'alcohol', 'cocktail', 'breakfast', 'lunch', 'dinner', 'supper', 'dessert', 'sweet', 'salty', 'spicy', 'sour', 'bitter', 'delicious', 'tasty', 'yummy', 'flavor', 'taste', 'eat', 'eating', 'drink', 'drinking', 'restaurant', 'cafe', 'diner', 'bar', 'pub', 'grocery', 'market', 'supermarket', 'fruit', 'fruits', 'vegetable', 'vegetables', 'meat', 'fish', 'seafood', 'chicken', 'beef', 'pork', 'lamb', 'bread', 'pasta', 'rice', 'pizza', 'burger', 'sandwich', 'salad', 'soup', 'cake', 'cookie', 'pie', 'ice', 'cream', 'chocolate', 'candy', 'sugar', 'salt', 'pepper', 'sauce', 'ketchup', 'mustard', 'mayo', 'cheese', 'butter', 'oil', 'egg', 'eggs'],
+    'technology': ['technology', 'tech', 'digital', 'electronic', 'electronics', 'device', 'devices', 'gadget', 'gadgets', 'smartphone', 'phone', 'iphone', 'android', 'tablet', 'ipad', 'laptop', 'computer', 'pc', 'desktop', 'monitor', 'screen', 'keyboard', 'mouse', 'trackpad', 'webcam', 'microphone', 'speaker', 'headphones', 'headset', 'earbuds', 'camera', 'drone', 'robot', 'ai', 'artificial', 'intelligence', 'machine', 'learning', 'software', 'app', 'application', 'program', 'programming', 'coding', 'code', 'developer', 'developer', 'internet', 'web', 'website', 'online', 'wifi', 'bluetooth', 'usb', 'cable', 'wire', 'wireless', 'battery', 'charger', 'power', 'adapter', 'memory', 'storage', 'hard', 'drive', 'ssd', 'ram', 'cpu', 'processor', 'gpu', 'graphics', 'card', 'motherboard', 'chip', 'circuit', 'board', 'virtual', 'reality', 'vr', 'ar', 'augmented', 'reality', 'metaverse', 'blockchain', 'crypto', 'cryptocurrency', 'bitcoin', 'nft', 'smart', 'contract', 'cloud', 'computing', 'server', 'data', 'database', 'network', 'cybersecurity', 'hacker', 'hacking', 'cyber', 'attack', 'malware', 'virus', 'firewall', 'encryption', 'password', 'security', 'privacy', 'biometric', 'fingerprint', 'face', 'recognition', 'voice', 'recognition'],
+    'vehicles': ['vehicle', 'vehicles', 'car', 'cars', 'automobile', 'automobiles', 'truck', 'trucks', 'suv', 'van', 'vans', 'bus', 'buses', 'motorcycle', 'motorcycles', 'bike', 'bicycle', 'bicycles', 'scooter', 'scooters', 'moped', 'train', 'trains', 'subway', 'metro', 'tram', 'trolley', 'plane', 'airplane', 'airplanes', 'aircraft', 'jet', 'helicopter', 'helicopters', 'drone', 'drones', 'boat', 'boats', 'ship', 'ships', 'yacht', 'yachts', 'sailboat', 'cruise', 'ferry', 'raft', 'kayak', 'canoe', 'rocket', 'spacecraft', 'spaceship', 'satellite', 'ambulance', 'police', 'car', 'fire', 'truck', 'taxi', 'cab', 'uber', 'lyft', 'rideshare', 'rental', 'lease', 'dealership', 'garage', 'parking', 'traffic', 'road', 'highway', 'street', 'intersection', 'highway', 'freeway', 'interstate', 'bridge', 'tunnel', 'gas', 'station', 'fuel', 'petrol', 'diesel', 'electric', 'hybrid', 'engine', 'motor', 'transmission', 'brake', 'brakes', 'tire', 'tires', 'wheel', 'wheels', 'steering', 'wheel', 'dashboard', 'seat', 'seatbelt', 'airbag', 'speed', 'velocity', 'acceleration', 'mileage', 'mpg', 'gps', 'navigation', 'autonomous', 'self', 'driving', 'driver', 'driverless'],
+    'locations': ['location', 'locations', 'place', 'places', 'spot', 'spots', 'area', 'areas', 'region', 'regions', 'zone', 'zones', 'district', 'districts', 'neighborhood', 'neighborhoods', 'city', 'cities', 'town', 'towns', 'village', 'villages', 'country', 'countries', 'nation', 'nations', 'state', 'states', 'province', 'provinces', 'territory', 'territories', 'continent', 'continents', 'island', 'islands', 'beach', 'beaches', 'coast', 'coastline', 'shore', 'shoreline', 'harbor', 'harbour', 'port', 'ports', 'airport', 'airports', 'station', 'stations', 'terminal', 'terminals', 'building', 'buildings', 'structure', 'structures', 'landmark', 'landmarks', 'monument', 'monuments', 'museum', 'museums', 'gallery', 'galleries', 'library', 'libraries', 'school', 'schools', 'university', 'universities', 'college', 'colleges', 'hospital', 'hospitals', 'clinic', 'clinics', 'church', 'churches', 'temple', 'temples', 'mosque', 'mosques', 'synagogue', 'synagogues', 'cathedral', 'cathedrals', 'castle', 'castles', 'palace', 'palaces', 'fort', 'fortress', 'ruins', 'ancient', 'historical', 'modern', 'downtown', 'uptown', 'suburb', 'suburbs', 'rural', 'urban', 'metropolitan', 'capital', 'headquarters', 'office', 'offices', 'factory', 'factories', 'warehouse', 'warehouses', 'store', 'stores', 'shop', 'shops', 'mall', 'malls', 'market', 'markets', 'plaza', 'square', 'park', 'parks', 'garden', 'gardens', 'stadium', 'stadiums', 'arena', 'arenas', 'theater', 'theatre', 'cinema', 'movie', 'theater'],
+    'weather': ['weather', 'climate', 'temperature', 'hot', 'cold', 'warm', 'cool', 'freezing', 'boiling', 'chilly', 'mild', 'humid', 'dry', 'wet', 'rain', 'raining', 'rainy', 'shower', 'storm', 'thunderstorm', 'lightning', 'thunder', 'snow', 'snowing', 'snowy', 'blizzard', 'flurry', 'sleet', 'hail', 'hailstorm', 'ice', 'icy', 'frost', 'fog', 'foggy', 'mist', 'misty', 'haze', 'smog', 'cloud', 'cloudy', 'clouds', 'overcast', 'clear', 'sunny', 'sunshine', 'bright', 'gloomy', 'dark', 'wind', 'windy', 'breeze', 'gust', 'hurricane', 'typhoon', 'cyclone', 'tornado', 'twister', 'flood', 'flooded', 'drought', 'heatwave', 'cold', 'wave', 'forecast', 'prediction', 'meteorology', 'atmosphere', 'pressure', 'barometer', 'humidity', 'dew', 'point', 'visibility', 'uv', 'index', 'sunburn', 'shade', 'umbrella', 'raincoat', 'jacket', 'coat', 'sweater', 'boots', 'seasonal', 'spring', 'summer', 'autumn', 'fall', 'winter', 'monsoon', 'equinox', 'solstice', 'eclipse', 'aurora', 'rainbow', 'sunset', 'sunrise', 'dawn', 'dusk', 'twilight', 'daylight', 'daytime', 'nighttime', 'midnight', 'noon', 'afternoon', 'evening', 'morning']
   }
   
   // Detect the primary activity by counting keyword matches
@@ -526,6 +644,84 @@ function generateTagsFromDescription(description: string, platformTags: string[]
     }
   }
   
+  // Dynamic weight adjustment based on input characteristics
+  const inputLength = descriptionWords.length
+  const inputComplexity = expandedWords.length / descriptionWords.length
+  const hasDetectedGame = detectedGame !== null
+  const hasDetectedActivity = detectedActivity !== null
+  const hasDetectedSubject = detectedSubject !== null
+  const sentimentDetected = detectedSentiment !== null
+  
+  // Adjust weights based on input characteristics
+  let ngramWeight = 0.25
+  let positionWeight = 0.20
+  let semanticWeight = 0.15
+  let sentimentWeight = 0.10
+  let contextWeight = 0.20
+  let contentTypeWeight = 0.10
+  
+  // For short descriptions, boost exact matches and n-grams
+  if (inputLength < 5) {
+    ngramWeight = 0.35
+    positionWeight = 0.25
+    semanticWeight = 0.10
+    contextWeight = 0.15
+  }
+  // For long descriptions, boost semantic and contextual understanding
+  else if (inputLength > 20) {
+    ngramWeight = 0.15
+    positionWeight = 0.15
+    semanticWeight = 0.25
+    contextWeight = 0.25
+  }
+  
+  // If game detected, boost contextual relevance
+  if (hasDetectedGame) {
+    contextWeight += 0.10
+    ngramWeight -= 0.05
+  }
+  // If activity detected, boost semantic understanding
+  if (hasDetectedActivity) {
+    semanticWeight += 0.05
+    contextWeight += 0.05
+    ngramWeight -= 0.05
+  }
+  // If sentiment detected, boost sentiment alignment
+  if (sentimentDetected) {
+    sentimentWeight += 0.05
+    semanticWeight -= 0.03
+  }
+  
+  // Tag co-occurrence analysis - related tags that often appear together
+  const coOccurrenceMap: Record<string, string[]> = {
+    'fortnite': ['battle royale', 'royale', 'battle', 'build', 'victory', 'epic games', 'chapter', 'season'],
+    'minecraft': ['survival', 'creative', 'building', 'blocks', 'craft', 'mining', 'redstone'],
+    'valorant': ['fps', 'tactical', 'shooter', 'agent', 'riot games', 'competitive', 'ranked'],
+    'gta': ['open world', 'crime', 'heist', 'rockstar', 'los santos', 'online', 'roleplay'],
+    'apex': ['battle royale', 'legends', 'respawn', 'ea', 'apex legends', 'season', 'rank'],
+    'league': ['moba', 'riot games', 'champion', 'lane', 'jungle', 'ranked', 'esports'],
+    'roblox': ['obby', 'tycoon', 'simulator', 'blox', 'games', 'avatar', 'platform'],
+    'genshin': ['anime', 'gacha', 'rpg', 'mihoyo', 'teyvat', 'element', 'vision'],
+    'overwatch': ['fps', 'blizzard', 'hero', 'shooter', 'team', 'competitive', 'esports'],
+    'pubg': ['battle royale', 'survival', 'shooter', 'tencent', 'erangel', 'squad', 'duo'],
+    'csgo': ['fps', 'shooter', 'valve', 'competitive', 'ranked', 'terrorist', 'counter'],
+    'dota2': ['moba', 'valve', 'rpg', 'lane', 'jungle', 'ranked', 'esports'],
+    'r6': ['fps', 'ubisoft', 'tactical', 'shooter', 'operator', 'siege', 'ranked'],
+    'destiny2': ['fps', 'bungie', 'looter', 'shooter', 'raid', 'strike', 'guardian'],
+    'streaming': ['live', 'streamer', 'twitch', 'kick', 'broadcast', 'chat', 'community'],
+    'gaming': ['game', 'games', 'gamer', 'play', 'esports', 'competitive', 'multiplayer'],
+    'fitness': ['workout', 'gym', 'exercise', 'health', 'training', 'muscle', 'cardio'],
+    'cooking': ['food', 'recipe', 'chef', 'kitchen', 'meal', 'bake', 'homemade'],
+    'music': ['song', 'audio', 'beat', 'artist', 'concert', 'band', 'playlist'],
+    'travel': ['vacation', 'trip', 'adventure', 'explore', 'destination', 'tour', 'journey'],
+    'tech': ['technology', 'gadget', 'device', 'software', 'app', 'digital', 'computer'],
+    'fashion': ['style', 'outfit', 'clothing', 'trend', 'designer', 'beauty', 'model'],
+    'education': ['learn', 'study', 'school', 'knowledge', 'tutorial', 'course', 'skill'],
+    'diy': ['craft', 'build', 'create', 'handmade', 'project', 'tutorial', 'howto'],
+    'photography': ['photo', 'camera', 'picture', 'shoot', 'lens', 'edit', 'visual'],
+    'finance': ['money', 'invest', 'crypto', 'trading', 'business', 'wealth', 'income']
+  }
+  
   // Score each tag with advanced multi-factor NLP-based logic
   const scoredTags = platformTags.map(tag => {
     let score = 0
@@ -541,7 +737,7 @@ function generateTagsFromDescription(description: string, platformTags: string[]
       if (tagLower === bigrams[i]) ngramScore += 50
       else if (tagLower.indexOf(bigrams[i]) !== -1) ngramScore += 35
     }
-    score += ngramScore * 0.25
+    score += ngramScore * ngramWeight
     
     // Factor 2: Word position and context (0.20)
     let positionScore = 0
@@ -559,7 +755,7 @@ function generateTagsFromDescription(description: string, platformTags: string[]
         positionScore += 8
       }
     }
-    score += positionScore * 0.20
+    score += positionScore * positionWeight
     
     // Factor 3: Semantic similarity - word overlap ratio (0.15)
     let semanticScore = 0
@@ -574,7 +770,7 @@ function generateTagsFromDescription(description: string, platformTags: string[]
       const overlapRatio = overlapCount / tagWords.length
       semanticScore += overlapRatio * 50
     }
-    score += semanticScore * 0.15
+    score += semanticScore * semanticWeight
     
     // Factor 4: Sentiment alignment (0.10)
     let sentimentScore = 0
@@ -589,7 +785,7 @@ function generateTagsFromDescription(description: string, platformTags: string[]
         if (['kill', 'win', 'destroy', 'crush', 'dominate', 'smash', 'beat', 'defeat', 'conquer', 'clutch', 'ace'].some(s => tagLower.indexOf(s) !== -1)) sentimentScore += 20
       }
     }
-    score += sentimentScore * 0.10
+    score += sentimentScore * sentimentWeight
     
     // Factor 5: Tag length optimization (0.05)
     let lengthScore = 0
@@ -650,7 +846,7 @@ function generateTagsFromDescription(description: string, platformTags: string[]
         if (tagLower.indexOf(gameKeys[i]) !== -1) contextScore -= 50
       }
     }
-    score += contextScore * 0.20
+    score += contextScore * contextWeight
     
     // Factor 8: Content type alignment (0.10)
     let contentTypeScore = 0
@@ -666,7 +862,7 @@ function generateTagsFromDescription(description: string, platformTags: string[]
     if (detectedContentTypes.indexOf('reaction') !== -1) {
       if (tagLower.indexOf('react') !== -1 || tagLower.indexOf('duet') !== -1 || tagLower.indexOf('stitch') !== -1) contentTypeScore += 15
     }
-    score += contentTypeScore * 0.10
+    score += contentTypeScore * contentTypeWeight
     
     // Factor 9: Platform alignment (0.05)
     let platformScore = 0
@@ -677,6 +873,181 @@ function generateTagsFromDescription(description: string, platformTags: string[]
     let viralScore = 0
     if (tagLower.indexOf('viral') !== -1 || tagLower.indexOf('trending') !== -1 || tagLower.indexOf('fyp') !== -1 || tagLower.indexOf('foryou') !== -1 || tagLower.indexOf('explore') !== -1) viralScore += 5
     score += viralScore * 0.05
+    
+    // Factor 11: Context window analysis (0.08) - analyze words around matches
+    let contextWindowScore = 0
+    const windowSize = 3
+    for (let i = 0; i < descriptionWords.length; i++) {
+      if (tagLower.indexOf(descriptionWords[i]) !== -1) {
+        // Check words before and after
+        for (let w = Math.max(0, i - windowSize); w <= Math.min(descriptionWords.length - 1, i + windowSize); w++) {
+          if (w !== i && tagLower.indexOf(descriptionWords[w]) !== -1) {
+            contextWindowScore += 8
+          }
+        }
+      }
+    }
+    score += contextWindowScore * 0.08
+    
+    // Factor 12: Character n-gram similarity for fuzzy matching (0.07)
+    let charNgramScore = 0
+    const extractCharNgrams = (str: string, n: number): string[] => {
+      const ngrams: string[] = []
+      for (let i = 0; i <= str.length - n; i++) {
+        ngrams.push(str.substr(i, n))
+      }
+      return ngrams
+    }
+    const tagTrigrams = extractCharNgrams(tagLower, 3)
+    const descTrigrams = extractCharNgrams(descLower, 3)
+    let charOverlap = 0
+    for (let i = 0; i < tagTrigrams.length; i++) {
+      for (let j = 0; j < descTrigrams.length; j++) {
+        if (tagTrigrams[i] === descTrigrams[j]) charOverlap++
+      }
+    }
+    if (tagTrigrams.length > 0) {
+      const charOverlapRatio = charOverlap / tagTrigrams.length
+      charNgramScore += charOverlapRatio * 30
+    }
+    score += charNgramScore * 0.07
+    
+    // Factor 13: Phrase detection beyond n-grams (0.05)
+    let phraseScore = 0
+    const commonPhrases = ['gameplay', 'game play', 'highlights', 'best moments', 'funny moments', 'epic moments', 'clutch moment', 'insane play', 'pro player', 'top player', 'rank up', 'ranked match', 'competitive', 'tournament', 'championship', 'world record', 'speedrun', 'walkthrough', 'gameplay footage', 'lets play', 'letsplay', 'game review', 'game review', 'first look', 'gameplay trailer', 'official trailer', 'gameplay video', 'gaming video', 'content creator', 'streamer', 'live stream', 'livestream', 'reaction video', 'reaction']
+    for (let i = 0; i < commonPhrases.length; i++) {
+      if (descLower.indexOf(commonPhrases[i]) !== -1 && tagLower.indexOf(commonPhrases[i].replace(' ', '')) !== -1) {
+        phraseScore += 15
+      } else if (descLower.indexOf(commonPhrases[i]) !== -1 && tagLower.indexOf(commonPhrases[i]) !== -1) {
+        phraseScore += 12
+      }
+    }
+    score += phraseScore * 0.05
+    
+    // Factor 14: Frequency-based weighting (inverse document frequency simulation) (0.05)
+    let frequencyScore = 0
+    // Penalize very common words, boost rare but relevant words
+    const commonWords = ['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'has', 'have', 'been', 'this', 'that', 'with', 'they', 'from', 'what', 'when', 'there', 'would', 'more', 'about', 'which', 'their', 'will', 'than', 'then', 'them', 'like', 'time', 'just', 'very', 'into', 'your', 'some', 'could', 'such', 'were', 'other', 'each', 'so', 'only', 'also', 'new', 'make', 'first', 'being', 'after', 'should', 'work', 'get', 'most']
+    let hasCommonWord = false
+    for (let i = 0; i < commonWords.length; i++) {
+      if (tagLower === commonWords[i]) {
+        hasCommonWord = true
+        break
+      }
+    }
+    if (!hasCommonWord && tagLower.length > 3) {
+      frequencyScore += 8
+    }
+    score += frequencyScore * 0.05
+    
+    // Factor 15: Phonetic similarity for misspelling tolerance (0.06)
+    let phoneticScore = 0
+    const levenshteinDistance = (s1: string, s2: string): number => {
+      const len1 = s1.length
+      const len2 = s2.length
+      const matrix: number[][] = []
+      
+      for (let i = 0; i <= len1; i++) {
+        matrix[i] = [i]
+      }
+      for (let j = 0; j <= len2; j++) {
+        matrix[0][j] = j
+      }
+      
+      for (let i = 1; i <= len1; i++) {
+        for (let j = 1; j <= len2; j++) {
+          const cost = s1[i - 1] === s2[j - 1] ? 0 : 1
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j - 1] + cost
+          )
+        }
+      }
+      
+      return matrix[len1][len2]
+    }
+    
+    // Check phonetic similarity with description words
+    for (let i = 0; i < descriptionWords.length; i++) {
+      const word = descriptionWords[i]
+      if (word.length > 3 && tagLower.length > 3) {
+        const distance = levenshteinDistance(tagLower, word)
+        const maxLen = Math.max(tagLower.length, word.length)
+        const similarity = 1 - (distance / maxLen)
+        
+        // If very similar (80%+), give partial credit
+        if (similarity >= 0.8) {
+          phoneticScore += 15
+        } else if (similarity >= 0.7) {
+          phoneticScore += 8
+        } else if (similarity >= 0.6) {
+          phoneticScore += 4
+        }
+      }
+    }
+    score += phoneticScore * 0.06
+    
+    // Factor 16: Tag co-occurrence analysis (0.07) - boost related tags
+    let coOccurrenceScore = 0
+    const detectedConcepts = []
+    if (detectedGame) detectedConcepts.push(detectedGame)
+    if (detectedActivity) detectedConcepts.push(detectedActivity)
+    if (detectedSubject) detectedConcepts.push(detectedSubject)
+    
+    for (let i = 0; i < detectedConcepts.length; i++) {
+      const concept = detectedConcepts[i]
+      if (coOccurrenceMap[concept]) {
+        const relatedTags = coOccurrenceMap[concept]
+        for (let j = 0; j < relatedTags.length; j++) {
+          if (tagLower.indexOf(relatedTags[j]) !== -1) {
+            coOccurrenceScore += 12
+          }
+        }
+      }
+    }
+    // Also check if current tag is a key in the co-occurrence map
+    if (coOccurrenceMap[tagLower]) {
+      for (let i = 0; i < detectedConcepts.length; i++) {
+        const concept = detectedConcepts[i]
+        if (coOccurrenceMap[tagLower].indexOf(concept) !== -1) {
+          coOccurrenceScore += 10
+        }
+      }
+    }
+    score += coOccurrenceScore * 0.07
+    
+    // Factor 17: Trending/temporal scoring (0.04) - boost time-sensitive tags
+    let trendingScore = 0
+    const currentYear = new Date().getFullYear()
+    const trendingTerms = [
+      '2024', '2025', '2026', 'new', 'latest', 'fresh', 'just dropped', 'just released', 'breaking', 'news',
+      'trending', 'viral', 'fyp', 'foryou', 'foryoupage', 'explore', 'discover', 'hot', 'popular',
+      'season', 'chapter', 'update', 'patch', 'new season', 'new chapter', 'live now', 'happening now',
+      'today', 'this week', 'this month', 'recent', 'current', 'now', 'right now'
+    ]
+    
+    for (let i = 0; i < trendingTerms.length; i++) {
+      if (descLower.indexOf(trendingTerms[i]) !== -1 && tagLower.indexOf(trendingTerms[i]) !== -1) {
+        trendingScore += 8
+      }
+    }
+    
+    // Boost tags with current year if description mentions time-sensitive terms
+    if (descLower.indexOf('2024') !== -1 || descLower.indexOf('2025') !== -1 || descLower.indexOf('2026') !== -1) {
+      if (tagLower.indexOf(currentYear.toString()) !== -1) {
+        trendingScore += 10
+      }
+    }
+    
+    // Boost tags that indicate freshness or newness
+    if (descLower.indexOf('new') !== -1 || descLower.indexOf('latest') !== -1 || descLower.indexOf('fresh') !== -1) {
+      if (tagLower.indexOf('new') !== -1 || tagLower.indexOf('latest') !== -1 || tagLower.indexOf('fresh') !== -1) {
+        trendingScore += 12
+      }
+    }
+    
+    score += trendingScore * 0.04
     
     return { tag, score }
   })
