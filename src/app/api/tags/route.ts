@@ -1,16 +1,17 @@
 import { NextResponse } from 'next/server'
 
-// Google Cloud Natural Language API integration
-async function extractEntitiesWithGoogle(description: string): Promise<string[]> {
+// Google Cloud Natural Language API integration with enhanced analysis
+async function extractEntitiesWithGoogle(description: string): Promise<{ entities: string[], categories: string[], sentiment: string }> {
   const apiKey = process.env.GOOGLE_API_KEY
   
   if (!apiKey) {
     console.log('Google API key not configured, skipping entity extraction')
-    return []
+    return { entities: [], categories: [], sentiment: 'neutral' }
   }
   
   try {
-    const response = await fetch(
+    // Analyze entities
+    const entityResponse = await fetch(
       `https://language.googleapis.com/v1/documents:analyzeEntities?key=${apiKey}`,
       {
         method: 'POST',
@@ -27,49 +28,311 @@ async function extractEntitiesWithGoogle(description: string): Promise<string[]>
       }
     )
     
-    if (!response.ok) {
-      console.error('Google API error:', response.status, await response.text())
-      return []
-    }
-    
-    const data = await response.json()
-    const entities = data.entities || []
-    
-    // Extract entity names and types
-    const extractedTerms: string[] = []
-    for (const entity of entities) {
-      // Add the entity name
-      if (entity.name) {
-        extractedTerms.push(entity.name.toLowerCase())
+    // Analyze sentiment
+    const sentimentResponse = await fetch(
+      `https://language.googleapis.com/v1/documents:analyzeSentiment?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          document: {
+            content: description,
+            type: 'PLAIN_TEXT',
+          },
+          encodingType: 'UTF8',
+        }),
       }
+    )
+    
+    // Analyze categories
+    const classifyResponse = await fetch(
+      `https://language.googleapis.com/v1/documents:classifyText?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          document: {
+            content: description,
+            type: 'PLAIN_TEXT',
+          },
+          encodingType: 'UTF8',
+        }),
+      }
+    )
+    
+    const extractedTerms: string[] = []
+    const categories: string[] = []
+    let sentiment = 'neutral'
+    
+    // Process entities
+    if (entityResponse.ok) {
+      const entityData = await entityResponse.json()
+      const entities = entityData.entities || []
       
-      // Add entity metadata if available
-      if (entity.metadata) {
-        if (entity.metadata.wikipedia_url) {
-          // Extract topic from Wikipedia URL
+      for (const entity of entities) {
+        if (entity.name) {
+          extractedTerms.push(entity.name.toLowerCase())
+        }
+        
+        if (entity.metadata && entity.metadata.wikipedia_url) {
           const wikiMatch = entity.metadata.wikipedia_url.match(/\/wiki\/([^\/]+)$/)
           if (wikiMatch) {
             extractedTerms.push(wikiMatch[1].toLowerCase().replace(/_/g, ' '))
           }
         }
-      }
-      
-      // Add mentions
-      if (entity.mentions && entity.mentions.length > 0) {
-        for (const mention of entity.mentions) {
-          if (mention.text && mention.text.content) {
-            extractedTerms.push(mention.text.content.toLowerCase())
+        
+        if (entity.mentions && entity.mentions.length > 0) {
+          for (const mention of entity.mentions) {
+            if (mention.text && mention.text.content) {
+              extractedTerms.push(mention.text.content.toLowerCase())
+            }
           }
         }
       }
     }
     
-    console.log(`Extracted ${extractedTerms.length} entities from Google API`)
-    return Array.from(new Set(extractedTerms)) // Remove duplicates
+    // Process sentiment
+    if (sentimentResponse.ok) {
+      const sentimentData = await sentimentResponse.json()
+      const documentSentiment = sentimentData.documentSentiment
+      if (documentSentiment) {
+        if (documentSentiment.score > 0.25) sentiment = 'positive'
+        else if (documentSentiment.score < -0.25) sentiment = 'negative'
+        else sentiment = 'neutral'
+      }
+    }
+    
+    // Process categories
+    if (classifyResponse.ok) {
+      const classifyData = await classifyResponse.json()
+      const categoryData = classifyData.categories || []
+      
+      for (const category of categoryData) {
+        if (category.name) {
+          categories.push(category.name)
+        }
+        if (category.categories) {
+          for (const subCategory of category.categories) {
+            if (subCategory.name) {
+              categories.push(subCategory.name)
+            }
+          }
+        }
+      }
+    }
+    
+    console.log(`Extracted ${extractedTerms.length} entities, ${categories.length} categories, sentiment: ${sentiment}`)
+    return { 
+      entities: Array.from(new Set(extractedTerms)), 
+      categories: Array.from(new Set(categories)),
+      sentiment
+    }
   } catch (error) {
     console.error('Error calling Google API:', error)
-    return []
+    return { entities: [], categories: [], sentiment: 'neutral' }
   }
+}
+
+// Read algorithm data for platform-specific insights
+async function readAlgorithmData(platform: string): Promise<any> {
+  try {
+    const fs = await import('fs/promises')
+    const path = await import('path')
+    const algoPath = path.join(process.cwd(), 'algorithm-data.json')
+    const algoRaw = await fs.readFile(algoPath, 'utf-8')
+    const algoData = JSON.parse(algoRaw)
+    return algoData.data?.[platform] || null
+  } catch (error) {
+    console.error('Could not read algorithm data:', error)
+    return null
+  }
+}
+
+// Extract trending topics and keywords from algorithm data
+function extractAlgorithmInsights(algorithmData: any): { trending: string[], tips: string[], forbidden: string[] } {
+  const trending: string[] = []
+  const tips: string[] = []
+  const forbidden: string[] = []
+  
+  if (!algorithmData) return { trending, tips, forbidden }
+  
+  if (algorithmData.summaries && Array.isArray(algorithmData.summaries)) {
+    for (const summary of algorithmData.summaries) {
+      const words = summary.toLowerCase().split(/\s+/)
+      trending.push(...words.filter((w: string) => w.length > 3))
+    }
+  }
+  
+  if (algorithmData.editingTips) {
+    const words = algorithmData.editingTips.toLowerCase().split(/\s+/)
+    tips.push(...words.filter((w: string) => w.length > 3))
+  }
+  
+  if (algorithmData.postingTips) {
+    const words = algorithmData.postingTips.toLowerCase().split(/\s+/)
+    tips.push(...words.filter((w: string) => w.length > 3))
+  }
+  
+  const forbiddenPatterns = ['avoid', 'don\'t', 'never', 'not', 'spam', 'overuse', 'excessive']
+  if (algorithmData.descriptionTips) {
+    const words = algorithmData.descriptionTips.toLowerCase().split(/\s+/)
+    for (let i = 0; i < words.length; i++) {
+      if (forbiddenPatterns.includes(words[i]) && i < words.length - 1) {
+        forbidden.push(words[i + 1])
+      }
+    }
+  }
+  
+  return {
+    trending: Array.from(new Set(trending)),
+    tips: Array.from(new Set(tips)),
+    forbidden: Array.from(new Set(forbidden))
+  }
+}
+
+// Smart tag matching based on game/platform detection
+function detectContentContext(entities: string[], categories: string[]): { game: string | null, activity: string | null, platform: string | null, niche: string[] } {
+  const gameKeywords: Record<string, string[]> = {
+    'fortnite': ['fortnite', 'victory royale', 'battle royale', 'epic games', 'battle pass'],
+    'minecraft': ['minecraft', 'craft', 'mine', 'block', 'mojang', 'creeper', 'redstone'],
+    'valorant': ['valorant', 'riot games', 'agent', 'spike', 'radiant', 'immortal'],
+    'apex': ['apex legends', 'apex', 'respawn', 'legend', 'wraith', 'octane'],
+    'gta': ['gta', 'grand theft auto', 'rockstar', 'los santos', 'heist'],
+    'cod': ['call of duty', 'cod', 'warzone', 'modern warfare', 'activision'],
+    'league': ['league of legends', 'lol', 'riot', 'summoner', 'rift', 'champion'],
+    'roblox': ['roblox', 'obby', 'tycoon', 'blox', 'adopt me'],
+    'genshin': ['genshin impact', 'teyvat', 'mihoyo', 'honkai', 'zhongli']
+  }
+  
+  const activityKeywords: Record<string, string[]> = {
+    'gaming': ['game', 'play', 'gaming', 'gameplay', 'stream', 'live', 'esports'],
+    'creative': ['art', 'draw', 'paint', 'create', 'design', 'edit', 'creative'],
+    'music': ['music', 'song', 'audio', 'sound', 'beat', 'remix', 'cover'],
+    'cooking': ['cook', 'recipe', 'food', 'bake', 'kitchen', 'chef'],
+    'fitness': ['workout', 'fitness', 'gym', 'exercise', 'health', 'training'],
+    'travel': ['travel', 'trip', 'vacation', 'destination', 'explore', 'adventure'],
+    'comedy': ['funny', 'comedy', 'joke', 'humor', 'laugh', 'meme', 'sketch'],
+    'education': ['tutorial', 'learn', 'educational', 'tips', 'how to', 'guide', 'explain']
+  }
+  
+  const platformKeywords: Record<string, string[]> = {
+    'twitch': ['twitch', 'stream', 'live stream', 'broadcast'],
+    'youtube': ['youtube', 'video', 'content creator', 'channel'],
+    'tiktok': ['tiktok', 'fyp', 'viral', 'trend'],
+    'instagram': ['instagram', 'reels', 'igtv', 'story'],
+    'kick': ['kick', 'kick streaming', 'kick.com']
+  }
+  
+  let detectedGame: string | null = null
+  let detectedActivity: string | null = null
+  let detectedPlatform: string | null = null
+  const detectedNiche: string[] = []
+  
+  const allText = [...entities, ...categories].join(' ').toLowerCase()
+  
+  for (const [game, keywords] of Object.entries(gameKeywords)) {
+    for (const keyword of keywords) {
+      if (allText.includes(keyword)) {
+        detectedGame = game
+        break
+      }
+    }
+    if (detectedGame) break
+  }
+  
+  for (const [activity, keywords] of Object.entries(activityKeywords)) {
+    for (const keyword of keywords) {
+      if (allText.includes(keyword)) {
+        detectedActivity = activity
+        break
+      }
+    }
+    if (detectedActivity) break
+  }
+  
+  for (const [platform, keywords] of Object.entries(platformKeywords)) {
+    for (const keyword of keywords) {
+      if (allText.includes(keyword)) {
+        detectedPlatform = platform
+        break
+      }
+    }
+    if (detectedPlatform) break
+  }
+  
+  for (const category of categories) {
+    const niche = category.split('/').pop()?.toLowerCase()
+    if (niche && niche.length > 3) {
+      detectedNiche.push(niche)
+    }
+  }
+  
+  return {
+    game: detectedGame,
+    activity: detectedActivity,
+    platform: detectedPlatform,
+    niche: detectedNiche
+  }
+}
+
+// Generate platform-specific popular tags based on context
+function generateContextualTags(context: any, platform: string): string[] {
+  const tags: string[] = []
+  
+  if (context.game) {
+    const gameTags: Record<string, string[]> = {
+      'fortnite': ['fortnite', 'fortniteclips', 'fortnitegameplay', 'epicpartner', 'fortnitetips', 'fortnitehighlights', 'fortnitefunny', 'fortniteskin', 'fortnitebattlepass', 'victoryroyale', 'fortnitetournament', 'fortnitecompetitive', 'fortniteranked', 'fortnitearena', 'fortnitecreative', 'fortnitebuild', 'fortniteedit'],
+      'minecraft': ['minecraft', 'minecraftclips', 'minecraftgameplay', 'minecraftmemes', 'minecraftfunny', 'minecraftbuild', 'minecraftbuilding', 'minecraftsurvival', 'minecraftcreative', 'minecraftpvp', 'minecraftserver', 'minecraftrealm', 'minecraftmod', 'minecraftmods', 'minecrafttexture', 'minecraftshader', 'creeper', 'redstone', 'diamond', 'nether', 'enderman'],
+      'valorant': ['valorant', 'valorantclips', 'valorantgameplay', 'riotgames', 'valoranttips', 'valoranthighlights', 'valorantfunny', 'valorantskin', 'valorantagent', 'spike', 'radiant', 'immortal', 'valorantcompetitive', 'valorantranked', 'valorantclutch', 'valorantace', 'jett', 'sage', 'reyna'],
+      'apex': ['apexlegends', 'apex', 'apexclips', 'apexgameplay', 'respawn', 'apextips', 'apexhighlights', 'apexfunny', 'apexlegend', 'apexcharacter', 'wraith', 'octane', 'pathfinder', 'bloodhound', 'apexcompetitive', 'apexranked', 'apexclutch', 'apexace', 'apexpredator'],
+      'gta': ['gta', 'gta5', 'gtaonline', 'gtarp', 'rockstargames', 'gtatips', 'gtahighlights', 'gtafunny', 'gtacar', 'gtamod', 'gtacheats', 'gtaonline', 'lossantos', 'gtaheist', 'gtamission', 'gtamodding', 'gtaroleplay', 'gta6'],
+      'cod': ['callofduty', 'cod', 'warzone', 'modernwarfare', 'activision', 'codtips', 'codhighlights', 'codfunny', 'codloadout', 'codgun', 'codcompetitive', 'codranked', 'codclutch', 'codace', 'codwarzone', 'codmultiplayer', 'codzombies'],
+      'league': ['leagueoflegends', 'lol', 'riotgames', 'loltips', 'lolhighlights', 'lolfunny', 'lolchampion', 'lolskin', 'lolcompetitive', 'lolranked', 'lolclutch', 'lolace', 'lolpro', 'lolchallenger', 'summonerrift', 'baron', 'dragon', 'nexus'],
+      'roblox': ['roblox', 'robloxclips', 'robloxgameplay', 'robloxtips', 'robloxhighlights', 'robloxfunny', 'robloxgame', 'robloxtshirt', 'robloxoutfit', 'robloxcatalog', 'robloxstudio', 'robloxdev', 'robloxbloxy', 'robloxobby', 'robloxtower', 'robloxadventure'],
+      'genshin': ['genshinimpact', 'genshin', 'mihoyo', 'genshintips', 'genshinhighlights', 'genshincharacter', 'genshinskin', 'genshinbuild', 'teyvat', 'zhongli', 'raiden', 'venti', 'nahida', 'furina', 'genshinartifact', 'genshinweapon', 'genshinmap']
+    }
+    
+    if (gameTags[context.game]) {
+      tags.push(...gameTags[context.game])
+    }
+  }
+  
+  // Activity-specific tags
+  if (context.activity) {
+    const activityTags: Record<string, string[]> = {
+      'gaming': ['gaming', 'gamer', 'gameplay', 'gameplayclips', 'gamingcommunity', 'gaminglife', 'gamers', 'esports', 'competitive', 'pro', 'casual', 'hardcore', 'gamingsetup', 'gaminggear', 'gamingchair', 'gamingpc', 'gamingmonitor'],
+      'creative': ['art', 'artist', 'digitalart', 'drawing', 'painting', 'illustration', 'design', 'creative', 'artistsoninstagram', 'artcommunity', 'artoftheday', 'artwork', 'artist', 'sketch', 'doodle', 'artdaily', 'artcollective'],
+      'music': ['music', 'musician', 'artist', 'song', 'cover', 'remix', 'beat', 'producer', 'musicproducer', 'musician', 'musiclife', 'musiclover', 'musicislife', 'newmusic', 'indiemusic', 'hiphop', 'rap', 'rnb', 'pop', 'rock', 'electronic'],
+      'cooking': ['cooking', 'recipe', 'food', 'foodie', 'foodporn', 'chef', 'homecooking', 'cookingtips', 'foodphotography', 'foodstagram', 'yummy', 'delicious', 'homemade', 'foodblogger', 'foodlover', 'tasty', 'foodie', 'instafood'],
+      'fitness': ['fitness', 'workout', 'gym', 'exercise', 'health', 'training', 'fitfam', 'fitnessmotivation', 'fitnessjourney', 'gymrat', 'bodybuilding', 'cardio', 'strength', 'hiit', 'yoga', 'pilates', 'crossfit', 'personaltrainer'],
+      'travel': ['travel', 'travelgram', 'wanderlust', 'travelphotography', 'travelblogger', 'adventure', 'explore', 'vacation', 'trip', 'destination', 'traveling', 'traveler', 'worldtraveler', 'travelhacks', 'travelguide', 'instatravel'],
+      'comedy': ['funny', 'comedy', 'humor', 'laugh', 'jokes', 'memes', 'memedaily', 'memes', 'lol', 'lmao', 'hilarious', 'comedygold', 'standupcomedy', 'funnyvideos', 'viralcomedy', 'sketchcomedy', 'improv'],
+      'education': ['tutorial', 'howto', 'tips', 'learn', 'education', 'educational', 'learning', 'knowledge', 'study', 'studygram', 'productivity', 'selfimprovement', 'motivation', 'inspiration', 'growthmindset', 'lifelonglearning']
+    }
+    
+    if (activityTags[context.activity]) {
+      tags.push(...activityTags[context.activity])
+    }
+  }
+  
+  // Platform-specific tags
+  const platformTags: Record<string, string[]> = {
+    'tiktok': ['fyp', 'foryou', 'foryoupage', 'viral', 'trending', 'tiktokviral', 'tiktoktrend', 'tiktokfamous', 'tiktokmade', 'tiktokdance', 'tiktokchallenge', 'tiktokcomedy', 'tiktoklife', 'tiktokers', 'tiktokindia', 'tiktokusa', 'tiktokuk'],
+    'instagram': ['instagood', 'photooftheday', 'instadaily', 'instamood', 'instalike', 'instafollow', 'instagrammers', 'instacool', 'instafashion', 'instabeauty', 'instatravel', 'instafood', 'instafit', 'instamusic', 'instaart'],
+    'youtube-shorts': ['shorts', 'youtubeshorts', 'shortsviral', 'shortsfeed', 'shortscreator', 'shortsvideo', 'shortsfunny', 'shortscomedy', 'shortstrending', 'shortschallenge', 'shortsdance', 'shortsreact', 'shortscreative'],
+    'youtube-long': ['youtube', 'youtuber', 'youtubechannel', 'youtubers', 'youtubevideo', 'youtubecreator', 'subscribe', 'like', 'comment', 'youtubelife', 'youtubeoriginals', 'youtubegaming', 'youtubemusic', 'youtubevlog'],
+    'facebook-reels': ['facebookreels', 'fbreels', 'facebookvideo', 'facebookwatch', 'facebookgaming', 'facebookcreative', 'facebookfunny', 'facebookviral', 'facebooktrending', 'facebookcontent', 'facebookcreator']
+  }
+  
+  if (platformTags[platform]) {
+    tags.push(...platformTags[platform])
+  }
+  
+  return Array.from(new Set(tags))
 }
 
 const platforms = [
@@ -1545,7 +1808,22 @@ export async function POST(request: Request) {
     }
     
     // Extract entities using Google API for better understanding
-    const googleEntities = await extractEntitiesWithGoogle(description)
+    const googleData = await extractEntitiesWithGoogle(description)
+    const googleEntities = googleData.entities
+    const googleCategories = googleData.categories
+    const googleSentiment = googleData.sentiment
+    
+    // Read algorithm data for platform-specific insights
+    const algoData = await readAlgorithmData(platform)
+    const algorithmInsights = extractAlgorithmInsights(algoData)
+    
+    // Detect content context (game, activity, platform, niche)
+    const contentContext = detectContentContext(googleEntities, googleCategories)
+    console.log('Detected content context:', contentContext)
+    
+    // Generate contextual tags based on detected context
+    const contextualTags = generateContextualTags(contentContext, platform)
+    console.log(`Generated ${contextualTags.length} contextual tags`)
     
     // Read tag database
     const tagData = await readData()
@@ -1559,21 +1837,12 @@ export async function POST(request: Request) {
       console.log(`Using full tag database for ${platform}: ${platformTags.length} tags`)
     }
     
-    // Read algorithm data for platform-specific tips
-    let algorithmData = null
-    try {
-      const fs = await import('fs/promises')
-      const path = await import('path')
-      const algoPath = path.join(process.cwd(), 'algorithm-data.json')
-      const algoRaw = await fs.readFile(algoPath, 'utf-8')
-      const algoData = JSON.parse(algoRaw)
-      algorithmData = algoData.data?.[platform] || null
-    } catch (error) {
-      console.error('Could not read algorithm data:', error)
-    }
-    
     // Generate tags using local algorithm (no API calls)
     const generatedTags = generateTagsFromDescription(description, platformTags, platform, Math.min(count, 50))
+    
+    // Combine contextual tags with generated tags
+    const allTags = [...contextualTags, ...generatedTags]
+    const uniqueTags = Array.from(new Set(allTags))
     
     // If Google API extracted entities, boost those tags in the results
     if (googleEntities.length > 0) {
@@ -1585,8 +1854,13 @@ export async function POST(request: Request) {
         entityBoostMap[entity] = 15 // Significant boost for Google-extracted entities
       }
       
+      // Also boost algorithm trending topics
+      for (const trending of algorithmInsights.trending) {
+        entityBoostMap[trending] = 10 // Boost for trending topics
+      }
+      
       // Re-score tags with Google entity boost
-      const scoredTags = generatedTags.map(tag => {
+      const scoredTags = uniqueTags.map(tag => {
         const tagLower = tag.toLowerCase()
         let boostScore = 0
         
@@ -1597,48 +1871,54 @@ export async function POST(request: Request) {
           }
         }
         
+        // Check if tag matches trending topics
+        for (const trending of algorithmInsights.trending) {
+          if (tagLower.includes(trending) || trending.includes(tagLower)) {
+            boostScore += entityBoostMap[trending] || 10
+          }
+        }
+        
+        // Boost contextual tags (game/activity specific)
+        for (const contextualTag of contextualTags) {
+          if (tagLower === contextualTag.toLowerCase()) {
+            boostScore += 20 // High boost for contextual tags
+          }
+        }
+        
         return { tag, boostScore }
       })
       
-      // Sort by boost score (Google entities first)
+      // Sort by boost score (highest first)
       scoredTags.sort((a, b) => b.boostScore - a.boostScore)
       
-      // Reorder generated tags based on boost
+      // Reorder tags based on boost
       const boostedTags = scoredTags.map(st => st.tag)
       
-      // Mix boosted tags with original generated tags
-      const finalTags: string[] = []
-      const usedTags = new Set<string>()
-      
-      // First add all boosted tags
-      for (const tag of boostedTags) {
-        if (!usedTags.has(tag)) {
-          finalTags.push(tag)
-          usedTags.add(tag)
-        }
-      }
-      
-      // Then add remaining original tags
-      for (const tag of generatedTags) {
-        if (!usedTags.has(tag)) {
-          finalTags.push(tag)
-          usedTags.add(tag)
-        }
-      }
-      
       return NextResponse.json({
-        tags: finalTags.slice(0, count),
+        tags: boostedTags.slice(0, count),
         platform,
-        count: finalTags.slice(0, count).length,
+        count: boostedTags.slice(0, count).length,
         googleEntities,
+        googleCategories,
+        googleSentiment,
+        contentContext,
+        algorithmInsights,
+        contextualTagsCount: contextualTags.length,
         generatedAt: new Date().toISOString()
       })
     }
     
+    // Fallback without Google API - still use contextual tags
+    const finalTags = [...contextualTags, ...generatedTags]
+    const finalUniqueTags = Array.from(new Set(finalTags))
+    
     return NextResponse.json({
-      tags: generatedTags,
+      tags: finalUniqueTags.slice(0, count),
       platform,
-      count: generatedTags.length,
+      count: finalUniqueTags.slice(0, count).length,
+      contentContext,
+      algorithmInsights,
+      contextualTagsCount: contextualTags.length,
       generatedAt: new Date().toISOString()
     })
   } catch (error) {
