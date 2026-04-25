@@ -312,20 +312,63 @@ function generateTagVariations(tag: string, platform: string): string[] {
   return variations.slice(0, 5)
 }
 
-// Enhanced local tag generation - no API calls
+// In-house AI Tag Generation System with Advanced NLP
 function generateTagsFromDescription(description: string, platformTags: string[], platform: string, count: number): string[] {
   const descLower = description.toLowerCase()
   
-  // Extract all meaningful keywords from description
-  const extractKeywords = (text: string): string[] => {
-    return text
+  // Advanced NLP: Extract words with position and context
+  const extractWordFeatures = (text: string): Array<{word: string, position: number, isStart: boolean, isEnd: boolean}> => {
+    const words = text
       .replace(/[^a-z0-9\s]/g, ' ')
       .split(/\s+/)
       .filter(word => word.length > 2)
       .filter(word => ['and', 'the', 'for', 'with', 'from', 'this', 'that', 'have', 'been', 'were', 'they', 'their', 'what', 'when', 'where', 'which', 'while', 'about', 'after', 'before', 'between', 'through', 'during', 'above', 'below', 'under', 'over'].indexOf(word) === -1)
+    
+    return words.map((word, index) => ({
+      word,
+      position: index,
+      isStart: index === 0,
+      isEnd: index === words.length - 1
+    }))
   }
   
-  const descriptionWords = extractKeywords(descLower)
+  const wordFeatures = extractWordFeatures(descLower)
+  const descriptionWords = wordFeatures.map(f => f.word)
+  
+  // N-gram analysis: detect word sequences (2-grams and 3-grams)
+  const extractNgrams = (words: string[], n: number): string[] => {
+    const ngrams: string[] = []
+    for (let i = 0; i <= words.length - n; i++) {
+      ngrams.push(words.slice(i, i + n).join(''))
+    }
+    return ngrams
+  }
+  
+  const bigrams = extractNgrams(descriptionWords, 2)
+  const trigrams = extractNgrams(descriptionWords, 3)
+  
+  // Sentiment analysis: detect positive/negative/emotional words
+  const sentimentWords: Record<string, string[]> = {
+    positive: ['amazing', 'awesome', 'epic', 'insane', 'crazy', 'incredible', 'best', 'perfect', 'love', 'beautiful', 'stunning', 'fantastic', 'great', 'good', 'nice', 'cool', 'lit', 'fire', 'dope', 'sick', 'legendary', 'godlike', 'master', 'pro', 'skilled', 'talented'],
+    negative: ['bad', 'terrible', 'awful', 'worst', 'hate', 'ugly', 'disgusting', 'fail', 'failed', 'mistake', 'error', 'wrong', 'broken', 'trash', 'garbage', 'stupid', 'dumb', 'idiotic', 'ridiculous', 'pathetic', 'weak', 'noob', 'beginner', 'amateur'],
+    excitement: ['omg', 'wow', 'holy', 'shock', 'surprise', 'unbelievable', 'mindblowing', 'unreal', 'crazy', 'insane', 'epic', 'huge', 'massive', 'giant', 'colossal', 'enormous', 'infinite', 'limitless', 'ultimate', 'final', 'endgame'],
+    action: ['kill', 'win', 'destroy', 'crush', 'dominate', 'smash', 'beat', 'defeat', 'conquer', 'capture', 'steal', 'rob', 'escape', 'survive', 'escape', 'rescue', 'save', 'protect', 'defend', 'attack', 'fight', 'battle', 'war']
+  }
+  
+  let detectedSentiment: string | null = null
+  const sentimentKeys = Object.keys(sentimentWords)
+  for (let i = 0; i < sentimentKeys.length; i++) {
+    const sentiment = sentimentKeys[i]
+    const words = sentimentWords[sentiment]
+    let matchCount = 0
+    for (let j = 0; j < words.length; j++) {
+      if (descLower.indexOf(words[j]) !== -1) matchCount++
+    }
+    if (matchCount >= 1) {
+      detectedSentiment = sentiment
+      break
+    }
+  }
   
   // Game detection - identify the PRIMARY game being played
   const gameKeywords: Record<string, string[]> = {
@@ -421,17 +464,48 @@ function generateTagsFromDescription(description: string, platformTags: string[]
     }
   }
   
-  // Score each tag with intelligent game-specific logic
+  // Score each tag with advanced NLP-based logic
   const scoredTags = platformTags.map(tag => {
     let score = 0
     const tagLower = tag.toLowerCase()
     
-    // Direct word matches from description (highest priority)
-    for (let i = 0; i < descriptionWords.length; i++) {
-      const word = descriptionWords[i]
-      if (tagLower === word) score += 30
-      else if (tagLower.indexOf(word) !== -1) score += 20
-      else if (word.indexOf(tagLower) !== -1 && tagLower.length > 3) score += 10
+    // N-gram matching: check if tag matches bigrams or trigrams (highest priority)
+    for (let i = 0; i < trigrams.length; i++) {
+      if (tagLower === trigrams[i]) score += 60
+      else if (tagLower.indexOf(trigrams[i]) !== -1) score += 40
+    }
+    for (let i = 0; i < bigrams.length; i++) {
+      if (tagLower === bigrams[i]) score += 50
+      else if (tagLower.indexOf(bigrams[i]) !== -1) score += 35
+    }
+    
+    // Word position scoring: start/end words are more important
+    for (let i = 0; i < wordFeatures.length; i++) {
+      const feature = wordFeatures[i]
+      if (tagLower === feature.word) {
+        if (feature.isStart) score += 35
+        else if (feature.isEnd) score += 30
+        else score += 25
+      } else if (tagLower.indexOf(feature.word) !== -1) {
+        if (feature.isStart) score += 20
+        else if (feature.isEnd) score += 18
+        else score += 15
+      } else if (feature.word.indexOf(tagLower) !== -1 && tagLower.length > 3) {
+        score += 8
+      }
+    }
+    
+    // Sentiment-based boosting
+    if (detectedSentiment) {
+      if (detectedSentiment === 'positive') {
+        if (['epic', 'amazing', 'awesome', 'best', 'top', 'pro', 'master', 'legendary', 'godlike', 'insane', 'crazy'].some(s => tagLower.indexOf(s) !== -1)) score += 20
+      } else if (detectedSentiment === 'negative') {
+        if (['fail', 'worst', 'bad', 'trash', 'garbage', 'noob', 'beginner', 'amateur'].some(s => tagLower.indexOf(s) !== -1)) score += 20
+      } else if (detectedSentiment === 'excitement') {
+        if (['viral', 'trending', 'epic', 'insane', 'crazy', 'huge', 'massive', 'ultimate', 'mindblowing'].some(s => tagLower.indexOf(s) !== -1)) score += 20
+      } else if (detectedSentiment === 'action') {
+        if (['kill', 'win', 'destroy', 'crush', 'dominate', 'smash', 'beat', 'defeat', 'conquer', 'clutch', 'ace'].some(s => tagLower.indexOf(s) !== -1)) score += 20
+      }
     }
     
     // GAME-SPECIFIC SCORING - Only boost the detected game
