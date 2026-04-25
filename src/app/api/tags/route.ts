@@ -195,36 +195,56 @@ function extractAlgorithmInsights(algorithmData: any): { trending: string[], tip
 }
 
 // Smart tag matching based on game/platform detection
-function detectContentContext(entities: string[], categories: string[]): { game: string | null, activity: string | null, platform: string | null, niche: string[] } {
+function detectContentContext(entities: string[], categories: string[], description: string): { game: string | null, activity: string | null, platform: string | null, niche: string[] } {
   const gameKeywords: Record<string, string[]> = {
-    'fortnite': ['fortnite', 'victory royale', 'battle royale', 'epic games', 'battle pass'],
-    'minecraft': ['minecraft', 'craft', 'mine', 'block', 'mojang', 'creeper', 'redstone'],
-    'valorant': ['valorant', 'riot games', 'agent', 'spike', 'radiant', 'immortal'],
-    'apex': ['apex legends', 'apex', 'respawn', 'legend', 'wraith', 'octane'],
-    'gta': ['gta', 'grand theft auto', 'rockstar', 'los santos', 'heist'],
-    'cod': ['call of duty', 'cod', 'warzone', 'modern warfare', 'activision'],
-    'league': ['league of legends', 'lol', 'riot', 'summoner', 'rift', 'champion'],
-    'roblox': ['roblox', 'obby', 'tycoon', 'blox', 'adopt me'],
-    'genshin': ['genshin impact', 'teyvat', 'mihoyo', 'honkai', 'zhongli']
+    'fortnite': ['fortnite', 'victory royale', 'battle royale', 'epic games', 'battle pass', 'epic'],
+    'minecraft': ['minecraft', 'craft', 'mine', 'block', 'mojang', 'creeper', 'redstone', 'steve', 'alex'],
+    'valorant': ['valorant', 'riot games', 'agent', 'spike', 'radiant', 'immortal', 'jett', 'sage', 'reyna', 'viper'],
+    'apex': ['apex legends', 'apex', 'respawn', 'legend', 'wraith', 'octane', 'pathfinder', 'bloodhound', 'gibraltar'],
+    'gta': ['gta', 'grand theft auto', 'rockstar', 'los santos', 'heist', 'gta v', 'gta 5', 'gta online', 'gta vi', 'gta 6'],
+    'cod': ['call of duty', 'cod', 'warzone', 'modern warfare', 'activision', 'black ops', 'cold war', 'mw3', 'mw2'],
+    'league': ['league of legends', 'lol', 'riot', 'summoner', 'rift', 'champion', 'nexus', 'baron', 'dragon', 'inhibitor'],
+    'roblox': ['roblox', 'obby', 'tycoon', 'blox', 'adopt me', 'brookhaven', 'murder mystery', 'tower of hell'],
+    'genshin': ['genshin impact', 'teyvat', 'mihoyo', 'honkai', 'zhongli', 'raiden', 'venti', 'nahida', 'furina', 'kazuha'],
+    'overwatch': ['overwatch', 'blizzard', 'hero', 'tank', 'support', 'dps', 'payload', 'capture point', 'watchpoint'],
+    'cs': ['counter strike', 'cs', 'cs2', 'cs go', 'csgo', 'valve', 'terrorist', 'counter terrorist', 'bomb', 'defuse'],
+    'rocket league': ['rocket league', 'psyonix', 'car soccer', 'rl', 'rocket pass', 'ranked', 'standard', 'hoops', 'dropshot'],
+    'fifa': ['fifa', 'ea sports', 'fc 24', 'fc 25', 'ultimate team', 'fut', 'career mode', 'volta', 'pro clubs'],
+    'nba 2k': ['nba 2k', '2k', '2k24', '2k25', 'mycareer', 'myteam', 'park', 'rec', 'neighborhood'],
+    'destiny': ['destiny', 'destiny 2', 'bungie', 'guardian', 'crucible', 'raid', 'strike', 'lightfall', 'final shape'],
+    'elden ring': ['elden ring', 'fromsoftware', 'souls', 'boss', 'malenia', 'godrick', 'radahn', 'lands between'],
+    'fall guys': ['fall guys', 'mediatonic', 'epic games', 'bean', 'round', 'obstacle', 'slime', 'fall mountain'],
+    'among us': ['among us', 'inner sloth', 'impostor', 'crewmate', 'sus', 'emergency meeting', 'vent', 'skeld'],
+    'stardew valley': ['stardew valley', 'concernedape', 'farming', 'pelican town', 'harvest', 'fishing', 'mining'],
+    'animal crossing': ['animal crossing', 'nintendo', 'nook', 'tom nook', 'island', 'villager', 'turnip', 'bells'],
+    'warframe': ['warframe', 'digital extremes', 'tenno', 'grineer', 'corpus', 'infested', 'void', 'mods', 'relics'],
+    'rainbow six': ['rainbow six siege', 'r6', 'r6s', 'ubisoft', 'operators', 'siege', 'defenders', 'attackers', 'bomb'],
+    'starfield': ['starfield', 'bethesda', 'space', 'exploration', 'ship', 'constellation', 'new atlantis', 'akila city'],
+    'baldur\'s gate': ['baldur\'s gate', 'baldur\'s gate 3', 'larian', 'd&d', 'dungeons and dragons', 'faerun', 'gale', 'astarion', 'karlach'],
+    'diablo': ['diablo', 'diablo 4', 'blizzard', 'd4', 'sanctuary', 'necromancer', 'barbarian', 'sorcerer', 'rogue', 'druid'],
+    'world of warcraft': ['world of warcraft', 'wow', 'blizzard', 'azeroth', 'horde', 'alliance', 'raiding', 'dungeon', 'mythic plus']
   }
   
   const activityKeywords: Record<string, string[]> = {
-    'gaming': ['game', 'play', 'gaming', 'gameplay', 'stream', 'live', 'esports'],
-    'creative': ['art', 'draw', 'paint', 'create', 'design', 'edit', 'creative'],
-    'music': ['music', 'song', 'audio', 'sound', 'beat', 'remix', 'cover'],
-    'cooking': ['cook', 'recipe', 'food', 'bake', 'kitchen', 'chef'],
-    'fitness': ['workout', 'fitness', 'gym', 'exercise', 'health', 'training'],
-    'travel': ['travel', 'trip', 'vacation', 'destination', 'explore', 'adventure'],
-    'comedy': ['funny', 'comedy', 'joke', 'humor', 'laugh', 'meme', 'sketch'],
-    'education': ['tutorial', 'learn', 'educational', 'tips', 'how to', 'guide', 'explain']
+    'gaming': ['game', 'play', 'gaming', 'gameplay', 'stream', 'live', 'esports', 'competitive', 'tournament', 'match', 'round'],
+    'creative': ['art', 'draw', 'paint', 'create', 'design', 'edit', 'creative', 'illustration', 'digital art', 'sketch', 'doodle'],
+    'music': ['music', 'song', 'audio', 'sound', 'beat', 'remix', 'cover', 'dj', 'producer', 'artist', 'band', 'concert'],
+    'cooking': ['cook', 'recipe', 'food', 'bake', 'kitchen', 'chef', 'cooking', 'meal', 'dinner', 'lunch', 'breakfast', 'baking'],
+    'fitness': ['workout', 'fitness', 'gym', 'exercise', 'health', 'training', 'fit', 'cardio', 'strength', 'weights', 'yoga', 'pilates'],
+    'travel': ['travel', 'trip', 'vacation', 'destination', 'explore', 'adventure', 'journey', 'tour', 'sightseeing', 'wanderlust'],
+    'comedy': ['funny', 'comedy', 'joke', 'humor', 'laugh', 'meme', 'sketch', 'standup', 'improv', 'hilarious', 'lol', 'lmao'],
+    'education': ['tutorial', 'learn', 'educational', 'tips', 'how to', 'guide', 'explain', 'teach', 'study', 'knowledge', 'learning']
   }
   
   const platformKeywords: Record<string, string[]> = {
-    'twitch': ['twitch', 'stream', 'live stream', 'broadcast'],
-    'youtube': ['youtube', 'video', 'content creator', 'channel'],
-    'tiktok': ['tiktok', 'fyp', 'viral', 'trend'],
-    'instagram': ['instagram', 'reels', 'igtv', 'story'],
-    'kick': ['kick', 'kick streaming', 'kick.com']
+    'twitch': ['twitch', 'twitch.tv', 'twitch dot tv', 'stream on twitch', 'twitch streamer', 'twitch channel', 'twitch live'],
+    'youtube': ['youtube', 'youtube.com', 'youtu.be', 'youtube channel', 'youtube video', 'youtube live', 'youtube streaming'],
+    'tiktok': ['tiktok', 'tiktok.com', 'tik tok', 'tiktok account', 'tiktok video', 'tiktok live', 'tiktok creator'],
+    'instagram': ['instagram', 'instagram.com', 'insta', 'instagram account', 'instagram live', 'instagram reels', 'igtv'],
+    'kick': ['kick', 'kick.com', 'kick streaming', 'kick streamer', 'kick live', 'kick channel', 'kick.com streaming'],
+    'facebook': ['facebook', 'facebook.com', 'fb', 'facebook live', 'facebook gaming', 'facebook watch', 'facebook reels'],
+    'twitter': ['twitter', 'twitter.com', 'x.com', 'twitter space', 'twitter live', 'tweet', 'x platform'],
+    'discord': ['discord', 'discord.gg', 'discord server', 'discord community', 'discord voice', 'discord stream']
   }
   
   let detectedGame: string | null = null
@@ -232,8 +252,42 @@ function detectContentContext(entities: string[], categories: string[]): { game:
   let detectedPlatform: string | null = null
   const detectedNiche: string[] = []
   
-  const allText = [...entities, ...categories].join(' ').toLowerCase()
+  const allText = [...entities, ...categories, description].join(' ').toLowerCase()
+  const descLower = description.toLowerCase()
   
+  // Check for platform URLs first (highest priority)
+  if (descLower.includes('kick.com') || descLower.includes('kick.com/')) {
+    detectedPlatform = 'kick'
+  } else if (descLower.includes('twitch.tv') || descLower.includes('twitch.tv/')) {
+    detectedPlatform = 'twitch'
+  } else if (descLower.includes('youtube.com') || descLower.includes('youtu.be')) {
+    detectedPlatform = 'youtube'
+  } else if (descLower.includes('tiktok.com') || descLower.includes('tiktok.com/')) {
+    detectedPlatform = 'tiktok'
+  } else if (descLower.includes('instagram.com') || descLower.includes('instagr.am')) {
+    detectedPlatform = 'instagram'
+  } else if (descLower.includes('facebook.com') || descLower.includes('fb.com')) {
+    detectedPlatform = 'facebook'
+  } else if (descLower.includes('twitter.com') || descLower.includes('x.com')) {
+    detectedPlatform = 'twitter'
+  } else if (descLower.includes('discord.gg')) {
+    detectedPlatform = 'discord'
+  }
+  
+  // If no URL found, check for explicit platform mentions
+  if (!detectedPlatform) {
+    for (const [platform, keywords] of Object.entries(platformKeywords)) {
+      for (const keyword of keywords) {
+        if (descLower.includes(keyword)) {
+          detectedPlatform = platform
+          break
+        }
+      }
+      if (detectedPlatform) break
+    }
+  }
+  
+  // Detect game
   for (const [game, keywords] of Object.entries(gameKeywords)) {
     for (const keyword of keywords) {
       if (allText.includes(keyword)) {
@@ -244,6 +298,7 @@ function detectContentContext(entities: string[], categories: string[]): { game:
     if (detectedGame) break
   }
   
+  // Detect activity
   for (const [activity, keywords] of Object.entries(activityKeywords)) {
     for (const keyword of keywords) {
       if (allText.includes(keyword)) {
@@ -254,16 +309,7 @@ function detectContentContext(entities: string[], categories: string[]): { game:
     if (detectedActivity) break
   }
   
-  for (const [platform, keywords] of Object.entries(platformKeywords)) {
-    for (const keyword of keywords) {
-      if (allText.includes(keyword)) {
-        detectedPlatform = platform
-        break
-      }
-    }
-    if (detectedPlatform) break
-  }
-  
+  // Extract niche from categories
   for (const category of categories) {
     const niche = category.split('/').pop()?.toLowerCase()
     if (niche && niche.length > 3) {
@@ -293,7 +339,24 @@ function generateContextualTags(context: any, platform: string): string[] {
       'cod': ['callofduty', 'cod', 'warzone', 'modernwarfare', 'activision', 'codtips', 'codhighlights', 'codfunny', 'codloadout', 'codgun', 'codcompetitive', 'codranked', 'codclutch', 'codace', 'codwarzone', 'codmultiplayer', 'codzombies'],
       'league': ['leagueoflegends', 'lol', 'riotgames', 'loltips', 'lolhighlights', 'lolfunny', 'lolchampion', 'lolskin', 'lolcompetitive', 'lolranked', 'lolclutch', 'lolace', 'lolpro', 'lolchallenger', 'summonerrift', 'baron', 'dragon', 'nexus'],
       'roblox': ['roblox', 'robloxclips', 'robloxgameplay', 'robloxtips', 'robloxhighlights', 'robloxfunny', 'robloxgame', 'robloxtshirt', 'robloxoutfit', 'robloxcatalog', 'robloxstudio', 'robloxdev', 'robloxbloxy', 'robloxobby', 'robloxtower', 'robloxadventure'],
-      'genshin': ['genshinimpact', 'genshin', 'mihoyo', 'genshintips', 'genshinhighlights', 'genshincharacter', 'genshinskin', 'genshinbuild', 'teyvat', 'zhongli', 'raiden', 'venti', 'nahida', 'furina', 'genshinartifact', 'genshinweapon', 'genshinmap']
+      'genshin': ['genshinimpact', 'genshin', 'mihoyo', 'genshintips', 'genshinhighlights', 'genshincharacter', 'genshinskin', 'genshinbuild', 'teyvat', 'zhongli', 'raiden', 'venti', 'nahida', 'furina', 'genshinartifact', 'genshinweapon', 'genshinmap'],
+      'overwatch': ['overwatch', 'overwatchclips', 'overwatchgameplay', 'blizzard', 'overwatchtips', 'overwatchhighlights', 'overwatchfunny', 'overwatchhero', 'overwatchcompetitive', 'overwatchranked', 'overwatchclutch', 'overwatchace', 'tank', 'support', 'dps', 'payload', 'capturepoint'],
+      'cs': ['csgo', 'cs2', 'counterstrike', 'counterstrikeclips', 'counterstrikegameplay', 'valve', 'cstips', 'cshighlights', 'csfunny', 'csgun', 'cscompetitive', 'csranked', 'csclutch', 'csace', 'terrorist', 'counterterrorist', 'bomb', 'defuse'],
+      'rocket league': ['rocketleague', 'rocketleagueclips', 'rocketleaguegameplay', 'psyonix', 'rocketleaguetips', 'rocketleaguehighlights', 'rocketleaguefunny', 'rocketleaguecar', 'rocketleaguecompetitive', 'rocketleagueranked', 'rocketleagueclutch', 'rocketleagueace', 'rl', 'rocketpass', 'standard', 'hoops', 'dropshot'],
+      'fifa': ['fifa', 'fifaclips', 'fifagameplay', 'easports', 'fifatips', 'fifahighlights', 'fifafunny', 'fifaultimateteam', 'fifafut', 'fifacareermode', 'fifavolta', 'fifaproclubs', 'fc24', 'fc25'],
+      'nba 2k': ['nba2k', 'nba2kclips', 'nba2kgameplay', '2k', '2ktips', '2khighlights', '2kfunny', '2kmycareer', '2kmyteam', '2kpark', '2krec', '2kneighborhood', '2k24', '2k25'],
+      'destiny': ['destiny', 'destiny2', 'destinyclips', 'destinygameplay', 'bungie', 'destinytips', 'destinyhighlights', 'destinyfunny', 'destinyguardian', 'destinycrucible', 'destinyraid', 'destinystrike', 'lightfall', 'finalshape'],
+      'elden ring': ['eldenring', 'eldenringclips', 'eldenringgameplay', 'fromsoftware', 'eldenringtips', 'eldenringhighlights', 'eldenringfunny', 'eldenringboss', 'eldenringbuild', 'souls', 'malenia', 'godrick', 'radahn', 'landsbetween'],
+      'fall guys': ['fallguys', 'fallguysclips', 'fallguysgameplay', 'mediatonic', 'fallguystips', 'fallguyshighlights', 'fallguysfunny', 'fallguysbean', 'fallguysround', 'fallguysobstacle', 'fallmountain', 'slime'],
+      'among us': ['amongus', 'amongusclips', 'amongusgameplay', 'innersloth', 'amongustips', 'amongushighlights', 'amongusfunny', 'amongusimpostor', 'amonguscrewmate', 'sus', 'emergencymeeting', 'vent', 'skeld'],
+      'stardew valley': ['stardewvalley', 'stardewvalleyclips', 'stardewvalleygameplay', 'concernedape', 'stardewvalleytips', 'stardewvalleyhighlights', 'stardewvalleyfunny', 'stardewvalleyfarming', 'pelicantown', 'harvest', 'fishing', 'mining'],
+      'animal crossing': ['animalcrossing', 'animalcrossingclips', 'animalcrossinggameplay', 'nintendo', 'animalcrossingtips', 'animalcrossinghighlights', 'animalcrossingfunny', 'animalcrossingisland', 'tomnook', 'villager', 'turnip', 'bells'],
+      'warframe': ['warframe', 'warframeclips', 'warframegameplay', 'digitalextremes', 'warframetips', 'warframehighlights', 'warframefunny', 'warframetenno', 'warframegrineer', 'warframecorpus', 'warframeinfested', 'warframevoid', 'warframemods', 'warframerelics'],
+      'rainbow six': ['rainbowsix', 'rainbowsixsiege', 'r6', 'r6s', 'rainbowsixclips', 'rainbowsixgameplay', 'ubisoft', 'rainbowsixtips', 'rainbowsixhighlights', 'rainbowsixfunny', 'rainbowsixoperators', 'r6defenders', 'r6attackers', 'r6bomb'],
+      'starfield': ['starfield', 'starfieldclips', 'starfieldgameplay', 'bethesda', 'starfieldtips', 'starfieldhighlights', 'starfieldfunny', 'starfieldspace', 'starfieldexploration', 'starfieldship', 'starfieldconstellation', 'newatlantis', 'akilacity'],
+      'baldur\'s gate': ['baldursgate', 'baldursgate3', 'baldursgateclips', 'baldursgategameplay', 'larian', 'baldursgatetips', 'baldursgatehighlights', 'baldursgatefunny', 'dd', 'dungeonsanddragons', 'faerun', 'gale', 'astarion', 'karlach'],
+      'diablo': ['diablo', 'diablo4', 'diabloclips', 'diablogameplay', 'blizzard', 'diablotips', 'diablohighlights', 'diablofunny', 'd4', 'sanctuary', 'diablonecromancer', 'diablobarbarian', 'diablosorcerer', 'diaborogue', 'diablodruid'],
+      'world of warcraft': ['worldofwarcraft', 'wow', 'wowclips', 'wowgameplay', 'blizzard', 'wowtips', 'wowhighlights', 'wowfunny', 'azeroth', 'wowhorde', 'wowalliance', 'wowraiding', 'wowdungeon', 'wowmythicplus']
     }
     
     if (gameTags[context.game]) {
@@ -1818,7 +1881,7 @@ export async function POST(request: Request) {
     const algorithmInsights = extractAlgorithmInsights(algoData)
     
     // Detect content context (game, activity, platform, niche)
-    const contentContext = detectContentContext(googleEntities, googleCategories)
+    const contentContext = detectContentContext(googleEntities, googleCategories, description)
     console.log('Detected content context:', contentContext)
     
     // Generate contextual tags based on detected context
@@ -1838,7 +1901,7 @@ export async function POST(request: Request) {
     }
     
     // Generate tags using local algorithm (no API calls)
-    const generatedTags = generateTagsFromDescription(description, platformTags, platform, Math.min(count, 50))
+    const generatedTags = generateTagsFromDescription(description, platformTags, platform, Math.min(count, 40))
     
     // Combine contextual tags with generated tags
     const allTags = [...contextualTags, ...generatedTags]
