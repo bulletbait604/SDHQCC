@@ -290,8 +290,8 @@ export class HashyAlgorithm {
       }
     }
 
-    // Sort by popularity (highest first)
-    return detectedGames.sort((a, b) => b.popularity - a.popularity).slice(0, 5);
+    // Sort by match score first, then popularity (highest first)
+    return detectedGames.sort((a, b) => b.popularity - a.popularity).slice(0, 3);
   }
 
   /**
@@ -401,7 +401,7 @@ export class HashyAlgorithm {
     targetPlatform?: string
   ): { generatedTags: string[], contextualTags: string[], algorithmTips?: string[] } {
     console.log('[HASHY] generateTagsInternal called with:', { 
-      detectedGames: detectedGames.length, 
+      detectedGames: detectedGames.map(g => ({ name: g.name, popularity: g.popularity })), 
       detectedPlatform: detectedPlatform?.name, 
       keywordsCount: keywords.length,
       targetPlatform 
@@ -411,11 +411,13 @@ export class HashyAlgorithm {
     const contextualTags: string[] = [];
     const algorithmTips: string[] = [];
 
-    // Add game-specific tags
-    for (const game of detectedGames) {
-      generatedTags.push(...game.tags.slice(0, 10));
-      contextualTags.push(game.name);
-      contextualTags.push(...game.genre.slice(0, 3));
+    // Only use the highest-scoring detected game to avoid mixing unrelated game tags
+    if (detectedGames.length > 0) {
+      const bestGame = detectedGames[0]; // Already sorted by popularity (which includes match score)
+      console.log('[HASHY] Using best game:', bestGame.name)
+      generatedTags.push(...bestGame.tags.slice(0, 15));
+      contextualTags.push(bestGame.name);
+      contextualTags.push(...bestGame.genre.slice(0, 3));
     }
     console.log('[HASHY] After game tags:', generatedTags.length)
 
