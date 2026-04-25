@@ -516,12 +516,20 @@ export default function HomePage() {
   }
 
   const handleVerifySubscription = () => {
-    setShowSubscribePopup(true)
-    // Generate payment code when opening popup
-    setTimeout(() => {
+    // Generate payment code when opening popup (only if not already generated)
+    if (!paymentCode) {
       const code = generatePaymentCode()
-      if (code) setPaymentCode(code)
-    }, 0)
+      if (code) {
+        setPaymentCode(code)
+        // Store pending payment
+        localStorage.setItem('pendingPayment', JSON.stringify({
+          code,
+          username: user?.username,
+          timestamp: Date.now()
+        }))
+      }
+    }
+    setShowSubscribePopup(true)
   }
 
   const handleClearActivityLog = () => {
@@ -555,15 +563,18 @@ export default function HomePage() {
   const [paymentCode, setPaymentCode] = useState('')
   
   const initiatePayPalPayment = () => {
-    const code = generatePaymentCode()
-    if (code) {
-      setPaymentCode(code)
-      // Store pending payment
-      localStorage.setItem('pendingPayment', JSON.stringify({
-        code,
-        username: user?.username,
-        timestamp: Date.now()
-      }))
+    // Don't regenerate code - use existing one
+    if (!paymentCode) {
+      const code = generatePaymentCode()
+      if (code) {
+        setPaymentCode(code)
+        // Store pending payment
+        localStorage.setItem('pendingPayment', JSON.stringify({
+          code,
+          username: user?.username,
+          timestamp: Date.now()
+        }))
+      }
     }
   }
   
