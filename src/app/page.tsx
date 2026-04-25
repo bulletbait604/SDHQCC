@@ -516,18 +516,16 @@ export default function HomePage() {
   }
 
   const handleVerifySubscription = () => {
-    // Generate payment code when opening popup (only if not already generated)
-    if (!paymentCode) {
-      const code = generatePaymentCode()
-      if (code) {
-        setPaymentCode(code)
-        // Store pending payment
-        localStorage.setItem('pendingPayment', JSON.stringify({
-          code,
-          username: user?.username,
-          timestamp: Date.now()
-        }))
-      }
+    // Generate payment code when opening popup
+    const code = generatePaymentCode()
+    if (code) {
+      setPaymentCode(code)
+      // Store pending payment
+      localStorage.setItem('pendingPayment', JSON.stringify({
+        code,
+        username: user?.username,
+        timestamp: Date.now()
+      }))
     }
     setShowSubscribePopup(true)
   }
@@ -1971,7 +1969,8 @@ export default function HomePage() {
                 <Button
                   onClick={() => {
                     initiatePayPalPayment()
-                    window.open(`https://www.paypal.com/paypalme/bulletbait604/6.99`, '_blank')
+                    const paypalUrl = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=bulletbotkick@gmail.com&currency_code=CAD&amount=6.99&item_name=SDHQ%20Creator%20Corner%20Subscription&note=${encodeURIComponent(paymentCode)}`
+                    window.open(paypalUrl, '_blank')
                   }}
                   className="flex-1 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
                 >
@@ -1982,7 +1981,8 @@ export default function HomePage() {
                   variant="outline"
                   onClick={() => {
                     initiatePayPalPayment()
-                    window.open('https://www.paypal.com/paypalme/bulletbait604', '_blank')
+                    const paypalUrl = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=bulletbotkick@gmail.com&currency_code=CAD&item_name=SDHQ%20Creator%20Corner%20Donation&note=${encodeURIComponent(paymentCode)}`
+                    window.open(paypalUrl, '_blank')
                   }}
                   className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
                 >
