@@ -1261,9 +1261,9 @@ function generateTagsFromDescription(description: string, platformTags: string[]
   // Sort by score descending
   scoredTags.sort((a, b) => b.score - a.score)
   
-  // Adaptive minimum score threshold - adjust based on available high-scoring tags
-  const highScoringTags = scoredTags.filter(st => st.score >= 5)
-  const mediumScoringTags = scoredTags.filter(st => st.score >= 2 && st.score < 5)
+  // Adaptive minimum score threshold - very lenient to ensure multiple tags
+  const highScoringTags = scoredTags.filter(st => st.score >= 2)
+  const mediumScoringTags = scoredTags.filter(st => st.score >= 0 && st.score < 2)
   
   // Start with high-scoring tags
   let selectedTags = highScoringTags.slice(0, count).map(st => st.tag)
@@ -1281,6 +1281,13 @@ function generateTagsFromDescription(description: string, platformTags: string[]
     })
     
     selectedTags = selectedTags.concat(mediumTagsWithContext.slice(0, remaining).map(st => st.tag))
+  }
+  
+  // If still not enough, add any remaining tags with positive scores
+  if (selectedTags.length < count) {
+    const remaining = count - selectedTags.length
+    const anyPositiveTags = scoredTags.filter(st => st.score > 0 && selectedTags.indexOf(st.tag) === -1)
+    selectedTags = selectedTags.concat(anyPositiveTags.slice(0, remaining).map(st => st.tag))
   }
   
   // Final fallback: add tags from detected context only (maintains relevance)
