@@ -25,12 +25,12 @@ function checkRateLimit(identifier: string, maxUses: number = 3, windowMs: numbe
   return { allowed: true, remaining: maxUses - userLimit.count, resetTime: userLimit.resetTime }
 }
 
-// Generate tags using OpenAI
-async function generateTagsWithOpenAI(description: string, platform: string, count: number): Promise<string[]> {
-  const apiKey = process.env.OPENAI_API_KEY
+// Generate tags using Gemini
+async function generateTagsWithGemini(description: string, platform: string, count: number): Promise<string[]> {
+  const apiKey = process.env.GEMINI_API_KEY
   
   if (!apiKey) {
-    throw new Error('OpenAI API key not configured')
+    throw new Error('Gemini API key not configured')
   }
   
   try {
@@ -44,39 +44,34 @@ async function generateTagsWithOpenAI(description: string, platform: string, cou
     
     const platformName = platformContext[platform.toLowerCase()] || platform
     
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a hashtag generator. Return only a JSON array of lowercase hashtag strings without the # symbol.'
-          },
-          {
-            role: 'user',
-            content: `Generate ${count} relevant hashtags for: "${description}" for ${platformName}. Return as JSON array like ["tag1", "tag2", "tag3"]`
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 300
+        contents: [{
+          parts: [{
+            text: `Generate ${count} relevant hashtags for: "${description}" for ${platformName}. Return only a JSON array of lowercase hashtag strings without the # symbol, like ["tag1", "tag2", "tag3"]. Do not include any other text.`
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 300
+        }
       })
     })
     
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`)
+      throw new Error(`Gemini API error: ${response.status} - ${errorText}`)
     }
     
     const data = await response.json()
-    const content = data.choices?.[0]?.message?.content
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text
     
     if (!content) {
-      throw new Error('No content in OpenAI response')
+      throw new Error('No content in Gemini response')
     }
     
     let tags: string[]
@@ -112,7 +107,7 @@ async function generateTagsWithOpenAI(description: string, platform: string, cou
 // GET endpoint - retrieve tag database status
 export async function GET() {
   return NextResponse.json({ 
-    message: 'Using OpenAI for tag generation',
+    message: 'Using Gemini for tag generation',
     rateLimit: '3 uses per 24 hours'
   })
 }
@@ -143,8 +138,8 @@ export async function POST(request: Request) {
       }, { status: 429 })
     }
     
-    // Generate tags using OpenAI
-    const tags = await generateTagsWithOpenAI(description, platform, count)
+    // Generate tags using Gemini
+    const tags = await generateTagsWithGemini(description, platform, count)
     
     // Add artificial delay to simulate processing
     await new Promise(resolve => setTimeout(resolve, 2000))
@@ -153,7 +148,7 @@ export async function POST(request: Request) {
       tags,
       platform,
       count: tags.length,
-      algorithm: 'openai',
+      algorithm: 'gemini',
       rateLimit: {
         remaining: rateLimit.remaining,
         resetTime: rateLimit.resetTime
