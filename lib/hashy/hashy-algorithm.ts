@@ -151,7 +151,6 @@ export class HashyAlgorithm {
       if (fs.existsSync(algorithmPath)) {
         const algorithmData = JSON.parse(fs.readFileSync(algorithmPath, 'utf-8'));
         this.algorithmInsights = algorithmData;
-        console.log(`Loaded algorithm insights for ${algorithmData.platforms?.length || 0} platforms`);
       }
 
       // Load tag databases
@@ -168,8 +167,6 @@ export class HashyAlgorithm {
           let tagData: TagDatabase | null = null;
 
           if (USE_CLOUD_DB) {
-            // Fetch from GitHub
-            console.log(`Fetching ${file} from GitHub...`);
             tagData = await this.fetchFromGitHub(file);
           }
 
@@ -178,13 +175,11 @@ export class HashyAlgorithm {
             const tagPath = path.join(hashyDir, file);
             if (fs.existsSync(tagPath)) {
               tagData = JSON.parse(fs.readFileSync(tagPath, 'utf-8'));
-              console.log(`Loaded ${file} from local file`);
             }
           }
 
           if (tagData) {
             this.tagDatabases.set(tagData.platform, tagData);
-            console.log(`Loaded ${tagData.tags.length} tags for ${tagData.platform}`);
           }
         } catch (error) {
           console.warn(`Failed to load tag database: ${file}`, error);

@@ -1306,8 +1306,7 @@ export default function HomePage() {
                           setGeneratedTags(prev => ({ ...prev, [tagPlatform]: data.tags }))
                         } catch (error) {
                           console.error('Error generating tags:', error)
-                          const errorMessage = error instanceof Error ? error.message : 'Failed to generate tags. Please try again.'
-                          alert(errorMessage)
+                          alert('Failed to generate tags. Please try again.')
                         } finally {
                           setIsGeneratingTags(false)
                         }

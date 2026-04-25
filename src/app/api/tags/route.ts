@@ -2156,21 +2156,7 @@ export async function POST(request: Request) {
       // Extract entities using Google API for enhanced Hashy analytics
       const googleData = await extractEntitiesWithGoogle(description)
       
-      console.log('Using Hashy algorithm with Google API for free tier tag generation')
-      console.log('Platform:', platform)
-      console.log('Description:', description)
-      
-      let hashyResult
-      try {
-        hashyResult = await hashy.generateTags('', description, platform, googleData)
-        console.log('Hashy result:', hashyResult)
-      } catch (hashyError) {
-        console.error('Hashy algorithm error:', hashyError)
-        return NextResponse.json({ 
-          error: 'Hashy algorithm failed', 
-          details: hashyError instanceof Error ? hashyError.message : 'Unknown error'
-        }, { status: 500 })
-      }
+      const hashyResult = await hashy.generateTags('', description, platform, googleData)
       
       return NextResponse.json({
         tags: hashyResult.generatedTags.slice(0, count),
