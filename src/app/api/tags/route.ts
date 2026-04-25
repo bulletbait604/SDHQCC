@@ -1090,16 +1090,29 @@ function generateTagsFromDescription(description: string, platformTags: string[]
   // Sort by score descending
   scoredTags.sort((a, b) => b.score - a.score)
   
-  // Calculate minimum score threshold based on input quality
-  const minScoreThreshold = inputLength > 10 ? 5 : 3
+  // Adaptive minimum score threshold - adjust based on available high-scoring tags
+  const highScoringTags = scoredTags.filter(st => st.score >= 5)
+  const mediumScoringTags = scoredTags.filter(st => st.score >= 2 && st.score < 5)
   
-  // Filter out low-scoring tags that are likely irrelevant
-  const highScoringTags = scoredTags.filter(st => st.score >= minScoreThreshold)
+  // Start with high-scoring tags
+  let selectedTags = highScoringTags.slice(0, count).map(st => st.tag)
   
-  // Get top tags from high-scoring pool only
-  const selectedTags = highScoringTags.slice(0, count).map(st => st.tag)
+  // If not enough, add medium-scoring tags that have at least some context match
+  if (selectedTags.length < count && mediumScoringTags.length > 0) {
+    const remaining = count - selectedTags.length
+    const mediumTagsWithContext = mediumScoringTags.filter(st => {
+      const tagLower = st.tag.toLowerCase()
+      // Check if tag has any word match in description
+      for (let i = 0; i < descriptionWords.length; i++) {
+        if (tagLower.indexOf(descriptionWords[i]) !== -1) return true
+      }
+      return false
+    })
+    
+    selectedTags = selectedTags.concat(mediumTagsWithContext.slice(0, remaining).map(st => st.tag))
+  }
   
-  // Only add fallback tags if they match detected context (no more irrelevant tags)
+  // Final fallback: add tags from detected context only (maintains relevance)
   if (selectedTags.length < count && (detectedGame || detectedActivity || detectedSubject)) {
     const contextRelevantTags = platformTags.filter(tag => {
       const tagLower = tag.toLowerCase()
