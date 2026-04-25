@@ -4,13 +4,18 @@ import { NextRequest, NextResponse } from 'next/server'
 // In production, use Redis, database, or Vercel KV
 declare global {
   var verifiedPayments: Map<string, any>
+  var verifiedUsers: Map<string, any>
 }
 
 if (!global.verifiedPayments) {
   global.verifiedPayments = new Map()
 }
 
-// PayPal IPN verification endpoint
+if (!global.verifiedUsers) {
+  global.verifiedUsers = new Map()
+}
+
+// PayPal IPN verification endpoint (for one-time payments, backward compatibility)
 export async function POST(req: NextRequest) {
   try {
     const body = await req.text()
@@ -31,7 +36,55 @@ export async function POST(req: NextRequest) {
     console.log('Custom/Memo:', ipnData.custom || ipnData.memo)
     console.log('Amount:', ipnData.mc_gross, ipnData.mc_currency)
     
-    // Verify IPN with PayPal
+    // Check if this is a subscription webhook (JSON format)
+    const contentType = req.headers.get('content-type')
+    if (contentType && contentType.includes('application/json')) {
+      // Handle PayPal subscription webhook events
+      try {
+        const eventData = JSON.parse(body)
+        console.log('PayPal Webhook Event:', JSON.stringify(eventData, null, 2))
+        
+        const eventType = eventData.event_type
+        console.log('Event Type:', eventType)
+        
+        // Handle subscription activation
+        if (eventType === 'BILLING.SUBSCRIPTION.ACTIVATED' || eventType === 'BILLING.SUBSCRIPTION.CREATED') {
+          const subscriptionId = eventData.resource?.id
+          const customId = eventData.resource?.custom_id
+          
+          console.log('Subscription Activated:', subscriptionId)
+          console.log('Custom ID:', customId)
+          
+          if (customId) {
+            const [username, paypalEmail] = customId.split('|')
+            
+            if (username) {
+              // Store verified user
+              const verifiedUser = {
+                username,
+                paypalEmail,
+                subscriptionId,
+                verifiedAt: new Date().toISOString(),
+                status: 'ACTIVE'
+              }
+              
+              global.verifiedUsers.set(username.toLowerCase(), verifiedUser)
+              
+              console.log('✅ User automatically verified:', username)
+              console.log('Total verified users:', global.verifiedUsers.size)
+              
+              return NextResponse.json({ status: 'success', username, autoVerified: true })
+            }
+          }
+        }
+        
+        return NextResponse.json({ status: 'received', eventType })
+      } catch (jsonError) {
+        console.error('Error parsing webhook JSON:', jsonError)
+      }
+    }
+    
+    // Verify IPN with PayPal (backward compatibility for one-time payments)
     const verificationParams = new URLSearchParams()
     verificationParams.append('cmd', '_notify-validate')
     
@@ -107,11 +160,32 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Handle GET for testing
-export async function GET() {
+// Handle GET for testing and checking verification status
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const username = searchParams.get('username')
+  
+  if (username) {
+    // Check if user is verified
+    const verifiedUser = global.verifiedUsers.get(username.toLowerCase())
+    if (verifiedUser) {
+      return NextResponse.json({ 
+        verified: true,
+        username: verifiedUser.username,
+        subscriptionId: verifiedUser.subscriptionId,
+        verifiedAt: verifiedUser.verifiedAt,
+        status: verifiedUser.status
+      })
+    }
+    
+    return NextResponse.json({ verified: false })
+  }
+  
   return NextResponse.json({ 
-    message: 'PayPal IPN endpoint active',
-    setup: 'Configure this URL in your PayPal account under IPN settings',
-    url: 'https://sdhqcc.vercel.app/api/paypal-webhook'
+    message: 'PayPal webhook endpoint active',
+    setup: 'Configure this URL in your PayPal webhook settings',
+    url: 'https://sdhqcc.vercel.app/api/paypal-webhook',
+    verifiedUsers: Array.from(global.verifiedUsers.values()),
+    verifiedPayments: Array.from(global.verifiedPayments.values())
   })
 }

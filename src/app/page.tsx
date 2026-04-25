@@ -564,7 +564,10 @@ export default function HomePage() {
             onApprove: function(data: any, actions: any) {
               console.log('Subscription approved:', data.subscriptionID)
               setSubscriptionId(data.subscriptionID)
-              alert(`Subscription successful! Subscription ID: ${data.subscriptionID}\n\nPlease click "Verify Subscription" to activate your premium access.`)
+              alert(`Subscription successful! Subscription ID: ${data.subscriptionID}\n\nVerifying your subscription automatically...`)
+              
+              // Start polling for verification status
+              pollVerificationStatus(data.subscriptionID)
             }
           }).render('#paypal-button-container')
           setPaypalLoaded(true)
@@ -599,6 +602,61 @@ export default function HomePage() {
     setSubscribers(subscribers.filter(sub => sub.id !== id))
   }
 
+  const pollVerificationStatus = (subscriptionId: string) => {
+    if (!user) return
+    
+    let pollCount = 0
+    const maxPolls = 30 // Poll for up to 2.5 minutes (30 * 5 seconds)
+    
+    const poll = setInterval(async () => {
+      pollCount++
+      
+      try {
+        const response = await fetch(`/api/paypal-webhook?username=${user.username}`)
+        const data = await response.json()
+        
+        if (data.verified) {
+          clearInterval(poll)
+          
+          // User is automatically verified
+          setIsVerified(true)
+          localStorage.setItem('isVerified', 'true')
+          localStorage.setItem('verifiedUsername', user.username)
+          localStorage.setItem('verificationExpiry', (Date.now() + 30 * 24 * 60 * 60 * 1000).toString()) // 30 days
+          localStorage.setItem('subscriptionId', data.subscriptionId)
+          
+          // Add to subscribers list for admin visibility
+          const verifiedUser: Subscriber = {
+            id: Date.now().toString(),
+            username: user.username,
+            addedAt: new Date().toISOString()
+          }
+          setSubscribers(prev => [...prev, verifiedUser])
+          
+          // Log successful automatic verification
+          const successEntry: ActivityLogEntry = {
+            id: Date.now().toString(),
+            username: user.username,
+            timestamp: new Date().toISOString(),
+            action: 'payment_success',
+            details: `Auto-verified via webhook - Subscription ID: ${data.subscriptionId}`
+          }
+          setActivityLog(prev => [successEntry, ...prev].slice(0, 100))
+          
+          alert(`✅ Subscription verified automatically!\n\nPremium features unlocked for 30 days!`)
+          setShowSubscribePopup(false)
+        }
+        
+        if (pollCount >= maxPolls) {
+          clearInterval(poll)
+          alert('Verification is taking longer than expected. Please click "Verify Subscription" to manually check your status.')
+        }
+      } catch (error) {
+        console.error('Polling error:', error)
+      }
+    }, 5000) // Poll every 5 seconds
+  }
+  
   const checkPaymentStatus = async () => {
     if (!paypalEmail || !user) {
       alert('Please enter your PayPal email address to verify your subscription.')
