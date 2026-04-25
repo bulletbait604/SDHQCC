@@ -436,7 +436,8 @@ export default function HomePage() {
       })
       .then(data => {
         if (data.lastUpdated) {
-          const totalTags = Object.values(data.data || {}).reduce((acc: number, tags: any) => {
+          const totalTags = Object.keys(data.data || {}).reduce((acc: number, key: string) => {
+            const tags = data.data[key]
             return acc + (Array.isArray(tags) ? tags.length : 0)
           }, 0)
           setTagDatabaseStatus({

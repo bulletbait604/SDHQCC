@@ -145,7 +145,7 @@ async function generateTagDatabase(platform: string, apiKey: string, provider: '
   ]
 
   // Remove duplicates
-  allTags = [...new Set(allTags)]
+  allTags = Array.from(new Set(allTags))
 
   // If we have API access, generate more platform-specific tags
   if (apiKey) {
@@ -162,7 +162,7 @@ async function generateTagDatabase(platform: string, apiKey: string, provider: '
     const baseTag = allTags[Math.floor(Math.random() * allTags.length)]
     const variations = generateTagVariations(baseTag, platform)
     allTags.push(...variations)
-    allTags = [...new Set(allTags)]
+    allTags = Array.from(new Set(allTags))
   }
 
   // Limit to 20,000
@@ -375,7 +375,7 @@ export async function PUT() {
   return NextResponse.json({
     success: true,
     message: `Tag database refreshed for ${platforms.length} platforms`,
-    totalTags: Object.values(data.data).reduce((acc: number, tags: any) => acc + tags.length, 0),
+    totalTags: Object.keys(data.data).reduce((acc: number, key: string) => acc + (data.data[key]?.length || 0), 0),
     lastUpdated: data.lastUpdated,
     provider
   })
