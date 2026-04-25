@@ -29,11 +29,6 @@ function checkRateLimit(identifier: string, maxUses: number = 3, windowMs: numbe
 async function generateTagsWithOpenAI(description: string, platform: string, count: number): Promise<string[]> {
   const apiKey = process.env.OPENAI_API_KEY
   
-  console.log('[OPENAI] API Key present:', !!apiKey)
-  console.log('[OPENAI] Description length:', description.length)
-  console.log('[OPENAI] Platform:', platform)
-  console.log('[OPENAI] Count:', count)
-  
   if (!apiKey) {
     throw new Error('OpenAI API key not configured')
   }
@@ -62,8 +57,6 @@ Requirements:
 Example output format: ["gaming", "callofduty", "warzone", "fps", "competitive"]
 
 Return ONLY the JSON array, nothing else.`
-
-    console.log('[OPENAI] Sending request to OpenAI...')
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -88,19 +81,13 @@ Return ONLY the JSON array, nothing else.`
       })
     })
     
-    console.log('[OPENAI] Response status:', response.status)
-    
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('[OPENAI] Error response:', errorText)
       throw new Error(`OpenAI API error: ${response.status} - ${errorText}`)
     }
     
     const data = await response.json()
-    console.log('[OPENAI] Response data keys:', Object.keys(data))
-    
     const content = data.choices?.[0]?.message?.content
-    console.log('[OPENAI] Raw content:', content)
     
     if (!content) {
       throw new Error('No content in OpenAI response')
@@ -109,20 +96,15 @@ Return ONLY the JSON array, nothing else.`
     // Parse the JSON response
     let tags: string[]
     try {
-      // Try to parse as JSON
       tags = JSON.parse(content)
     } catch (e) {
-      // If JSON parsing fails, try to extract array from the content
       const match = content.match(/\[([^\]]+)\]/)
       if (match) {
         tags = match[1].split(',').map((t: string) => t.trim().replace(/"/g, '').replace(/'/g, ''))
       } else {
-        // Fallback: split by common separators
         tags = content.split(/[,;\n]/).map((t: string) => t.trim().replace(/[#"']/g, '')).filter((t: string) => t.length > 0)
       }
     }
-    
-    console.log('[OPENAI] Parsed tags:', tags)
     
     // Clean and format tags
     const cleanedTags = tags
@@ -130,16 +112,11 @@ Return ONLY the JSON array, nothing else.`
       .filter(tag => tag.length > 2)
       .slice(0, count)
     
-    console.log('[OPENAI] Cleaned tags:', cleanedTags)
-    
     // Add hashtag prefix
     const hashtagTags = cleanedTags.map(tag => `#${tag}`)
     
-    console.log('[OPENAI] Final hashtag tags:', hashtagTags)
-    
     return hashtagTags
   } catch (error) {
-    console.error('[OPENAI] Error generating tags with OpenAI:', error)
     throw error
   }
 }
@@ -178,12 +155,8 @@ export async function POST(request: Request) {
       }, { status: 429 })
     }
     
-    console.log('[TAGS API] Generating tags with OpenAI for:', { platform, description, count })
-    
     // Generate tags using OpenAI
     const tags = await generateTagsWithOpenAI(description, platform, count)
-    
-    console.log('[TAGS API] Generated tags:', tags)
     
     // Add artificial delay to simulate processing
     await new Promise(resolve => setTimeout(resolve, 2000))
@@ -200,7 +173,6 @@ export async function POST(request: Request) {
       generatedAt: new Date().toISOString()
     })
   } catch (error) {
-    console.error('Error generating tags:', error)
     return NextResponse.json({ error: 'Failed to generate tags' }, { status: 500 })
   }
 }
