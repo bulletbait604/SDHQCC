@@ -286,26 +286,26 @@ export class HashyAlgorithm {
    * Get platform-specific tag database
    */
   private getTagDatabase(platformName: string): TagDatabase | null {
-    // Normalize platform name
+    // Normalize platform name for exact matching
     const normalized = platformName.toLowerCase().replace(/\s+/g, '');
     
-    // Try exact match first
-    const entries = Array.from(this.tagDatabases.entries());
-    for (const [key, value] of entries) {
-      if (key.toLowerCase().replace(/\s+/g, '') === normalized) {
-        return value;
-      }
-    }
-
-    // Try partial match
-    for (const [key, value] of entries) {
-      if (normalized.includes(key.toLowerCase().replace(/\s+/g, '')) || 
-          key.toLowerCase().replace(/\s+/g, '').includes(normalized)) {
-        return value;
-      }
-    }
-
-    return null;
+    // Platform name mapping for exact matching
+    const platformMapping: Record<string, string> = {
+      'tiktok': 'TikTok',
+      'instagram': 'Instagram',
+      'youtubeshorts': 'YouTube Shorts',
+      'youtubelong': 'YouTube Long',
+      'facebookreels': 'Facebook Reels',
+      'youtube shorts': 'YouTube Shorts',
+      'youtube long': 'YouTube Long',
+      'facebook reels': 'Facebook Reels'
+    };
+    
+    // Get the exact platform name from mapping
+    const exactPlatformName = platformMapping[normalized] || platformName;
+    
+    // Return the exact match only
+    return this.tagDatabases.get(exactPlatformName) || null;
   }
 
   /**
