@@ -1,5 +1,77 @@
 import { NextResponse } from 'next/server'
 
+// Google Cloud Natural Language API integration
+async function extractEntitiesWithGoogle(description: string): Promise<string[]> {
+  const apiKey = process.env.GOOGLE_API_KEY
+  
+  if (!apiKey) {
+    console.log('Google API key not configured, skipping entity extraction')
+    return []
+  }
+  
+  try {
+    const response = await fetch(
+      `https://language.googleapis.com/v1/documents:analyzeEntities?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          document: {
+            content: description,
+            type: 'PLAIN_TEXT',
+          },
+          encodingType: 'UTF8',
+        }),
+      }
+    )
+    
+    if (!response.ok) {
+      console.error('Google API error:', response.status, await response.text())
+      return []
+    }
+    
+    const data = await response.json()
+    const entities = data.entities || []
+    
+    // Extract entity names and types
+    const extractedTerms: string[] = []
+    for (const entity of entities) {
+      // Add the entity name
+      if (entity.name) {
+        extractedTerms.push(entity.name.toLowerCase())
+      }
+      
+      // Add entity metadata if available
+      if (entity.metadata) {
+        if (entity.metadata.wikipedia_url) {
+          // Extract topic from Wikipedia URL
+          const wikiMatch = entity.metadata.wikipedia_url.match(/\/wiki\/([^\/]+)$/)
+          if (wikiMatch) {
+            extractedTerms.push(wikiMatch[1].toLowerCase().replace(/_/g, ' '))
+          }
+        }
+      }
+      
+      // Add mentions
+      if (entity.mentions && entity.mentions.length > 0) {
+        for (const mention of entity.mentions) {
+          if (mention.text && mention.text.content) {
+            extractedTerms.push(mention.text.content.toLowerCase())
+          }
+        }
+      }
+    }
+    
+    console.log(`Extracted ${extractedTerms.length} entities from Google API`)
+    return Array.from(new Set(extractedTerms)) // Remove duplicates
+  } catch (error) {
+    console.error('Error calling Google API:', error)
+    return []
+  }
+}
+
 const platforms = [
   { id: 'tiktok', name: 'TikTok' },
   { id: 'instagram', name: 'Instagram' },
@@ -1466,11 +1538,14 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { description, platform, count = 10 } = body
+    const { description, platform, count = 10, premium = false } = body
     
     if (!description || !platform) {
       return NextResponse.json({ error: 'Description and platform are required' }, { status: 400 })
     }
+    
+    // Extract entities using Google API for better understanding
+    const googleEntities = await extractEntitiesWithGoogle(description)
     
     // Read tag database
     const tagData = await readData()
@@ -1499,6 +1574,66 @@ export async function POST(request: Request) {
     
     // Generate tags using local algorithm (no API calls)
     const generatedTags = generateTagsFromDescription(description, platformTags, platform, Math.min(count, 50))
+    
+    // If Google API extracted entities, boost those tags in the results
+    if (googleEntities.length > 0) {
+      console.log(`Boosting ${googleEntities.length} Google-extracted entities in tag selection`)
+      
+      // Create a map of entity to boost score
+      const entityBoostMap: Record<string, number> = {}
+      for (const entity of googleEntities) {
+        entityBoostMap[entity] = 15 // Significant boost for Google-extracted entities
+      }
+      
+      // Re-score tags with Google entity boost
+      const scoredTags = generatedTags.map(tag => {
+        const tagLower = tag.toLowerCase()
+        let boostScore = 0
+        
+        // Check if tag matches any Google entity
+        for (const entity of googleEntities) {
+          if (tagLower.includes(entity) || entity.includes(tagLower)) {
+            boostScore += entityBoostMap[entity] || 15
+          }
+        }
+        
+        return { tag, boostScore }
+      })
+      
+      // Sort by boost score (Google entities first)
+      scoredTags.sort((a, b) => b.boostScore - a.boostScore)
+      
+      // Reorder generated tags based on boost
+      const boostedTags = scoredTags.map(st => st.tag)
+      
+      // Mix boosted tags with original generated tags
+      const finalTags: string[] = []
+      const usedTags = new Set<string>()
+      
+      // First add all boosted tags
+      for (const tag of boostedTags) {
+        if (!usedTags.has(tag)) {
+          finalTags.push(tag)
+          usedTags.add(tag)
+        }
+      }
+      
+      // Then add remaining original tags
+      for (const tag of generatedTags) {
+        if (!usedTags.has(tag)) {
+          finalTags.push(tag)
+          usedTags.add(tag)
+        }
+      }
+      
+      return NextResponse.json({
+        tags: finalTags.slice(0, count),
+        platform,
+        count: finalTags.slice(0, count).length,
+        googleEntities,
+        generatedAt: new Date().toISOString()
+      })
+    }
     
     return NextResponse.json({
       tags: generatedTags,
