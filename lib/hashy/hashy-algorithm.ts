@@ -411,17 +411,7 @@ export class HashyAlgorithm {
     const contextualTags: string[] = [];
     const algorithmTips: string[] = [];
 
-    // Only use the highest-scoring detected game to avoid mixing unrelated game tags
-    if (detectedGames.length > 0) {
-      const bestGame = detectedGames[0]; // Already sorted by popularity (which includes match score)
-      console.log('[HASHY] Using best game:', bestGame.name)
-      generatedTags.push(...bestGame.tags.slice(0, 15));
-      contextualTags.push(bestGame.name);
-      contextualTags.push(...bestGame.genre.slice(0, 3));
-    }
-    console.log('[HASHY] After game tags:', generatedTags.length)
-
-    // Add platform-specific tags
+    // Add platform-specific tags first (lower priority)
     const platformToUse = targetPlatform || (detectedPlatform?.name || null);
     console.log('[HASHY] Platform to use:', platformToUse)
     
@@ -430,7 +420,21 @@ export class HashyAlgorithm {
       console.log('[HASHY] Tag database for platform:', tagDb ? `found ${tagDb.tags.length} tags` : 'NOT FOUND')
       
       if (tagDb) {
-        generatedTags.push(...tagDb.tags.slice(0, 20));
+        // Filter out game-specific tags from platform database to avoid conflicts
+        const gameNames = Array.from(new Set(detectedGames.map(g => g.name.toLowerCase())));
+        const filteredPlatformTags = tagDb.tags.filter(tag => {
+          const tagLower = tag.toLowerCase();
+          // Skip tags that contain known game names
+          for (const gameName of gameNames) {
+            if (tagLower.includes(gameName) || gameName.includes(tagLower)) {
+              return false;
+            }
+          }
+          // Skip common game-related tags
+          const gameKeywords = ['fortnite', 'minecraft', 'valorant', 'apex', 'gta', 'cod', 'warzone', 'league', 'roblox', 'genshin', 'overwatch', 'csgo', 'rocket league', 'fifa', 'nba 2k', 'destiny', 'elden ring', 'fall guys', 'among us', 'stardew valley', 'animal crossing', 'warframe', 'rainbow six', 'starfield', 'baldur', 'diablo', 'world of warcraft'];
+          return !gameKeywords.some(keyword => tagLower.includes(keyword));
+        });
+        generatedTags.push(...filteredPlatformTags.slice(0, 10));
       }
 
       // Add algorithm-based tips if available
@@ -439,6 +443,17 @@ export class HashyAlgorithm {
         algorithmTips.push(...insights.summaries);
       }
     }
+
+    // Add game-specific tags LAST (highest priority - they'll appear first in final result)
+    if (detectedGames.length > 0) {
+      const bestGame = detectedGames[0]; // Already sorted by popularity (which includes match score)
+      console.log('[HASHY] Using best game:', bestGame.name)
+      // Prepend game tags so they appear first
+      generatedTags.unshift(...bestGame.tags.slice(0, 15));
+      contextualTags.push(bestGame.name);
+      contextualTags.push(...bestGame.genre.slice(0, 3));
+    }
+    console.log('[HASHY] After game tags:', generatedTags.length)
 
     // Add keyword-based tags
     for (const keyword of keywords) {
