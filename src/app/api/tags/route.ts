@@ -29,29 +29,47 @@ function checkRateLimit(identifier: string, maxUses: number = 3, windowMs: numbe
 async function generateTagsWithGoogle(description: string, platform: string, count: number): Promise<string[]> {
   const apiKey = process.env.GOOGLE_API_KEY
   
+  console.log('[GOOGLE API] API Key present:', !!apiKey)
+  console.log('[GOOGLE API] Description length:', description.length)
+  console.log('[GOOGLE API] Platform:', platform)
+  console.log('[GOOGLE API] Count:', count)
+  
   if (!apiKey) {
     throw new Error('Google API key not configured')
   }
   
   try {
+    const requestBody = {
+      document: { 
+        content: description, 
+        type: 'PLAIN_TEXT' 
+      },
+      encodingType: 'UTF8',
+    }
+    
+    console.log('[GOOGLE API] Request body:', JSON.stringify(requestBody).substring(0, 200))
+    
     const entityResponse = await fetch(
       `https://language.googleapis.com/v1/documents:analyzeEntities?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          document: { content: description, type: 'PLAIN_TEXT' },
-          encodingType: 'UTF8',
-        }),
+        body: JSON.stringify(requestBody),
       }
     )
     
+    console.log('[GOOGLE API] Response status:', entityResponse.status)
+    
     if (!entityResponse.ok) {
-      throw new Error(`Google API error: ${entityResponse.status}`)
+      const errorText = await entityResponse.text()
+      console.error('[GOOGLE API] Error response:', errorText)
+      throw new Error(`Google API error: ${entityResponse.status} - ${errorText}`)
     }
     
     const entityData = await entityResponse.json()
+    console.log('[GOOGLE API] Response data keys:', Object.keys(entityData))
     const entities = entityData.entities || []
+    console.log('[GOOGLE API] Number of entities:', entities.length)
     
     const tags: string[] = []
     const seen = new Set<string>()
@@ -92,6 +110,8 @@ async function generateTagsWithGoogle(description: string, platform: string, cou
       }
     }
     
+    console.log('[GOOGLE API] Extracted tags before platform:', tags)
+    
     // Add platform-specific tags
     const platformTags: Record<string, string[]> = {
       'tiktok': ['fyp', 'foryou', 'tiktok', 'viral', 'trending'],
@@ -109,12 +129,16 @@ async function generateTagsWithGoogle(description: string, platform: string, cou
       }
     }
     
+    console.log('[GOOGLE API] Tags after platform addition:', tags)
+    
     // Add hashtags format
     const hashtagTags = tags.slice(0, count).map(tag => `#${tag}`)
     
+    console.log('[GOOGLE API] Final hashtag tags:', hashtagTags)
+    
     return hashtagTags.slice(0, count)
   } catch (error) {
-    console.error('Error generating tags with Google API:', error)
+    console.error('[GOOGLE API] Error generating tags with Google API:', error)
     throw error
   }
 }
