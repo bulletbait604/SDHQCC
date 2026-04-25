@@ -84,12 +84,25 @@ export class HashyAlgorithm {
   private platformsDatabase: Platform[] = [];
   private tagDatabases: Map<string, TagDatabase> = new Map();
   private algorithmInsights: HashyAlgorithmData | null = null;
+  private isInitialized: boolean = false;
+  private initPromise: Promise<void> | null = null;
 
   constructor() {
-    // Don't await in constructor - loadDatabases is now async
-    this.loadDatabases().catch(error => {
+    // Start initialization but don't block constructor
+    this.initPromise = this.loadDatabases().catch(error => {
       console.error('Error loading databases:', error);
     });
+  }
+
+  /**
+   * Wait for initialization to complete
+   */
+  private async ensureInitialized(): Promise<void> {
+    if (this.isInitialized) return;
+    if (this.initPromise) {
+      await this.initPromise;
+      this.isInitialized = true;
+    }
   }
 
   /**
@@ -419,10 +432,8 @@ export class HashyAlgorithm {
     targetPlatform?: string,
     googleData?: { entities: string[], categories: string[], sentiment: string }
   ): Promise<HashyResult> {
-    // Ensure databases are loaded
-    if (this.gamesDatabase.length === 0) {
-      await this.loadDatabases();
-    }
+    // Ensure databases are loaded before proceeding
+    await this.ensureInitialized();
 
     // Extract keywords
     const keywords = this.extractKeywords(title, description);
