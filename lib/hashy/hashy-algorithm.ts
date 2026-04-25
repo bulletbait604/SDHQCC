@@ -374,6 +374,13 @@ export class HashyAlgorithm {
     keywords: string[],
     targetPlatform?: string
   ): { generatedTags: string[], contextualTags: string[], algorithmTips?: string[] } {
+    console.log('[HASHY] generateTagsInternal called with:', { 
+      detectedGames: detectedGames.length, 
+      detectedPlatform: detectedPlatform?.name, 
+      keywordsCount: keywords.length,
+      targetPlatform 
+    })
+    
     const generatedTags: string[] = [];
     const contextualTags: string[] = [];
     const algorithmTips: string[] = [];
@@ -384,11 +391,16 @@ export class HashyAlgorithm {
       contextualTags.push(game.name);
       contextualTags.push(...game.genre.slice(0, 3));
     }
+    console.log('[HASHY] After game tags:', generatedTags.length)
 
     // Add platform-specific tags
     const platformToUse = targetPlatform || (detectedPlatform?.name || null);
+    console.log('[HASHY] Platform to use:', platformToUse)
+    
     if (platformToUse) {
       const tagDb = this.getTagDatabase(platformToUse);
+      console.log('[HASHY] Tag database for platform:', tagDb ? `found ${tagDb.tags.length} tags` : 'NOT FOUND')
+      
       if (tagDb) {
         generatedTags.push(...tagDb.tags.slice(0, 20));
       }
@@ -427,11 +439,20 @@ export class HashyAlgorithm {
     targetPlatform?: string,
     googleData?: { entities: string[], categories: string[], sentiment: string }
   ): Promise<HashyResult> {
+    console.log('[HASHY] generateTags called with:', { title, description, targetPlatform })
+    
     // Ensure databases are loaded before proceeding
     await this.ensureInitialized();
+    
+    console.log('[HASHY] Databases loaded:', {
+      games: this.gamesDatabase.length,
+      platforms: this.platformsDatabase.length,
+      tagDatabases: this.tagDatabases.size
+    })
 
     // Extract keywords
     const keywords = this.extractKeywords(title, description);
+    console.log('[HASHY] Extracted keywords:', keywords)
 
     // Add Google entities to keywords for better matching
     if (googleData && googleData.entities.length > 0) {
@@ -444,9 +465,11 @@ export class HashyAlgorithm {
 
     // Detect games
     const detectedGames = this.detectGames(keywords);
+    console.log('[HASHY] Detected games:', detectedGames.map(g => g.name))
 
     // Detect platform
     const detectedPlatform = this.detectPlatform(keywords, description);
+    console.log('[HASHY] Detected platform:', detectedPlatform?.name || 'none')
 
     // Generate tags
     const { generatedTags, contextualTags, algorithmTips } = this.generateTagsInternal(
@@ -455,6 +478,8 @@ export class HashyAlgorithm {
       keywords,
       targetPlatform
     );
+    console.log('[HASHY] Generated tags:', generatedTags.slice(0, 10))
+    console.log('[HASHY] Contextual tags:', contextualTags)
 
     // Boost tags that match Google entities
     if (googleData && googleData.entities.length > 0) {

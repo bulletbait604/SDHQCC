@@ -2156,7 +2156,12 @@ export async function POST(request: Request) {
       // Extract entities using Google API for enhanced Hashy analytics
       const googleData = await extractEntitiesWithGoogle(description)
       
+      console.log('[TAGS API] Calling Hashy with:', { platform, description, count })
+      console.log('[TAGS API] Google data:', googleData)
+      
       const hashyResult = await hashy.generateTags('', description, platform, googleData)
+      
+      console.log('[TAGS API] Hashy result:', hashyResult)
       
       return NextResponse.json({
         tags: hashyResult.generatedTags.slice(0, count),
