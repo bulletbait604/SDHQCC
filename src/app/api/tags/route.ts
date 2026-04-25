@@ -2160,8 +2160,17 @@ export async function POST(request: Request) {
       console.log('Platform:', platform)
       console.log('Description:', description)
       
-      const hashyResult = await hashy.generateTags('', description, platform, googleData)
-      console.log('Hashy result:', hashyResult)
+      let hashyResult
+      try {
+        hashyResult = await hashy.generateTags('', description, platform, googleData)
+        console.log('Hashy result:', hashyResult)
+      } catch (hashyError) {
+        console.error('Hashy algorithm error:', hashyError)
+        return NextResponse.json({ 
+          error: 'Hashy algorithm failed', 
+          details: hashyError instanceof Error ? hashyError.message : 'Unknown error'
+        }, { status: 500 })
+      }
       
       return NextResponse.json({
         tags: hashyResult.generatedTags.slice(0, count),
