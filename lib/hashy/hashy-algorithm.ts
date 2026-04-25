@@ -411,63 +411,62 @@ export class HashyAlgorithm {
     const contextualTags: string[] = [];
     const algorithmTips: string[] = [];
 
-    // Add platform-specific tags first (lower priority)
-    const platformToUse = targetPlatform || (detectedPlatform?.name || null);
-    console.log('[HASHY] Platform to use:', platformToUse)
-    
-    if (platformToUse) {
-      const tagDb = this.getTagDatabase(platformToUse);
-      console.log('[HASHY] Tag database for platform:', tagDb ? `found ${tagDb.tags.length} tags` : 'NOT FOUND')
-      
-      if (tagDb) {
-        // Filter out game-specific and generic tags from platform database
-        const gameNames = Array.from(new Set(detectedGames.map(g => g.name.toLowerCase())));
-        const filteredPlatformTags = tagDb.tags.filter(tag => {
-          const tagLower = tag.toLowerCase();
-          
-          // Skip very short tags
-          if (tagLower.length < 4) return false;
-          
-          // Skip tags that contain known game names
-          for (const gameName of gameNames) {
-            if (tagLower.includes(gameName) || gameName.includes(tagLower)) {
-              return false;
-            }
-          }
-          
-          // Skip common game-related tags
-          const gameKeywords = ['fortnite', 'minecraft', 'valorant', 'apex', 'gta', 'cod', 'warzone', 'league', 'roblox', 'genshin', 'overwatch', 'csgo', 'rocket league', 'fifa', 'nba 2k', 'destiny', 'elden ring', 'fall guys', 'among us', 'stardew valley', 'animal crossing', 'warframe', 'rainbow six', 'starfield', 'baldur', 'diablo', 'world of warcraft'];
-          if (gameKeywords.some(keyword => tagLower.includes(keyword))) return false;
-          
-          // Skip generic/trending tags that aren't content-specific
-          const genericKeywords = ['fyp', 'foryou', 'foryoupage', 'viral', 'trending', '2024', '2025', 'aesthetic', 'funny', 'amazing', 'best', 'epic', 'cool', 'awesome', 'cute', 'daily', 'life', 'love', 'mood', 'style', 'vibe', 'goals', 'inspo', 'classic', 'famous', 'popular', 'legendary', 'rare', 'special', 'unique', 'authentic', 'creative', 'exclusive', 'official', 'original', 'happy', 'honest', 'raw', 'real', 'cheap', 'custom', 'diy', 'easy', 'fast', 'free', 'handmade', 'homemade', 'hidden', 'personal', 'private', 'secret', 'community', 'culture', 'future', 'global', 'local', 'macro', 'micro', 'modern', 'nostalgia', 'past', 'present', 'retro', 'throwback', 'tradition', 'vintage', 'underrated', 'unknown'];
-          if (genericKeywords.some(keyword => tagLower.includes(keyword))) return false;
-          
-          // Skip tags that are just numbers or years
-          if (/^\d+$/.test(tagLower)) return false;
-          
-          return true;
-        });
-        generatedTags.push(...filteredPlatformTags.slice(0, 5)); // Reduced from 10 to 5
-      }
-
-      // Add algorithm-based tips if available
-      const insights = this.getAlgorithmInsights(platformToUse);
-      if (insights && insights.summaries) {
-        algorithmTips.push(...insights.summaries);
-      }
-    }
-
-    // Add game-specific tags LAST (highest priority - they'll appear first in final result)
+    // Add game-specific tags FIRST (highest priority)
     if (detectedGames.length > 0) {
       const bestGame = detectedGames[0]; // Already sorted by popularity (which includes match score)
       console.log('[HASHY] Using best game:', bestGame.name)
-      // Prepend game tags so they appear first
-      generatedTags.unshift(...bestGame.tags.slice(0, 15));
+      generatedTags.push(...bestGame.tags.slice(0, 20));
       contextualTags.push(bestGame.name);
       contextualTags.push(...bestGame.genre.slice(0, 3));
     }
     console.log('[HASHY] After game tags:', generatedTags.length)
+
+    // Only add platform-specific tags if NO game was detected
+    // This prevents generic platform game tags from overriding specific game tags
+    if (detectedGames.length === 0) {
+      const platformToUse = targetPlatform || (detectedPlatform?.name || null);
+      console.log('[HASHY] No game detected, using platform tags for:', platformToUse)
+      
+      if (platformToUse) {
+        const tagDb = this.getTagDatabase(platformToUse);
+        console.log('[HASHY] Tag database for platform:', tagDb ? `found ${tagDb.tags.length} tags` : 'NOT FOUND')
+        
+        if (tagDb) {
+          // Filter out generic tags from platform database
+          const filteredPlatformTags = tagDb.tags.filter(tag => {
+            const tagLower = tag.toLowerCase();
+            
+            // Skip very short tags
+            if (tagLower.length < 4) return false;
+            
+            // Skip generic/trending tags that aren't content-specific
+            const genericKeywords = ['fyp', 'foryou', 'foryoupage', 'viral', 'trending', '2024', '2025', 'aesthetic', 'funny', 'amazing', 'best', 'epic', 'cool', 'awesome', 'cute', 'daily', 'life', 'love', 'mood', 'style', 'vibe', 'goals', 'inspo', 'classic', 'famous', 'popular', 'legendary', 'rare', 'special', 'unique', 'authentic', 'creative', 'exclusive', 'official', 'original', 'happy', 'honest', 'raw', 'real', 'cheap', 'custom', 'diy', 'easy', 'fast', 'free', 'handmade', 'homemade', 'hidden', 'personal', 'private', 'secret', 'community', 'culture', 'future', 'global', 'local', 'macro', 'micro', 'modern', 'nostalgia', 'past', 'present', 'retro', 'throwback', 'tradition', 'vintage', 'underrated', 'unknown'];
+            if (genericKeywords.some(keyword => tagLower.includes(keyword))) return false;
+            
+            // Skip tags that are just numbers or years
+            if (/^\d+$/.test(tagLower)) return false;
+            
+            return true;
+          });
+          generatedTags.push(...filteredPlatformTags.slice(0, 15));
+        }
+
+        // Add algorithm-based tips if available
+        const insights = this.getAlgorithmInsights(platformToUse);
+        if (insights && insights.summaries) {
+          algorithmTips.push(...insights.summaries);
+        }
+      }
+    } else {
+      // Game detected - add algorithm tips for the platform
+      const platformToUse = targetPlatform || (detectedPlatform?.name || null);
+      if (platformToUse) {
+        const insights = this.getAlgorithmInsights(platformToUse);
+        if (insights && insights.summaries) {
+          algorithmTips.push(...insights.summaries);
+        }
+      }
+    }
 
     // Add keyword-based tags (filtered)
     for (const keyword of keywords) {
