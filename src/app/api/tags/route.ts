@@ -1,6 +1,78 @@
 import { NextResponse } from 'next/server'
 import { hashy } from '../../../../lib/hashy/hashy-algorithm'
 
+// OpenAI API integration for smart tag generation
+async function generateTagsWithAI(description: string, platform: string, count: number): Promise<string[] | null> {
+  const openaiKey = process.env.OPENAI_API_KEY
+  const deepseekKey = process.env.DEEPSEEK_API_KEY
+  
+  if (!openaiKey && !deepseekKey) {
+    return null
+  }
+
+  const prompt = `Generate ${count} highly relevant hashtags for ${platform} based on this content: "${description}"
+
+Requirements:
+- Return ONLY a JSON array of hashtag strings (without the # symbol)
+- Tags should be specific to ${platform}'s algorithm and best practices
+- Include trending, niche, and discoverability-focused tags
+- Mix of broad and specific tags for optimal reach
+- No generic tags like #fyp, #viral, #trending unless truly relevant
+- Focus on content-specific, platform-optimized tags
+
+Return format: ["tag1", "tag2", "tag3", ...]`
+
+  try {
+    if (deepseekKey) {
+      const response = await fetch('https://api.deepseek.com/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${deepseekKey}`
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [
+            { role: 'system', content: 'You are an expert social media tag generator specializing in platform-specific algorithm optimization.' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.7,
+          response_format: { type: 'json_object' }
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`DeepSeek API error: ${response.status}`)
+      }
+
+      const data = await response.json()
+      const content = data.choices?.[0]?.message?.content
+      const parsed = JSON.parse(content || '[]')
+      return parsed.tags || parsed
+    } else {
+      const { default: OpenAI } = await import('openai')
+      const openai = new OpenAI({ apiKey: openaiKey })
+      
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are an expert social media tag generator specializing in platform-specific algorithm optimization.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.7,
+        response_format: { type: 'json_object' }
+      })
+
+      const content = response.choices[0].message.content
+      const parsed = JSON.parse(content || '[]')
+      return parsed.tags || parsed
+    }
+  } catch (error) {
+    console.error('Error generating tags with AI:', error)
+    return null
+  }
+}
+
 // Google Cloud Natural Language API integration for entity extraction
 async function extractEntitiesWithGoogle(description: string): Promise<{ entities: string[], categories: string[], sentiment: string }> {
   const apiKey = process.env.GOOGLE_API_KEY
@@ -10,7 +82,6 @@ async function extractEntitiesWithGoogle(description: string): Promise<{ entitie
   }
   
   try {
-    // Analyze entities
     const entityResponse = await fetch(
       `https://language.googleapis.com/v1/documents:analyzeEntities?key=${apiKey}`,
       {
@@ -23,7 +94,6 @@ async function extractEntitiesWithGoogle(description: string): Promise<{ entitie
       }
     )
     
-    // Analyze sentiment
     const sentimentResponse = await fetch(
       `https://language.googleapis.com/v1/documents:analyzeSentiment?key=${apiKey}`,
       {
@@ -36,7 +106,6 @@ async function extractEntitiesWithGoogle(description: string): Promise<{ entitie
       }
     )
     
-    // Analyze categories
     const classifyResponse = await fetch(
       `https://language.googleapis.com/v1/documents:classifyText?key=${apiKey}`,
       {
@@ -53,7 +122,6 @@ async function extractEntitiesWithGoogle(description: string): Promise<{ entitie
     const categories: string[] = []
     let sentiment = 'neutral'
     
-    // Process entities
     if (entityResponse.ok) {
       const entityData = await entityResponse.json()
       const entities = entityData.entities || []
@@ -80,7 +148,6 @@ async function extractEntitiesWithGoogle(description: string): Promise<{ entitie
       }
     }
     
-    // Process sentiment
     if (sentimentResponse.ok) {
       const sentimentData = await sentimentResponse.json()
       const documentSentiment = sentimentData.documentSentiment
@@ -91,7 +158,6 @@ async function extractEntitiesWithGoogle(description: string): Promise<{ entitie
       }
     }
     
-    // Process categories
     if (classifyResponse.ok) {
       const classifyData = await classifyResponse.json()
       const categoryData = classifyData.categories || []
@@ -123,7 +189,7 @@ async function extractEntitiesWithGoogle(description: string): Promise<{ entitie
 
 // GET endpoint - retrieve tag database status
 export async function GET() {
-  return NextResponse.json({ message: 'Using Hashy cloud databases via GitHub' })
+  return NextResponse.json({ message: 'Using AI-powered tag generation with Hashy' })
 }
 
 // POST endpoint - generate tags from description
@@ -136,15 +202,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Description and platform are required' }, { status: 400 })
     }
     
-    // Extract entities using Google API for enhanced Hashy analytics
+    console.log('[TAGS API] Generating tags with AI for:', { platform, description, count })
+    
+    // Try AI-powered tag generation first
+    const aiTags = await generateTagsWithAI(description, platform, count)
+    
+    if (aiTags && aiTags.length > 0) {
+      console.log('[TAGS API] AI-generated tags:', aiTags)
+      return NextResponse.json({
+        tags: aiTags.slice(0, count),
+        platform,
+        count: aiTags.slice(0, count).length,
+        algorithm: 'ai',
+        generatedAt: new Date().toISOString()
+      })
+    }
+    
+    // Fallback to Hashy if AI fails
+    console.log('[TAGS API] AI unavailable, falling back to Hashy')
     const googleData = await extractEntitiesWithGoogle(description)
-    
-    console.log('[TAGS API] Calling Hashy with:', { platform, description, count })
-    console.log('[TAGS API] Google data:', googleData)
-    
     const hashyResult = await hashy.generateTags('', description, platform, googleData)
-    
-    console.log('[TAGS API] Hashy result:', hashyResult)
     
     return NextResponse.json({
       tags: hashyResult.generatedTags.slice(0, count),
@@ -153,9 +230,6 @@ export async function POST(request: Request) {
       detectedGames: hashyResult.detectedGames.map(g => g.name),
       detectedPlatform: hashyResult.detectedPlatform?.name || null,
       contextualTags: hashyResult.contextualTags,
-      googleEntities: hashyResult.googleEntities,
-      googleCategories: hashyResult.googleCategories,
-      googleSentiment: hashyResult.googleSentiment,
       algorithm: 'hashy',
       generatedAt: new Date().toISOString()
     })
