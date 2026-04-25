@@ -861,9 +861,7 @@ export default function HomePage() {
                   {platforms.map((platform) => (
                     <div
                       key={platform.id}
-                      className={`${cardClasses} transition-all duration-300 hover:shadow-lg ${
-                        expandedCard === platform.id ? 'col-span-1 md:col-span-2 lg:col-span-3' : ''
-                      }`}
+                      className={`${cardClasses} transition-all duration-300 hover:shadow-lg`}
                     >
                       <div className="p-4">
                         <div className="flex items-center space-x-4 mb-4">
@@ -877,95 +875,137 @@ export default function HomePage() {
                           </h4>
                         </div>
                         
-                        {expandedCard === platform.id ? (
-                          <div className="space-y-4 mt-4">
-                            {platform.data && (
-                              <>
-                                <div>
-                                  <h5 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-2`}>
-                                    Key Changes
-                                  </h5>
-                                  <p className={`${textClasses} text-sm`}>{platform.data.keyChanges}</p>
-                                </div>
-                                <div>
-                                  <h5 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-2`}>
-                                    Editing Tips
-                                  </h5>
-                                  <p className={`${textClasses} text-sm`}>{platform.data.editingTips}</p>
-                                </div>
-                                <div>
-                                  <h5 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-2`}>
-                                    Posting Tips
-                                  </h5>
-                                  <p className={`${textClasses} text-sm`}>{platform.data.postingTips}</p>
-                                </div>
-                                <div>
-                                  <h5 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-2`}>
-                                    Title Tips
-                                  </h5>
-                                  <p className={`${textClasses} text-sm`}>{platform.data.titleTips}</p>
-                                </div>
-                                <div>
-                                  <h5 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-2`}>
-                                    Description Tips
-                                  </h5>
-                                  <p className={`${textClasses} text-sm`}>{platform.data.descriptionTips}</p>
-                                </div>
-                              </>
-                            )}
-                            {!platform.data && (
-                              <p className={`${subtitleClasses} text-sm`}>Loading algorithm data...</p>
-                            )}
-                            <div className="pt-4 border-t border-gray-200 dark:border-sdhq-dark-700">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setExpandedCard(null)}
-                                className="w-full"
-                              >
-                                Read Less
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {platform.data && (
-                              <>
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-2 h-2 rounded-full bg-sdhq-cyan-500"></div>
-                                  <p className={`${textClasses} text-sm`}>{platform.data.keyChanges.substring(0, 80)}...</p>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-2 h-2 rounded-full bg-sdhq-green-500"></div>
-                                  <p className={`${textClasses} text-sm`}>{platform.data.editingTips.substring(0, 80)}...</p>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-2 h-2 rounded-full bg-sdhq-cyan-500"></div>
-                                  <p className={`${textClasses} text-sm`}>{platform.data.postingTips.substring(0, 80)}...</p>
-                                </div>
-                                <div className="pt-3">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setExpandedCard(platform.id)}
-                                    className="w-full"
-                                  >
-                                    Read More
-                                  </Button>
-                                </div>
-                              </>
-                            )}
-                            {!platform.data && (
-                              <p className={`${subtitleClasses} text-sm`}>Loading algorithm data...</p>
-                            )}
-                          </div>
-                        )}
+                        <div className="space-y-2">
+                          {platform.data ? (
+                            <>
+                              <div className="flex items-start space-x-2">
+                                <div className="w-2 h-2 rounded-full bg-sdhq-cyan-500 mt-1.5 flex-shrink-0"></div>
+                                <p className={`${textClasses} text-sm`}>Key algorithm changes</p>
+                              </div>
+                              <div className="flex items-start space-x-2">
+                                <div className="w-2 h-2 rounded-full bg-sdhq-green-500 mt-1.5 flex-shrink-0"></div>
+                                <p className={`${textClasses} text-sm`}>Editing optimization tips</p>
+                              </div>
+                              <div className="flex items-start space-x-2">
+                                <div className="w-2 h-2 rounded-full bg-sdhq-cyan-500 mt-1.5 flex-shrink-0"></div>
+                                <p className={`${textClasses} text-sm`}>Best posting strategies</p>
+                              </div>
+                              <div className="flex items-start space-x-2">
+                                <div className="w-2 h-2 rounded-full bg-sdhq-green-500 mt-1.5 flex-shrink-0"></div>
+                                <p className={`${textClasses} text-sm`}>Title & description guides</p>
+                              </div>
+                              <div className="pt-3 mt-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setExpandedCard(platform.id)}
+                                  className="w-full"
+                                >
+                                  Read More
+                                </Button>
+                              </div>
+                            </>
+                          ) : (
+                            <p className={`${subtitleClasses} text-sm`}>Loading algorithm data...</p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
             </TabsContent>
+
+            {/* Algorithm Detail Popup */}
+            {expandedCard && (
+              <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+                {(() => {
+                  const platform = platforms.find(p => p.id === expandedCard)
+                  if (!platform) return null
+                  return (
+                    <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 shadow-2xl`}>
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center space-x-4">
+                          <img
+                            src={platform.image}
+                            alt={platform.name}
+                            className="w-12 h-12 rounded-lg"
+                          />
+                          <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                            {platform.name} Algorithm
+                          </h3>
+                        </div>
+                        <button 
+                          onClick={() => setExpandedCard(null)}
+                          className={`p-2 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'text-gray-600'}`}
+                        >
+                          <X className="w-6 h-6" />
+                        </button>
+                      </div>
+                      
+                      <div className="space-y-6">
+                        {platform.data ? (
+                          <>
+                            <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-50'}`}>
+                              <h4 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-3 flex items-center`}>
+                                <TrendingUp className="w-4 h-4 mr-2" />
+                                Key Changes
+                              </h4>
+                              <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.keyChanges}</p>
+                            </div>
+                            
+                            <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-50'}`}>
+                              <h4 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-3 flex items-center`}>
+                                <Video className="w-4 h-4 mr-2" />
+                                Editing Tips
+                              </h4>
+                              <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.editingTips}</p>
+                            </div>
+                            
+                            <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-50'}`}>
+                              <h4 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-3 flex items-center`}>
+                                <Globe className="w-4 h-4 mr-2" />
+                                Posting Tips
+                              </h4>
+                              <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.postingTips}</p>
+                            </div>
+                            
+                            <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-50'}`}>
+                              <h4 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-3 flex items-center`}>
+                                <Hash className="w-4 h-4 mr-2" />
+                                Title Tips
+                              </h4>
+                              <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.titleTips}</p>
+                            </div>
+                            
+                            <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-50'}`}>
+                              <h4 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-3 flex items-center`}>
+                                <Brain className="w-4 h-4 mr-2" />
+                                Description Tips
+                              </h4>
+                              <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.descriptionTips}</p>
+                            </div>
+                          </>
+                        ) : (
+                          <p className={`${subtitleClasses} text-center py-8`}>Loading algorithm data...</p>
+                        )}
+                        
+                        <div className="pt-4 border-t border-gray-200 dark:border-sdhq-dark-700">
+                          <Button
+                            variant="outline"
+                            size="lg"
+                            onClick={() => setExpandedCard(null)}
+                            className="w-full"
+                          >
+                            Close
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
 
             <TabsContent value="tag-generator-free">
               <div className={`text-center py-12 ${cardClasses}`}>
