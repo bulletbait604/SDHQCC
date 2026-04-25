@@ -225,9 +225,9 @@ export default function HomePage() {
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   
   // Payment states
-  const [paymentCode, setPaymentCode] = useState('')
   const [paypalLoaded, setPaypalLoaded] = useState(false)
   const [subscriptionId, setSubscriptionId] = useState('')
+  const [paypalEmail, setPaypalEmail] = useState('')
   
   // Verification states
   const [isVerified, setIsVerified] = useState<boolean>(false)
@@ -528,24 +528,13 @@ export default function HomePage() {
   }
 
   const handleVerifySubscription = () => {
-    // Generate payment code when opening popup
-    const code = generatePaymentCode()
-    if (code) {
-      setPaymentCode(code)
-      // Store pending payment
-      localStorage.setItem('pendingPayment', JSON.stringify({
-        code,
-        username: user?.username,
-        timestamp: Date.now()
-      }))
-    }
     setShowSubscribePopup(true)
     setPaypalLoaded(false)
   }
 
   // Load PayPal SDK and render subscription button
   useEffect(() => {
-    if (showSubscribePopup && paymentCode && !paypalLoaded) {
+    if (showSubscribePopup && !paypalLoaded) {
       // Remove existing PayPal button if any
       const container = document.getElementById('paypal-button-container')
       if (container) {
@@ -558,7 +547,7 @@ export default function HomePage() {
       script.setAttribute('data-sdk-integration-source', 'button-factory')
       script.onload = () => {
         // Render PayPal button after SDK loads
-        if (window.paypal && paymentCode && user) {
+        if (window.paypal && user) {
           window.paypal.Buttons({
             style: {
               shape: 'pill',
@@ -569,7 +558,7 @@ export default function HomePage() {
             createSubscription: function(data: any, actions: any) {
               return actions.subscription.create({
                 plan_id: 'P-85G51774HA849662NNHWRF5I',
-                custom_id: `${paymentCode}|${user.username}`
+                custom_id: `${user.username}|${paypalEmail}`
               })
             },
             onApprove: function(data: any, actions: any) {
@@ -587,7 +576,7 @@ export default function HomePage() {
         document.body.removeChild(script)
       }
     }
-  }, [showSubscribePopup, paymentCode, user, paypalLoaded])
+  }, [showSubscribePopup, user, paypalLoaded, paypalEmail])
 
   const handleClearActivityLog = () => {
     setActivityLog([])
@@ -610,32 +599,9 @@ export default function HomePage() {
     setSubscribers(subscribers.filter(sub => sub.id !== id))
   }
 
-  // Payment verification function
-  const generatePaymentCode = () => {
-    if (!user) return ''
-    const random = Math.random().toString(36).substring(2, 6).toUpperCase()
-    return `SDHQ-${user.username}-${random}`
-  }
-  
-  const initiatePayPalPayment = () => {
-    // Don't regenerate code - use existing one
-    if (!paymentCode) {
-      const code = generatePaymentCode()
-      if (code) {
-        setPaymentCode(code)
-        // Store pending payment
-        localStorage.setItem('pendingPayment', JSON.stringify({
-          code,
-          username: user?.username,
-          timestamp: Date.now()
-        }))
-      }
-    }
-  }
-  
   const checkPaymentStatus = async () => {
-    if (!paymentCode || !user) {
-      alert('No payment code found. Please click "Verify Subscription" first to generate a code.')
+    if (!paypalEmail || !user) {
+      alert('Please enter your PayPal email address to verify your subscription.')
       return
     }
     
@@ -645,7 +611,7 @@ export default function HomePage() {
       username: user.username,
       timestamp: new Date().toISOString(),
       action: 'verification_attempt',
-      details: `Subscription verification attempt - Code: ${paymentCode}, Subscription ID: ${subscriptionId || 'Not provided'}`
+      details: `Subscription verification attempt - PayPal Email: ${paypalEmail}, Subscription ID: ${subscriptionId || 'Not provided'}`
     }
     setActivityLog(prev => [attemptEntry, ...prev].slice(0, 100))
     
@@ -656,8 +622,8 @@ export default function HomePage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          paymentCode,
           username: user.username,
+          paypalEmail,
           subscriptionId,
         }),
       })
@@ -699,11 +665,11 @@ export default function HomePage() {
           username: user.username,
           timestamp: new Date().toISOString(),
           action: 'payment_failed',
-          details: `Subscription verification failed - Code: ${paymentCode}`
+          details: `Subscription verification failed - PayPal Email: ${paypalEmail}`
         }
         setActivityLog(prev => [failedEntry, ...prev].slice(0, 100))
         
-        alert(data.message || 'Subscription not found. Make sure you:\n1. Completed the PayPal subscription\n2. The subscription is active')
+        alert(data.message || 'Subscription not found. Make sure you:\n1. Completed the PayPal subscription\n2. The subscription is active\n3. The PayPal email matches the one you entered')
       }
     } catch (error) {
       console.error('Subscription check failed:', error)
@@ -2003,21 +1969,25 @@ export default function HomePage() {
                 Subscribe to unlock all premium features for $6.99 CAD/month.
               </p>
               
-              {paymentCode ? (
-                <div className={`p-4 rounded-lg border-2 border-dashed ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
-                  <p className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    <strong>Your verification code:</strong> {paymentCode}
-                  </p>
-                  <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    This code is automatically included with your subscription.
-                  </p>
-                  {subscriptionId && (
-                    <p className={`text-xs mt-2 ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}`}>
-                      <strong>Subscription ID:</strong> {subscriptionId}
-                    </p>
-                  )}
-                </div>
-              ) : null}
+              <div className={`p-4 rounded-lg border-2 border-dashed ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
+                <p className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <strong>Step 1:</strong> Enter your PayPal email address (the email you used to create your PayPal account):
+                </p>
+                <input
+                  type="email"
+                  value={paypalEmail}
+                  onChange={(e) => setPaypalEmail(e.target.value)}
+                  placeholder="your-email@paypal.com"
+                  className={`w-full px-3 py-2 rounded border text-sm ${
+                    darkMode 
+                      ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
+                      : 'bg-white border-gray-300'
+                  }`}
+                />
+                <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  This will be used to verify your subscription ownership.
+                </p>
+              </div>
               
               <div className={`p-4 rounded-lg border ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
                 <p className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PayPal Subscription:</p>
@@ -2028,10 +1998,13 @@ export default function HomePage() {
               
               <div id="paypal-button-container" className="w-full"></div>
               
-              {paymentCode && (
+              {subscriptionId && (
                 <div className={`p-3 rounded-lg border ${darkMode ? 'border-sdhq-green-500 bg-sdhq-green-500/10' : 'border-sdhq-green-500 bg-sdhq-green-50'}`}>
                   <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                    <strong className={darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}>After subscribing:</strong> Click below to verify. The system will check your subscription status.
+                    <strong className={darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}>Subscription created!</strong> Subscription ID: {subscriptionId}
+                  </p>
+                  <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Click below to verify your subscription.
                   </p>
                 </div>
               )}
@@ -2104,13 +2077,13 @@ export default function HomePage() {
             <div className="space-y-4">
               <div className={`p-4 rounded-lg border-2 border-yellow-500 ${darkMode ? 'bg-yellow-500/10' : 'bg-yellow-50'}`}>
                 <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
-                  Did you paste your code in the notes/memo?
+                  Verify your subscription
                 </p>
                 <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                  Your code: <strong className={darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}>{paymentCode}</strong>
+                  PayPal Email: <strong className={darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}>{paypalEmail}</strong>
                 </p>
                 <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Without this code in your PayPal payment note, we cannot verify your payment.
+                  We will verify your subscription by matching your KICK username and PayPal email.
                 </p>
               </div>
               
@@ -2123,7 +2096,7 @@ export default function HomePage() {
                   className="flex-1 bg-sdhq-green-600 hover:bg-sdhq-green-700 text-white"
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />
-                  Yes, I Pasted It
+                  Verify Now
                 </Button>
                 <Button
                   variant="outline"

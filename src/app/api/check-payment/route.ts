@@ -103,33 +103,29 @@ async function listPayPalSubscriptions(accessToken: string): Promise<any[]> {
 
 export async function POST(req: NextRequest) {
   try {
-    const { paymentCode, username, subscriptionId } = await req.json()
+    const { paypalEmail, username, subscriptionId } = await req.json()
     
-    if (!paymentCode || !username) {
+    if (!paypalEmail || !username) {
       return NextResponse.json(
-        { error: 'Missing payment code or username' },
+        { error: 'Missing PayPal email or username' },
         { status: 400 }
       )
     }
     
-    console.log('Checking subscription for code:', paymentCode, 'username:', username, 'subscriptionId:', subscriptionId)
+    console.log('Checking subscription for email:', paypalEmail, 'username:', username, 'subscriptionId:', subscriptionId)
     
     // First, check webhook storage (for backwards compatibility)
     if (!global.verifiedPayments) {
       global.verifiedPayments = new Map()
     }
     
-    const webhookPayment = global.verifiedPayments.get(paymentCode)
+    // Check if we have a verified payment for this user
+    const webhookPayment = Array.from(global.verifiedPayments.values()).find(
+      (payment: any) => payment.username === username
+    )
     
     if (webhookPayment) {
       console.log('Payment found in webhook storage:', webhookPayment)
-      
-      if (webhookPayment.username !== username) {
-        return NextResponse.json({
-          verified: false,
-          message: 'Payment code does not match username.',
-        })
-      }
       
       return NextResponse.json({
         verified: true,
@@ -140,36 +136,39 @@ export async function POST(req: NextRequest) {
       })
     }
     
+    // Get PayPal access token
+    const accessToken = await getPayPalAccessToken()
+    
+    if (!accessToken) {
+      return NextResponse.json({
+        verified: false,
+        message: 'PayPal API authentication failed. Please contact support.',
+      })
+    }
+    
     // If subscription ID is provided, check it directly
     if (subscriptionId) {
-      const accessToken = await getPayPalAccessToken()
-      
-      if (!accessToken) {
-        return NextResponse.json({
-          verified: false,
-          message: 'PayPal API authentication failed. Please contact support.',
-        })
-      }
-      
       const subscription = await getPayPalSubscription(accessToken, subscriptionId)
       
       if (subscription) {
         // Check if subscription is active
         if (subscription.status === 'ACTIVE') {
-          // Extract custom_id to verify it matches our code and username
+          // Extract custom_id to verify it matches our username
           const customId = subscription.custom_id || ''
-          const [code, subUsername] = customId.split('|')
+          const [subUsername, storedEmail] = customId.split('|')
           
-          if (code === paymentCode && subUsername?.toLowerCase() === username.toLowerCase()) {
+          // Match username and email
+          if (subUsername?.toLowerCase() === username.toLowerCase() && storedEmail?.toLowerCase() === paypalEmail.toLowerCase()) {
             console.log('Subscription verified:', subscription.id)
             
             // Store in webhook storage for future reference
-            global.verifiedPayments.set(paymentCode, {
+            const storageKey = `${username}-${subscription.id}`
+            global.verifiedPayments.set(storageKey, {
               username,
               subscriptionId: subscription.id,
               verifiedAt: new Date().toISOString(),
               paymentStatus: subscription.status,
-              verificationCode: paymentCode,
+              paypalEmail,
             })
             
             return NextResponse.json({
@@ -186,33 +185,25 @@ export async function POST(req: NextRequest) {
     }
     
     // If no subscription ID provided or direct check failed, try to find by searching
-    const accessToken = await getPayPalAccessToken()
-    
-    if (!accessToken) {
-      return NextResponse.json({
-        verified: false,
-        message: 'PayPal API authentication failed. Please contact support.',
-      })
-    }
-    
-    // List recent subscriptions and search for matching custom_id
     const subscriptions = await listPayPalSubscriptions(accessToken)
     
     for (const sub of subscriptions) {
       if (sub.status === 'ACTIVE') {
         const customId = sub.custom_id || ''
-        const [code, subUsername] = customId.split('|')
+        const [subUsername, storedEmail] = customId.split('|')
         
-        if (code === paymentCode && subUsername?.toLowerCase() === username.toLowerCase()) {
+        // Match username and email
+        if (subUsername?.toLowerCase() === username.toLowerCase() && storedEmail?.toLowerCase() === paypalEmail.toLowerCase()) {
           console.log('Found matching subscription:', sub.id)
           
           // Store in webhook storage for future reference
-          global.verifiedPayments.set(paymentCode, {
+          const storageKey = `${username}-${sub.id}`
+          global.verifiedPayments.set(storageKey, {
             username,
             subscriptionId: sub.id,
             verifiedAt: new Date().toISOString(),
             paymentStatus: sub.status,
-            verificationCode: paymentCode,
+            paypalEmail,
           })
           
           return NextResponse.json({
@@ -231,7 +222,7 @@ export async function POST(req: NextRequest) {
     
     return NextResponse.json({
       verified: false,
-      message: 'Subscription not found. Make sure you:\n1. Completed the PayPal subscription\n2. The subscription is active\n3. Wait a moment for PayPal to process (can take 1-2 minutes)\n\nOr provide your Subscription ID from PayPal.',
+      message: 'Subscription not found. Make sure you:\n1. Completed the PayPal subscription\n2. The subscription is active\n3. The PayPal email you entered matches the one used for the subscription\n4. Your KICK username matches the one used during subscription',
     })
     
   } catch (error) {
