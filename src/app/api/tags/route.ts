@@ -255,7 +255,39 @@ function generateBaseTagsForPlatform(platform: string): string[] {
     // Music
     'music', 'song', 'audio', 'sound', 'beat', 'remix', 'cover',
     // IRL
-    'irl', 'vlog', 'daily', 'routine', 'stream', 'live', 'behindthescenes'
+    'irl', 'vlog', 'daily', 'routine', 'stream', 'live', 'behindthescenes',
+    // Animals
+    'animals', 'animal', 'pets', 'pet', 'dog', 'dogs', 'puppy', 'puppies',
+    'cat', 'cats', 'kitten', 'kittens', 'frog', 'frogs', 'toad', 'toads',
+    'bird', 'birds', 'fish', 'fishes', 'wildlife', 'nature', 'wild',
+    'cute', 'adorable', 'funnyanimals', 'petlover', 'animallover',
+    // Nature
+    'nature', 'natural', 'outdoor', 'outdoors', 'forest', 'forests',
+    'pond', 'ponds', 'lake', 'lakes', 'river', 'rivers', 'ocean', 'oceans',
+    'sea', 'seas', 'beach', 'beaches', 'mountain', 'mountains', 'sky',
+    'sunset', 'sunrise', 'clouds', 'weather', 'season', 'seasons',
+    // Scenarios
+    'talking', 'talk', 'conversation', 'conversations', 'chat', 'chats',
+    'dancing', 'dance', 'singing', 'sing', 'playing', 'play', 'running',
+    'walking', 'walk', 'swimming', 'swim', 'flying', 'fly', 'jumping',
+    'eating', 'eat', 'drinking', 'drink', 'sleeping', 'sleep', 'fighting',
+    // Objects
+    'car', 'cars', 'vehicle', 'vehicles', 'house', 'home', 'building',
+    'buildings', 'city', 'cities', 'town', 'towns', 'road', 'roads',
+    'phone', 'phones', 'computer', 'computers', 'laptop', 'laptops',
+    // People
+    'people', 'person', 'human', 'humans', 'man', 'men', 'woman', 'women',
+    'boy', 'boys', 'girl', 'girls', 'kid', 'kids', 'child', 'children',
+    'baby', 'babies', 'family', 'families', 'friend', 'friends',
+    // Colors
+    'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink', 'black',
+    'white', 'brown', 'gray', 'colour', 'color', 'colourful', 'colorful',
+    // Time
+    'morning', 'afternoon', 'evening', 'night', 'day', 'daily', 'today',
+    'tomorrow', 'yesterday', 'week', 'month', 'year', '2026',
+    // Emotions
+    'happy', 'sad', 'angry', 'excited', 'scared', 'surprised', 'love',
+    'hate', 'funny', 'serious', 'dramatic', 'emotional', 'feelings'
   ]
   
   // Platform-specific tags
@@ -418,6 +450,16 @@ function generateTagsFromDescription(description: string, platformTags: string[]
     'lifestyle': ['lifestyle', 'morning', 'routine', 'night', 'day', 'daily', 'vlog', 'vlogger', 'life', 'living', 'home', 'house', 'apartment', 'room', 'bedroom', 'decor', 'decoration', 'organization', 'clean', 'cleaning', 'productivity', 'motivation', 'inspiration', 'goals', 'habit', 'selfcare', 'mentalhealth']
   }
   
+  // Subject detection - identify animals, nature, objects, scenarios
+  const subjectKeywords: Record<string, string[]> = {
+    'animals': ['animal', 'animals', 'pet', 'pets', 'dog', 'dogs', 'puppy', 'puppies', 'cat', 'cats', 'kitten', 'kittens', 'frog', 'frogs', 'toad', 'toads', 'bird', 'birds', 'fish', 'fishes', 'wildlife', 'wild', 'creature', 'creatures', 'beast', 'beasts', 'insect', 'insects', 'bug', 'bugs', 'butterfly', 'butterflies', 'spider', 'spiders', 'snake', 'snakes', 'lizard', 'lizards', 'turtle', 'turtles', 'rabbit', 'rabbits', 'hamster', 'hamsters', 'guinea', 'pig', 'horse', 'horses', 'cow', 'cows', 'pig', 'pigs', 'sheep', 'goat', 'goats', 'chicken', 'chickens', 'duck', 'ducks', 'mouse', 'mice', 'rat', 'rats', 'lion', 'tigers', 'bear', 'bears', 'elephant', 'elephants', 'monkey', 'monkeys', 'ape', 'apes', 'zoo', 'aquarium'],
+    'nature': ['nature', 'natural', 'outdoor', 'outdoors', 'forest', 'forests', 'tree', 'trees', 'wood', 'woods', 'jungle', 'pond', 'ponds', 'lake', 'lakes', 'river', 'rivers', 'ocean', 'oceans', 'sea', 'seas', 'beach', 'beaches', 'mountain', 'mountains', 'hill', 'hills', 'valley', 'valleys', 'sky', 'cloud', 'clouds', 'sun', 'moon', 'star', 'stars', 'rain', 'snow', 'wind', 'storm', 'thunder', 'lightning', 'sunset', 'sunrise', 'dawn', 'dusk', 'twilight', 'night', 'day', 'weather', 'season', 'seasons', 'spring', 'summer', 'autumn', 'fall', 'winter', 'flower', 'flowers', 'plant', 'plants', 'grass', 'leaf', 'leaves', 'garden', 'park', 'water', 'fire', 'earth', 'soil', 'dirt', 'sand', 'rock', 'rocks', 'stone', 'stones'],
+    'scenarios': ['talking', 'talk', 'conversation', 'conversations', 'chat', 'chats', 'speaking', 'speak', 'voice', 'voices', 'saying', 'said', 'says', 'dancing', 'dance', 'dancer', 'dancers', 'singing', 'sing', 'singer', 'song', 'playing', 'play', 'player', 'running', 'run', 'runner', 'walking', 'walk', 'walker', 'swimming', 'swim', 'swimmer', 'flying', 'fly', 'flight', 'jumping', 'jump', 'eating', 'eat', 'drinking', 'drink', 'sleeping', 'sleep', 'fighting', 'fight', 'fighting', 'arguing', 'argue', 'laughing', 'laugh', 'crying', 'cry', 'smiling', 'smile', 'screaming', 'scream', 'shouting', 'shout', 'whispering', 'whisper', 'yelling', 'yell', 'kissing', 'kiss', 'hugging', 'hug', 'holding', 'hold', 'sitting', 'sit', 'standing', 'stand', 'lying', 'lie', 'laying', 'lay', 'falling', 'fall', 'rising', 'rise', 'climbing', 'climb'],
+    'objects': ['car', 'cars', 'vehicle', 'vehicles', 'truck', 'trucks', 'bus', 'buses', 'train', 'trains', 'plane', 'planes', 'boat', 'boats', 'ship', 'ships', 'bicycle', 'bicycle', 'bike', 'bikes', 'motorcycle', 'motorcycles', 'house', 'home', 'homes', 'building', 'buildings', 'apartment', 'apartments', 'room', 'rooms', 'door', 'doors', 'window', 'windows', 'wall', 'walls', 'floor', 'floors', 'ceiling', 'ceilings', 'roof', 'roofs', 'furniture', 'chair', 'chairs', 'table', 'tables', 'bed', 'beds', 'sofa', 'sofas', 'couch', 'couches', 'desk', 'desks', 'shelf', 'shelves', 'lamp', 'lamps', 'light', 'lights', 'phone', 'phones', 'computer', 'computers', 'laptop', 'laptops', 'television', 'tv', 'television', 'television', 'screen', 'screens', 'camera', 'cameras', 'watch', 'watches', 'clock', 'clocks', 'mirror', 'mirrors', 'glass', 'cup', 'cups', 'plate', 'plates', 'bowl', 'bowls', 'fork', 'forks', 'spoon', 'spoons', 'knife', 'knives', 'book', 'books', 'pen', 'pens', 'pencil', 'pencils', 'paper', 'papers', 'bag', 'bags', 'box', 'boxes', 'bottle', 'bottles', 'can', 'cans', 'jar', 'jars'],
+    'people': ['people', 'person', 'human', 'humans', 'man', 'men', 'woman', 'women', 'boy', 'boys', 'girl', 'girls', 'kid', 'kids', 'child', 'children', 'baby', 'babies', 'infant', 'infants', 'toddler', 'toddlers', 'teen', 'teens', 'teenager', 'teenagers', 'adult', 'adults', 'elderly', 'senior', 'seniors', 'old', 'young', 'family', 'families', 'friend', 'friends', 'couple', 'couples', 'group', 'groups', 'crowd', 'crowds', 'audience', 'audiences', 'stranger', 'strangers', 'neighbor', 'neighbors', 'colleague', 'colleagues', 'coworker', 'coworkers', 'boss', 'bosses', 'teacher', 'teachers', 'student', 'students', 'doctor', 'doctors', 'nurse', 'nurses', 'police', 'officer', 'officers', 'soldier', 'soldiers', 'actor', 'actors', 'actress', 'actresses', 'singer', 'singers', 'dancer', 'dancers', 'artist', 'artists', 'writer', 'writers', 'author', 'authors'],
+    'emotions': ['happy', 'happiness', 'joy', 'joyful', 'sad', 'sadness', 'unhappy', 'angry', 'anger', 'mad', 'furious', 'excited', 'excitement', 'thrilled', 'scared', 'scare', 'fear', 'afraid', 'terrified', 'surprised', 'surprise', 'shocked', 'love', 'loving', 'hate', 'hating', 'dislike', 'funny', 'humor', 'humorous', 'serious', 'dramatic', 'emotional', 'feel', 'feeling', 'feelings', 'mood', 'moods', 'calm', 'peaceful', 'relaxed', 'stressed', 'worried', 'anxious', 'nervous', 'confident', 'proud', 'embarrassed', 'ashamed', 'guilty', 'jealous', 'envious', 'grateful', 'thankful', 'hopeful', 'hope', 'desperate', 'lonely', 'alone', 'bored', 'boring', 'interested', 'curious', 'confused', 'puzzled', 'amazed', 'impressed', 'disappointed', 'proud', 'satisfied', 'content']
+  }
+  
   // Detect the primary activity by counting keyword matches
   let detectedActivity: string | null = null
   let maxActivityScore = 0
@@ -435,6 +477,26 @@ function generateTagsFromDescription(description: string, platformTags: string[]
     if (activityScore > maxActivityScore && activityScore >= 1) {
       maxActivityScore = activityScore
       detectedActivity = activity
+    }
+  }
+  
+  // Detect the primary subject by counting keyword matches
+  let detectedSubject: string | null = null
+  let maxSubjectScore = 0
+  
+  const subjectKeys = Object.keys(subjectKeywords)
+  for (let i = 0; i < subjectKeys.length; i++) {
+    const subject = subjectKeys[i]
+    const keywords = subjectKeywords[subject]
+    let subjectScore = 0
+    for (let j = 0; j < keywords.length; j++) {
+      if (descLower.indexOf(keywords[j]) !== -1) {
+        subjectScore += 1
+      }
+    }
+    if (subjectScore > maxSubjectScore && subjectScore >= 1) {
+      maxSubjectScore = subjectScore
+      detectedSubject = subject
     }
   }
   
@@ -536,6 +598,14 @@ function generateTagsFromDescription(description: string, platformTags: string[]
           score -= 50 // Penalize activity tags when gaming
         }
       }
+      
+      // PENALTY for subject tags when a game is detected
+      for (let i = 0; i < subjectKeys.length; i++) {
+        const subject = subjectKeys[i]
+        if (tagLower.indexOf(subject) !== -1) {
+          score -= 30 // Light penalty for subjects when gaming
+        }
+      }
     } else if (detectedActivity) {
       // ACTIVITY-SPECIFIC SCORING - Only boost the detected activity
       // Massive boost for tags matching the detected activity
@@ -564,8 +634,36 @@ function generateTagsFromDescription(description: string, platformTags: string[]
           score -= 50 // Penalize game tags when doing activities
         }
       }
+    } else if (detectedSubject) {
+      // SUBJECT-SPECIFIC SCORING - Only boost the detected subject
+      // Massive boost for tags matching the detected subject
+      if (tagLower.indexOf(detectedSubject) !== -1) score += 50
+      
+      // Boost for subject-specific keywords
+      const subjectSpecificKeywords = subjectKeywords[detectedSubject] || []
+      for (let i = 0; i < subjectSpecificKeywords.length; i++) {
+        if (tagLower.indexOf(subjectSpecificKeywords[i]) !== -1) {
+          score += 25
+        }
+      }
+      
+      // HEAVY PENALTY for other subjects
+      for (let i = 0; i < subjectKeys.length; i++) {
+        const otherSubject = subjectKeys[i]
+        if (otherSubject !== detectedSubject && tagLower.indexOf(otherSubject) !== -1) {
+          score -= 100 // Penalize unrelated subjects heavily
+        }
+      }
+      
+      // PENALTY for game tags when a subject is detected
+      for (let i = 0; i < gameKeys.length; i++) {
+        const game = gameKeys[i]
+        if (tagLower.indexOf(game) !== -1) {
+          score -= 50 // Penalize game tags when focusing on subjects
+        }
+      }
     } else {
-      // No specific game or activity detected - only boost general content type tags
+      // No specific game, activity, or subject detected - only boost general content type tags
       if (detectedContentTypes.indexOf('gaming') !== -1) {
         if (['game', 'gaming', 'gamer', 'play', 'player'].some(g => tagLower.indexOf(g) !== -1)) score += 15
       }
