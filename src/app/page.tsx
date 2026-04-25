@@ -53,6 +53,7 @@ interface AlgorithmData {
   postingTips: string
   titleTips: string
   descriptionTips: string
+  summaries?: string[]
 }
 
 interface Platform {
@@ -893,22 +894,37 @@ export default function HomePage() {
                         <div className="space-y-2">
                           {platform.data ? (
                             <>
-                              <div className="flex items-start space-x-2">
-                                <div className="w-2 h-2 rounded-full bg-sdhq-cyan-500 mt-1.5 flex-shrink-0"></div>
-                                <p className={`${textClasses} text-sm`}>Key algorithm changes</p>
-                              </div>
-                              <div className="flex items-start space-x-2">
-                                <div className="w-2 h-2 rounded-full bg-sdhq-green-500 mt-1.5 flex-shrink-0"></div>
-                                <p className={`${textClasses} text-sm`}>Editing optimization tips</p>
-                              </div>
-                              <div className="flex items-start space-x-2">
-                                <div className="w-2 h-2 rounded-full bg-sdhq-cyan-500 mt-1.5 flex-shrink-0"></div>
-                                <p className={`${textClasses} text-sm`}>Best posting strategies</p>
-                              </div>
-                              <div className="flex items-start space-x-2">
-                                <div className="w-2 h-2 rounded-full bg-sdhq-green-500 mt-1.5 flex-shrink-0"></div>
-                                <p className={`${textClasses} text-sm`}>Title & description guides</p>
-                              </div>
+                              {platform.data.summaries ? (
+                                // Use AI-generated platform-specific summaries
+                                <>
+                                  {platform.data.summaries.slice(0, 4).map((summary, index) => (
+                                    <div key={index} className="flex items-start space-x-2">
+                                      <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${index % 2 === 0 ? 'bg-sdhq-cyan-500' : 'bg-sdhq-green-500'}`}></div>
+                                      <p className={`${textClasses} text-sm`}>{summary}</p>
+                                    </div>
+                                  ))}
+                                </>
+                              ) : (
+                                // Fallback to generic bullets if summaries not available
+                                <>
+                                  <div className="flex items-start space-x-2">
+                                    <div className="w-2 h-2 rounded-full bg-sdhq-cyan-500 mt-1.5 flex-shrink-0"></div>
+                                    <p className={`${textClasses} text-sm`}>Key algorithm changes</p>
+                                  </div>
+                                  <div className="flex items-start space-x-2">
+                                    <div className="w-2 h-2 rounded-full bg-sdhq-green-500 mt-1.5 flex-shrink-0"></div>
+                                    <p className={`${textClasses} text-sm`}>Editing optimization tips</p>
+                                  </div>
+                                  <div className="flex items-start space-x-2">
+                                    <div className="w-2 h-2 rounded-full bg-sdhq-cyan-500 mt-1.5 flex-shrink-0"></div>
+                                    <p className={`${textClasses} text-sm`}>Best posting strategies</p>
+                                  </div>
+                                  <div className="flex items-start space-x-2">
+                                    <div className="w-2 h-2 rounded-full bg-sdhq-green-500 mt-1.5 flex-shrink-0"></div>
+                                    <p className={`${textClasses} text-sm`}>Title & description guides</p>
+                                  </div>
+                                </>
+                              )}
                               <div className="pt-3 mt-2">
                                 <Button
                                   variant="outline"
