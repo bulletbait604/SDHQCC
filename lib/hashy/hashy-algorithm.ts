@@ -43,12 +43,29 @@ interface TagDatabase {
   tags: string[];
 }
 
+interface AlgorithmInsights {
+  keyChanges: string;
+  editingTips: string;
+  postingTips: string;
+  titleTips: string;
+  descriptionTips: string;
+  summaries: string[];
+}
+
+interface HashyAlgorithmData {
+  algorithmInsights: Record<string, AlgorithmInsights>;
+  lastUpdated: string;
+  provider: string;
+  platforms: string[];
+}
+
 // Hashy result interface
 interface HashyResult {
   detectedGames: Game[];
   detectedPlatform: Platform | null;
   generatedTags: string[];
   contextualTags: string[];
+  algorithmTips?: string[];
   googleEntities?: string[];
   googleCategories?: string[];
   googleSentiment?: string;
@@ -66,6 +83,7 @@ export class HashyAlgorithm {
   private gamesDatabase: Game[] = [];
   private platformsDatabase: Platform[] = [];
   private tagDatabases: Map<string, TagDatabase> = new Map();
+  private algorithmInsights: HashyAlgorithmData | null = null;
 
   constructor() {
     // Don't await in constructor - loadDatabases is now async
@@ -113,6 +131,14 @@ export class HashyAlgorithm {
       if (fs.existsSync(platformsPath)) {
         const platformsData = JSON.parse(fs.readFileSync(platformsPath, 'utf-8'));
         this.platformsDatabase = platformsData.platforms || [];
+      }
+
+      // Load algorithm insights
+      const algorithmPath = path.join(hashyDir, 'algorithm-insights.json');
+      if (fs.existsSync(algorithmPath)) {
+        const algorithmData = JSON.parse(fs.readFileSync(algorithmPath, 'utf-8'));
+        this.algorithmInsights = algorithmData;
+        console.log(`Loaded algorithm insights for ${algorithmData.platforms?.length || 0} platforms`);
       }
 
       // Load tag databases
@@ -309,6 +335,29 @@ export class HashyAlgorithm {
   }
 
   /**
+   * Get algorithm insights for a specific platform
+   */
+  private getAlgorithmInsights(platformName: string): AlgorithmInsights | null {
+    if (!this.algorithmInsights) return null;
+
+    const platformMapping: Record<string, string> = {
+      'tiktok': 'tiktok',
+      'instagram': 'instagram',
+      'youtube shorts': 'youtube-shorts',
+      'youtubeshorts': 'youtube-shorts',
+      'youtube long': 'youtube-long',
+      'youtubelong': 'youtube-long',
+      'facebook reels': 'facebook-reels',
+      'facebookreels': 'facebook-reels'
+    };
+
+    const normalized = platformName.toLowerCase().replace(/\s+/g, '');
+    const platformId = platformMapping[normalized] || normalized;
+
+    return this.algorithmInsights.algorithmInsights[platformId] || null;
+  }
+
+  /**
    * Generate tags based on detected games, platform, and keywords
    */
   private generateTagsInternal(
@@ -316,9 +365,10 @@ export class HashyAlgorithm {
     detectedPlatform: Platform | null,
     keywords: string[],
     targetPlatform?: string
-  ): { generatedTags: string[], contextualTags: string[] } {
+  ): { generatedTags: string[], contextualTags: string[], algorithmTips?: string[] } {
     const generatedTags: string[] = [];
     const contextualTags: string[] = [];
+    const algorithmTips: string[] = [];
 
     // Add game-specific tags
     for (const game of detectedGames) {
@@ -333,6 +383,12 @@ export class HashyAlgorithm {
       const tagDb = this.getTagDatabase(platformToUse);
       if (tagDb) {
         generatedTags.push(...tagDb.tags.slice(0, 20));
+      }
+
+      // Add algorithm-based tips if available
+      const insights = this.getAlgorithmInsights(platformToUse);
+      if (insights && insights.summaries) {
+        algorithmTips.push(...insights.summaries);
       }
     }
 
@@ -349,7 +405,8 @@ export class HashyAlgorithm {
 
     return {
       generatedTags: uniqueGenerated,
-      contextualTags: uniqueContextual
+      contextualTags: uniqueContextual,
+      algorithmTips
     };
   }
 
@@ -386,7 +443,7 @@ export class HashyAlgorithm {
     const detectedPlatform = this.detectPlatform(keywords, description);
 
     // Generate tags
-    const { generatedTags, contextualTags } = this.generateTagsInternal(
+    const { generatedTags, contextualTags, algorithmTips } = this.generateTagsInternal(
       detectedGames,
       detectedPlatform,
       keywords,
@@ -416,6 +473,7 @@ export class HashyAlgorithm {
         detectedPlatform,
         generatedTags: boostedTags.map(bt => bt.tag),
         contextualTags,
+        algorithmTips,
         googleEntities: googleData.entities,
         googleCategories: googleData.categories,
         googleSentiment: googleData.sentiment,
@@ -432,6 +490,7 @@ export class HashyAlgorithm {
       detectedPlatform,
       generatedTags,
       contextualTags,
+      algorithmTips,
       googleEntities: googleData?.entities,
       googleCategories: googleData?.categories,
       googleSentiment: googleData?.sentiment,

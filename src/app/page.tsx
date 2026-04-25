@@ -247,6 +247,8 @@ export default function HomePage() {
   const [isRefreshingTags, setIsRefreshingTags] = useState<boolean>(false)
   const [tagRefreshProgress, setTagRefreshProgress] = useState<number>(0)
   const [algorithmRefreshProgress, setAlgorithmRefreshProgress] = useState<number>(0)
+  const [isRefreshingHashy, setIsRefreshingHashy] = useState<boolean>(false)
+  const [hashyRefreshStatus, setHashyRefreshStatus] = useState<string | null>(null)
   const [platforms, setPlatforms] = useState<Platform[]>([
     {
       id: 'tiktok',
@@ -600,6 +602,37 @@ export default function HomePage() {
 
   const handleRemoveSubscriber = (id: string) => {
     setSubscribers(subscribers.filter(sub => sub.id !== id))
+  }
+
+  const handleRefreshHashy = async () => {
+    if (!isAdmin) return
+
+    setIsRefreshingHashy(true)
+    setHashyRefreshStatus('Analyzing platform algorithms...')
+
+    try {
+      const response = await fetch('/api/admin/refresh-hashy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isAdmin: true })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setHashyRefreshStatus(`✅ Updated ${data.updatedPlatforms.length} platforms`)
+        setTimeout(() => setHashyRefreshStatus(null), 3000)
+      } else {
+        setHashyRefreshStatus('❌ Failed to refresh Hashy')
+        setTimeout(() => setHashyRefreshStatus(null), 3000)
+      }
+    } catch (error) {
+      console.error('Error refreshing Hashy:', error)
+      setHashyRefreshStatus('❌ Error refreshing Hashy')
+      setTimeout(() => setHashyRefreshStatus(null), 3000)
+    } finally {
+      setIsRefreshingHashy(false)
+    }
   }
 
   const pollVerificationStatus = (subscriptionId: string) => {
@@ -1851,6 +1884,37 @@ export default function HomePage() {
               {isAdmin && (
                 <div className={`p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-dark-600' : 'bg-white border-gray-200'}`}>
                   <h4 className={`font-semibold mb-3 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    <Brain className="w-4 h-4 mr-2 text-sdhq-cyan-500" />
+                    Hashy Algorithm
+                  </h4>
+                  <Button
+                    onClick={handleRefreshHashy}
+                    disabled={isRefreshingHashy}
+                    className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
+                  >
+                    {isRefreshingHashy ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Refreshing...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Refresh Hashy Algorithm
+                      </>
+                    )}
+                  </Button>
+                  {hashyRefreshStatus && (
+                    <p className={`text-sm mt-2 ${hashyRefreshStatus.includes('✅') ? 'text-green-500' : 'text-red-500'}`}>
+                      {hashyRefreshStatus}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {isAdmin && (
+                <div className={`p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-dark-600' : 'bg-white border-gray-200'}`}>
+                  <h4 className={`font-semibold mb-3 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                     <Crown className="w-4 h-4 mr-2 text-sdhq-green-500" />
                     {t.subscribers} ({subscribers.length})
                   </h4>
@@ -1903,7 +1967,7 @@ export default function HomePage() {
                       ))
                     )}
                   </div>
-                </div>
+                </>
               )}
             </div>
           </div>
