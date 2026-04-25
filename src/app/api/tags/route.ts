@@ -1049,34 +1049,73 @@ function generateTagsFromDescription(description: string, platformTags: string[]
     
     score += trendingScore * 0.04
     
+    // Factor 18: Irrelevance penalty (negative scoring) - penalize tags with no context matches
+    let hasAnyMatch = false
+    let matchCount = 0
+    
+    // Check if tag matches any description word
+    for (let i = 0; i < descriptionWords.length; i++) {
+      if (tagLower.indexOf(descriptionWords[i]) !== -1) {
+        hasAnyMatch = true
+        matchCount++
+      }
+    }
+    
+    // Check if tag matches detected context
+    if (detectedGame && tagLower.indexOf(detectedGame) !== -1) {
+      hasAnyMatch = true
+      matchCount += 2
+    }
+    if (detectedActivity && tagLower.indexOf(detectedActivity) !== -1) {
+      hasAnyMatch = true
+      matchCount += 2
+    }
+    if (detectedSubject && tagLower.indexOf(detectedSubject) !== -1) {
+      hasAnyMatch = true
+      matchCount += 2
+    }
+    
+    // Heavy penalty for tags with no matches at all
+    if (!hasAnyMatch) {
+      score -= 50
+    }
+    // Moderate penalty for tags with very few matches
+    else if (matchCount < 2) {
+      score -= 20
+    }
+    
     return { tag, score }
   })
   
   // Sort by score descending
   scoredTags.sort((a, b) => b.score - a.score)
   
-  // Get top tags
-  const selectedTags = scoredTags.slice(0, count).map(st => st.tag)
+  // Calculate minimum score threshold based on input quality
+  const minScoreThreshold = inputLength > 10 ? 5 : 3
   
-  // If we don't have enough high-scoring tags, fill with viral/discovery tags
-  if (selectedTags.length < count) {
-    const viralTags = platformTags.filter(tag => 
-      selectedTags.indexOf(tag) === -1 && 
-      (tag.toLowerCase().indexOf('viral') !== -1 || tag.toLowerCase().indexOf('trending') !== -1 || tag.toLowerCase().indexOf('fyp') !== -1 || tag.toLowerCase().indexOf('foryou') !== -1 || tag.toLowerCase().indexOf('explore') !== -1 || tag.toLowerCase().indexOf('content') !== -1 || tag.toLowerCase().indexOf('creator') !== -1)
-    )
-    while (selectedTags.length < count && viralTags.length > 0) {
-      selectedTags.push(viralTags.shift()!)
-    }
-  }
+  // Filter out low-scoring tags that are likely irrelevant
+  const highScoringTags = scoredTags.filter(st => st.score >= minScoreThreshold)
   
-  // If still not enough, add platform-specific tags
-  if (selectedTags.length < count) {
-    const genericTags = platformTags.filter(tag => 
-      selectedTags.indexOf(tag) === -1 && 
-      tag.toLowerCase().indexOf(platform.toLowerCase().replace('-', '')) !== -1
-    )
-    while (selectedTags.length < count && genericTags.length > 0) {
-      selectedTags.push(genericTags.shift()!)
+  // Get top tags from high-scoring pool only
+  const selectedTags = highScoringTags.slice(0, count).map(st => st.tag)
+  
+  // Only add fallback tags if they match detected context (no more irrelevant tags)
+  if (selectedTags.length < count && (detectedGame || detectedActivity || detectedSubject)) {
+    const contextRelevantTags = platformTags.filter(tag => {
+      const tagLower = tag.toLowerCase()
+      const alreadySelected = selectedTags.indexOf(tag) === -1
+      
+      // Only add if tag relates to detected context
+      let contextMatch = false
+      if (detectedGame && tagLower.indexOf(detectedGame) !== -1) contextMatch = true
+      if (detectedActivity && tagLower.indexOf(detectedActivity) !== -1) contextMatch = true
+      if (detectedSubject && tagLower.indexOf(detectedSubject) !== -1) contextMatch = true
+      
+      return alreadySelected && contextMatch
+    })
+    
+    while (selectedTags.length < count && contextRelevantTags.length > 0) {
+      selectedTags.push(contextRelevantTags.shift()!)
     }
   }
   
