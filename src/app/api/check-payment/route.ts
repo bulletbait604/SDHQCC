@@ -44,25 +44,14 @@ async function getPayPalAccessToken(): Promise<string | null> {
   }
 }
 
-// Search PayPal transactions for a specific note/memo
-async function searchPayPalTransactions(accessToken: string, paymentCode: string): Promise<any | null> {
+// Get subscription details from PayPal
+async function getPayPalSubscription(accessToken: string, subscriptionId: string): Promise<any | null> {
   try {
     const paypalUrl = process.env.NODE_ENV === 'production'
-      ? 'https://api-m.paypal.com/v1/reporting/transactions'
-      : 'https://api-m.sandbox.paypal.com/v1/reporting/transactions'
+      ? `https://api-m.paypal.com/v1/billing/subscriptions/${subscriptionId}`
+      : `https://api-m.sandbox.paypal.com/v1/billing/subscriptions/${subscriptionId}`
     
-    // Search for transactions from the last 7 days
-    const endDate = new Date()
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - 7)
-    
-    const params = new URLSearchParams({
-      start_date: startDate.toISOString(),
-      end_date: endDate.toISOString(),
-      fields: 'all',
-    })
-    
-    const response = await fetch(`${paypalUrl}?${params.toString()}`, {
+    const response = await fetch(paypalUrl, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -71,55 +60,50 @@ async function searchPayPalTransactions(accessToken: string, paymentCode: string
     })
     
     if (!response.ok) {
-      console.error('PayPal transaction search failed:', response.status)
+      console.error('PayPal subscription fetch failed:', response.status)
       return null
     }
     
     const data = await response.json()
-    console.log('PayPal transactions retrieved:', data.transaction_details?.length || 0)
+    console.log('PayPal subscription retrieved:', data.id, data.status)
+    return data
+  } catch (error) {
+    console.error('Error fetching PayPal subscription:', error)
+    return null
+  }
+}
+
+// List subscriptions for a business account
+async function listPayPalSubscriptions(accessToken: string): Promise<any[]> {
+  try {
+    const paypalUrl = process.env.NODE_ENV === 'production'
+      ? 'https://api-m.paypal.com/v1/billing/subscriptions'
+      : 'https://api-m.sandbox.paypal.com/v1/billing/subscriptions'
     
-    // Search for transactions with the payment code in note or memo
-    if (data.transaction_details) {
-      for (const transaction of data.transaction_details) {
-        const note = transaction.transaction_info.note || ''
-        const memo = transaction.transaction_info.memo || ''
-        const customField = transaction.transaction_info.custom_field || ''
-        
-        // Check if payment code is in any of these fields
-        if (note.includes(paymentCode) || memo.includes(paymentCode) || customField.includes(paymentCode)) {
-          console.log('Found matching transaction:', transaction.transaction_info.transaction_id)
-          
-          // Verify payment status and amount
-          const status = transaction.transaction_info.transaction_status
-          const amount = parseFloat(transaction.transaction_info.transaction_amount.value)
-          const currency = transaction.transaction_info.transaction_amount.currency_code
-          
-          if (status === 'S' || status === 'C') { // S = Success, C = Completed
-            return {
-              transactionId: transaction.transaction_info.transaction_id,
-              amount,
-              currency,
-              status,
-              note,
-              memo,
-              customField,
-              transactionDate: transaction.transaction_info.transaction_initiation_date,
-            }
-          }
-        }
-      }
+    const response = await fetch(paypalUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    })
+    
+    if (!response.ok) {
+      console.error('PayPal subscriptions list failed:', response.status)
+      return []
     }
     
-    return null
+    const data = await response.json()
+    return data.subscriptions || []
   } catch (error) {
-    console.error('Error searching PayPal transactions:', error)
-    return null
+    console.error('Error listing PayPal subscriptions:', error)
+    return []
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { paymentCode, username } = await req.json()
+    const { paymentCode, username, subscriptionId } = await req.json()
     
     if (!paymentCode || !username) {
       return NextResponse.json(
@@ -128,7 +112,7 @@ export async function POST(req: NextRequest) {
       )
     }
     
-    console.log('Checking payment for code:', paymentCode, 'username:', username)
+    console.log('Checking subscription for code:', paymentCode, 'username:', username, 'subscriptionId:', subscriptionId)
     
     // First, check webhook storage (for backwards compatibility)
     if (!global.verifiedPayments) {
@@ -147,26 +131,61 @@ export async function POST(req: NextRequest) {
         })
       }
       
-      if (webhookPayment.amount < 6.99) {
-        return NextResponse.json({
-          verified: false,
-          message: `Payment amount $${webhookPayment.amount} is less than required $6.99 CAD.`,
-        })
-      }
-      
       return NextResponse.json({
         verified: true,
         transactionId: webhookPayment.transactionId,
-        amount: webhookPayment.amount,
-        currency: webhookPayment.currency || 'CAD',
+        subscriptionId: webhookPayment.subscriptionId,
         timestamp: webhookPayment.verifiedAt,
         source: 'webhook',
       })
     }
     
-    // If not found in webhook storage, actively query PayPal API
-    console.log('Payment not in webhook storage, querying PayPal API...')
+    // If subscription ID is provided, check it directly
+    if (subscriptionId) {
+      const accessToken = await getPayPalAccessToken()
+      
+      if (!accessToken) {
+        return NextResponse.json({
+          verified: false,
+          message: 'PayPal API authentication failed. Please contact support.',
+        })
+      }
+      
+      const subscription = await getPayPalSubscription(accessToken, subscriptionId)
+      
+      if (subscription) {
+        // Check if subscription is active
+        if (subscription.status === 'ACTIVE') {
+          // Extract custom_id to verify it matches our code and username
+          const customId = subscription.custom_id || ''
+          const [code, subUsername] = customId.split('|')
+          
+          if (code === paymentCode && subUsername?.toLowerCase() === username.toLowerCase()) {
+            console.log('Subscription verified:', subscription.id)
+            
+            // Store in webhook storage for future reference
+            global.verifiedPayments.set(paymentCode, {
+              username,
+              subscriptionId: subscription.id,
+              verifiedAt: new Date().toISOString(),
+              paymentStatus: subscription.status,
+              verificationCode: paymentCode,
+            })
+            
+            return NextResponse.json({
+              verified: true,
+              transactionId: subscription.id,
+              subscriptionId: subscription.id,
+              status: subscription.status,
+              timestamp: subscription.create_time,
+              source: 'subscription_api',
+            })
+          }
+        }
+      }
+    }
     
+    // If no subscription ID provided or direct check failed, try to find by searching
     const accessToken = await getPayPalAccessToken()
     
     if (!accessToken) {
@@ -176,62 +195,48 @@ export async function POST(req: NextRequest) {
       })
     }
     
-    const paypalTransaction = await searchPayPalTransactions(accessToken, paymentCode)
+    // List recent subscriptions and search for matching custom_id
+    const subscriptions = await listPayPalSubscriptions(accessToken)
     
-    if (paypalTransaction) {
-      console.log('Found transaction via PayPal API:', paypalTransaction)
-      
-      // Verify amount is at least $6.99
-      if (paypalTransaction.amount < 6.99) {
-        return NextResponse.json({
-          verified: false,
-          message: `Payment amount $${paypalTransaction.amount} is less than required $6.99.`,
-        })
-      }
-      
-      // Extract username from payment code to verify
-      const codeMatch = paymentCode.match(/SDHQ-([A-Za-z0-9_]+)-/)
-      if (codeMatch) {
-        const codeUsername = codeMatch[1]
-        if (codeUsername.toLowerCase() !== username.toLowerCase()) {
+    for (const sub of subscriptions) {
+      if (sub.status === 'ACTIVE') {
+        const customId = sub.custom_id || ''
+        const [code, subUsername] = customId.split('|')
+        
+        if (code === paymentCode && subUsername?.toLowerCase() === username.toLowerCase()) {
+          console.log('Found matching subscription:', sub.id)
+          
+          // Store in webhook storage for future reference
+          global.verifiedPayments.set(paymentCode, {
+            username,
+            subscriptionId: sub.id,
+            verifiedAt: new Date().toISOString(),
+            paymentStatus: sub.status,
+            verificationCode: paymentCode,
+          })
+          
           return NextResponse.json({
-            verified: false,
-            message: 'Payment code does not match your username.',
+            verified: true,
+            transactionId: sub.id,
+            subscriptionId: sub.id,
+            status: sub.status,
+            timestamp: sub.create_time,
+            source: 'subscription_list',
           })
         }
       }
-      
-      // Store in webhook storage for future reference
-      global.verifiedPayments.set(paymentCode, {
-        username,
-        amount: paypalTransaction.amount,
-        transactionId: paypalTransaction.transactionId,
-        verifiedAt: new Date().toISOString(),
-        paymentStatus: 'Completed',
-        verificationCode: paymentCode,
-        currency: paypalTransaction.currency,
-      })
-      
-      return NextResponse.json({
-        verified: true,
-        transactionId: paypalTransaction.transactionId,
-        amount: paypalTransaction.amount,
-        currency: paypalTransaction.currency,
-        timestamp: paypalTransaction.transactionDate,
-        source: 'api',
-      })
     }
     
-    console.log('No matching transaction found')
+    console.log('No matching subscription found')
     
     return NextResponse.json({
       verified: false,
-      message: 'Payment not found. Make sure you:\n1. Completed the PayPal payment\n2. Included the code in the PayPal payment note/memo\n3. The payment was successful (at least $6.99)\n4. Wait a moment for PayPal to process (can take 1-2 minutes)',
+      message: 'Subscription not found. Make sure you:\n1. Completed the PayPal subscription\n2. The subscription is active\n3. Wait a moment for PayPal to process (can take 1-2 minutes)\n\nOr provide your Subscription ID from PayPal.',
     })
     
   } catch (error) {
-    console.error('Check payment error:', error)
-    const errorMessage = error instanceof Error ? error.message : 'Failed to verify payment'
+    console.error('Check subscription error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Failed to verify subscription'
     return NextResponse.json(
       { error: errorMessage },
       { status: 500 }

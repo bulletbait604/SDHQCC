@@ -1,6 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+
+// TypeScript declaration for PayPal
+declare global {
+  interface Window {
+    paypal?: any
+  }
+}
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -216,6 +223,11 @@ export default function HomePage() {
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([])
   const [showSubscribePopup, setShowSubscribePopup] = useState(false)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
+  
+  // Payment states
+  const [paymentCode, setPaymentCode] = useState('')
+  const [paypalLoaded, setPaypalLoaded] = useState(false)
+  const [subscriptionId, setSubscriptionId] = useState('')
   
   // Verification states
   const [isVerified, setIsVerified] = useState<boolean>(false)
@@ -528,7 +540,54 @@ export default function HomePage() {
       }))
     }
     setShowSubscribePopup(true)
+    setPaypalLoaded(false)
   }
+
+  // Load PayPal SDK and render subscription button
+  useEffect(() => {
+    if (showSubscribePopup && paymentCode && !paypalLoaded) {
+      // Remove existing PayPal button if any
+      const container = document.getElementById('paypal-button-container')
+      if (container) {
+        container.innerHTML = ''
+      }
+
+      // Load PayPal SDK
+      const script = document.createElement('script')
+      script.src = 'https://www.paypal.com/sdk/js?client-id=AcreigdRauOMN5Md7nV3SIJbF3ykTEMBLUTMSLEzCiaEgNIIsW45ETtIP6JBeRzPigk6IIHkTkDWuMhR&vault=true&intent=subscription'
+      script.setAttribute('data-sdk-integration-source', 'button-factory')
+      script.onload = () => {
+        // Render PayPal button after SDK loads
+        if (window.paypal && paymentCode && user) {
+          window.paypal.Buttons({
+            style: {
+              shape: 'pill',
+              color: 'blue',
+              layout: 'horizontal',
+              label: 'subscribe'
+            },
+            createSubscription: function(data: any, actions: any) {
+              return actions.subscription.create({
+                plan_id: 'P-85G51774HA849662NNHWRF5I',
+                custom_id: `${paymentCode}|${user.username}`
+              })
+            },
+            onApprove: function(data: any, actions: any) {
+              console.log('Subscription approved:', data.subscriptionID)
+              setSubscriptionId(data.subscriptionID)
+              alert(`Subscription successful! Subscription ID: ${data.subscriptionID}\n\nPlease click "Verify Subscription" to activate your premium access.`)
+            }
+          }).render('#paypal-button-container')
+          setPaypalLoaded(true)
+        }
+      }
+      document.body.appendChild(script)
+
+      return () => {
+        document.body.removeChild(script)
+      }
+    }
+  }, [showSubscribePopup, paymentCode, user, paypalLoaded])
 
   const handleClearActivityLog = () => {
     setActivityLog([])
@@ -558,8 +617,6 @@ export default function HomePage() {
     return `SDHQ-${user.username}-${random}`
   }
   
-  const [paymentCode, setPaymentCode] = useState('')
-  
   const initiatePayPalPayment = () => {
     // Don't regenerate code - use existing one
     if (!paymentCode) {
@@ -578,7 +635,7 @@ export default function HomePage() {
   
   const checkPaymentStatus = async () => {
     if (!paymentCode || !user) {
-      alert('No payment code found. Please click "Pay $6.99" first to generate a code.')
+      alert('No payment code found. Please click "Verify Subscription" first to generate a code.')
       return
     }
     
@@ -588,7 +645,7 @@ export default function HomePage() {
       username: user.username,
       timestamp: new Date().toISOString(),
       action: 'verification_attempt',
-      details: `Payment verification attempt - Code: ${paymentCode}`
+      details: `Subscription verification attempt - Code: ${paymentCode}, Subscription ID: ${subscriptionId || 'Not provided'}`
     }
     setActivityLog(prev => [attemptEntry, ...prev].slice(0, 100))
     
@@ -601,17 +658,19 @@ export default function HomePage() {
         body: JSON.stringify({
           paymentCode,
           username: user.username,
+          subscriptionId,
         }),
       })
       
       const data = await response.json()
       
       if (data.verified) {
-        // Payment verified - unlock premium features
+        // Subscription verified - unlock premium features
         setIsVerified(true)
         localStorage.setItem('isVerified', 'true')
         localStorage.setItem('verifiedUsername', user.username)
         localStorage.setItem('verificationExpiry', (Date.now() + 30 * 24 * 60 * 60 * 1000).toString()) // 30 days
+        localStorage.setItem('subscriptionId', data.subscriptionId)
         
         // Add to subscribers list for admin visibility
         const verifiedUser = {
@@ -621,34 +680,34 @@ export default function HomePage() {
         }
         setSubscribers(prev => [...prev, verifiedUser])
         
-        // Log successful payment
+        // Log successful subscription
         const successEntry: ActivityLogEntry = {
           id: Date.now().toString(),
           username: user.username,
           timestamp: new Date().toISOString(),
           action: 'payment_success',
-          details: `Payment verified - TxID: ${data.transactionId}, Amount: ${data.amount} ${data.currency}`
+          details: `Subscription verified - Subscription ID: ${data.subscriptionId}, Status: ${data.status}`
         }
         setActivityLog(prev => [successEntry, ...prev].slice(0, 100))
         
-        alert(`Payment verified! Transaction ID: ${data.transactionId}\nAmount: $${data.amount} ${data.currency}\n\nPremium features unlocked for 30 days!`)
+        alert(`Subscription verified! Subscription ID: ${data.subscriptionId}\nStatus: ${data.status}\n\nPremium features unlocked for 30 days!`)
         setShowSubscribePopup(false)
       } else {
-        // Log failed payment
+        // Log failed verification
         const failedEntry: ActivityLogEntry = {
           id: Date.now().toString(),
           username: user.username,
           timestamp: new Date().toISOString(),
           action: 'payment_failed',
-          details: `Payment verification failed - Code: ${paymentCode}`
+          details: `Subscription verification failed - Code: ${paymentCode}`
         }
         setActivityLog(prev => [failedEntry, ...prev].slice(0, 100))
         
-        alert(data.message || 'Payment not found. Make sure you:\n1. Completed the PayPal payment\n2. Included the code in the payment note/memo')
+        alert(data.message || 'Subscription not found. Make sure you:\n1. Completed the PayPal subscription\n2. The subscription is active')
       }
     } catch (error) {
-      console.error('Payment check failed:', error)
-      alert('Failed to verify payment. Please try again in a moment.')
+      console.error('Subscription check failed:', error)
+      alert('Failed to verify subscription. Please try again in a moment.')
     }
   }
 
@@ -1941,59 +2000,38 @@ export default function HomePage() {
             
             <div className="space-y-4">
               <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                Unlock all premium features for 30 days with a $6.99 CAD payment.
+                Subscribe to unlock all premium features for $6.99 CAD/month.
               </p>
               
               {paymentCode ? (
                 <div className={`p-4 rounded-lg border-2 border-dashed ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
                   <p className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    <strong>Step 1:</strong> Copy this code and paste it in the PayPal payment note/memo:
+                    <strong>Your verification code:</strong> {paymentCode}
                   </p>
-                  <p className={`text-xl font-mono font-bold text-center ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                    {paymentCode}
+                  <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    This code is automatically included with your subscription.
                   </p>
-                  <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    This code links your payment to your account.
-                  </p>
+                  {subscriptionId && (
+                    <p className={`text-xs mt-2 ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}`}>
+                      <strong>Subscription ID:</strong> {subscriptionId}
+                    </p>
+                  )}
                 </div>
               ) : null}
               
               <div className={`p-4 rounded-lg border ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
-                <p className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PayPal:</p>
+                <p className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PayPal Subscription:</p>
                 <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  $6.99 CAD - 30 Days Access
+                  $6.99 CAD / month - Premium Access
                 </p>
               </div>
               
-              <div className="flex space-x-2">
-                <Button
-                  onClick={() => {
-                    initiatePayPalPayment()
-                    const paypalUrl = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=bulletbotkick@gmail.com&currency_code=CAD&amount=6.99&item_name=SDHQ%20Creator%20Corner%20Subscription&note=${encodeURIComponent(paymentCode)}`
-                    window.open(paypalUrl, '_blank')
-                  }}
-                  className="flex-1 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
-                >
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  Pay $6.99
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    initiatePayPalPayment()
-                    const paypalUrl = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=bulletbotkick@gmail.com&currency_code=CAD&item_name=SDHQ%20Creator%20Corner%20Donation&note=${encodeURIComponent(paymentCode)}`
-                    window.open(paypalUrl, '_blank')
-                  }}
-                  className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
-                >
-                  Donate More
-                </Button>
-              </div>
+              <div id="paypal-button-container" className="w-full"></div>
               
               {paymentCode && (
                 <div className={`p-3 rounded-lg border ${darkMode ? 'border-sdhq-green-500 bg-sdhq-green-500/10' : 'border-sdhq-green-500 bg-sdhq-green-50'}`}>
                   <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                    <strong className={darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}>Step 2:</strong> After completing payment on PayPal, click below to verify. The system will check your payment code.
+                    <strong className={darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}>After subscribing:</strong> Click below to verify. The system will check your subscription status.
                   </p>
                 </div>
               )}
