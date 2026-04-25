@@ -1297,13 +1297,17 @@ export default function HomePage() {
                             })
                           })
                           
-                          if (!res.ok) throw new Error(`API error: ${res.status}`)
+                          if (!res.ok) {
+                            const errorData = await res.json()
+                            throw new Error(errorData.error || errorData.details || `API error: ${res.status}`)
+                          }
                           
                           const data = await res.json()
                           setGeneratedTags(prev => ({ ...prev, [tagPlatform]: data.tags }))
                         } catch (error) {
                           console.error('Error generating tags:', error)
-                          alert('Failed to generate tags. Please try again.')
+                          const errorMessage = error instanceof Error ? error.message : 'Failed to generate tags. Please try again.'
+                          alert(errorMessage)
                         } finally {
                           setIsGeneratingTags(false)
                         }
