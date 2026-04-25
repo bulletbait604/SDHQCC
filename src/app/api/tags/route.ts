@@ -327,80 +327,129 @@ function generateTagsFromDescription(description: string, platformTags: string[]
   
   const descriptionWords = extractKeywords(descLower)
   
-  // Detect content categories from description
-  const contentCategories: Record<string, string[]> = {
-    gaming: ['game', 'gaming', 'gamer', 'play', 'playing', 'player', 'win', 'winning', 'victory', 'kill', 'frag', 'match', 'round', 'level', 'boss', 'quest', 'mission', 'multiplayer', 'competitive', 'esports', 'tournament', 'rank', 'ranked', 'clutch', 'ace', 'mvp', 'noob', 'pro', 'grind', 'loot', 'drop', 'spawn', 'respawn'],
-    fortnite: ['fortnite', 'victory', 'royale', 'battle', 'build', 'building', 'edit', 'editing', 'pump', 'tac', 'scar', 'p90', 'rocket', 'grenade', 'storm', 'circle', 'zone', 'bus', 'island', 'chapter', 'season', 'skin', 'emote', 'dance', 'vbucks'],
-    minecraft: ['minecraft', 'craft', 'mining', 'mine', 'block', 'blocks', 'biome', 'creeper', 'zombie', 'skeleton', 'enderman', 'dragon', 'nether', 'end', 'diamond', 'iron', 'gold', 'redstone', 'building', 'survival', 'creative', 'server', 'realm', 'mod'],
-    cod: ['cod', 'call', 'duty', 'warzone', 'modern', 'warfare', 'black', 'ops', 'cold', 'war', 'vanguard', 'loadout', 'killstreak', 'nuke', 'camo', 'grind', 'meta', 'sniper', 'quickscope', 'headshot'],
-    valorant: ['valorant', 'agent', 'jett', 'sage', 'omen', 'brimstone', 'phoenix', 'raze', 'reyna', 'viper', 'cypher', 'sova', 'breach', 'killjoy', 'skye', 'yoru', 'astra', 'kayo', 'chamber', 'neon', 'fade', 'harbor', 'gekko', 'deadlock', 'iso', 'clove', 'vyse', 'tejo', 'waylay', 'ace', 'clutch', 'eco', 'buy', 'round', 'spike', 'plant', 'defuse', 'site'],
-    editing: ['edit', 'editing', 'montage', 'clip', 'clips', 'highlight', 'highlights', 'compilation', 'best', 'moments', 'slowmo', 'transition', 'effect', 'effects', 'filter', 'capcut', 'premiere', 'after', 'effects'],
-    funny: ['funny', 'hilarious', 'lol', 'lmao', 'laugh', 'laughing', 'comedy', 'comedic', 'haha', 'meme', 'memes', 'joke', 'prank', 'fail', 'fails', 'funnymoments', 'react', 'reaction'],
-    tutorial: ['tutorial', 'guide', 'how', 'tips', 'tricks', 'learn', 'lesson', 'beginner', 'advanced', 'pro', 'strategy', 'strategies', 'setup', 'settings', 'sensitivity'],
-    reaction: ['react', 'reacting', 'reaction', 'responds', 'response', 'duet', 'stitch', 'remix'],
-    viral: ['viral', 'trending', 'trend', 'fyp', 'foryou', 'foryoupage', 'explore', 'discover', 'algorithm', 'boost', 'growth', 'grow', 'content', 'creator'],
-    music: ['music', 'song', 'audio', 'sound', 'beat', 'remix', 'cover', 'dance', 'dancing', 'tiktok', 'trending', 'viral'],
-    irl: ['irl', 'real', 'life', 'vlog', 'vlogging', 'day', 'daily', 'routine', 'stream', 'streaming', 'live', 'behind', 'scenes', 'bts']
+  // Game detection - identify the PRIMARY game being played
+  const gameKeywords: Record<string, string[]> = {
+    'fortnite': ['fortnite', 'victory', 'royale', 'battle', 'build', 'building', 'edit', 'editing', 'pump', 'tac', 'scar', 'p90', 'rocket', 'grenade', 'storm', 'circle', 'zone', 'bus', 'island', 'chapter', 'season', 'skin', 'emote', 'dance', 'vbucks', 'epic', 'lobby', 'drop', 'axe', 'rpg', 'ar', 'smg', 'sniper', 'shotgun'],
+    'minecraft': ['minecraft', 'craft', 'mining', 'mine', 'block', 'blocks', 'biome', 'creeper', 'zombie', 'skeleton', 'enderman', 'dragon', 'nether', 'end', 'diamond', 'iron', 'gold', 'redstone', 'building', 'survival', 'creative', 'server', 'realm', 'mod', 'cave', 'spider', 'skeleton', 'steve', 'alex', 'villager', 'creeper'],
+    'cod': ['cod', 'call', 'duty', 'warzone', 'modern', 'warfare', 'black', 'ops', 'cold', 'war', 'vanguard', 'loadout', 'killstreak', 'nuke', 'camo', 'grind', 'meta', 'sniper', 'quickscope', 'headshot', 'gulag', 'verdansk', 'rebirth', 'dmz', 'plunder'],
+    'valorant': ['valorant', 'agent', 'jett', 'sage', 'omen', 'brimstone', 'phoenix', 'raze', 'reyna', 'viper', 'cypher', 'sova', 'breach', 'killjoy', 'skye', 'yoru', 'astra', 'kayo', 'chamber', 'neon', 'fade', 'harbor', 'gekko', 'deadlock', 'iso', 'clove', 'vyse', 'tejo', 'waylay', 'ace', 'clutch', 'eco', 'buy', 'round', 'spike', 'plant', 'defuse', 'site', 'rank', 'radiant', 'immortal', 'ascendant'],
+    'gta': ['gta', 'grand', 'theft', 'auto', 'gta5', 'gta6', 'gtaonline', 'gtarp', 'los', 'santos', 'vice', 'city', 'heist', 'mission', 'franklin', 'michael', 'trevor', 'lamar', 'online', 'roleplay', 'mod'],
+    'apex': ['apex', 'apexlegends', 'wraith', 'octane', 'pathfinder', 'bloodhound', 'gibraltar', 'lifeline', 'caustic', 'mirage', 'bangalore', 'revenant', 'crypto', 'wattson', 'horizon', 'fuse', 'valkyrie', 'seer', 'ash', 'mad', 'maggie', 'catalyst', 'conduit', 'newcastle', 'vantage', 'crypto', 'loba', 'rampart'],
+    'league': ['league', 'lol', 'leagueoflegends', 'teemo', 'yasuo', 'zed', 'ahri', 'garen', 'darius', 'thresh', 'blitzcrank', 'jinx', 'lux', 'zed', 'master', 'yi', 'jungle', 'mid', 'top', 'adc', 'support', 'rank', 'challenger', 'diamond', 'gold', 'silver', 'bronze'],
+    'roblox': ['roblox', 'obby', 'tower', 'hell', 'adopt', 'me', 'brookhaven', 'blox', 'fruits', 'murder', 'mystery', 'pet', 'simulator', 'tycoon', 'ninja', 'legends', 'brawl', 'stars', 'arsenal', 'mm2', 'mad', 'city'],
+    'genshin': ['genshin', 'impact', 'teyvat', 'mondstadt', 'liyue', 'inazuma', 'sumeru', 'fontaine', 'natlan', 'zhongli', 'raiden', 'venti', 'nahida', 'furina', 'mualani', 'xilonen', 'citlali', 'chasca', 'archon', 'vision', 'element', 'pyro', 'hydro', 'anemo', 'electro', 'geo', 'cryo', 'dendro'],
+    'overwatch': ['overwatch', 'ow', 'ow2', 'tracer', 'soldier', 'reaper', 'widowmaker', 'mercy', 'dva', 'reinhardt', 'zarya', 'genji', 'hanzo', 'junkrat', 'mei', 'torbjorn', 'winston', 'symmetra', 'pharah', 'ana', 'bastion', 'zenyatta', 'lucio', 'mccree', 'cassidy', 'sigma', 'wrecking', 'ball', 'ashe', 'baptiste', 'echo', 'sojourn', 'kiriko', 'ramattra', 'junker', 'queen', 'lifeweaver', 'venture', 'mauga']
   }
   
-  // Detect which categories match (ES5 compatible)
-  const detectedCategories: string[] = []
-  const categoryKeys = Object.keys(contentCategories)
-  for (let i = 0; i < categoryKeys.length; i++) {
-    const category = categoryKeys[i]
-    const keywords = contentCategories[category]
+  // Detect the primary game by counting keyword matches
+  let detectedGame: string | null = null
+  let maxGameScore = 0
+  
+  const gameKeys = Object.keys(gameKeywords)
+  for (let i = 0; i < gameKeys.length; i++) {
+    const game = gameKeys[i]
+    const keywords = gameKeywords[game]
+    let gameScore = 0
     for (let j = 0; j < keywords.length; j++) {
       if (descLower.indexOf(keywords[j]) !== -1) {
-        detectedCategories.push(category)
+        gameScore += 1
+      }
+    }
+    if (gameScore > maxGameScore && gameScore >= 1) {
+      maxGameScore = gameScore
+      detectedGame = game
+    }
+  }
+  
+  // Content type detection (separate from game detection)
+  const contentTypes: Record<string, string[]> = {
+    'editing': ['edit', 'editing', 'montage', 'clip', 'clips', 'highlight', 'highlights', 'compilation', 'best', 'moments', 'slowmo', 'transition', 'effect', 'effects', 'filter', 'capcut', 'premiere', 'after', 'effects', 'cinematic'],
+    'funny': ['funny', 'hilarious', 'lol', 'lmao', 'laugh', 'laughing', 'comedy', 'comedic', 'haha', 'meme', 'memes', 'joke', 'prank', 'fail', 'fails', 'funnymoments', 'cringe', 'epic', 'fail'],
+    'tutorial': ['tutorial', 'guide', 'how', 'tips', 'tricks', 'learn', 'lesson', 'beginner', 'advanced', 'pro', 'strategy', 'strategies', 'setup', 'settings', 'sensitivity', 'howto', 'help', 'explained'],
+    'reaction': ['react', 'reacting', 'reaction', 'responds', 'response', 'duet', 'stitch', 'remix', 'reply'],
+    'viral': ['viral', 'trending', 'trend', 'fyp', 'foryou', 'foryoupage', 'explore', 'discover', 'algorithm', 'boost', 'growth', 'grow', 'content', 'creator'],
+    'music': ['music', 'song', 'audio', 'sound', 'beat', 'remix', 'cover', 'dance', 'dancing', 'tiktok', 'trending', 'viral'],
+    'irl': ['irl', 'real', 'life', 'vlog', 'vlogging', 'day', 'daily', 'routine', 'stream', 'streaming', 'live', 'behind', 'scenes', 'bts'],
+    'gaming': ['game', 'gaming', 'gamer', 'play', 'playing', 'player', 'win', 'winning', 'victory', 'kill', 'frag', 'match', 'round', 'level', 'boss', 'quest', 'mission', 'multiplayer', 'competitive', 'esports', 'tournament', 'rank', 'ranked', 'clutch', 'ace', 'mvp', 'noob', 'pro', 'grind', 'loot', 'drop', 'spawn', 'respawn']
+  }
+  
+  // Detect content types
+  const detectedContentTypes: string[] = []
+  const contentTypeKeys = Object.keys(contentTypes)
+  for (let i = 0; i < contentTypeKeys.length; i++) {
+    const type = contentTypeKeys[i]
+    const keywords = contentTypes[type]
+    for (let j = 0; j < keywords.length; j++) {
+      if (descLower.indexOf(keywords[j]) !== -1) {
+        detectedContentTypes.push(type)
         break
       }
     }
   }
   
-  // Score each tag
+  // Score each tag with intelligent game-specific logic
   const scoredTags = platformTags.map(tag => {
     let score = 0
     const tagLower = tag.toLowerCase()
     
-    // Direct word matches (highest priority)
-    descriptionWords.forEach(word => {
-      // Exact match or tag contains word
-      if (tagLower === word) score += 25
-      else if (tagLower.includes(word)) score += 15
-      // Word contains tag (for partial matches)
-      else if (word.includes(tagLower) && tagLower.length > 3) score += 8
-    })
-    
-    // Category-based scoring
-    if (detectedCategories.indexOf('gaming') !== -1) {
-      // Boost gaming-specific tags
-      if (popularGames.some(g => tagLower.includes(g))) score += 20
-      if (['game', 'gaming', 'gamer', 'play'].some(g => tagLower.includes(g))) score += 10
+    // Direct word matches from description (highest priority)
+    for (let i = 0; i < descriptionWords.length; i++) {
+      const word = descriptionWords[i]
+      if (tagLower === word) score += 30
+      else if (tagLower.indexOf(word) !== -1) score += 20
+      else if (word.indexOf(tagLower) !== -1 && tagLower.length > 3) score += 10
     }
     
-    // Specific game detection - higher priority
-    if (detectedCategories.indexOf('fortnite') !== -1 && tagLower.indexOf('fortnite') !== -1) score += 30
-    if (detectedCategories.indexOf('minecraft') !== -1 && tagLower.indexOf('minecraft') !== -1) score += 30
-    if (detectedCategories.indexOf('cod') !== -1 && (tagLower.indexOf('cod') !== -1 || tagLower.indexOf('warzone') !== -1)) score += 30
-    if (detectedCategories.indexOf('valorant') !== -1 && tagLower.indexOf('valorant') !== -1) score += 30
-    
-    // Platform-specific tags (medium priority)
-    if (tagLower.includes(platform.toLowerCase().replace('-', ''))) score += 12
-    
-    // Content type matching
-    if (detectedCategories.indexOf('editing') !== -1 && (tagLower.indexOf('edit') !== -1 || tagLower.indexOf('montage') !== -1 || tagLower.indexOf('clip') !== -1)) score += 15
-    if (detectedCategories.indexOf('funny') !== -1 && (tagLower.indexOf('funny') !== -1 || tagLower.indexOf('meme') !== -1 || tagLower.indexOf('lol') !== -1 || tagLower.indexOf('fail') !== -1)) score += 15
-    if (detectedCategories.indexOf('tutorial') !== -1 && (tagLower.indexOf('tutorial') !== -1 || tagLower.indexOf('guide') !== -1 || tagLower.indexOf('tips') !== -1 || tagLower.indexOf('howto') !== -1)) score += 15
-    if (detectedCategories.indexOf('reaction') !== -1 && (tagLower.indexOf('react') !== -1 || tagLower.indexOf('duet') !== -1 || tagLower.indexOf('stitch') !== -1)) score += 15
-    
-    // Viral/discovery tags (lower priority but still relevant)
-    if (detectedCategories.indexOf('viral') !== -1) {
-      if (tagLower.indexOf('viral') !== -1 || tagLower.indexOf('trending') !== -1 || tagLower.indexOf('fyp') !== -1 || tagLower.indexOf('foryou') !== -1) score += 8
+    // GAME-SPECIFIC SCORING - Only boost the detected game
+    if (detectedGame) {
+      // Massive boost for tags matching the detected game
+      if (tagLower.indexOf(detectedGame) !== -1) score += 50
+      
+      // Boost for game-specific keywords
+      const gameSpecificKeywords = gameKeywords[detectedGame] || []
+      for (let i = 0; i < gameSpecificKeywords.length; i++) {
+        if (tagLower.indexOf(gameSpecificKeywords[i]) !== -1) {
+          score += 25
+        }
+      }
+      
+      // HEAVY PENALTY for other games
+      for (let i = 0; i < gameKeys.length; i++) {
+        const otherGame = gameKeys[i]
+        if (otherGame !== detectedGame && tagLower.indexOf(otherGame) !== -1) {
+          score -= 100 // Penalize unrelated games heavily
+        }
+      }
+    } else {
+      // No specific game detected - only boost general gaming tags
+      if (detectedContentTypes.indexOf('gaming') !== -1) {
+        if (['game', 'gaming', 'gamer', 'play', 'player'].some(g => tagLower.indexOf(g) !== -1)) score += 15
+      }
     }
     
-    // Length penalty - prefer shorter tags (more likely to be used)
-    if (tagLower.length < 8) score += 2
-    if (tagLower.length > 20) score -= 3
+    // Content type matching (medium priority)
+    if (detectedContentTypes.indexOf('editing') !== -1) {
+      if (tagLower.indexOf('edit') !== -1 || tagLower.indexOf('montage') !== -1 || tagLower.indexOf('clip') !== -1) score += 15
+    }
+    if (detectedContentTypes.indexOf('funny') !== -1) {
+      if (tagLower.indexOf('funny') !== -1 || tagLower.indexOf('meme') !== -1 || tagLower.indexOf('lol') !== -1 || tagLower.indexOf('fail') !== -1) score += 15
+    }
+    if (detectedContentTypes.indexOf('tutorial') !== -1) {
+      if (tagLower.indexOf('tutorial') !== -1 || tagLower.indexOf('guide') !== -1 || tagLower.indexOf('tips') !== -1 || tagLower.indexOf('howto') !== -1) score += 15
+    }
+    if (detectedContentTypes.indexOf('reaction') !== -1) {
+      if (tagLower.indexOf('react') !== -1 || tagLower.indexOf('duet') !== -1 || tagLower.indexOf('stitch') !== -1) score += 15
+    }
+    
+    // Platform-specific tags (low priority but relevant)
+    if (tagLower.indexOf(platform.toLowerCase().replace('-', '')) !== -1) score += 10
+    
+    // Viral/discovery tags (always include a few)
+    if (tagLower.indexOf('viral') !== -1 || tagLower.indexOf('trending') !== -1 || tagLower.indexOf('fyp') !== -1 || tagLower.indexOf('foryou') !== -1) score += 5
+    
+    // Length optimization - prefer medium-length tags
+    if (tagLower.length >= 5 && tagLower.length <= 15) score += 3
+    if (tagLower.length > 25) score -= 5
     
     return { tag, score }
   })
@@ -422,7 +471,7 @@ function generateTagsFromDescription(description: string, platformTags: string[]
     }
   }
   
-  // If still not enough, add generic platform tags
+  // If still not enough, add platform-specific tags
   if (selectedTags.length < count) {
     const genericTags = platformTags.filter(tag => 
       selectedTags.indexOf(tag) === -1 && 
