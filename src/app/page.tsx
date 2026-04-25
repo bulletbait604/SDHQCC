@@ -1307,7 +1307,8 @@ export default function HomePage() {
                               const resetDate = new Date(errorData.resetTime)
                               alert(`Rate limit exceeded. You have used your 3 free tag generations for the day.\n\nResets at: ${resetDate.toLocaleString()}`)
                             } else {
-                              throw new Error(errorData.error || errorData.details || `API error: ${res.status}`)
+                              const errorMsg = errorData.details || errorData.error || `API error: ${res.status}`
+                              throw new Error(errorMsg)
                             }
                             return
                           }
@@ -1319,9 +1320,8 @@ export default function HomePage() {
                           }
                         } catch (error) {
                           console.error('Error generating tags:', error)
-                          if ((error as Error).message !== 'Rate limit exceeded') {
-                            alert('Failed to generate tags. Please try again.')
-                          }
+                          const errorMessage = (error as Error).message || 'Failed to generate tags. Please try again.'
+                          alert(errorMessage)
                         } finally {
                           setIsGeneratingTags(false)
                         }
