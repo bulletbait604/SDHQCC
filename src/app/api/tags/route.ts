@@ -3,9 +3,9 @@ import { hashy } from '../../../../lib/hashy/hashy-algorithm'
 import fs from 'fs';
 import path from 'path';
 
-// Usage tracking functions
-const USAGE_FILE = path.join(process.cwd(), 'data', 'tag-usage.json');
-const ACTIVITY_FILE = path.join(process.cwd(), 'data', 'tag-activity.json');
+// Usage tracking functions - use /tmp for Vercel compatibility
+const USAGE_FILE = path.join('/tmp', 'tag-usage.json');
+const ACTIVITY_FILE = path.join('/tmp', 'tag-activity.json');
 
 interface UsageData {
   [identifier: string]: {
@@ -22,7 +22,7 @@ interface ActivityEntry {
 }
 
 async function ensureDataDirectory(): Promise<void> {
-  const dataDir = path.join(process.cwd(), 'data');
+  const dataDir = '/tmp';
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
