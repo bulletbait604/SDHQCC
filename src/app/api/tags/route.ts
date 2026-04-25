@@ -452,7 +452,26 @@ function generateTagsFromDescription(description: string, platformTags: string[]
     'watch': ['view', 'see', 'observe', 'look', 'witness', 'spectate', 'monitor'],
     'make': ['create', 'build', 'construct', 'produce', 'generate', 'craft', 'develop'],
     'get': ['obtain', 'acquire', 'receive', 'gain', 'secure', 'achieve', 'earn'],
-    'go': ['travel', 'move', 'proceed', 'head', 'journey', 'venture', 'proceed']
+    'go': ['travel', 'move', 'proceed', 'head', 'journey', 'venture', 'proceed'],
+    'run': ['jog', 'sprint', 'dash', 'race', 'hurry', 'rush', 'speed'],
+    'walk': ['stroll', 'hike', 'march', 'trek', 'wander', 'roam', 'step'],
+    'jump': ['leap', 'hop', 'bound', 'spring', 'vault', 'skip'],
+    'eat': ['consume', 'devour', 'dine', 'feast', 'ingest', 'nibble', 'munch'],
+    'drink': ['sip', 'guzzle', 'chug', 'swallow', 'quaff', 'imbibe'],
+    'sleep': ['rest', 'nap', 'doze', 'slumber', 'hibernate', 'crash'],
+    'talk': ['speak', 'chat', 'converse', 'discuss', 'communicate', 'gab'],
+    'laugh': ['chuckle', 'giggle', 'snicker', 'cackle', 'guffaw', 'roar'],
+    'cry': ['weep', 'sob', 'wail', 'bawl', 'tear', 'shed', 'tears'],
+    'help': ['assist', 'aid', 'support', 'serve', 'aid', 'benefit'],
+    'love': ['adore', 'cherish', 'treasure', 'admire', 'worship', 'fancy'],
+    'hate': ['despise', 'loathe', 'detest', 'abhor', 'dislike', 'resent'],
+    'know': ['understand', 'comprehend', 'grasp', 'realize', 'recognize', 'perceive'],
+    'think': ['believe', 'consider', 'ponder', 'reflect', 'contemplate', 'reason'],
+    'see': ['observe', 'notice', 'spot', 'detect', 'witness', 'perceive'],
+    'hear': ['listen', 'attend', 'catch', 'perceive', 'detect'],
+    'feel': ['sense', 'experience', 'perceive', 'touch', 'emote'],
+    'smell': ['scent', 'odor', 'aroma', 'fragrance', 'whiff'],
+    'taste': ['flavor', 'savor', 'sample', 'try']
   }
   
   // Expand description words with synonyms
@@ -475,6 +494,26 @@ function generateTagsFromDescription(description: string, platformTags: string[]
   
   const bigrams = extractNgrams(descriptionWords, 2)
   const trigrams = extractNgrams(descriptionWords, 3)
+  
+  // TF-IDF style weighting: calculate word importance
+  const wordFrequency: Record<string, number> = {}
+  for (let i = 0; i < descriptionWords.length; i++) {
+    const word = descriptionWords[i]
+    wordFrequency[word] = (wordFrequency[word] || 0) + 1
+  }
+  
+  // Common words to downweight (stop words)
+  const stopWords = ['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'has', 'have', 'been', 'this', 'that', 'with', 'they', 'from', 'what', 'when', 'there', 'would', 'more', 'about', 'which', 'their', 'will', 'than', 'then', 'them', 'like', 'time', 'just', 'very', 'into', 'your', 'some', 'could', 'such', 'were', 'other', 'each', 'so', 'only', 'also', 'new', 'make', 'first', 'being', 'after', 'should', 'work', 'get', 'most', 'a', 'an', 'is', 'in', 'it', 'to', 'of', 'on', 'at', 'by', 'or', 'as', 'if', 'my', 'his', 'its', 'who', 'him', 'he', 'she', 'her', 'we', 'us', 'me', 'be', 'do', 'did', 'does', 'go', 'went', 'gone']
+  
+  const wordImportance: Record<string, number> = {}
+  for (const word in wordFrequency) {
+    // TF component (frequency)
+    const tf = wordFrequency[word]
+    // IDF simulation (rare words get higher weight)
+    const isStopWord = stopWords.indexOf(word) !== -1
+    const idf = isStopWord ? 0.5 : 1.5
+    wordImportance[word] = tf * idf
+  }
   
   // Sentiment analysis: detect positive/negative/emotional words
   const sentimentWords: Record<string, string[]> = {
@@ -720,6 +759,20 @@ function generateTagsFromDescription(description: string, platformTags: string[]
     'diy': ['craft', 'build', 'create', 'handmade', 'project', 'tutorial', 'howto'],
     'photography': ['photo', 'camera', 'picture', 'shoot', 'lens', 'edit', 'visual'],
     'finance': ['money', 'invest', 'crypto', 'trading', 'business', 'wealth', 'income']
+  }
+  
+  // Word embedding similarity using co-occurrence vectors
+  const wordCoOccurrence: Record<string, string[]> = {
+    'game': ['play', 'gaming', 'match', 'competitive', 'esports', 'multiplayer', 'online', 'video', 'console', 'pc'],
+    'video': ['clip', 'content', 'footage', 'recording', 'stream', 'upload', 'youtube', 'tiktok', 'viral', 'edit'],
+    'music': ['song', 'audio', 'beat', 'rhythm', 'melody', 'artist', 'band', 'concert', 'playlist', 'sound'],
+    'food': ['cook', 'recipe', 'meal', 'dish', 'eat', 'restaurant', 'chef', 'kitchen', 'bake', 'taste'],
+    'travel': ['trip', 'vacation', 'journey', 'adventure', 'explore', 'destination', 'tour', 'flight', 'hotel', 'visit'],
+    'fitness': ['workout', 'exercise', 'gym', 'health', 'training', 'muscle', 'cardio', 'strength', 'yoga', 'run'],
+    'tech': ['technology', 'gadget', 'device', 'software', 'app', 'digital', 'computer', 'phone', 'internet', 'smart'],
+    'fashion': ['style', 'outfit', 'clothing', 'wear', 'trend', 'designer', 'brand', 'look', 'beauty', 'model'],
+    'funny': ['hilarious', 'comedy', 'laugh', 'joke', 'humor', 'meme', 'lol', 'haha', 'entertaining', 'amusing'],
+    'cool': ['awesome', 'amazing', 'epic', 'great', 'nice', 'impressive', 'dope', 'sick', 'rad', 'fantastic']
   }
   
   // Score each tag with advanced multi-factor NLP-based logic
@@ -1048,6 +1101,124 @@ function generateTagsFromDescription(description: string, platformTags: string[]
     }
     
     score += trendingScore * 0.04
+    
+    // Factor 19: Jaccard similarity coefficient (0.04)
+    let jaccardScore = 0
+    const tagSet = new Set(tagLower.split(''))
+    const descSet = new Set(descLower.split(''))
+    const tagArray = Array.from(tagSet)
+    const descArray = Array.from(descSet)
+    const intersection = new Set(tagArray.filter(x => descSet.has(x)))
+    const union = new Set([...tagArray, ...descArray])
+    if (union.size > 0) {
+      const jaccardIndex = intersection.size / union.size
+      jaccardScore += jaccardIndex * 25
+    }
+    score += jaccardScore * 0.04
+    
+    // Factor 20: Dice coefficient (0.04)
+    let diceScore = 0
+    if (tagSet.size + descSet.size > 0) {
+      const diceCoefficient = (2 * intersection.size) / (tagSet.size + descSet.size)
+      diceScore += diceCoefficient * 25
+    }
+    score += diceScore * 0.04
+    
+    // Factor 21: Soundex phonetic algorithm (0.03)
+    const soundex = (str: string): string => {
+      const codes: Record<string, string> = {
+        'b': '1', 'f': '1', 'p': '1', 'v': '1',
+        'c': '2', 'g': '2', 'j': '2', 'k': '2', 'q': '2', 's': '2', 'x': '2', 'z': '2',
+        'd': '3', 't': '3',
+        'l': '4',
+        'm': '5', 'n': '5',
+        'r': '6'
+      }
+      str = str.toLowerCase().replace(/[^a-z]/g, '')
+      if (str.length === 0) return ''
+      let result = str[0].toUpperCase()
+      for (let i = 1; i < str.length; i++) {
+        const char = str[i]
+        const code = codes[char]
+        if (code && code !== result[result.length - 1]) {
+          result += code
+        }
+      }
+      return (result + '000').substring(0, 4)
+    }
+    
+    let soundexScore = 0
+    const tagSoundex = soundex(tagLower)
+    for (let i = 0; i < descriptionWords.length; i++) {
+      const wordSoundex = soundex(descriptionWords[i])
+      if (tagSoundex === wordSoundex && tagSoundex.length > 0) {
+        soundexScore += 10
+      }
+    }
+    score += soundexScore * 0.03
+    
+    // Factor 22: TF-IDF weighted word matching (0.05)
+    let tfidfScore = 0
+    for (let i = 0; i < descriptionWords.length; i++) {
+      const word = descriptionWords[i]
+      if (tagLower.indexOf(word) !== -1 && wordImportance[word]) {
+        tfidfScore += wordImportance[word] * 8
+      }
+    }
+    score += tfidfScore * 0.05
+    
+    // Factor 23: Word embedding similarity using co-occurrence vectors (0.04)
+    let embeddingScore = 0
+    for (const word in wordCoOccurrence) {
+      if (tagLower.indexOf(word) !== -1) {
+        const relatedWords = wordCoOccurrence[word]
+        for (let i = 0; i < relatedWords.length; i++) {
+          if (descLower.indexOf(relatedWords[i]) !== -1) {
+            embeddingScore += 6
+          }
+        }
+      }
+    }
+    // Also check reverse - description words that relate to tag
+    for (let i = 0; i < descriptionWords.length; i++) {
+      const word = descriptionWords[i]
+      if (wordCoOccurrence[word]) {
+        const relatedWords = wordCoOccurrence[word]
+        for (let j = 0; j < relatedWords.length; j++) {
+          if (tagLower.indexOf(relatedWords[j]) !== -1) {
+            embeddingScore += 5
+          }
+        }
+      }
+    }
+    score += embeddingScore * 0.04
+    
+    // Factor 24: Tag diversity and category balance (0.03)
+    let diversityScore = 0
+    // Check if tag represents different categories for balance
+    const isGameTag = gameKeys.some(key => tagLower.indexOf(key) !== -1)
+    const isActivityTag = Object.keys(activityKeywords).some(key => tagLower.indexOf(key) !== -1)
+    const isSubjectTag = Object.keys(subjectKeywords).some(key => tagLower.indexOf(key) !== -1)
+    const isSentimentTag = Object.keys(sentimentWords).some(key => tagLower.indexOf(key) !== -1)
+    
+    // Boost tags that add category diversity
+    const categoryCount = (isGameTag ? 1 : 0) + (isActivityTag ? 1 : 0) + (isSubjectTag ? 1 : 0) + (isSentimentTag ? 1 : 0)
+    if (categoryCount > 0) {
+      diversityScore += categoryCount * 3
+    }
+    
+    // Slight boost for tags that are NOT the primary detected category (encourages diversity)
+    if (detectedGame && !isGameTag && (isActivityTag || isSubjectTag)) {
+      diversityScore += 5
+    }
+    if (detectedActivity && !isActivityTag && (isGameTag || isSubjectTag)) {
+      diversityScore += 5
+    }
+    if (detectedSubject && !isSubjectTag && (isGameTag || isActivityTag)) {
+      diversityScore += 5
+    }
+    
+    score += diversityScore * 0.03
     
     // Factor 18: Irrelevance penalty (negative scoring) - penalize tags with no context matches
     let hasAnyMatch = false
