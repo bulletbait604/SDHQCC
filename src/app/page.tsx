@@ -620,15 +620,15 @@ export default function HomePage() {
       const data = await response.json()
 
       if (data.success) {
-        setHashyRefreshStatus(`✅ Updated ${data.updatedPlatforms.length} platforms`)
+        setHashyRefreshStatus(`Updated ${data.updatedPlatforms.length} platforms`)
         setTimeout(() => setHashyRefreshStatus(null), 3000)
       } else {
-        setHashyRefreshStatus('❌ Failed to refresh Hashy')
+        setHashyRefreshStatus('Failed to refresh Hashy')
         setTimeout(() => setHashyRefreshStatus(null), 3000)
       }
     } catch (error) {
       console.error('Error refreshing Hashy:', error)
-      setHashyRefreshStatus('❌ Error refreshing Hashy')
+      setHashyRefreshStatus('Error refreshing Hashy')
       setTimeout(() => setHashyRefreshStatus(null), 3000)
     } finally {
       setIsRefreshingHashy(false)
@@ -1882,90 +1882,90 @@ export default function HomePage() {
               </div>
               
               {isAdmin && (
-                <div className={`p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-dark-600' : 'bg-white border-gray-200'}`}>
-                  <h4 className={`font-semibold mb-3 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                    <Brain className="w-4 h-4 mr-2 text-sdhq-cyan-500" />
-                    Hashy Algorithm
-                  </h4>
-                  <Button
-                    onClick={handleRefreshHashy}
-                    disabled={isRefreshingHashy}
-                    className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
-                  >
-                    {isRefreshingHashy ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Refreshing...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Refresh Hashy Algorithm
-                      </>
-                    )}
-                  </Button>
-                  {hashyRefreshStatus && (
-                    <p className={`text-sm mt-2 ${hashyRefreshStatus.includes('✅') ? 'text-green-500' : 'text-red-500'}`}>
-                      {hashyRefreshStatus}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {isAdmin && (
-                <div className={`p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-dark-600' : 'bg-white border-gray-200'}`}>
-                  <h4 className={`font-semibold mb-3 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                    <Crown className="w-4 h-4 mr-2 text-sdhq-green-500" />
-                    {t.subscribers} ({subscribers.length})
-                  </h4>
-                  <div className="flex space-x-2 mb-3">
-                    <input
-                      type="text"
-                      value={newSubscriberUsername}
-                      onChange={(e) => setNewSubscriberUsername(e.target.value)}
-                      placeholder="Username"
-                      className={`flex-1 px-3 py-1.5 rounded border text-sm ${
-                        darkMode 
-                          ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
-                          : 'bg-white border-gray-300'
-                      }`}
-                      onKeyPress={(e) => e.key === 'Enter' && handleAddSubscriber()}
-                    />
-                    <Button 
-                      size="sm"
-                      onClick={handleAddSubscriber}
-                      className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
+                <>
+                  <div className={`p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-dark-600' : 'bg-white border-gray-200'}`}>
+                    <h4 className={`font-semibold mb-3 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      <Brain className="w-4 h-4 mr-2 text-sdhq-cyan-500" />
+                      Hashy Algorithm
+                    </h4>
+                    <Button
+                      onClick={handleRefreshHashy}
+                      disabled={isRefreshingHashy}
+                      className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
                     >
-                      <Plus className="w-4 h-4" />
+                      {isRefreshingHashy ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Refreshing...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Refresh Hashy Algorithm
+                        </>
+                      )}
                     </Button>
-                  </div>
-                  {/* Subscriber List */}
-                  <div className="space-y-1 max-h-40 overflow-y-auto">
-                    {subscribers.length === 0 ? (
-                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No subscribers yet.</p>
-                    ) : (
-                      subscribers.map((sub: Subscriber) => (
-                        <div 
-                          key={sub.id}
-                          className={`flex items-center justify-between p-2 rounded border ${
-                            darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-200'
-                          }`}
-                        >
-                          <div className="flex items-center space-x-2">
-                            <CheckCircle className="w-4 h-4 text-sdhq-green-500 flex-shrink-0" />
-                            <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{sub.username}</span>
-                          </div>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleRemoveSubscriber(sub.id)}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      ))
+                    {hashyRefreshStatus && (
+                      <p className={`text-sm mt-2 ${hashyRefreshStatus.includes('Updated') ? 'text-green-500' : 'text-red-500'}`}>
+                        {hashyRefreshStatus}
+                      </p>
                     )}
+                  </div>
+
+                  <div className={`p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-dark-600' : 'bg-white border-gray-200'}`}>
+                    <h4 className={`font-semibold mb-3 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      <Crown className="w-4 h-4 mr-2 text-sdhq-green-500" />
+                      {t.subscribers} ({subscribers.length})
+                    </h4>
+                    <div className="flex space-x-2 mb-3">
+                      <input
+                        type="text"
+                        value={newSubscriberUsername}
+                        onChange={(e) => setNewSubscriberUsername(e.target.value)}
+                        placeholder="Username"
+                        className={`flex-1 px-3 py-1.5 rounded border text-sm ${
+                          darkMode 
+                            ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
+                            : 'bg-white border-gray-300'
+                        }`}
+                        onKeyPress={(e) => e.key === 'Enter' && handleAddSubscriber()}
+                      />
+                      <Button 
+                        size="sm"
+                        onClick={handleAddSubscriber}
+                        className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    {/* Subscriber List */}
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {subscribers.length === 0 ? (
+                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No subscribers yet.</p>
+                      ) : (
+                        subscribers.map((sub: Subscriber) => (
+                          <div 
+                            key={sub.id}
+                            className={`flex items-center justify-between p-2 rounded border ${
+                              darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-200'
+                            }`}
+                          >
+                            <div className="flex items-center space-x-2">
+                              <CheckCircle className="w-4 h-4 text-sdhq-green-500 flex-shrink-0" />
+                              <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{sub.username}</span>
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleRemoveSubscriber(sub.id)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
                 </>
               )}
