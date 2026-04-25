@@ -252,45 +252,128 @@ function generateTagVariations(tag: string, platform: string): string[] {
   return variations.slice(0, 5)
 }
 
-// Tag generation algorithm
-function generateTagsFromDescription(description: string, platformTags: string[], platformData: any, count: number): string[] {
-  const descriptionWords = description.toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .split(/\s+/)
-    .filter(word => word.length > 2)
+// Enhanced local tag generation - no API calls
+function generateTagsFromDescription(description: string, platformTags: string[], platform: string, count: number): string[] {
+  const descLower = description.toLowerCase()
   
-  // Score each tag based on relevance
+  // Extract all meaningful keywords from description
+  const extractKeywords = (text: string): string[] => {
+    return text
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length > 2)
+      .filter(word => ['and', 'the', 'for', 'with', 'from', 'this', 'that', 'have', 'been', 'were', 'they', 'their', 'what', 'when', 'where', 'which', 'while', 'about', 'after', 'before', 'between', 'through', 'during', 'above', 'below', 'under', 'over'].indexOf(word) === -1)
+  }
+  
+  const descriptionWords = extractKeywords(descLower)
+  
+  // Detect content categories from description
+  const contentCategories: Record<string, string[]> = {
+    gaming: ['game', 'gaming', 'gamer', 'play', 'playing', 'player', 'win', 'winning', 'victory', 'kill', 'frag', 'match', 'round', 'level', 'boss', 'quest', 'mission', 'multiplayer', 'competitive', 'esports', 'tournament', 'rank', 'ranked', 'clutch', 'ace', 'mvp', 'noob', 'pro', 'grind', 'loot', 'drop', 'spawn', 'respawn'],
+    fortnite: ['fortnite', 'victory', 'royale', 'battle', 'build', 'building', 'edit', 'editing', 'pump', 'tac', 'scar', 'p90', 'rocket', 'grenade', 'storm', 'circle', 'zone', 'bus', 'island', 'chapter', 'season', 'skin', 'emote', 'dance', 'vbucks'],
+    minecraft: ['minecraft', 'craft', 'mining', 'mine', 'block', 'blocks', 'biome', 'creeper', 'zombie', 'skeleton', 'enderman', 'dragon', 'nether', 'end', 'diamond', 'iron', 'gold', 'redstone', 'building', 'survival', 'creative', 'server', 'realm', 'mod'],
+    cod: ['cod', 'call', 'duty', 'warzone', 'modern', 'warfare', 'black', 'ops', 'cold', 'war', 'vanguard', 'loadout', 'killstreak', 'nuke', 'camo', 'grind', 'meta', 'sniper', 'quickscope', 'headshot'],
+    valorant: ['valorant', 'agent', 'jett', 'sage', 'omen', 'brimstone', 'phoenix', 'raze', 'reyna', 'viper', 'cypher', 'sova', 'breach', 'killjoy', 'skye', 'yoru', 'astra', 'kayo', 'chamber', 'neon', 'fade', 'harbor', 'gekko', 'deadlock', 'iso', 'clove', 'vyse', 'tejo', 'waylay', 'ace', 'clutch', 'eco', 'buy', 'round', 'spike', 'plant', 'defuse', 'site'],
+    editing: ['edit', 'editing', 'montage', 'clip', 'clips', 'highlight', 'highlights', 'compilation', 'best', 'moments', 'slowmo', 'transition', 'effect', 'effects', 'filter', 'capcut', 'premiere', 'after', 'effects'],
+    funny: ['funny', 'hilarious', 'lol', 'lmao', 'laugh', 'laughing', 'comedy', 'comedic', 'haha', 'meme', 'memes', 'joke', 'prank', 'fail', 'fails', 'funnymoments', 'react', 'reaction'],
+    tutorial: ['tutorial', 'guide', 'how', 'tips', 'tricks', 'learn', 'lesson', 'beginner', 'advanced', 'pro', 'strategy', 'strategies', 'setup', 'settings', 'sensitivity'],
+    reaction: ['react', 'reacting', 'reaction', 'responds', 'response', 'duet', 'stitch', 'remix'],
+    viral: ['viral', 'trending', 'trend', 'fyp', 'foryou', 'foryoupage', 'explore', 'discover', 'algorithm', 'boost', 'growth', 'grow', 'content', 'creator'],
+    music: ['music', 'song', 'audio', 'sound', 'beat', 'remix', 'cover', 'dance', 'dancing', 'tiktok', 'trending', 'viral'],
+    irl: ['irl', 'real', 'life', 'vlog', 'vlogging', 'day', 'daily', 'routine', 'stream', 'streaming', 'live', 'behind', 'scenes', 'bts']
+  }
+  
+  // Detect which categories match (ES5 compatible)
+  const detectedCategories: string[] = []
+  const categoryKeys = Object.keys(contentCategories)
+  for (let i = 0; i < categoryKeys.length; i++) {
+    const category = categoryKeys[i]
+    const keywords = contentCategories[category]
+    for (let j = 0; j < keywords.length; j++) {
+      if (descLower.indexOf(keywords[j]) !== -1) {
+        detectedCategories.push(category)
+        break
+      }
+    }
+  }
+  
+  // Score each tag
   const scoredTags = platformTags.map(tag => {
     let score = 0
     const tagLower = tag.toLowerCase()
     
-    // Direct match with description words
+    // Direct word matches (highest priority)
     descriptionWords.forEach(word => {
-      if (tagLower.includes(word)) score += 10
-      if (word.includes(tagLower)) score += 5
+      // Exact match or tag contains word
+      if (tagLower === word) score += 25
+      else if (tagLower.includes(word)) score += 15
+      // Word contains tag (for partial matches)
+      else if (word.includes(tagLower) && tagLower.length > 3) score += 8
     })
     
-    // Boost gaming tags if gaming-related words in description
-    const gamingWords = ['game', 'gaming', 'play', 'player', 'win', 'victory', 'kill', 'match', 'round']
-    if (gamingWords.some(gw => descriptionWords.includes(gw))) {
-      if (popularGames.some(g => tagLower.includes(g))) score += 15
+    // Category-based scoring
+    if (detectedCategories.indexOf('gaming') !== -1) {
+      // Boost gaming-specific tags
+      if (popularGames.some(g => tagLower.includes(g))) score += 20
+      if (['game', 'gaming', 'gamer', 'play'].some(g => tagLower.includes(g))) score += 10
     }
     
-    // Platform-specific boosts from algorithm data
-    if (platformData?.titleTips?.toLowerCase().includes(tagLower)) score += 8
-    if (platformData?.descriptionTips?.toLowerCase().includes(tagLower)) score += 5
+    // Specific game detection - higher priority
+    if (detectedCategories.indexOf('fortnite') !== -1 && tagLower.indexOf('fortnite') !== -1) score += 30
+    if (detectedCategories.indexOf('minecraft') !== -1 && tagLower.indexOf('minecraft') !== -1) score += 30
+    if (detectedCategories.indexOf('cod') !== -1 && (tagLower.indexOf('cod') !== -1 || tagLower.indexOf('warzone') !== -1)) score += 30
+    if (detectedCategories.indexOf('valorant') !== -1 && tagLower.indexOf('valorant') !== -1) score += 30
     
-    // Boost viral/trending tags for discovery
-    if (tagLower.includes('viral') || tagLower.includes('trending') || tagLower.includes('fyp')) {
-      score += 3
+    // Platform-specific tags (medium priority)
+    if (tagLower.includes(platform.toLowerCase().replace('-', ''))) score += 12
+    
+    // Content type matching
+    if (detectedCategories.indexOf('editing') !== -1 && (tagLower.indexOf('edit') !== -1 || tagLower.indexOf('montage') !== -1 || tagLower.indexOf('clip') !== -1)) score += 15
+    if (detectedCategories.indexOf('funny') !== -1 && (tagLower.indexOf('funny') !== -1 || tagLower.indexOf('meme') !== -1 || tagLower.indexOf('lol') !== -1 || tagLower.indexOf('fail') !== -1)) score += 15
+    if (detectedCategories.indexOf('tutorial') !== -1 && (tagLower.indexOf('tutorial') !== -1 || tagLower.indexOf('guide') !== -1 || tagLower.indexOf('tips') !== -1 || tagLower.indexOf('howto') !== -1)) score += 15
+    if (detectedCategories.indexOf('reaction') !== -1 && (tagLower.indexOf('react') !== -1 || tagLower.indexOf('duet') !== -1 || tagLower.indexOf('stitch') !== -1)) score += 15
+    
+    // Viral/discovery tags (lower priority but still relevant)
+    if (detectedCategories.indexOf('viral') !== -1) {
+      if (tagLower.indexOf('viral') !== -1 || tagLower.indexOf('trending') !== -1 || tagLower.indexOf('fyp') !== -1 || tagLower.indexOf('foryou') !== -1) score += 8
     }
+    
+    // Length penalty - prefer shorter tags (more likely to be used)
+    if (tagLower.length < 8) score += 2
+    if (tagLower.length > 20) score -= 3
     
     return { tag, score }
   })
   
-  // Sort by score and return top tags
+  // Sort by score descending
   scoredTags.sort((a, b) => b.score - a.score)
-  return scoredTags.slice(0, count).map(st => st.tag)
+  
+  // Get top tags
+  const selectedTags = scoredTags.slice(0, count).map(st => st.tag)
+  
+  // If we don't have enough high-scoring tags, fill with viral/discovery tags
+  if (selectedTags.length < count) {
+    const viralTags = platformTags.filter(tag => 
+      selectedTags.indexOf(tag) === -1 && 
+      (tag.toLowerCase().indexOf('viral') !== -1 || tag.toLowerCase().indexOf('trending') !== -1 || tag.toLowerCase().indexOf('fyp') !== -1 || tag.toLowerCase().indexOf('foryou') !== -1 || tag.toLowerCase().indexOf('explore') !== -1 || tag.toLowerCase().indexOf('content') !== -1 || tag.toLowerCase().indexOf('creator') !== -1)
+    )
+    while (selectedTags.length < count && viralTags.length > 0) {
+      selectedTags.push(viralTags.shift()!)
+    }
+  }
+  
+  // If still not enough, add generic platform tags
+  if (selectedTags.length < count) {
+    const genericTags = platformTags.filter(tag => 
+      selectedTags.indexOf(tag) === -1 && 
+      tag.toLowerCase().indexOf(platform.toLowerCase().replace('-', '')) !== -1
+    )
+    while (selectedTags.length < count && genericTags.length > 0) {
+      selectedTags.push(genericTags.shift()!)
+    }
+  }
+  
+  return selectedTags.slice(0, count)
 }
 
 // GET endpoint - retrieve tag database status
@@ -330,8 +413,8 @@ export async function POST(request: Request) {
       console.error('Could not read algorithm data:', error)
     }
     
-    // Generate tags
-    const generatedTags = generateTagsFromDescription(description, platformTags, algorithmData, Math.min(count, 50))
+    // Generate tags using local algorithm (no API calls)
+    const generatedTags = generateTagsFromDescription(description, platformTags, platform, Math.min(count, 50))
     
     return NextResponse.json({
       tags: generatedTags,
