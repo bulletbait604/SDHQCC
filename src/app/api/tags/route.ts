@@ -25,120 +25,121 @@ function checkRateLimit(identifier: string, maxUses: number = 3, windowMs: numbe
   return { allowed: true, remaining: maxUses - userLimit.count, resetTime: userLimit.resetTime }
 }
 
-// Generate tags using Google Cloud Natural Language API
-async function generateTagsWithGoogle(description: string, platform: string, count: number): Promise<string[]> {
-  const apiKey = process.env.GOOGLE_API_KEY
+// Generate tags using OpenAI
+async function generateTagsWithOpenAI(description: string, platform: string, count: number): Promise<string[]> {
+  const apiKey = process.env.OPENAI_API_KEY
   
-  console.log('[GOOGLE API] API Key present:', !!apiKey)
-  console.log('[GOOGLE API] Description length:', description.length)
-  console.log('[GOOGLE API] Platform:', platform)
-  console.log('[GOOGLE API] Count:', count)
+  console.log('[OPENAI] API Key present:', !!apiKey)
+  console.log('[OPENAI] Description length:', description.length)
+  console.log('[OPENAI] Platform:', platform)
+  console.log('[OPENAI] Count:', count)
   
   if (!apiKey) {
-    throw new Error('Google API key not configured')
+    throw new Error('OpenAI API key not configured')
   }
   
   try {
-    const requestBody = {
-      document: { 
-        content: description, 
-        type: 'PLAIN_TEXT' 
+    const platformContext: Record<string, string> = {
+      'tiktok': 'TikTok - short-form video platform popular for trends, challenges, and viral content',
+      'instagram': 'Instagram - visual platform for photos, reels, and stories',
+      'youtube-shorts': 'YouTube Shorts - short-form vertical videos on YouTube',
+      'youtube-long': 'YouTube - long-form video platform',
+      'facebook-reels': 'Facebook Reels - short-form video content on Facebook'
+    }
+    
+    const prompt = `Generate ${count} relevant hashtags for a content description. The content is for ${platformContext[platform.toLowerCase()] || platform}.
+
+Description: "${description}"
+
+Requirements:
+- Return ONLY a JSON array of hashtag strings (without the # symbol)
+- Make tags specific to the content described
+- Include platform-relevant tags
+- Ensure tags are lowercase and use only letters, numbers, and underscores
+- No generic tags like "fyp", "viral", "trending" unless specifically relevant
+- Focus on the actual content, game, topic, or activity mentioned
+
+Example output format: ["gaming", "callofduty", "warzone", "fps", "competitive"]
+
+Return ONLY the JSON array, nothing else.`
+
+    console.log('[OPENAI] Sending request to OpenAI...')
+    
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
       },
-      encodingType: 'UTF8',
-    }
-    
-    console.log('[GOOGLE API] Request body:', JSON.stringify(requestBody).substring(0, 200))
-    
-    const entityResponse = await fetch(
-      `https://language.googleapis.com/v1/documents:analyzeEntities?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      }
-    )
-    
-    console.log('[GOOGLE API] Response status:', entityResponse.status)
-    
-    if (!entityResponse.ok) {
-      const errorText = await entityResponse.text()
-      console.error('[GOOGLE API] Error response:', errorText)
-      throw new Error(`Google API error: ${entityResponse.status} - ${errorText}`)
-    }
-    
-    const entityData = await entityResponse.json()
-    console.log('[GOOGLE API] Response data keys:', Object.keys(entityData))
-    const entities = entityData.entities || []
-    console.log('[GOOGLE API] Number of entities:', entities.length)
-    
-    const tags: string[] = []
-    const seen = new Set<string>()
-    
-    // Extract entities and convert to tags
-    for (const entity of entities) {
-      if (entity.name && entity.name.length > 2) {
-        const tag = entity.name.toLowerCase().replace(/[^a-z0-9]/g, '')
-        if (!seen.has(tag) && tag.length > 2) {
-          tags.push(tag)
-          seen.add(tag)
-        }
-      }
-      
-      // Extract from Wikipedia URLs
-      if (entity.metadata && entity.metadata.wikipedia_url) {
-        const wikiMatch = entity.metadata.wikipedia_url.match(/\/wiki\/([^\/]+)$/)
-        if (wikiMatch) {
-          const tag = wikiMatch[1].toLowerCase().replace(/_/g, ' ').replace(/[^a-z0-9\s]/g, '').trim()
-          if (!seen.has(tag) && tag.length > 2) {
-            tags.push(tag)
-            seen.add(tag)
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a hashtag generator for social media content. You respond only with valid JSON arrays of hashtag strings.'
+          },
+          {
+            role: 'user',
+            content: prompt
           }
-        }
-      }
-      
-      // Extract from mentions
-      if (entity.mentions && entity.mentions.length > 0) {
-        for (const mention of entity.mentions) {
-          if (mention.text && mention.text.content) {
-            const tag = mention.text.content.toLowerCase().replace(/[^a-z0-9]/g, '')
-            if (!seen.has(tag) && tag.length > 2) {
-              tags.push(tag)
-              seen.add(tag)
-            }
-          }
-        }
+        ],
+        temperature: 0.7,
+        max_tokens: 500
+      })
+    })
+    
+    console.log('[OPENAI] Response status:', response.status)
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[OPENAI] Error response:', errorText)
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`)
+    }
+    
+    const data = await response.json()
+    console.log('[OPENAI] Response data keys:', Object.keys(data))
+    
+    const content = data.choices?.[0]?.message?.content
+    console.log('[OPENAI] Raw content:', content)
+    
+    if (!content) {
+      throw new Error('No content in OpenAI response')
+    }
+    
+    // Parse the JSON response
+    let tags: string[]
+    try {
+      // Try to parse as JSON
+      tags = JSON.parse(content)
+    } catch (e) {
+      // If JSON parsing fails, try to extract array from the content
+      const match = content.match(/\[([^\]]+)\]/)
+      if (match) {
+        tags = match[1].split(',').map((t: string) => t.trim().replace(/"/g, '').replace(/'/g, ''))
+      } else {
+        // Fallback: split by common separators
+        tags = content.split(/[,;\n]/).map((t: string) => t.trim().replace(/[#"']/g, '')).filter((t: string) => t.length > 0)
       }
     }
     
-    console.log('[GOOGLE API] Extracted tags before platform:', tags)
+    console.log('[OPENAI] Parsed tags:', tags)
     
-    // Add platform-specific tags
-    const platformTags: Record<string, string[]> = {
-      'tiktok': ['fyp', 'foryou', 'tiktok', 'viral', 'trending'],
-      'instagram': ['instagram', 'reels', 'explore', 'viral', 'trending'],
-      'youtube-shorts': ['shorts', 'youtube', 'viral', 'trending', 'subscribe'],
-      'youtube-long': ['youtube', 'viral', 'trending', 'subscribe', 'watch'],
-      'facebook-reels': ['facebook', 'reels', 'viral', 'trending', 'social']
-    }
+    // Clean and format tags
+    const cleanedTags = tags
+      .map(tag => tag.toLowerCase().replace(/[^a-z0-9_]/g, ''))
+      .filter(tag => tag.length > 2)
+      .slice(0, count)
     
-    const platformSpecific = platformTags[platform.toLowerCase()] || []
-    for (const tag of platformSpecific) {
-      if (!seen.has(tag)) {
-        tags.push(tag)
-        seen.add(tag)
-      }
-    }
+    console.log('[OPENAI] Cleaned tags:', cleanedTags)
     
-    console.log('[GOOGLE API] Tags after platform addition:', tags)
+    // Add hashtag prefix
+    const hashtagTags = cleanedTags.map(tag => `#${tag}`)
     
-    // Add hashtags format
-    const hashtagTags = tags.slice(0, count).map(tag => `#${tag}`)
+    console.log('[OPENAI] Final hashtag tags:', hashtagTags)
     
-    console.log('[GOOGLE API] Final hashtag tags:', hashtagTags)
-    
-    return hashtagTags.slice(0, count)
+    return hashtagTags
   } catch (error) {
-    console.error('[GOOGLE API] Error generating tags with Google API:', error)
+    console.error('[OPENAI] Error generating tags with OpenAI:', error)
     throw error
   }
 }
@@ -146,7 +147,7 @@ async function generateTagsWithGoogle(description: string, platform: string, cou
 // GET endpoint - retrieve tag database status
 export async function GET() {
   return NextResponse.json({ 
-    message: 'Using Google Cloud Natural Language API for tag generation',
+    message: 'Using OpenAI for tag generation',
     rateLimit: '3 uses per 24 hours'
   })
 }
@@ -177,10 +178,10 @@ export async function POST(request: Request) {
       }, { status: 429 })
     }
     
-    console.log('[TAGS API] Generating tags with Google API for:', { platform, description, count })
+    console.log('[TAGS API] Generating tags with OpenAI for:', { platform, description, count })
     
-    // Generate tags using Google API
-    const tags = await generateTagsWithGoogle(description, platform, count)
+    // Generate tags using OpenAI
+    const tags = await generateTagsWithOpenAI(description, platform, count)
     
     console.log('[TAGS API] Generated tags:', tags)
     
@@ -191,7 +192,7 @@ export async function POST(request: Request) {
       tags,
       platform,
       count: tags.length,
-      algorithm: 'google-nlp',
+      algorithm: 'openai',
       rateLimit: {
         remaining: rateLimit.remaining,
         resetTime: rateLimit.resetTime
