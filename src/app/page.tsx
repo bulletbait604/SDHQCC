@@ -20,7 +20,12 @@ import {
   Plus,
   Trash2,
   CheckCircle,
-  ExternalLink
+  ExternalLink,
+  Loader2,
+  Sparkles,
+  Copy,
+  Database,
+  RefreshCw
 } from 'lucide-react'
 import { createKickAuthURL } from '@/lib/kick-oauth'
 
@@ -219,6 +224,17 @@ export default function HomePage() {
   const [lastUpdated, setLastUpdated] = useState<string>('Loading...')
   const [isLoadingAlgorithms, setIsLoadingAlgorithms] = useState<boolean>(false)
   const [algorithmError, setAlgorithmError] = useState<string | null>(null)
+  
+  // Tag Generator states
+  const [tagPlatform, setTagPlatform] = useState<string>('tiktok')
+  const [tagDescription, setTagDescription] = useState<string>('')
+  const [tagCount, setTagCount] = useState<number>(10)
+  const [generatedTags, setGeneratedTags] = useState<Record<string, string[]>>({})
+  const [isGeneratingTags, setIsGeneratingTags] = useState<boolean>(false)
+  const [tagDatabaseStatus, setTagDatabaseStatus] = useState<{lastUpdated: string | null, totalTags: number}>({lastUpdated: null, totalTags: 0})
+  const [isRefreshingTags, setIsRefreshingTags] = useState<boolean>(false)
+  const [tagRefreshProgress, setTagRefreshProgress] = useState<number>(0)
+  const [algorithmRefreshProgress, setAlgorithmRefreshProgress] = useState<number>(0)
   const [platforms, setPlatforms] = useState<Platform[]>([
     {
       id: 'tiktok',
@@ -411,6 +427,27 @@ export default function HomePage() {
           .finally(() => setIsLoadingAlgorithms(false))
       }
     }
+
+    // Fetch tag database status
+    fetch('/api/tags')
+      .then(res => {
+        if (!res.ok) throw new Error(`API error: ${res.status}`)
+        return res.json()
+      })
+      .then(data => {
+        if (data.lastUpdated) {
+          const totalTags = Object.values(data.data || {}).reduce((acc: number, tags: any) => {
+            return acc + (Array.isArray(tags) ? tags.length : 0)
+          }, 0)
+          setTagDatabaseStatus({
+            lastUpdated: data.lastUpdated,
+            totalTags
+          })
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching tag database status:', error)
+      })
   }, [])
 
   useEffect(() => {
@@ -1039,13 +1076,201 @@ export default function HomePage() {
             )}
 
             <TabsContent value="tag-generator-free">
-              <div className={`text-center py-12 ${cardClasses}`}>
-                <Hash className="w-16 h-16 mx-auto mb-4 text-sdhq-cyan-500" />
-                <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorFree}</h3>
-                <p className={`${textClasses} max-w-2xl mx-auto`}>
-                  {t.tagFreeDesc}
-                </p>
-                <p className={`${subtitleClasses} mt-4`}>{t.comingSoon}</p>
+              <div className={`${cardClasses} p-6`}>
+                <div className="text-center mb-8">
+                  <Hash className="w-12 h-12 mx-auto mb-4 text-sdhq-cyan-500" />
+                  <h3 className={`text-2xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorFree}</h3>
+                  <p className={`${textClasses} max-w-2xl mx-auto`}>
+                    Select a platform, describe your content, and generate optimized tags based on platform-specific algorithm insights.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Input Section */}
+                  <div className={`p-6 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
+                    <h4 className={`font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      Content Details
+                    </h4>
+                    
+                    {/* Platform Selection */}
+                    <div className="mb-4">
+                      <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Select Platform
+                      </label>
+                      <select
+                        value={tagPlatform}
+                        onChange={(e) => setTagPlatform(e.target.value)}
+                        className={`w-full px-3 py-2 rounded-md border ${
+                          darkMode 
+                            ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
+                            : 'bg-white border-gray-300'
+                        }`}
+                      >
+                        {platforms.map((platform) => (
+                          <option key={platform.id} value={platform.id}>
+                            {platform.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Description Input */}
+                    <div className="mb-4">
+                      <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Video/Clip Description
+                      </label>
+                      <textarea
+                        value={tagDescription}
+                        onChange={(e) => setTagDescription(e.target.value)}
+                        placeholder="Describe your video or clip content... (e.g., 'Epic Fortnite victory royale with insane build battles')"
+                        rows={4}
+                        className={`w-full px-3 py-2 rounded-md border resize-none ${
+                          darkMode 
+                            ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
+                            : 'bg-white border-gray-300'
+                        }`}
+                      />
+                    </div>
+
+                    {/* Tag Count */}
+                    <div className="mb-4">
+                      <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Number of Tags: {tagCount}
+                      </label>
+                      <input
+                        type="range"
+                        min="5"
+                        max="30"
+                        value={tagCount}
+                        onChange={(e) => setTagCount(parseInt(e.target.value))}
+                        className="w-full h-2 bg-sdhq-cyan-500 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="flex justify-between text-xs mt-1 text-gray-500">
+                        <span>5</span>
+                        <span>30</span>
+                      </div>
+                    </div>
+
+                    {/* Generate Button */}
+                    <Button
+                      onClick={async () => {
+                        if (!tagDescription.trim()) {
+                          alert('Please enter a description of your content')
+                          return
+                        }
+                        
+                        setIsGeneratingTags(true)
+                        try {
+                          const res = await fetch('/api/tags', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              description: tagDescription,
+                              platform: tagPlatform,
+                              count: tagCount
+                            })
+                          })
+                          
+                          if (!res.ok) throw new Error(`API error: ${res.status}`)
+                          
+                          const data = await res.json()
+                          setGeneratedTags(prev => ({ ...prev, [tagPlatform]: data.tags }))
+                        } catch (error) {
+                          console.error('Error generating tags:', error)
+                          alert('Failed to generate tags. Please try again.')
+                        } finally {
+                          setIsGeneratingTags(false)
+                        }
+                      }}
+                      disabled={isGeneratingTags || !tagDescription.trim()}
+                      className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
+                    >
+                      {isGeneratingTags ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Generating Tags...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Generate Tags
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Results Section */}
+                  <div className={`p-6 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
+                    <h4 className={`font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      Generated Tags for {platforms.find(p => p.id === tagPlatform)?.name}
+                    </h4>
+                    
+                    {generatedTags[tagPlatform]?.length > 0 ? (
+                      <>
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {generatedTags[tagPlatform].map((tag, index) => (
+                            <span
+                              key={index}
+                              className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                darkMode 
+                                  ? 'bg-sdhq-cyan-500/20 text-sdhq-cyan-400 border border-sdhq-cyan-500/30' 
+                                  : 'bg-sdhq-cyan-100 text-sdhq-cyan-700 border border-sdhq-cyan-200'
+                              }`}
+                            >
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const tagsText = generatedTags[tagPlatform].map(t => `#${t}`).join(' ')
+                            navigator.clipboard.writeText(tagsText)
+                            alert('Tags copied to clipboard!')
+                          }}
+                          className="w-full"
+                        >
+                          <Copy className="w-4 h-4 mr-2" />
+                          Copy All Tags
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Hash className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                        <p className={`${subtitleClasses}`}>
+                          No tags generated yet. Enter a description and click Generate Tags.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Tag Database Status */}
+                <div className={`mt-6 p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-800' : 'bg-gray-100'}`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Tag Database Status
+                      </p>
+                      <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        {tagDatabaseStatus.lastUpdated 
+                          ? `Last updated: ${new Date(tagDatabaseStatus.lastUpdated).toLocaleString()}`
+                          : 'Database not initialized'
+                        }
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-2xl font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                        {tagDatabaseStatus.totalTags.toLocaleString()}
+                      </p>
+                      <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        total tags across platforms
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </TabsContent>
 
@@ -1201,53 +1426,159 @@ export default function HomePage() {
                         Admin Tools
                       </h4>
                       
-                      <div className="space-y-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            if (!user || !isAdmin) return
-                            
-                            setIsLoadingAlgorithms(true)
-                            try {
-                              const res = await fetch('/api/algorithms', { method: 'POST' })
-                              if (!res.ok) throw new Error(`API error: ${res.status}`)
+                      <div className="space-y-4">
+                        {/* Refresh Algorithms Button with Progress */}
+                        <div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              if (!user || !isAdmin) return
                               
-                              const data = await res.json()
-                              if (data.data) {
-                                localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
-                                localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
-                                setLastUpdated(data.lastUpdated)
-                                setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
-                                  ...p,
-                                  data: data.data[p.id] || null
-                                })))
+                              setIsLoadingAlgorithms(true)
+                              setAlgorithmRefreshProgress(0)
+                              
+                              // Simulate progress updates
+                              const progressInterval = setInterval(() => {
+                                setAlgorithmRefreshProgress(prev => {
+                                  if (prev >= 90) return prev
+                                  return prev + Math.random() * 15
+                                })
+                              }, 1000)
+                              
+                              try {
+                                const res = await fetch('/api/algorithms', { method: 'POST' })
+                                if (!res.ok) throw new Error(`API error: ${res.status}`)
                                 
-                                // Log the manual refresh
-                                const refreshEntry: ActivityLogEntry = {
-                                  id: Date.now().toString(),
-                                  username: user.username,
-                                  timestamp: new Date().toISOString(),
-                                  action: 'algorithm_refresh',
-                                  details: `Manual algorithm refresh${data.provider ? ` via ${data.provider}` : ''}`
+                                const data = await res.json()
+                                if (data.data) {
+                                  localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
+                                  localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
+                                  setLastUpdated(data.lastUpdated)
+                                  setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
+                                    ...p,
+                                    data: data.data[p.id] || null
+                                  })))
+                                  
+                                  // Log the manual refresh
+                                  const refreshEntry: ActivityLogEntry = {
+                                    id: Date.now().toString(),
+                                    username: user.username,
+                                    timestamp: new Date().toISOString(),
+                                    action: 'algorithm_refresh',
+                                    details: `Manual algorithm refresh${data.provider ? ` via ${data.provider}` : ''}`
+                                  }
+                                  setActivityLog(prev => [refreshEntry, ...prev].slice(0, 100))
+                                  
+                                  setAlgorithmRefreshProgress(100)
+                                  alert('Algorithms refreshed successfully!')
                                 }
-                                setActivityLog(prev => [refreshEntry, ...prev].slice(0, 100))
-                                
-                                alert('Algorithms refreshed successfully!')
+                              } catch (error) {
+                                console.error('Error refreshing algorithms:', error)
+                                alert('Failed to refresh algorithms. Please try again.')
+                              } finally {
+                                clearInterval(progressInterval)
+                                setIsLoadingAlgorithms(false)
+                                setTimeout(() => setAlgorithmRefreshProgress(0), 2000)
                               }
-                            } catch (error) {
-                              console.error('Error refreshing algorithms:', error)
-                              alert('Failed to refresh algorithms. Please try again.')
-                            } finally {
-                              setIsLoadingAlgorithms(false)
-                            }
-                          }}
-                          disabled={isLoadingAlgorithms}
-                          className="w-full"
-                        >
-                          <TrendingUp className="w-4 h-4 mr-2" />
-                          {isLoadingAlgorithms ? 'Refreshing...' : 'Refresh Algorithms'}
-                        </Button>
+                            }}
+                            disabled={isLoadingAlgorithms}
+                            className="w-full"
+                          >
+                            <TrendingUp className="w-4 h-4 mr-2" />
+                            {isLoadingAlgorithms ? 'Refreshing Algorithms...' : 'Refresh Algorithms'}
+                          </Button>
+                          
+                          {/* Algorithm Refresh Progress Bar */}
+                          {isLoadingAlgorithms && (
+                            <div className="mt-2">
+                              <div className={`w-full h-2 rounded-full ${darkMode ? 'bg-sdhq-dark-600' : 'bg-gray-200'}`}>
+                                <div 
+                                  className="h-2 rounded-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 transition-all duration-300"
+                                  style={{ width: `${Math.min(algorithmRefreshProgress, 100)}%` }}
+                                />
+                              </div>
+                              <p className={`text-xs mt-1 text-center ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                {Math.round(algorithmRefreshProgress)}% complete
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Refresh Tag Database Button with Progress */}
+                        <div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              if (!user || !isAdmin) return
+                              
+                              setIsRefreshingTags(true)
+                              setTagRefreshProgress(0)
+                              
+                              // Simulate progress updates
+                              const progressInterval = setInterval(() => {
+                                setTagRefreshProgress(prev => {
+                                  if (prev >= 90) return prev
+                                  return prev + Math.random() * 10
+                                })
+                              }, 1500)
+                              
+                              try {
+                                const res = await fetch('/api/tags', { method: 'PUT' })
+                                if (!res.ok) throw new Error(`API error: ${res.status}`)
+                                
+                                const data = await res.json()
+                                if (data.success) {
+                                  setTagDatabaseStatus({
+                                    lastUpdated: data.lastUpdated,
+                                    totalTags: data.totalTags
+                                  })
+                                  
+                                  // Log the tag refresh
+                                  const refreshEntry: ActivityLogEntry = {
+                                    id: Date.now().toString(),
+                                    username: user.username,
+                                    timestamp: new Date().toISOString(),
+                                    action: 'algorithm_refresh',
+                                    details: `Manual tag database refresh${data.provider ? ` via ${data.provider}` : ''} - ${data.totalTags.toLocaleString()} tags`
+                                  }
+                                  setActivityLog(prev => [refreshEntry, ...prev].slice(0, 100))
+                                  
+                                  setTagRefreshProgress(100)
+                                  alert(`Tag database refreshed successfully! ${data.totalTags.toLocaleString()} tags generated.`)
+                                }
+                              } catch (error) {
+                                console.error('Error refreshing tag database:', error)
+                                alert('Failed to refresh tag database. Please try again.')
+                              } finally {
+                                clearInterval(progressInterval)
+                                setIsRefreshingTags(false)
+                                setTimeout(() => setTagRefreshProgress(0), 2000)
+                              }
+                            }}
+                            disabled={isRefreshingTags}
+                            className="w-full"
+                          >
+                            <Database className="w-4 h-4 mr-2" />
+                            {isRefreshingTags ? 'Refreshing Tags...' : 'Refresh Tag Database'}
+                          </Button>
+                          
+                          {/* Tag Refresh Progress Bar */}
+                          {isRefreshingTags && (
+                            <div className="mt-2">
+                              <div className={`w-full h-2 rounded-full ${darkMode ? 'bg-sdhq-dark-600' : 'bg-gray-200'}`}>
+                                <div 
+                                  className="h-2 rounded-full bg-gradient-to-r from-sdhq-green-500 to-sdhq-cyan-500 transition-all duration-300"
+                                  style={{ width: `${Math.min(tagRefreshProgress, 100)}%` }}
+                                />
+                              </div>
+                              <p className={`text-xs mt-1 text-center ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                {Math.round(tagRefreshProgress)}% complete - Generating 100k+ tags across 5 platforms...
+                              </p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
