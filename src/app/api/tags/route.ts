@@ -35,28 +35,14 @@ async function generateTagsWithOpenAI(description: string, platform: string, cou
   
   try {
     const platformContext: Record<string, string> = {
-      'tiktok': 'TikTok - short-form video platform popular for trends, challenges, and viral content',
-      'instagram': 'Instagram - visual platform for photos, reels, and stories',
-      'youtube-shorts': 'YouTube Shorts - short-form vertical videos on YouTube',
-      'youtube-long': 'YouTube - long-form video platform',
-      'facebook-reels': 'Facebook Reels - short-form video content on Facebook'
+      'tiktok': 'TikTok',
+      'instagram': 'Instagram',
+      'youtube-shorts': 'YouTube Shorts',
+      'youtube-long': 'YouTube',
+      'facebook-reels': 'Facebook Reels'
     }
     
-    const prompt = `Generate ${count} relevant hashtags for a content description. The content is for ${platformContext[platform.toLowerCase()] || platform}.
-
-Description: "${description}"
-
-Requirements:
-- Return ONLY a JSON array of hashtag strings (without the # symbol)
-- Make tags specific to the content described
-- Include platform-relevant tags
-- Ensure tags are lowercase and use only letters, numbers, and underscores
-- No generic tags like "fyp", "viral", "trending" unless specifically relevant
-- Focus on the actual content, game, topic, or activity mentioned
-
-Example output format: ["gaming", "callofduty", "warzone", "fps", "competitive"]
-
-Return ONLY the JSON array, nothing else.`
+    const platformName = platformContext[platform.toLowerCase()] || platform
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -69,15 +55,15 @@ Return ONLY the JSON array, nothing else.`
         messages: [
           {
             role: 'system',
-            content: 'You are a hashtag generator for social media content. You respond only with valid JSON arrays of hashtag strings.'
+            content: 'You are a hashtag generator. Return only a JSON array of lowercase hashtag strings without the # symbol.'
           },
           {
             role: 'user',
-            content: prompt
+            content: `Generate ${count} relevant hashtags for: "${description}" for ${platformName}. Return as JSON array like ["tag1", "tag2", "tag3"]`
           }
         ],
         temperature: 0.7,
-        max_tokens: 500
+        max_tokens: 300
       })
     })
     
@@ -93,29 +79,31 @@ Return ONLY the JSON array, nothing else.`
       throw new Error('No content in OpenAI response')
     }
     
-    // Parse the JSON response
     let tags: string[]
     try {
       tags = JSON.parse(content)
+      if (!Array.isArray(tags)) {
+        throw new Error('Response is not an array')
+      }
     } catch (e) {
       const match = content.match(/\[([^\]]+)\]/)
       if (match) {
-        tags = match[1].split(',').map((t: string) => t.trim().replace(/"/g, '').replace(/'/g, ''))
+        tags = match[1].split(',').map((t: string) => t.trim().replace(/["']/g, ''))
       } else {
         tags = content.split(/[,;\n]/).map((t: string) => t.trim().replace(/[#"']/g, '')).filter((t: string) => t.length > 0)
       }
     }
     
-    // Clean and format tags
     const cleanedTags = tags
-      .map(tag => tag.toLowerCase().replace(/[^a-z0-9_]/g, ''))
-      .filter(tag => tag.length > 2)
+      .map((tag: string) => tag.toLowerCase().replace(/[^a-z0-9_]/g, ''))
+      .filter((tag: string) => tag.length > 2)
       .slice(0, count)
     
-    // Add hashtag prefix
-    const hashtagTags = cleanedTags.map(tag => `#${tag}`)
+    if (cleanedTags.length === 0) {
+      return [platformName.toLowerCase().replace(/\s/g, ''), 'content', 'viral', 'trending']
+    }
     
-    return hashtagTags
+    return cleanedTags
   } catch (error) {
     throw error
   }
