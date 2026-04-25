@@ -242,19 +242,29 @@ export class HashyAlgorithm {
   /**
    * Detect games from keywords
    */
-  private detectGames(keywords: string[]): Game[] {
+  private detectGames(keywords: string[], description: string): Game[] {
     const detectedGames: Game[] = [];
+    const lowerDescription = description.toLowerCase();
 
     for (const game of this.gamesDatabase) {
       let matchScore = 0;
 
-      // Check game name
+      // Check if full game name appears in description (highest priority)
+      if (lowerDescription.includes(game.name.toLowerCase())) {
+        matchScore += 20;
+      }
+
+      // Check game name against keywords
       if (keywords.some(k => game.name.toLowerCase().includes(k) || k.includes(game.name.toLowerCase()))) {
         matchScore += 10;
       }
 
-      // Check aliases
+      // Check aliases - full alias in description gets high score
       for (const alias of game.aliases) {
+        if (lowerDescription.includes(alias.toLowerCase())) {
+          matchScore += 15;
+        }
+        // Also check against keywords
         if (keywords.some(k => alias.toLowerCase().includes(k) || k.includes(alias.toLowerCase()))) {
           matchScore += 5;
         }
@@ -480,7 +490,7 @@ export class HashyAlgorithm {
     }
 
     // Detect games
-    const detectedGames = this.detectGames(keywords);
+    const detectedGames = this.detectGames(keywords, description);
     console.log('[HASHY] Detected games:', detectedGames.map(g => g.name))
 
     // Detect platform
