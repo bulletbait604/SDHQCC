@@ -1,4 +1,253 @@
 import { NextResponse } from 'next/server'
+import { hashy } from '../../../../lib/hashy/hashy-algorithm'
+import fs from 'fs';
+import path from 'path';
+
+// Usage tracking functions
+const USAGE_FILE = path.join(process.cwd(), 'data', 'tag-usage.json');
+const ACTIVITY_FILE = path.join(process.cwd(), 'data', 'tag-activity.json');
+
+interface UsageData {
+  [identifier: string]: {
+    count: number;
+    lastUsed: string;
+  };
+}
+
+interface ActivityEntry {
+  identifier: string;
+  platform: string;
+  tier: 'free' | 'premium' | 'admin';
+  timestamp: string;
+}
+
+async function ensureDataDirectory(): Promise<void> {
+  const dataDir = path.join(process.cwd(), 'data');
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+}
+
+async function checkUsage(identifier: string): Promise<{ count: number; lastUsed: string }> {
+  await ensureDataDirectory();
+  
+  if (!fs.existsSync(USAGE_FILE)) {
+    return { count: 0, lastUsed: new Date().toISOString() };
+  }
+  
+  const usageData: UsageData = JSON.parse(fs.readFileSync(USAGE_FILE, 'utf-8'));
+  const userUsage = usageData[identifier];
+  
+  if (!userUsage) {
+    return { count: 0, lastUsed: new Date().toISOString() };
+  }
+  
+  // Check if 24 hours have passed since last use
+  const lastUsed = new Date(userUsage.lastUsed);
+  const now = new Date();
+  const hoursSinceLastUse = (now.getTime() - lastUsed.getTime()) / (1000 * 60 * 60);
+  
+  if (hoursSinceLastUse >= 24) {
+    // Reset usage after 24 hours
+    delete usageData[identifier];
+    fs.writeFileSync(USAGE_FILE, JSON.stringify(usageData, null, 2));
+    return { count: 0, lastUsed: new Date().toISOString() };
+  }
+  
+  return { count: userUsage.count, lastUsed: userUsage.lastUsed };
+}
+
+async function incrementUsage(identifier: string): Promise<void> {
+  await ensureDataDirectory();
+  
+  let usageData: UsageData = {};
+  if (fs.existsSync(USAGE_FILE)) {
+    usageData = JSON.parse(fs.readFileSync(USAGE_FILE, 'utf-8'));
+  }
+  
+  const now = new Date().toISOString();
+  if (!usageData[identifier]) {
+    usageData[identifier] = { count: 1, lastUsed: now };
+  } else {
+    usageData[identifier].count += 1;
+    usageData[identifier].lastUsed = now;
+  }
+  
+  fs.writeFileSync(USAGE_FILE, JSON.stringify(usageData, null, 2));
+}
+
+function getHoursUntilReset(lastUsed: string): number {
+  const lastUsedDate = new Date(lastUsed);
+  const resetTime = new Date(lastUsedDate.getTime() + 24 * 60 * 60 * 1000);
+  const now = new Date();
+  const hoursUntilReset = Math.max(0, (resetTime.getTime() - now.getTime()) / (1000 * 60 * 60));
+  return Math.ceil(hoursUntilReset);
+}
+
+async function logActivity(identifier: string, platform: string, tier: 'free' | 'premium' | 'admin'): Promise<void> {
+  await ensureDataDirectory();
+  
+  let activities: ActivityEntry[] = [];
+  if (fs.existsSync(ACTIVITY_FILE)) {
+    activities = JSON.parse(fs.readFileSync(ACTIVITY_FILE, 'utf-8'));
+  }
+  
+  const entry: ActivityEntry = {
+    identifier,
+    platform,
+    tier,
+    timestamp: new Date().toISOString()
+  };
+  
+  activities.push(entry);
+  
+  // Keep only last 1000 activities
+  if (activities.length > 1000) {
+    activities = activities.slice(-1000);
+  }
+  
+  fs.writeFileSync(ACTIVITY_FILE, JSON.stringify(activities, null, 2));
+}
+
+// OpenAI API integration for deep reasoning
+async function analyzeWithOpenAI(description: string, platform: string): Promise<{ 
+  suggestedTags: string[], 
+  contentThemes: string[], 
+  bannedHashtags: string[],
+  trendingHashtags: string[],
+  reasoning: string 
+}> {
+  const apiKey = process.env.OPENAI_API_KEY
+  
+  if (!apiKey) {
+    console.log('OpenAI API key not configured, skipping OpenAI analysis')
+    return { suggestedTags: [], contentThemes: [], bannedHashtags: [], trendingHashtags: [], reasoning: '' }
+  }
+  
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert social media tag generator for ${platform}. Analyze the content and provide:
+1. 15-20 relevant hashtags (without # symbol)
+2. 3-5 main content themes
+3. 5-10 potentially banned or shadowbanned hashtags to avoid
+4. 5-10 trending hashtags relevant to this content
+5. Brief reasoning for tag selection
+
+Return JSON format: {"suggestedTags": [], "contentThemes": [], "bannedHashtags": [], "trendingHashtags": [], "reasoning": ""}`
+          },
+          {
+            role: 'user',
+            content: `Generate tags for this content on ${platform}: ${description}`
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 1000
+      })
+    })
+    
+    if (!response.ok) {
+      console.error('OpenAI API error:', response.statusText)
+      return { suggestedTags: [], contentThemes: [], bannedHashtags: [], trendingHashtags: [], reasoning: '' }
+    }
+    
+    const data = await response.json()
+    const content = data.choices[0]?.message?.content || '{}'
+    
+    try {
+      const parsed = JSON.parse(content)
+      return {
+        suggestedTags: parsed.suggestedTags || [],
+        contentThemes: parsed.contentThemes || [],
+        bannedHashtags: parsed.bannedHashtags || [],
+        trendingHashtags: parsed.trendingHashtags || [],
+        reasoning: parsed.reasoning || ''
+      }
+    } catch (e) {
+      console.error('Failed to parse OpenAI response:', e)
+      return { suggestedTags: [], contentThemes: [], bannedHashtags: [], trendingHashtags: [], reasoning: '' }
+    }
+  } catch (error) {
+    console.error('OpenAI API error:', error)
+    return { suggestedTags: [], contentThemes: [], bannedHashtags: [], trendingHashtags: [], reasoning: '' }
+  }
+}
+
+// DeepSeek API integration for reasoning
+async function analyzeWithDeepSeek(description: string, platform: string): Promise<{ 
+  suggestedTags: string[], 
+  contentAnalysis: string,
+  platformSpecificTips: string[]
+}> {
+  const apiKey = process.env.DEEPSEEK_API_KEY
+  
+  if (!apiKey) {
+    console.log('DeepSeek API key not configured, skipping DeepSeek analysis')
+    return { suggestedTags: [], contentAnalysis: '', platformSpecificTips: [] }
+  }
+  
+  try {
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a social media optimization expert for ${platform}. Analyze the content and provide:
+1. 10-15 high-performing hashtags (without # symbol)
+2. Deep content analysis
+3. 3-5 platform-specific optimization tips
+
+Return JSON format: {"suggestedTags": [], "contentAnalysis": "", "platformSpecificTips": []}`
+          },
+          {
+            role: 'user',
+            content: `Optimize this content for ${platform}: ${description}`
+          }
+        ],
+        temperature: 0.6,
+        max_tokens: 800
+      })
+    })
+    
+    if (!response.ok) {
+      console.error('DeepSeek API error:', response.statusText)
+      return { suggestedTags: [], contentAnalysis: '', platformSpecificTips: [] }
+    }
+    
+    const data = await response.json()
+    const content = data.choices[0]?.message?.content || '{}'
+    
+    try {
+      const parsed = JSON.parse(content)
+      return {
+        suggestedTags: parsed.suggestedTags || [],
+        contentAnalysis: parsed.contentAnalysis || '',
+        platformSpecificTips: parsed.platformSpecificTips || []
+      }
+    } catch (e) {
+      console.error('Failed to parse DeepSeek response:', e)
+      return { suggestedTags: [], contentAnalysis: '', platformSpecificTips: [] }
+    }
+  } catch (error) {
+    console.error('DeepSeek API error:', error)
+    return { suggestedTags: [], contentAnalysis: '', platformSpecificTips: [] }
+  }
+}
 
 // Google Cloud Natural Language API integration with enhanced analysis
 async function extractEntitiesWithGoogle(description: string): Promise<{ entities: string[], categories: string[], sentiment: string }> {
@@ -1864,21 +2113,90 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { description, platform, count = 10, premium = false } = body
+    const { description, platform, count = 10, premium = false, userId, isAdmin = false } = body
     
     if (!description || !platform) {
       return NextResponse.json({ error: 'Description and platform are required' }, { status: 400 })
     }
     
-    // Extract entities using Google API for better understanding
+    // Get client IP for usage tracking
+    const ip = request.headers.get('x-forwarded-for') || 
+               request.headers.get('x-real-ip') || 
+               'unknown'
+    const userIdentifier = userId || ip
+    
+    // Admin users get premium features automatically
+    const isPremiumUser = premium || isAdmin
+    const userTier = isAdmin ? 'admin' : (premium ? 'premium' : 'free')
+    
+    // Usage tracking for free tier (skip for admin users)
+    if (!isPremiumUser) {
+      const usageLimit = 5
+      const usageData = await checkUsage(userIdentifier)
+      
+      // Check if limit reached
+      if (usageData.count >= usageLimit) {
+        const hoursUntilReset = getHoursUntilReset(usageData.lastUsed)
+        
+        return NextResponse.json({
+          error: 'Daily limit reached',
+          message: `You've used your ${usageLimit} free tag generations for today. Subscribe to unlock unlimited access or return in ${hoursUntilReset} hours to reset your uses.`,
+          limitReached: true,
+          hoursUntilReset,
+          generatedAt: new Date().toISOString()
+        }, { status: 429 })
+      }
+      
+      // Increment usage
+      await incrementUsage(userIdentifier)
+      
+      // Log activity
+      await logActivity(userIdentifier, platform, userTier)
+      
+      // Extract entities using Google API for enhanced Hashy analytics
+      const googleData = await extractEntitiesWithGoogle(description)
+      
+      console.log('Using Hashy algorithm with Google API for free tier tag generation')
+      const hashyResult = hashy.generateTags('', description, platform, googleData)
+      
+      return NextResponse.json({
+        tags: hashyResult.generatedTags.slice(0, count),
+        platform,
+        count: hashyResult.generatedTags.slice(0, count).length,
+        detectedGames: hashyResult.detectedGames.map(g => g.name),
+        detectedPlatform: hashyResult.detectedPlatform?.name || null,
+        contextualTags: hashyResult.contextualTags,
+        googleEntities: hashyResult.googleEntities,
+        googleCategories: hashyResult.googleCategories,
+        googleSentiment: hashyResult.googleSentiment,
+        algorithm: 'hashy',
+        remainingUses: usageLimit - (usageData.count + 1),
+        generatedAt: new Date().toISOString()
+      })
+    }
+    
+    // Premium tier: Use all 3 APIs for deep reasoning
+    console.log('Premium tier: Using Google, OpenAI, and DeepSeek APIs for deep analysis')
+    
+    // Extract entities using Google API
     const googleData = await extractEntitiesWithGoogle(description)
     const googleEntities = googleData.entities
     const googleCategories = googleData.categories
     const googleSentiment = googleData.sentiment
     
-    // Read algorithm data for platform-specific insights
+    // Analyze with OpenAI for banned hashtags, trending tags, and reasoning
+    const openaiData = await analyzeWithOpenAI(description, platform)
+    
+    // Analyze with DeepSeek for content analysis and platform-specific tips
+    const deepseekData = await analyzeWithDeepSeek(description, platform)
+    
+    // Log activity for premium/admin users
+    await logActivity(userIdentifier, platform, userTier)
+    
+    // Read algorithm data for platform-specific insights (check algorithm every request)
     const algoData = await readAlgorithmData(platform)
     const algorithmInsights = extractAlgorithmInsights(algoData)
+    console.log(`Premium: Checked ${platform} algorithm - trending topics: ${algorithmInsights.trending.length}`)
     
     // Detect content context (game, activity, platform, niche)
     const contentContext = detectContentContext(googleEntities, googleCategories, description)
@@ -1900,12 +2218,25 @@ export async function POST(request: Request) {
       console.log(`Using full tag database for ${platform}: ${platformTags.length} tags`)
     }
     
-    // Generate tags using local algorithm (no API calls)
+    // Generate tags using local algorithm
     const generatedTags = generateTagsFromDescription(description, platformTags, platform, Math.min(count, 40))
     
-    // Combine contextual tags with generated tags
-    const allTags = [...contextualTags, ...generatedTags]
-    const uniqueTags = Array.from(new Set(allTags))
+    // Combine all tag sources from 3 APIs
+    const allTags = [
+      ...contextualTags,
+      ...generatedTags,
+      ...openaiData.suggestedTags,
+      ...deepseekData.suggestedTags,
+      ...algorithmInsights.trending
+    ]
+    
+    // Filter out banned hashtags from OpenAI
+    const filteredTags = allTags.filter(tag => {
+      const tagLower = tag.toLowerCase()
+      return !openaiData.bannedHashtags.some((banned: string) => tagLower.includes(banned.toLowerCase()))
+    })
+    
+    const uniqueTags = Array.from(new Set(filteredTags))
     
     // If Google API extracted entities, boost those tags in the results
     if (googleEntities.length > 0) {
@@ -1967,6 +2298,18 @@ export async function POST(request: Request) {
         contentContext,
         algorithmInsights,
         contextualTagsCount: contextualTags.length,
+        openaiData: {
+          suggestedTags: openaiData.suggestedTags,
+          contentThemes: openaiData.contentThemes,
+          bannedHashtags: openaiData.bannedHashtags,
+          trendingHashtags: openaiData.trendingHashtags,
+          reasoning: openaiData.reasoning
+        },
+        deepseekData: {
+          suggestedTags: deepseekData.suggestedTags,
+          contentAnalysis: deepseekData.contentAnalysis,
+          platformSpecificTips: deepseekData.platformSpecificTips
+        },
         generatedAt: new Date().toISOString()
       })
     }
@@ -1982,6 +2325,18 @@ export async function POST(request: Request) {
       contentContext,
       algorithmInsights,
       contextualTagsCount: contextualTags.length,
+      openaiData: {
+        suggestedTags: openaiData.suggestedTags,
+        contentThemes: openaiData.contentThemes,
+        bannedHashtags: openaiData.bannedHashtags,
+        trendingHashtags: openaiData.trendingHashtags,
+        reasoning: openaiData.reasoning
+      },
+      deepseekData: {
+        suggestedTags: deepseekData.suggestedTags,
+        contentAnalysis: deepseekData.contentAnalysis,
+        platformSpecificTips: deepseekData.platformSpecificTips
+      },
       generatedAt: new Date().toISOString()
     })
   } catch (error) {

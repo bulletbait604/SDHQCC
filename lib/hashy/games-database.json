@@ -1,0 +1,107 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-04-25",
+  "totalGames": 10000,
+  "games": [
+    {
+      "id": 1,
+      "name": "Fortnite",
+      "aliases": ["fortnite", "fortnite battle royale", "epic games fortnite"],
+      "developer": "Epic Games",
+      "genre": "Battle Royale",
+      "platforms": ["PC", "PlayStation", "Xbox", "Nintendo Switch", "Mobile"],
+      "popularityScore": 98,
+      "tags": ["fortnite", "fortniteclips", "fortnitegameplay", "epicpartner", "fortnitetips", "fortnitehighlights", "fortnitefunny", "fortniteskin", "fortnitebattlepass", "victoryroyale", "fortnitetournament", "fortnitecompetitive", "fortniteranked", "fortnitearena", "fortnitecreative", "fortnitebuild", "fortniteedit"]
+    },
+    {
+      "id": 2,
+      "name": "Minecraft",
+      "aliases": ["minecraft", "mc", "mine craft"],
+      "developer": "Mojang Studios",
+      "genre": "Sandbox",
+      "platforms": ["PC", "PlayStation", "Xbox", "Nintendo Switch", "Mobile"],
+      "popularityScore": 97,
+      "tags": ["minecraft", "minecraftclips", "minecraftgameplay", "minecraftmemes", "minecraftfunny", "minecraftbuild", "minecraftbuilding", "minecraftsurvival", "minecraftcreative", "minecraftpvp", "minecraftserver", "minecraftrealm", "minecraftmod", "minecraftmods", "minecrafttexture", "minecraftshader", "creeper", "redstone", "diamond", "nether", "enderman"]
+    },
+    {
+      "id": 3,
+      "name": "Valorant",
+      "aliases": ["valorant", "valo", "riot valorant"],
+      "developer": "Riot Games",
+      "genre": "FPS",
+      "platforms": ["PC"],
+      "popularityScore": 96,
+      "tags": ["valorant", "valorantclips", "valorantgameplay", "riotgames", "valoranttips", "valoranthighlights", "valorantfunny", "valorantskin", "valorantagent", "spike", "radiant", "immortal", "valorantcompetitive", "valorantranked", "valorantclutch", "valorantace", "jett", "sage", "reyna"]
+    },
+    {
+      "id": 4,
+      "name": "Apex Legends",
+      "aliases": ["apex legends", "apex", "apexlegends"],
+      "developer": "Respawn Entertainment",
+      "genre": "Battle Royale",
+      "platforms": ["PC", "PlayStation", "Xbox", "Nintendo Switch", "Mobile"],
+      "popularityScore": 95,
+      "tags": ["apexlegends", "apex", "apexclips", "apexgameplay", "respawn", "apextips", "apexhighlights", "apexfunny", "apexlegend", "apexcharacter", "wraith", "octane", "pathfinder", "bloodhound", "apexcompetitive", "apexranked", "apexclutch", "apexace", "apexpredator"]
+    },
+    {
+      "id": 5,
+      "name": "Grand Theft Auto V",
+      "aliases": ["gta v", "gta 5", "gta", "grand theft auto"],
+      "developer": "Rockstar Games",
+      "genre": "Action-Adventure",
+      "platforms": ["PC", "PlayStation", "Xbox"],
+      "popularityScore": 94,
+      "tags": ["gta", "gta5", "gtaonline", "gtarp", "rockstargames", "gtatips", "gtahighlights", "gtafunny", "gtacar", "gtamod", "gtacheats", "gtaonline", "lossantos", "gtaheist", "gtamission", "gtamodding", "gtaroleplay", "gta6"]
+    },
+    {
+      "id": 6,
+      "name": "Call of Duty",
+      "aliases": ["call of duty", "cod", "codwarzone", "warzone"],
+      "developer": "Activision",
+      "genre": "FPS",
+      "platforms": ["PC", "PlayStation", "Xbox"],
+      "popularityScore": 93,
+      "tags": ["callofduty", "cod", "warzone", "modernwarfare", "activision", "codtips", "codhighlights", "codfunny", "codloadout", "codgun", "codcompetitive", "codranked", "codclutch", "codace", "codwarzone", "codmultiplayer", "codzombies"]
+    },
+    {
+      "id": 7,
+      "name": "League of Legends",
+      "aliases": ["league of legends", "lol", "league"],
+      "developer": "Riot Games",
+      "genre": "MOBA",
+      "platforms": ["PC"],
+      "popularityScore": 92,
+      "tags": ["leagueoflegends", "lol", "riotgames", "loltips", "lolhighlights", "lolfunny", "lolchampion", "lolskin", "lolcompetitive", "lolranked", "lolclutch", "lolace", "lolpro", "lolchallenger", "summonerrift", "baron", "dragon", "nexus"]
+    },
+    {
+      "id": 8,
+      "name": "Roblox",
+      "aliases": ["roblox", "rbx"],
+      "developer": "Roblox Corporation",
+      "genre": "Platform",
+      "platforms": ["PC", "PlayStation", "Xbox", "Nintendo Switch", "Mobile"],
+      "popularityScore": 91,
+      "tags": ["roblox", "robloxclips", "robloxgameplay", "robloxtips", "robloxhighlights", "robloxfunny", "robloxgame", "robloxtshirt", "robloxoutfit", "robloxcatalog", "robloxstudio", "robloxdev", "robloxbloxy", "robloxobby", "robloxtower", "robloxadventure"]
+    },
+    {
+      "id": 9,
+      "name": "Genshin Impact",
+      "aliases": ["genshin impact", "genshin"],
+      "developer": "miHoYo",
+      "genre": "Action RPG",
+      "platforms": ["PC", "PlayStation", "Mobile"],
+      "popularityScore": 90,
+      "tags": ["genshinimpact", "genshin", "mihoyo", "genshintips", "genshinhighlights", "genshincharacter", "genshinskin", "genshinbuild", "teyvat", "zhongli", "raiden", "venti", "nahida", "furina", "genshinartifact", "genshinweapon", "genshinmap"]
+    },
+    {
+      "id": 10,
+      "name": "Overwatch 2",
+      "aliases": ["overwatch 2", "overwatch", "ow2"],
+      "developer": "Blizzard Entertainment",
+      "genre": "FPS",
+      "platforms": ["PC", "PlayStation", "Xbox", "Nintendo Switch"],
+      "popularityScore": 89,
+      "tags": ["overwatch", "overwatchclips", "overwatchgameplay", "blizzard", "overwatchtips", "overwatchhighlights", "overwatchfunny", "overwatchhero", "overwatchcompetitive", "overwatchranked", "overwatchclutch", "overwatchace", "tank", "support", "dps", "payload", "capturepoint"]
+    }
+  ]
+}
