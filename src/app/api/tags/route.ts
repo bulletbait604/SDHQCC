@@ -1246,13 +1246,13 @@ function generateTagsFromDescription(description: string, platformTags: string[]
       matchCount += 2
     }
     
-    // Heavy penalty for tags with no matches at all
+    // Reduced penalty for tags with no matches at all (was -50, now -10)
     if (!hasAnyMatch) {
-      score -= 50
+      score -= 10
     }
-    // Moderate penalty for tags with very few matches
+    // Reduced penalty for tags with very few matches (was -20, now -5)
     else if (matchCount < 2) {
-      score -= 20
+      score -= 5
     }
     
     return { tag, score }
