@@ -8,10 +8,35 @@ const platforms = [
   { id: 'facebook-reels', name: 'Facebook Reels' }
 ]
 
-// Simple file-based storage (in production, use a proper database)
-const DATA_FILE = './algorithm-data.json'
+// GitHub configuration
+const GITHUB_USERNAME = process.env.GITHUB_USERNAME || 'your-username'
+const GITHUB_REPO = process.env.GITHUB_REPO || 'hashy-tag-databases'
+const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main'
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN
 
 async function readData() {
+  // Try to read from GitHub first
+  if (GITHUB_TOKEN) {
+    try {
+      const url = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/contents/algorithm-data.json?ref=${GITHUB_BRANCH}`
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `token ${GITHUB_TOKEN}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      })
+      
+      if (response.ok) {
+        const fileData = await response.json()
+        const content = Buffer.from(fileData.content, 'base64').toString('utf-8')
+        return JSON.parse(content)
+      }
+    } catch (error) {
+      console.error('Error reading from GitHub:', error)
+    }
+  }
+  
+  // Fallback to local file
   try {
     const fs = await import('fs/promises')
     const path = await import('path')
@@ -24,13 +49,62 @@ async function readData() {
 }
 
 async function writeData(data: any) {
+  // Try to write to GitHub first
+  if (GITHUB_TOKEN) {
+    try {
+      // Get current file SHA
+      const getFileUrl = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/contents/algorithm-data.json?ref=${GITHUB_BRANCH}`
+      const fileResponse = await fetch(getFileUrl, {
+        headers: {
+          'Authorization': `token ${GITHUB_TOKEN}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      })
+      
+      let fileSha = null
+      if (fileResponse.ok) {
+        const fileData = await fileResponse.json()
+        fileSha = fileData.sha
+      }
+
+      // Upload to GitHub
+      const content = Buffer.from(JSON.stringify(data, null, 2)).toString('base64')
+      const putUrl = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/contents/algorithm-data.json?ref=${GITHUB_BRANCH}`
+      
+      const putBody = {
+        message: `Update algorithm data - ${new Date().toISOString()}`,
+        content: content,
+        sha: fileSha
+      }
+
+      const putResponse = await fetch(putUrl, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${GITHUB_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(putBody)
+      })
+
+      if (!putResponse.ok) {
+        throw new Error(`Failed to save to GitHub: ${putResponse.status}`)
+      }
+      
+      console.log('Successfully saved algorithm data to GitHub')
+      return
+    } catch (error) {
+      console.error('Error writing to GitHub:', error)
+    }
+  }
+  
+  // Fallback to local file
   try {
     const fs = await import('fs/promises')
     const path = await import('path')
     const filePath = path.join(process.cwd(), 'algorithm-data.json')
     await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8')
   } catch (error) {
-    console.error('Error writing data:', error)
+    console.error('Error writing data locally:', error)
   }
 }
 

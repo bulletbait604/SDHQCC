@@ -148,7 +148,23 @@ export class HashyAlgorithm {
 
       // Load algorithm insights
       const algorithmPath = path.join(hashyDir, 'algorithm-insights.json');
-      if (fs.existsSync(algorithmPath)) {
+      if (USE_CLOUD_DB) {
+        // Try to fetch from GitHub
+        try {
+          const url = `https://raw.githubusercontent.com/${GITHUB_USERNAME}/${GITHUB_REPO}/${GITHUB_BRANCH}/algorithm-insights.json`;
+          const response = await fetch(url);
+          if (response.ok) {
+            const algorithmData = await response.json();
+            this.algorithmInsights = algorithmData;
+            console.log('Loaded algorithm insights from GitHub');
+          }
+        } catch (error) {
+          console.warn('Failed to fetch algorithm insights from GitHub:', error);
+        }
+      }
+      
+      // Fallback to local file
+      if (!this.algorithmInsights && fs.existsSync(algorithmPath)) {
         const algorithmData = JSON.parse(fs.readFileSync(algorithmPath, 'utf-8'));
         this.algorithmInsights = algorithmData;
       }
