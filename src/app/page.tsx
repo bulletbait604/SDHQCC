@@ -329,35 +329,71 @@ export default function HomePage() {
         }
       }
       
-      // Always fetch fresh data from API
-      fetch('/api/algorithms')
-        .then(res => {
-          if (!res.ok) {
-            throw new Error(`API error: ${res.status}`)
-          }
-          return res.json()
-        })
-        .then(data => {
-          if (data.data) {
-            localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
-            localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
-            setLastUpdated(data.lastUpdated)
-            setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
-              ...p,
-              data: data.data[p.id] || null
-            })))
-          }
-        })
-        .catch(error => {
-          console.error('Error fetching algorithm data:', error)
-          // Only show error if we don't have cached data
-          if (!storedAlgorithmData) {
-            setAlgorithmError('Failed to load algorithm data. Click refresh to try again.')
-          }
-        })
-        .finally(() => {
-          setIsLoadingAlgorithms(false)
-        })
+      // Check if it's Sunday and data hasn't been updated this week
+      const shouldAutoRefresh = () => {
+        const now = new Date()
+        const dayOfWeek = now.getDay()
+        
+        if (dayOfWeek !== 0) return false // Not Sunday
+        
+        if (!storedLastUpdated) return true
+        
+        const lastUpdated = new Date(storedLastUpdated)
+        const daysSinceUpdate = Math.floor((now.getTime() - lastUpdated.getTime()) / (1000 * 60 * 60 * 24))
+        
+        // If it's been more than 6 days since last update, trigger refresh
+        return daysSinceUpdate >= 6
+      }
+
+      // Always fetch fresh data from API (or trigger auto-refresh on Sundays)
+      if (shouldAutoRefresh()) {
+        // Trigger server-side refresh first
+        fetch('/api/algorithms', { method: 'POST' })
+          .then(() => fetch('/api/algorithms'))
+          .then(res => {
+            if (!res.ok) throw new Error(`API error: ${res.status}`)
+            return res.json()
+          })
+          .then(data => {
+            if (data.data) {
+              localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
+              localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
+              setLastUpdated(data.lastUpdated)
+              setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
+                ...p,
+                data: data.data[p.id] || null
+              })))
+            }
+          })
+          .catch(error => {
+            console.error('Error auto-refreshing algorithm data:', error)
+          })
+          .finally(() => setIsLoadingAlgorithms(false))
+      } else {
+        fetch('/api/algorithms')
+          .then(res => {
+            if (!res.ok) throw new Error(`API error: ${res.status}`)
+            return res.json()
+          })
+          .then(data => {
+            if (data.data) {
+              localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
+              localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
+              setLastUpdated(data.lastUpdated)
+              setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
+                ...p,
+                data: data.data[p.id] || null
+              })))
+            }
+          })
+          .catch(error => {
+            console.error('Error fetching algorithm data:', error)
+            if (!storedAlgorithmData) {
+              setAlgorithmError('Failed to load algorithm data.')
+            }
+          })
+          .finally(() => setIsLoadingAlgorithms(false))
+      }
     }
   }, [])
 
@@ -815,39 +851,6 @@ export default function HomePage() {
                     {algorithmError && (
                       <span className="text-red-500 text-sm">{algorithmError}</span>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setIsLoadingAlgorithms(true)
-                        setAlgorithmError(null)
-                        fetch('/api/algorithms')
-                          .then(res => {
-                            if (!res.ok) throw new Error(`API error: ${res.status}`)
-                            return res.json()
-                          })
-                          .then(data => {
-                            if (data.data) {
-                              localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
-                              localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
-                              setLastUpdated(data.lastUpdated)
-                              setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
-                                ...p,
-                                data: data.data[p.id] || null
-                              })))
-                            }
-                          })
-                          .catch(error => {
-                            console.error('Error refreshing algorithm data:', error)
-                            setAlgorithmError('Failed to refresh data')
-                          })
-                          .finally(() => setIsLoadingAlgorithms(false))
-                      }}
-                      disabled={isLoadingAlgorithms}
-                    >
-                      {isLoadingAlgorithms ? 'Loading...' : 'Refresh'}
-                    </Button>
                     <p className={`${subtitleClasses} text-sm`}>
                       Last updated: {lastUpdated}
                     </p>
@@ -858,10 +861,9 @@ export default function HomePage() {
                   {platforms.map((platform) => (
                     <div
                       key={platform.id}
-                      className={`${cardClasses} cursor-pointer transition-all duration-300 hover:shadow-lg ${
+                      className={`${cardClasses} transition-all duration-300 hover:shadow-lg ${
                         expandedCard === platform.id ? 'col-span-1 md:col-span-2 lg:col-span-3' : ''
                       }`}
-                      onClick={() => setExpandedCard(expandedCard === platform.id ? null : platform.id)}
                     >
                       <div className="p-4">
                         <div className="flex items-center space-x-4 mb-4">
@@ -914,6 +916,16 @@ export default function HomePage() {
                             {!platform.data && (
                               <p className={`${subtitleClasses} text-sm`}>Loading algorithm data...</p>
                             )}
+                            <div className="pt-4 border-t border-gray-200 dark:border-sdhq-dark-700">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setExpandedCard(null)}
+                                className="w-full"
+                              >
+                                Read Less
+                              </Button>
+                            </div>
                           </div>
                         ) : (
                           <div className="space-y-2">
@@ -930,6 +942,16 @@ export default function HomePage() {
                                 <div className="flex items-center space-x-2">
                                   <div className="w-2 h-2 rounded-full bg-sdhq-cyan-500"></div>
                                   <p className={`${textClasses} text-sm`}>{platform.data.postingTips.substring(0, 80)}...</p>
+                                </div>
+                                <div className="pt-3">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setExpandedCard(platform.id)}
+                                    className="w-full"
+                                  >
+                                    Read More
+                                  </Button>
                                 </div>
                               </>
                             )}

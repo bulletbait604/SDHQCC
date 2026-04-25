@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KICK Live Status Settings</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 16px;
+            background-color: #2b2b2b;
+            color: #ffffff;
+            font-size: 14px;
+        }
+        
+        .sdpi-item {
+            margin-bottom: 16px;
+        }
+        
+        .sdpi-item-label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #a0a0a0;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        
+        .sdpi-item-value {
+            width: 100%;
+        }
+        
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background-color: #3b3b3b;
+            color: #ffffff;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        
+        input[type="text"]:focus,
+        select:focus {
+            border-color: #00a8ff;
+        }
+        
+        input[type="text"]::placeholder {
+            color: #666;
+        }
+        
+        select {
+            cursor: pointer;
+        }
+        
+        option {
+            background-color: #3b3b3b;
+            color: #ffffff;
+        }
+        
+        .info-text {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background-color: #3b3b3b;
+            border-radius: 4px;
+            margin-top: 12px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #ff4444;
+        }
+        
+        .status-dot.live {
+            background-color: #44ff44;
+        }
+        
+        .status-text {
+            font-size: 12px;
+            color: #a0a0a0;
+        }
+    </style>
+</head>
+<body>
+    <div class="sdpi-item">
+        <label class="sdpi-item-label" for="username">KICK Username</label>
+        <div class="sdpi-item-value">
+            <input type="text" id="username" placeholder="Enter KICK username (without @)" />
+        </div>
+        <div class="info-text">Enter the KICK username to monitor (e.g., "xqc" or "adinross")</div>
+    </div>
+    
+    <div class="sdpi-item">
+        <label class="sdpi-item-label" for="browser">Open With Browser</label>
+        <div class="sdpi-item-value">
+            <select id="browser">
+                <option value="default">System Default</option>
+                <option value="chrome">Google Chrome</option>
+                <option value="firefox">Mozilla Firefox</option>
+                <option value="edge">Microsoft Edge</option>
+                <option value="brave">Brave Browser</option>
+                <option value="opera">Opera</option>
+            </select>
+        </div>
+        <div class="info-text">Select which browser to use when clicking the button</div>
+    </div>
+    
+    <div class="sdpi-item">
+        <div class="status-indicator">
+            <div class="status-dot" id="statusDot"></div>
+            <span class="status-text" id="statusText">Enter a username to check status</span>
+        </div>
+    </div>
+    
+    <script src="libs/js/property-inspector.js"></script>
+    <script src="property-inspector.js"></script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+{
+  "Name": "com.sdhqcreator.kicklive",
+  "Version": "1.0.0",
+  "Author": "SDHQ Creator Corner",
+  "Actions": [
+    {
+      "Name": "KICK Live Status",
+      "UUID": "com.sdhqcreator.kicklive.action",
+      "Icon": "icons/icon",
+      "Tooltip": "Shows if a KICK user is live",
+      "PropertyInspectorPath": "property-inspector.html",
+      "States": [
+        {
+          "Image": "icons/icon-offline",
+          "TitleAlignment": "middle",
+          "FontSize": 14
+        },
+        {
+          "Image": "icons/icon-online",
+          "TitleAlignment": "middle",
+          "FontSize": 14
+        }
+      ]
+    }
+  ],
+  "Category": "SDHQ Creator Corner",
+  "CategoryIcon": "icons/category",
+  "CodePathWin": "app.html",
+  "CodePathMac": "app.html",
+  "Description": "Monitor KICK streamers' live status with color-coded buttons",
+  "Icon": "icons/plugin",
+  "URL": "https://sdhq.com",
+  "OS": [
+    {
+      "Platform": "mac",
+      "MinimumVersion": "10.11"
+    },
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "SDKVersion": 2,
+  "Software": {
+    "MinimumVersion": "6.0"
+  },
+  "Default": ""
+}

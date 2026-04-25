@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KICK Live Status</title>
+    <script src="libs/js/stream-deck.js"></script>
+    <script src="plugin.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1e1e1e;
+            color: #fff;
+        }
+        .status {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            background: #333;
+        }
+        .live { color: #4caf50; }
+        .offline { color: #f44336; }
+    </style>
+</head>
+<body>
+    <h2>KICK Live Status Plugin</h2>
+    <div id="log"></div>
+    <script>
+        // WebSocket connection parameters will be injected by StreamDeck
+        const queryParams = new URLSearchParams(window.location.search);
+        const port = queryParams.get('port') || '28197';
+        const uuid = queryParams.get('uuid') || '';
+        const registerEvent = queryParams.get('registerEvent') || 'registerPlugin';
+        const info = queryParams.get('info') || '{}';
+        const actionInfo = queryParams.get('actionInfo') || '{}';
+
+        // Connect to StreamDeck
+        $SD.connect(window.socket, port, uuid, registerEvent, info, actionInfo);
+        
+        console.log('KICK Live Plugin initialized');
+    </script>
+</body>
+</html>
