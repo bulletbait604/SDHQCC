@@ -2157,7 +2157,7 @@ export async function POST(request: Request) {
       const googleData = await extractEntitiesWithGoogle(description)
       
       console.log('Using Hashy algorithm with Google API for free tier tag generation')
-      const hashyResult = hashy.generateTags('', description, platform, googleData)
+      const hashyResult = await hashy.generateTags('', description, platform, googleData)
       
       return NextResponse.json({
         tags: hashyResult.generatedTags.slice(0, count),

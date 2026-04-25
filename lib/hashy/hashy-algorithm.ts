@@ -356,15 +356,15 @@ export class HashyAlgorithm {
   /**
    * Main method to generate tags using Hashy algorithm
    */
-  public generateTags(
+  public async generateTags(
     title: string,
     description: string,
     targetPlatform?: string,
     googleData?: { entities: string[], categories: string[], sentiment: string }
-  ): HashyResult {
+  ): Promise<HashyResult> {
     // Ensure databases are loaded
     if (this.gamesDatabase.length === 0) {
-      this.loadDatabases();
+      await this.loadDatabases();
     }
 
     // Extract keywords
