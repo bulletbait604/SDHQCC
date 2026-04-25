@@ -526,172 +526,157 @@ function generateTagsFromDescription(description: string, platformTags: string[]
     }
   }
   
-  // Score each tag with advanced NLP-based logic
+  // Score each tag with advanced multi-factor NLP-based logic
   const scoredTags = platformTags.map(tag => {
     let score = 0
     const tagLower = tag.toLowerCase()
     
-    // N-gram matching: check if tag matches bigrams or trigrams (highest priority)
+    // Factor 1: N-gram matching (highest weight - 0.25)
+    let ngramScore = 0
     for (let i = 0; i < trigrams.length; i++) {
-      if (tagLower === trigrams[i]) score += 60
-      else if (tagLower.indexOf(trigrams[i]) !== -1) score += 40
+      if (tagLower === trigrams[i]) ngramScore += 60
+      else if (tagLower.indexOf(trigrams[i]) !== -1) ngramScore += 40
     }
     for (let i = 0; i < bigrams.length; i++) {
-      if (tagLower === bigrams[i]) score += 50
-      else if (tagLower.indexOf(bigrams[i]) !== -1) score += 35
+      if (tagLower === bigrams[i]) ngramScore += 50
+      else if (tagLower.indexOf(bigrams[i]) !== -1) ngramScore += 35
     }
+    score += ngramScore * 0.25
     
-    // Word position scoring: start/end words are more important
+    // Factor 2: Word position and context (0.20)
+    let positionScore = 0
     for (let i = 0; i < wordFeatures.length; i++) {
       const feature = wordFeatures[i]
       if (tagLower === feature.word) {
-        if (feature.isStart) score += 35
-        else if (feature.isEnd) score += 30
-        else score += 25
+        if (feature.isStart) positionScore += 35
+        else if (feature.isEnd) positionScore += 30
+        else positionScore += 25
       } else if (tagLower.indexOf(feature.word) !== -1) {
-        if (feature.isStart) score += 20
-        else if (feature.isEnd) score += 18
-        else score += 15
+        if (feature.isStart) positionScore += 20
+        else if (feature.isEnd) positionScore += 18
+        else positionScore += 15
       } else if (feature.word.indexOf(tagLower) !== -1 && tagLower.length > 3) {
-        score += 8
+        positionScore += 8
       }
     }
+    score += positionScore * 0.20
     
-    // Sentiment-based boosting
+    // Factor 3: Semantic similarity - word overlap ratio (0.15)
+    let semanticScore = 0
+    const tagWords = tagLower.replace(/[^a-z0-9]/g, '').split(/(?=[A-Z])|(?=[0-9])/).filter(w => w.length > 2)
+    let overlapCount = 0
+    for (let i = 0; i < tagWords.length; i++) {
+      for (let j = 0; j < descriptionWords.length; j++) {
+        if (tagWords[i] === descriptionWords[j]) overlapCount++
+      }
+    }
+    if (tagWords.length > 0) {
+      const overlapRatio = overlapCount / tagWords.length
+      semanticScore += overlapRatio * 50
+    }
+    score += semanticScore * 0.15
+    
+    // Factor 4: Sentiment alignment (0.10)
+    let sentimentScore = 0
     if (detectedSentiment) {
       if (detectedSentiment === 'positive') {
-        if (['epic', 'amazing', 'awesome', 'best', 'top', 'pro', 'master', 'legendary', 'godlike', 'insane', 'crazy'].some(s => tagLower.indexOf(s) !== -1)) score += 20
+        if (['epic', 'amazing', 'awesome', 'best', 'top', 'pro', 'master', 'legendary', 'godlike', 'insane', 'crazy'].some(s => tagLower.indexOf(s) !== -1)) sentimentScore += 20
       } else if (detectedSentiment === 'negative') {
-        if (['fail', 'worst', 'bad', 'trash', 'garbage', 'noob', 'beginner', 'amateur'].some(s => tagLower.indexOf(s) !== -1)) score += 20
+        if (['fail', 'worst', 'bad', 'trash', 'garbage', 'noob', 'beginner', 'amateur'].some(s => tagLower.indexOf(s) !== -1)) sentimentScore += 20
       } else if (detectedSentiment === 'excitement') {
-        if (['viral', 'trending', 'epic', 'insane', 'crazy', 'huge', 'massive', 'ultimate', 'mindblowing'].some(s => tagLower.indexOf(s) !== -1)) score += 20
+        if (['viral', 'trending', 'epic', 'insane', 'crazy', 'huge', 'massive', 'ultimate', 'mindblowing'].some(s => tagLower.indexOf(s) !== -1)) sentimentScore += 20
       } else if (detectedSentiment === 'action') {
-        if (['kill', 'win', 'destroy', 'crush', 'dominate', 'smash', 'beat', 'defeat', 'conquer', 'clutch', 'ace'].some(s => tagLower.indexOf(s) !== -1)) score += 20
+        if (['kill', 'win', 'destroy', 'crush', 'dominate', 'smash', 'beat', 'defeat', 'conquer', 'clutch', 'ace'].some(s => tagLower.indexOf(s) !== -1)) sentimentScore += 20
       }
     }
+    score += sentimentScore * 0.10
     
-    // GAME-SPECIFIC SCORING - Only boost the detected game
+    // Factor 5: Tag length optimization (0.05)
+    let lengthScore = 0
+    if (tagLower.length >= 5 && tagLower.length <= 15) lengthScore += 10
+    else if (tagLower.length >= 3 && tagLower.length <= 20) lengthScore += 5
+    else if (tagLower.length > 25) lengthScore -= 5
+    score += lengthScore * 0.05
+    
+    // Factor 6: Tag uniqueness/diversity (0.05)
+    let uniquenessScore = 0
+    const tagCharSet = new Set(tagLower.split(''))
+    const uniqueRatio = tagCharSet.size / tagLower.length
+    if (uniqueRatio > 0.7) uniquenessScore += 5
+    score += uniquenessScore * 0.05
+    
+    // Factor 7: Contextual relevance - game/activity/subject (0.20)
+    let contextScore = 0
     if (detectedGame) {
-      // Massive boost for tags matching the detected game
-      if (tagLower.indexOf(detectedGame) !== -1) score += 50
-      
-      // Boost for game-specific keywords
+      if (tagLower.indexOf(detectedGame) !== -1) contextScore += 50
       const gameSpecificKeywords = gameKeywords[detectedGame] || []
       for (let i = 0; i < gameSpecificKeywords.length; i++) {
-        if (tagLower.indexOf(gameSpecificKeywords[i]) !== -1) {
-          score += 25
-        }
+        if (tagLower.indexOf(gameSpecificKeywords[i]) !== -1) contextScore += 25
       }
-      
-      // HEAVY PENALTY for other games
       for (let i = 0; i < gameKeys.length; i++) {
         const otherGame = gameKeys[i]
-        if (otherGame !== detectedGame && tagLower.indexOf(otherGame) !== -1) {
-          score -= 100 // Penalize unrelated games heavily
-        }
+        if (otherGame !== detectedGame && tagLower.indexOf(otherGame) !== -1) contextScore -= 100
       }
-      
-      // PENALTY for activity tags when a game is detected
       for (let i = 0; i < activityKeys.length; i++) {
-        const activity = activityKeys[i]
-        if (tagLower.indexOf(activity) !== -1) {
-          score -= 50 // Penalize activity tags when gaming
-        }
+        if (tagLower.indexOf(activityKeys[i]) !== -1) contextScore -= 50
       }
-      
-      // PENALTY for subject tags when a game is detected
       for (let i = 0; i < subjectKeys.length; i++) {
-        const subject = subjectKeys[i]
-        if (tagLower.indexOf(subject) !== -1) {
-          score -= 30 // Light penalty for subjects when gaming
-        }
+        if (tagLower.indexOf(subjectKeys[i]) !== -1) contextScore -= 30
       }
     } else if (detectedActivity) {
-      // ACTIVITY-SPECIFIC SCORING - Only boost the detected activity
-      // Massive boost for tags matching the detected activity
-      if (tagLower.indexOf(detectedActivity) !== -1) score += 50
-      
-      // Boost for activity-specific keywords
+      if (tagLower.indexOf(detectedActivity) !== -1) contextScore += 50
       const activitySpecificKeywords = activityKeywords[detectedActivity] || []
       for (let i = 0; i < activitySpecificKeywords.length; i++) {
-        if (tagLower.indexOf(activitySpecificKeywords[i]) !== -1) {
-          score += 25
-        }
+        if (tagLower.indexOf(activitySpecificKeywords[i]) !== -1) contextScore += 25
       }
-      
-      // HEAVY PENALTY for other activities
       for (let i = 0; i < activityKeys.length; i++) {
         const otherActivity = activityKeys[i]
-        if (otherActivity !== detectedActivity && tagLower.indexOf(otherActivity) !== -1) {
-          score -= 100 // Penalize unrelated activities heavily
-        }
+        if (otherActivity !== detectedActivity && tagLower.indexOf(otherActivity) !== -1) contextScore -= 100
       }
-      
-      // PENALTY for game tags when an activity is detected
       for (let i = 0; i < gameKeys.length; i++) {
-        const game = gameKeys[i]
-        if (tagLower.indexOf(game) !== -1) {
-          score -= 50 // Penalize game tags when doing activities
-        }
+        if (tagLower.indexOf(gameKeys[i]) !== -1) contextScore -= 50
       }
     } else if (detectedSubject) {
-      // SUBJECT-SPECIFIC SCORING - Only boost the detected subject
-      // Massive boost for tags matching the detected subject
-      if (tagLower.indexOf(detectedSubject) !== -1) score += 50
-      
-      // Boost for subject-specific keywords
+      if (tagLower.indexOf(detectedSubject) !== -1) contextScore += 50
       const subjectSpecificKeywords = subjectKeywords[detectedSubject] || []
       for (let i = 0; i < subjectSpecificKeywords.length; i++) {
-        if (tagLower.indexOf(subjectSpecificKeywords[i]) !== -1) {
-          score += 25
-        }
+        if (tagLower.indexOf(subjectSpecificKeywords[i]) !== -1) contextScore += 25
       }
-      
-      // HEAVY PENALTY for other subjects
       for (let i = 0; i < subjectKeys.length; i++) {
         const otherSubject = subjectKeys[i]
-        if (otherSubject !== detectedSubject && tagLower.indexOf(otherSubject) !== -1) {
-          score -= 100 // Penalize unrelated subjects heavily
-        }
+        if (otherSubject !== detectedSubject && tagLower.indexOf(otherSubject) !== -1) contextScore -= 100
       }
-      
-      // PENALTY for game tags when a subject is detected
       for (let i = 0; i < gameKeys.length; i++) {
-        const game = gameKeys[i]
-        if (tagLower.indexOf(game) !== -1) {
-          score -= 50 // Penalize game tags when focusing on subjects
-        }
-      }
-    } else {
-      // No specific game, activity, or subject detected - only boost general content type tags
-      if (detectedContentTypes.indexOf('gaming') !== -1) {
-        if (['game', 'gaming', 'gamer', 'play', 'player'].some(g => tagLower.indexOf(g) !== -1)) score += 15
+        if (tagLower.indexOf(gameKeys[i]) !== -1) contextScore -= 50
       }
     }
+    score += contextScore * 0.20
     
-    // Content type matching (medium priority)
+    // Factor 8: Content type alignment (0.10)
+    let contentTypeScore = 0
     if (detectedContentTypes.indexOf('editing') !== -1) {
-      if (tagLower.indexOf('edit') !== -1 || tagLower.indexOf('montage') !== -1 || tagLower.indexOf('clip') !== -1) score += 15
+      if (tagLower.indexOf('edit') !== -1 || tagLower.indexOf('montage') !== -1 || tagLower.indexOf('clip') !== -1) contentTypeScore += 15
     }
     if (detectedContentTypes.indexOf('funny') !== -1) {
-      if (tagLower.indexOf('funny') !== -1 || tagLower.indexOf('meme') !== -1 || tagLower.indexOf('lol') !== -1 || tagLower.indexOf('fail') !== -1) score += 15
+      if (tagLower.indexOf('funny') !== -1 || tagLower.indexOf('meme') !== -1 || tagLower.indexOf('lol') !== -1 || tagLower.indexOf('fail') !== -1) contentTypeScore += 15
     }
     if (detectedContentTypes.indexOf('tutorial') !== -1) {
-      if (tagLower.indexOf('tutorial') !== -1 || tagLower.indexOf('guide') !== -1 || tagLower.indexOf('tips') !== -1 || tagLower.indexOf('howto') !== -1) score += 15
+      if (tagLower.indexOf('tutorial') !== -1 || tagLower.indexOf('guide') !== -1 || tagLower.indexOf('tips') !== -1 || tagLower.indexOf('howto') !== -1) contentTypeScore += 15
     }
     if (detectedContentTypes.indexOf('reaction') !== -1) {
-      if (tagLower.indexOf('react') !== -1 || tagLower.indexOf('duet') !== -1 || tagLower.indexOf('stitch') !== -1) score += 15
+      if (tagLower.indexOf('react') !== -1 || tagLower.indexOf('duet') !== -1 || tagLower.indexOf('stitch') !== -1) contentTypeScore += 15
     }
+    score += contentTypeScore * 0.10
     
-    // Platform-specific tags (low priority but relevant)
-    if (tagLower.indexOf(platform.toLowerCase().replace('-', '')) !== -1) score += 10
+    // Factor 9: Platform alignment (0.05)
+    let platformScore = 0
+    if (tagLower.indexOf(platform.toLowerCase().replace('-', '')) !== -1) platformScore += 10
+    score += platformScore * 0.05
     
-    // Viral/discovery tags (always include a few)
-    if (tagLower.indexOf('viral') !== -1 || tagLower.indexOf('trending') !== -1 || tagLower.indexOf('fyp') !== -1 || tagLower.indexOf('foryou') !== -1) score += 5
-    
-    // Length optimization - prefer medium-length tags
-    if (tagLower.length >= 5 && tagLower.length <= 15) score += 3
-    if (tagLower.length > 25) score -= 5
+    // Factor 10: Viral potential (0.05)
+    let viralScore = 0
+    if (tagLower.indexOf('viral') !== -1 || tagLower.indexOf('trending') !== -1 || tagLower.indexOf('fyp') !== -1 || tagLower.indexOf('foryou') !== -1 || tagLower.indexOf('explore') !== -1) viralScore += 5
+    score += viralScore * 0.05
     
     return { tag, score }
   })
