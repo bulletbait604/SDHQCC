@@ -361,7 +361,41 @@ function generateTagsFromDescription(description: string, platformTags: string[]
     }
   }
   
-  // Content type detection (separate from game detection)
+  // Activity/Non-game detection - identify lifestyle activities
+  const activityKeywords: Record<string, string[]> = {
+    'fitness': ['fitness', 'workout', 'gym', 'exercise', 'training', 'bodybuilding', 'muscle', 'strength', 'cardio', 'hiit', 'yoga', 'pilates', 'running', 'jogging', 'squat', 'deadlift', 'bench', 'press', 'lift', 'weight', 'health', 'wellness', 'healthy', 'diet', 'nutrition', 'protein', 'supplement', 'gains', 'shred', 'cut', 'bulk', 'personal', 'trainer', 'coach'],
+    'cooking': ['cooking', 'cook', 'recipe', 'food', 'foodie', 'chef', 'kitchen', 'bake', 'baking', 'meal', 'dinner', 'lunch', 'breakfast', 'snack', 'dessert', 'cake', 'cookie', 'pizza', 'pasta', 'healthy', 'easy', 'quick', 'homemade', 'restaurant', 'cafe', 'delicious', 'tasty', 'yummy', 'eat', 'eating', 'mealprep', 'vegan', 'vegetarian'],
+    'art': ['art', 'artist', 'artwork', 'drawing', 'paint', 'painting', 'sketch', 'design', 'digital', 'illustration', 'anime', 'manga', 'portrait', 'landscape', 'canvas', 'pencil', 'ink', 'watercolor', 'acrylic', 'oil', 'creative', 'creativity', 'aesthetic', 'aesthetics', 'style', 'artstyle', 'tutorial', 'process', 'wip', 'artdaily'],
+    'music': ['music', 'song', 'singer', 'cover', 'acoustic', 'guitar', 'piano', 'drum', 'violin', 'beat', 'producer', 'production', 'remix', 'dj', 'concert', 'performance', 'band', 'album', 'track', 'release', 'listen', 'listening', 'playlist', 'spotify', 'soundcloud', 'apple', 'musician', 'artist', 'vocal', 'voice'],
+    'travel': ['travel', 'trip', 'vacation', 'holiday', 'tour', 'tourist', 'destination', 'beach', 'mountain', 'city', 'country', 'explore', 'adventure', 'wanderlust', 'journey', 'roadtrip', 'flight', 'hotel', 'resort', 'airbnb', 'backpack', 'backpacking', 'solo', 'couple', 'family', 'guide', 'tips', 'vlog', 'travelvlog'],
+    'sports': ['sport', 'sports', 'soccer', 'football', 'basketball', 'baseball', 'tennis', 'golf', 'swim', 'swimming', 'hockey', 'rugby', 'cricket', 'volleyball', 'badminton', 'boxing', 'mma', 'ufc', 'wwe', 'wrestling', 'athlete', 'team', 'player', 'match', 'game', 'championship', 'league', 'tournament', 'olympic', 'olympics'],
+    'fashion': ['fashion', 'style', 'outfit', 'ootd', 'outfitoftheday', 'clothes', 'clothing', 'dress', 'shirt', 'jeans', 'shoes', 'sneakers', 'accessories', 'jewelry', 'makeup', 'beauty', 'skincare', 'hair', 'hairstyle', 'trend', 'trending', 'designer', 'brand', 'shopping', 'haul', 'lookbook', 'model', 'influencer'],
+    'tech': ['tech', 'technology', 'gadget', 'phone', 'iphone', 'android', 'laptop', 'computer', 'pc', 'gamingpc', 'setup', 'desk', 'keyboard', 'mouse', 'monitor', 'headset', 'review', 'unboxing', 'comparison', 'apple', 'samsung', 'google', 'microsoft', 'software', 'app', 'application', 'coding', 'programming', 'developer', 'code'],
+    'pets': ['pet', 'dog', 'cat', 'puppy', 'kitten', 'cute', 'adorable', 'animal', 'vet', 'vetlife', 'petlife', 'dogsofinstagram', 'catsofinstagram', 'petlover', 'adopt', 'rescue', 'shelter', 'breed', 'training', 'trick', 'funny', 'cuteanimals', 'furry', 'furfriend'],
+    'lifestyle': ['lifestyle', 'morning', 'routine', 'night', 'day', 'daily', 'vlog', 'vlogger', 'life', 'living', 'home', 'house', 'apartment', 'room', 'bedroom', 'decor', 'decoration', 'organization', 'clean', 'cleaning', 'productivity', 'motivation', 'inspiration', 'goals', 'habit', 'selfcare', 'mentalhealth']
+  }
+  
+  // Detect the primary activity by counting keyword matches
+  let detectedActivity: string | null = null
+  let maxActivityScore = 0
+  
+  const activityKeys = Object.keys(activityKeywords)
+  for (let i = 0; i < activityKeys.length; i++) {
+    const activity = activityKeys[i]
+    const keywords = activityKeywords[activity]
+    let activityScore = 0
+    for (let j = 0; j < keywords.length; j++) {
+      if (descLower.indexOf(keywords[j]) !== -1) {
+        activityScore += 1
+      }
+    }
+    if (activityScore > maxActivityScore && activityScore >= 1) {
+      maxActivityScore = activityScore
+      detectedActivity = activity
+    }
+  }
+  
+  // Content type detection (separate from game/activity detection)
   const contentTypes: Record<string, string[]> = {
     'editing': ['edit', 'editing', 'montage', 'clip', 'clips', 'highlight', 'highlights', 'compilation', 'best', 'moments', 'slowmo', 'transition', 'effect', 'effects', 'filter', 'capcut', 'premiere', 'after', 'effects', 'cinematic'],
     'funny': ['funny', 'hilarious', 'lol', 'lmao', 'laugh', 'laughing', 'comedy', 'comedic', 'haha', 'meme', 'memes', 'joke', 'prank', 'fail', 'fails', 'funnymoments', 'cringe', 'epic', 'fail'],
@@ -420,8 +454,44 @@ function generateTagsFromDescription(description: string, platformTags: string[]
           score -= 100 // Penalize unrelated games heavily
         }
       }
+      
+      // PENALTY for activity tags when a game is detected
+      for (let i = 0; i < activityKeys.length; i++) {
+        const activity = activityKeys[i]
+        if (tagLower.indexOf(activity) !== -1) {
+          score -= 50 // Penalize activity tags when gaming
+        }
+      }
+    } else if (detectedActivity) {
+      // ACTIVITY-SPECIFIC SCORING - Only boost the detected activity
+      // Massive boost for tags matching the detected activity
+      if (tagLower.indexOf(detectedActivity) !== -1) score += 50
+      
+      // Boost for activity-specific keywords
+      const activitySpecificKeywords = activityKeywords[detectedActivity] || []
+      for (let i = 0; i < activitySpecificKeywords.length; i++) {
+        if (tagLower.indexOf(activitySpecificKeywords[i]) !== -1) {
+          score += 25
+        }
+      }
+      
+      // HEAVY PENALTY for other activities
+      for (let i = 0; i < activityKeys.length; i++) {
+        const otherActivity = activityKeys[i]
+        if (otherActivity !== detectedActivity && tagLower.indexOf(otherActivity) !== -1) {
+          score -= 100 // Penalize unrelated activities heavily
+        }
+      }
+      
+      // PENALTY for game tags when an activity is detected
+      for (let i = 0; i < gameKeys.length; i++) {
+        const game = gameKeys[i]
+        if (tagLower.indexOf(game) !== -1) {
+          score -= 50 // Penalize game tags when doing activities
+        }
+      }
     } else {
-      // No specific game detected - only boost general gaming tags
+      // No specific game or activity detected - only boost general content type tags
       if (detectedContentTypes.indexOf('gaming') !== -1) {
         if (['game', 'gaming', 'gamer', 'play', 'player'].some(g => tagLower.indexOf(g) !== -1)) score += 15
       }
@@ -509,6 +579,8 @@ export async function POST(request: Request) {
     if (platformTags.length === 0) {
       console.log(`No tag database for ${platform}, generating dynamically...`)
       platformTags = generateBaseTagsForPlatform(platform)
+    } else {
+      console.log(`Using full tag database for ${platform}: ${platformTags.length} tags`)
     }
     
     // Read algorithm data for platform-specific tips
