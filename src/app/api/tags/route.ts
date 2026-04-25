@@ -1,12 +1,36 @@
 import { NextResponse } from 'next/server'
-import { hashy } from '../../../../lib/hashy/hashy-algorithm'
 
-// Google Cloud Natural Language API integration for entity extraction
-async function extractEntitiesWithGoogle(description: string): Promise<{ entities: string[], categories: string[], sentiment: string }> {
+// In-memory rate limit storage (in production, use Redis or a database)
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
+
+// Check rate limit
+function checkRateLimit(identifier: string, maxUses: number = 3, windowMs: number = 24 * 60 * 60 * 1000): { allowed: boolean; remaining: number; resetTime: number } {
+  const now = Date.now()
+  const userLimit = rateLimitStore.get(identifier)
+  
+  if (!userLimit || now > userLimit.resetTime) {
+    // First use or window expired
+    const resetTime = now + windowMs
+    rateLimitStore.set(identifier, { count: 1, resetTime })
+    return { allowed: true, remaining: maxUses - 1, resetTime }
+  }
+  
+  if (userLimit.count >= maxUses) {
+    return { allowed: false, remaining: 0, resetTime: userLimit.resetTime }
+  }
+  
+  // Increment count
+  userLimit.count++
+  rateLimitStore.set(identifier, userLimit)
+  return { allowed: true, remaining: maxUses - userLimit.count, resetTime: userLimit.resetTime }
+}
+
+// Generate tags using Google Cloud Natural Language API
+async function generateTagsWithGoogle(description: string, platform: string, count: number): Promise<string[]> {
   const apiKey = process.env.GOOGLE_API_KEY
   
   if (!apiKey) {
-    return { entities: [], categories: [], sentiment: 'neutral' }
+    throw new Error('Google API key not configured')
   }
   
   try {
@@ -22,136 +46,132 @@ async function extractEntitiesWithGoogle(description: string): Promise<{ entitie
       }
     )
     
-    const sentimentResponse = await fetch(
-      `https://language.googleapis.com/v1/documents:analyzeSentiment?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          document: { content: description, type: 'PLAIN_TEXT' },
-          encodingType: 'UTF8',
-        }),
-      }
-    )
+    if (!entityResponse.ok) {
+      throw new Error(`Google API error: ${entityResponse.status}`)
+    }
     
-    const classifyResponse = await fetch(
-      `https://language.googleapis.com/v1/documents:classifyText?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          document: { content: description, type: 'PLAIN_TEXT' },
-          encodingType: 'UTF8',
-        }),
-      }
-    )
+    const entityData = await entityResponse.json()
+    const entities = entityData.entities || []
     
-    const extractedTerms: string[] = []
-    const categories: string[] = []
-    let sentiment = 'neutral'
+    const tags: string[] = []
+    const seen = new Set<string>()
     
-    if (entityResponse.ok) {
-      const entityData = await entityResponse.json()
-      const entities = entityData.entities || []
-      
-      for (const entity of entities) {
-        if (entity.name) {
-          extractedTerms.push(entity.name.toLowerCase())
+    // Extract entities and convert to tags
+    for (const entity of entities) {
+      if (entity.name && entity.name.length > 2) {
+        const tag = entity.name.toLowerCase().replace(/[^a-z0-9]/g, '')
+        if (!seen.has(tag) && tag.length > 2) {
+          tags.push(tag)
+          seen.add(tag)
         }
-        
-        if (entity.metadata && entity.metadata.wikipedia_url) {
-          const wikiMatch = entity.metadata.wikipedia_url.match(/\/wiki\/([^\/]+)$/)
-          if (wikiMatch) {
-            extractedTerms.push(wikiMatch[1].toLowerCase().replace(/_/g, ' '))
+      }
+      
+      // Extract from Wikipedia URLs
+      if (entity.metadata && entity.metadata.wikipedia_url) {
+        const wikiMatch = entity.metadata.wikipedia_url.match(/\/wiki\/([^\/]+)$/)
+        if (wikiMatch) {
+          const tag = wikiMatch[1].toLowerCase().replace(/_/g, ' ').replace(/[^a-z0-9\s]/g, '').trim()
+          if (!seen.has(tag) && tag.length > 2) {
+            tags.push(tag)
+            seen.add(tag)
           }
         }
-        
-        if (entity.mentions && entity.mentions.length > 0) {
-          for (const mention of entity.mentions) {
-            if (mention.text && mention.text.content) {
-              extractedTerms.push(mention.text.content.toLowerCase())
+      }
+      
+      // Extract from mentions
+      if (entity.mentions && entity.mentions.length > 0) {
+        for (const mention of entity.mentions) {
+          if (mention.text && mention.text.content) {
+            const tag = mention.text.content.toLowerCase().replace(/[^a-z0-9]/g, '')
+            if (!seen.has(tag) && tag.length > 2) {
+              tags.push(tag)
+              seen.add(tag)
             }
           }
         }
       }
     }
     
-    if (sentimentResponse.ok) {
-      const sentimentData = await sentimentResponse.json()
-      const documentSentiment = sentimentData.documentSentiment
-      if (documentSentiment) {
-        if (documentSentiment.score > 0.25) sentiment = 'positive'
-        else if (documentSentiment.score < -0.25) sentiment = 'negative'
-        else sentiment = 'neutral'
+    // Add platform-specific tags
+    const platformTags: Record<string, string[]> = {
+      'tiktok': ['fyp', 'foryou', 'tiktok', 'viral', 'trending'],
+      'instagram': ['instagram', 'reels', 'explore', 'viral', 'trending'],
+      'youtube-shorts': ['shorts', 'youtube', 'viral', 'trending', 'subscribe'],
+      'youtube-long': ['youtube', 'viral', 'trending', 'subscribe', 'watch'],
+      'facebook-reels': ['facebook', 'reels', 'viral', 'trending', 'social']
+    }
+    
+    const platformSpecific = platformTags[platform.toLowerCase()] || []
+    for (const tag of platformSpecific) {
+      if (!seen.has(tag)) {
+        tags.push(tag)
+        seen.add(tag)
       }
     }
     
-    if (classifyResponse.ok) {
-      const classifyData = await classifyResponse.json()
-      const categoryData = classifyData.categories || []
-      
-      for (const category of categoryData) {
-        if (category.name) {
-          categories.push(category.name)
-        }
-        if (category.categories) {
-          for (const subCategory of category.categories) {
-            if (subCategory.name) {
-              categories.push(subCategory.name)
-            }
-          }
-        }
-      }
-    }
+    // Add hashtags format
+    const hashtagTags = tags.slice(0, count).map(tag => `#${tag}`)
     
-    return { 
-      entities: Array.from(new Set(extractedTerms)), 
-      categories: Array.from(new Set(categories)),
-      sentiment
-    }
+    return hashtagTags.slice(0, count)
   } catch (error) {
-    console.error('Error calling Google API:', error)
-    return { entities: [], categories: [], sentiment: 'neutral' }
+    console.error('Error generating tags with Google API:', error)
+    throw error
   }
 }
 
 // GET endpoint - retrieve tag database status
 export async function GET() {
-  return NextResponse.json({ message: 'Using Hashy with cached algorithm insights' })
+  return NextResponse.json({ 
+    message: 'Using Google Cloud Natural Language API for tag generation',
+    rateLimit: '3 uses per 24 hours'
+  })
 }
 
 // POST endpoint - generate tags from description
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { description, platform, count = 10 } = body
+    const { description, platform, count = 10, userId } = body
     
     if (!description || !platform) {
       return NextResponse.json({ error: 'Description and platform are required' }, { status: 400 })
     }
     
-    console.log('[TAGS API] Generating tags with Hashy for:', { platform, description, count })
+    // Use userId or IP for rate limiting
+    const identifier = userId || request.headers.get('x-forwarded-for') || 'anonymous'
     
-    // Extract entities using Google API for enhanced Hashy analytics
-    const googleData = await extractEntitiesWithGoogle(description)
+    // Check rate limit (3 uses per 24 hours)
+    const rateLimit = checkRateLimit(identifier, 3, 24 * 60 * 60 * 1000)
     
-    // Use Hashy which loads cached algorithm insights from algorithm-insights.json
-    const hashyResult = await hashy.generateTags('', description, platform, googleData)
+    if (!rateLimit.allowed) {
+      const resetDate = new Date(rateLimit.resetTime)
+      return NextResponse.json({ 
+        error: 'Rate limit exceeded',
+        message: 'You have used your 3 free tag generations for the day. Please try again later.',
+        resetTime: rateLimit.resetTime,
+        resetDate: resetDate.toISOString()
+      }, { status: 429 })
+    }
     
-    console.log('[TAGS API] Hashy result:', hashyResult)
+    console.log('[TAGS API] Generating tags with Google API for:', { platform, description, count })
     
-    // Add artificial delay to simulate Hashy "thinking" and processing
-    await new Promise(resolve => setTimeout(resolve, 2500))
+    // Generate tags using Google API
+    const tags = await generateTagsWithGoogle(description, platform, count)
+    
+    console.log('[TAGS API] Generated tags:', tags)
+    
+    // Add artificial delay to simulate processing
+    await new Promise(resolve => setTimeout(resolve, 2000))
     
     return NextResponse.json({
-      tags: hashyResult.generatedTags.slice(0, count),
+      tags,
       platform,
-      count: hashyResult.generatedTags.slice(0, count).length,
-      detectedGames: hashyResult.detectedGames.map(g => g.name),
-      detectedPlatform: hashyResult.detectedPlatform?.name || null,
-      contextualTags: hashyResult.contextualTags,
-      algorithmTips: hashyResult.algorithmTips,
-      algorithm: 'hashy',
+      count: tags.length,
+      algorithm: 'google-nlp',
+      rateLimit: {
+        remaining: rateLimit.remaining,
+        resetTime: rateLimit.resetTime
+      },
       generatedAt: new Date().toISOString()
     })
   } catch (error) {

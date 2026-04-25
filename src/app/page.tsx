@@ -249,6 +249,7 @@ export default function HomePage() {
   const [algorithmRefreshProgress, setAlgorithmRefreshProgress] = useState<number>(0)
   const [isRefreshingHashy, setIsRefreshingHashy] = useState<boolean>(false)
   const [hashyRefreshStatus, setHashyRefreshStatus] = useState<string | null>(null)
+  const [tagRateLimit, setTagRateLimit] = useState<{remaining: number, resetTime: number | null}>({remaining: 3, resetTime: null})
   const [platforms, setPlatforms] = useState<Platform[]>([
     {
       id: 'tiktok',
@@ -1293,25 +1294,39 @@ export default function HomePage() {
                             body: JSON.stringify({
                               description: tagDescription,
                               platform: tagPlatform,
-                              count: tagCount
+                              count: tagCount,
+                              userId: user?.username
                             })
                           })
                           
                           if (!res.ok) {
                             const errorData = await res.json()
-                            throw new Error(errorData.error || errorData.details || `API error: ${res.status}`)
+                            if (res.status === 429) {
+                              // Rate limit exceeded
+                              setTagRateLimit({ remaining: 0, resetTime: errorData.resetTime })
+                              const resetDate = new Date(errorData.resetTime)
+                              alert(`Rate limit exceeded. You have used your 3 free tag generations for the day.\n\nResets at: ${resetDate.toLocaleString()}`)
+                            } else {
+                              throw new Error(errorData.error || errorData.details || `API error: ${res.status}`)
+                            }
+                            return
                           }
                           
                           const data = await res.json()
                           setGeneratedTags(prev => ({ ...prev, [tagPlatform]: data.tags }))
+                          if (data.rateLimit) {
+                            setTagRateLimit({ remaining: data.rateLimit.remaining, resetTime: data.rateLimit.resetTime })
+                          }
                         } catch (error) {
                           console.error('Error generating tags:', error)
-                          alert('Failed to generate tags. Please try again.')
+                          if ((error as Error).message !== 'Rate limit exceeded') {
+                            alert('Failed to generate tags. Please try again.')
+                          }
                         } finally {
                           setIsGeneratingTags(false)
                         }
                       }}
-                      disabled={isGeneratingTags || !tagDescription.trim()}
+                      disabled={isGeneratingTags || !tagDescription.trim() || tagRateLimit.remaining === 0}
                       className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
                     >
                       {isGeneratingTags ? (
@@ -1322,7 +1337,7 @@ export default function HomePage() {
                       ) : (
                         <>
                           <Sparkles className="w-4 h-4 mr-2" />
-                          Generate Tags
+                          Generate Tags ({tagRateLimit.remaining}/3 remaining)
                         </>
                       )}
                     </Button>
@@ -1381,21 +1396,24 @@ export default function HomePage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Tag Database Status
+                        Tag Generator Status
                       </p>
                       <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        {tagDatabaseStatus.lastUpdated 
-                          ? `Last updated: ${new Date(tagDatabaseStatus.lastUpdated).toLocaleString()}`
-                          : 'Database not initialized'
+                        Powered by Google Cloud Natural Language API
+                      </p>
+                      <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        {tagRateLimit.resetTime 
+                          ? `Resets at: ${new Date(tagRateLimit.resetTime).toLocaleString()}`
+                          : '3 uses per 24 hours'
                         }
                       </p>
                     </div>
                     <div className="text-right">
                       <p className={`text-2xl font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                        {tagDatabaseStatus.totalTags.toLocaleString()}
+                        {tagRateLimit.remaining}/3
                       </p>
                       <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        total tags across platforms
+                        daily uses remaining
                       </p>
                     </div>
                   </div>
