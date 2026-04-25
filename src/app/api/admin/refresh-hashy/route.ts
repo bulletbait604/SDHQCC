@@ -19,8 +19,9 @@ export async function POST(request: Request) {
 
     console.log('Admin requested Hashy algorithm refresh...')
 
-    // Call the algorithms research endpoint
-    const algorithmsResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/algorithms`, {
+    // Call the algorithms research endpoint (use relative path for Vercel compatibility)
+    const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000')
+    const algorithmsResponse = await fetch(`${baseUrl}/api/algorithms`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     })
