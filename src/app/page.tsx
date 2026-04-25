@@ -41,7 +41,7 @@ interface ActivityLogEntry {
   id: string
   username: string
   timestamp: string
-  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired'
+  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh'
   details?: string
 }
 
@@ -345,11 +345,24 @@ export default function HomePage() {
         return daysSinceUpdate >= 6
       }
 
+      // Function to log algorithm refresh
+      const logAlgorithmRefresh = (provider?: string, isAuto: boolean = false) => {
+        if (user && isAdmin) {
+          const refreshEntry: ActivityLogEntry = {
+            id: Date.now().toString(),
+            username: user.username,
+            timestamp: new Date().toISOString(),
+            action: 'algorithm_refresh',
+            details: `${isAuto ? 'Auto' : 'Manual'} algorithm refresh${provider ? ` via ${provider}` : ''}`
+          }
+          setActivityLog(prev => [refreshEntry, ...prev].slice(0, 100))
+        }
+      }
+
       // Always fetch fresh data from API (or trigger auto-refresh on Sundays)
       if (shouldAutoRefresh()) {
         // Trigger server-side refresh first
         fetch('/api/algorithms', { method: 'POST' })
-          .then(() => fetch('/api/algorithms'))
           .then(res => {
             if (!res.ok) throw new Error(`API error: ${res.status}`)
             return res.json()
@@ -363,6 +376,8 @@ export default function HomePage() {
                 ...p,
                 data: data.data[p.id] || null
               })))
+              // Log the auto-refresh
+              logAlgorithmRefresh(data.provider, true)
             }
           })
           .catch(error => {
@@ -1162,6 +1177,65 @@ export default function HomePage() {
                     </div>
                   )}
 
+                  {/* Admin Tools - Bulletbait604 Only */}
+                  {isAdmin && user?.username.toLowerCase() === 'bulletbait604' && (
+                    <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
+                      <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <Settings className="w-5 h-5 mr-2 text-sdhq-cyan-500" />
+                        Admin Tools
+                      </h4>
+                      
+                      <div className="space-y-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            if (!user || !isAdmin) return
+                            
+                            setIsLoadingAlgorithms(true)
+                            try {
+                              const res = await fetch('/api/algorithms', { method: 'POST' })
+                              if (!res.ok) throw new Error(`API error: ${res.status}`)
+                              
+                              const data = await res.json()
+                              if (data.data) {
+                                localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
+                                localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
+                                setLastUpdated(data.lastUpdated)
+                                setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
+                                  ...p,
+                                  data: data.data[p.id] || null
+                                })))
+                                
+                                // Log the manual refresh
+                                const refreshEntry: ActivityLogEntry = {
+                                  id: Date.now().toString(),
+                                  username: user.username,
+                                  timestamp: new Date().toISOString(),
+                                  action: 'algorithm_refresh',
+                                  details: `Manual algorithm refresh${data.provider ? ` via ${data.provider}` : ''}`
+                                }
+                                setActivityLog(prev => [refreshEntry, ...prev].slice(0, 100))
+                                
+                                alert('Algorithms refreshed successfully!')
+                              }
+                            } catch (error) {
+                              console.error('Error refreshing algorithms:', error)
+                              alert('Failed to refresh algorithms. Please try again.')
+                            } finally {
+                              setIsLoadingAlgorithms(false)
+                            }
+                          }}
+                          disabled={isLoadingAlgorithms}
+                          className="w-full"
+                        >
+                          <TrendingUp className="w-4 h-4 mr-2" />
+                          {isLoadingAlgorithms ? 'Refreshing...' : 'Refresh Algorithms'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Activity Feed - Admin Only */}
                   {isAdmin && (
                     <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
@@ -1195,6 +1269,7 @@ export default function HomePage() {
                                 case 'payment_failed': return 'text-red-500'
                                 case 'verification_attempt': return 'text-yellow-500'
                                 case 'access_expired': return 'text-orange-500'
+                                case 'algorithm_refresh': return 'text-cyan-400'
                                 default: return 'text-sdhq-cyan-500'
                               }
                             }
@@ -1206,6 +1281,7 @@ export default function HomePage() {
                                 case 'payment_failed': return ''
                                 case 'verification_attempt': return ''
                                 case 'access_expired': return ''
+                                case 'algorithm_refresh': return 'Refresh'
                                 default: return ''
                               }
                             }
