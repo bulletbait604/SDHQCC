@@ -231,6 +231,66 @@ Return ONLY a JSON array of strings, like: ["tag1", "tag2", "tag3"]`
   }
 }
 
+// Generate base tags for a platform when database doesn't exist
+function generateBaseTagsForPlatform(platform: string): string[] {
+  const baseTags = [
+    // Gaming
+    'fortnite', 'minecraft', 'gta', 'callofduty', 'valorant', 'apexlegends',
+    'leagueoflegends', 'dota2', 'csgo', 'overwatch', 'warzone', 'roblox',
+    'genshinimpact', 'mobilelegends', 'freefire', 'amongus', 'fifa', 'nba2k',
+    // Viral/Trending
+    'viral', 'trending', 'fyp', 'foryou', 'foryoupage', 'viralvideo',
+    'trendingnow', 'explore', 'explorepage', 'discover', 'discoverpage',
+    // Content creator
+    'contentcreator', 'creator', 'content', 'video', 'viralcontent',
+    'trendingcontent', 'popular', 'hot', 'new', 'latest', '2026',
+    // Content types
+    'funny', 'comedy', 'meme', 'memes', 'lol', 'hilarious',
+    'entertainment', 'fun', 'laugh', 'reaction', 'react', 'duet', 'stitch',
+    'remix', 'cover', 'dance', 'dancing', 'tutorial', 'howto', 'tips',
+    'tricks', 'hacks', 'lifehack', 'art', 'artist', 'artwork', 'drawing',
+    'gaming', 'gamer', 'game', 'play', 'player', 'win', 'victory',
+    'fitness', 'workout', 'gym', 'health', 'food', 'foodie', 'cooking',
+    'fashion', 'style', 'outfit', 'beauty', 'makeup', 'transformation',
+    // Music
+    'music', 'song', 'audio', 'sound', 'beat', 'remix', 'cover',
+    // IRL
+    'irl', 'vlog', 'daily', 'routine', 'stream', 'live', 'behindthescenes'
+  ]
+  
+  // Platform-specific tags
+  const platformSpecific: Record<string, string[]> = {
+    'tiktok': [
+      'tiktok', 'tiktokviral', 'tiktoktrending', 'tiktokdance', 'tiktokchallenge',
+      'tiktoktrend', 'tiktoksounds', 'tiktokmemes', 'tiktokcomedy', 'tiktokfyp',
+      'tiktokforyou', 'tiktoklive', 'tiktokcreator', 'tiktokgrowth'
+    ],
+    'instagram': [
+      'instagram', 'insta', 'ig', 'instaviral', 'reels', 'reelsinstagram',
+      'instareels', 'reelsvideo', 'instagramreels', 'instadaily', 'instagood',
+      'instagramgrowth', 'reelsviral', 'reelitfeelit'
+    ],
+    'youtube-shorts': [
+      'youtubeshorts', 'shorts', 'ytshorts', 'shortsviral', 'shortsyoutube',
+      'youtubeshort', 'shortvideo', 'shortsfeed', 'youtube', 'youtuber',
+      'youtubegrowth', 'youtubetips', 'shortsstrategy', 'shortstips'
+    ],
+    'youtube-long': [
+      'youtube', 'youtuber', 'youtubechannel', 'youtubevideo', 'youtubegaming',
+      'gamingchannel', 'letsplay', 'walkthrough', 'gameplay', 'gamer',
+      'youtubegrowth', 'youtubetips', 'videoediting', 'thumbnail'
+    ],
+    'facebook-reels': [
+      'facebook', 'facebookreels', 'fbreels', 'meta', 'facebookvideo',
+      'facebookviral', 'facebookgaming', 'facebooklive', 'facebookcreator',
+      'facebookgrowth', 'reelsfacebook'
+    ]
+  }
+  
+  const platformTags = platformSpecific[platform] || []
+  return [...baseTags, ...platformTags]
+}
+
 // Generate variations of a tag
 function generateTagVariations(tag: string, platform: string): string[] {
   const variations: string[] = []
@@ -394,10 +454,12 @@ export async function POST(request: Request) {
     
     // Read tag database
     const tagData = await readData()
-    const platformTags = tagData.data?.[platform] || []
+    let platformTags = tagData.data?.[platform] || []
     
+    // If no database exists, generate tags dynamically
     if (platformTags.length === 0) {
-      return NextResponse.json({ error: 'Tag database not available for this platform' }, { status: 404 })
+      console.log(`No tag database for ${platform}, generating dynamically...`)
+      platformTags = generateBaseTagsForPlatform(platform)
     }
     
     // Read algorithm data for platform-specific tips
