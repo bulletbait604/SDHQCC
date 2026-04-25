@@ -415,7 +415,18 @@ export class HashyAlgorithm {
     if (detectedGames.length > 0) {
       const bestGame = detectedGames[0]; // Already sorted by popularity (which includes match score)
       console.log('[HASHY] Using best game:', bestGame.name)
-      generatedTags.push(...bestGame.tags.slice(0, 20));
+      
+      // Filter game tags to remove any generic ones
+      const filteredGameTags = bestGame.tags.filter(tag => {
+        const tagLower = tag.toLowerCase();
+        // Skip very short tags
+        if (tagLower.length < 3) return false;
+        // Skip generic quality descriptors
+        const genericKeywords = ['funny', 'highlights', 'tips', 'gameplay', 'clips', 'best', 'epic', 'cool', 'awesome', 'cute', 'daily', 'life', 'love', 'mood', 'style', 'vibe', 'goals', 'inspo', 'classic', 'famous', 'popular', 'legendary', 'rare', 'special', 'unique', 'authentic', 'creative', 'exclusive', 'official', 'original', 'happy', 'honest', 'raw', 'real'];
+        return !genericKeywords.some(keyword => tagLower.includes(keyword));
+      });
+      
+      generatedTags.push(...filteredGameTags.slice(0, 20));
       contextualTags.push(bestGame.name);
       contextualTags.push(...bestGame.genre.slice(0, 3));
     }
@@ -514,11 +525,14 @@ export class HashyAlgorithm {
     const keywords = this.extractKeywords(title, description);
     console.log('[HASHY] Extracted keywords:', keywords)
 
-    // Add Google entities to keywords for better matching
+    // Add Google entities to keywords for better matching (filtered)
     if (googleData && googleData.entities.length > 0) {
+      const allGameNames = this.gamesDatabase.flatMap(g => [g.name.toLowerCase(), ...g.aliases.map(a => a.toLowerCase())]);
       for (const entity of googleData.entities) {
-        if (!keywords.includes(entity.toLowerCase())) {
-          keywords.push(entity.toLowerCase());
+        const entityLower = entity.toLowerCase();
+        // Skip if entity is a game name (prevents wrong game detection)
+        if (!allGameNames.includes(entityLower) && !keywords.includes(entityLower)) {
+          keywords.push(entityLower);
         }
       }
     }

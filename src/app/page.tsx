@@ -1813,6 +1813,15 @@ export default function HomePage() {
               <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 Support: Bulletbait604@gmail.com
               </p>
+              <div className={`flex items-center space-x-2 mt-2 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                <Database className="w-3 h-3" />
+                <p className="text-xs">
+                  Tag Database: <span className="font-semibold">{tagDatabaseStatus.totalTags > 0 ? `${tagDatabaseStatus.totalTags.toLocaleString()} tags` : 'Loading...'}</span>
+                  {tagDatabaseStatus.lastUpdated && (
+                    <span className="ml-2">Updated: {new Date(tagDatabaseStatus.lastUpdated).toLocaleDateString()}</span>
+                  )}
+                </p>
+              </div>
             </div>
             <div className="flex space-x-4">
               <button 
