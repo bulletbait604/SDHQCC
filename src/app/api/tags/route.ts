@@ -28,7 +28,7 @@ function checkRateLimit(identifier: string, maxUses: number = 3, windowMs: numbe
 // Generate tags using Hugging Face Inference API
 async function generateTagsWithRapidAPI(description: string, platform: string, count: number): Promise<string[]> {
   const apiKey = process.env.HUGGINGFACE_TOKEN || process.env.RAPID_API_UNLIMITED_GPT || process.env.RAPIDAPI || process.env.RAPID_API_KEY
-  const modelName = process.env.HUGGINGFACE_MODEL || 'meta-llama/Llama-3.3-70B-Instruct'
+  const modelName = process.env.HUGGINGFACE_MODEL || 'meta-llama/Llama-3.1-8B-Instruct'
   
   const apiUrl = `https://api-inference.huggingface.co/models/${modelName}`
   
