@@ -109,19 +109,13 @@ async function writeData(data: any) {
 }
 
 async function researchAlgorithm(platform: string, apiKey: string) {
-  const primaryUrl = process.env.RAPID_API_URL || 'https://deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com/deepseek-r1/chat'
-  const primaryHost = process.env.RAPID_API_HOST || 'deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com'
-  const backupUrl = process.env.RAPID_API_BACKUP_URL || 'https://deepseek-r12.p.rapidapi.com/chat/completions'
-  const backupHost = process.env.RAPID_API_BACKUP_HOST || 'deepseek-r12.p.rapidapi.com'
+  const modelName = process.env.HUGGINGFACE_MODEL || 'deepseek-ai/DeepSeek-R1'
+  const apiUrl = `https://api-inference.huggingface.co/models/${modelName}`
   
-  const endpoints = [
-    { url: primaryUrl, host: primaryHost, name: 'primary', model: undefined },
-    { url: backupUrl, host: backupHost, name: 'backup', model: 'deepseek-r1' }
-  ]
+  try {
+    console.log(`Calling Hugging Face API for algorithm research: ${apiUrl}`)
   
-  let lastError: Error | null = null
-  
-  const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
+    const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
 {
   "keyChanges": "Summary of key changes in how the algorithm works",
   "editingTips": "Tips for editing content for ${platform}",
@@ -137,51 +131,46 @@ async function researchAlgorithm(platform: string, apiKey: string) {
 }
 
 Focus on recent changes and best practices as of 2026. Be specific and actionable. The summaries should be punchy, platform-specific takeaways that make users want to click Read More.`
-  
-  for (const endpoint of endpoints) {
-    try {
-      console.log(`Trying ${endpoint.name} endpoint for algorithm research: ${endpoint.host}`)
-      
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 30000)
-      
-      const response = await fetch(endpoint.url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'x-rapidapi-key': apiKey,
-          'x-rapidapi-host': endpoint.host
-        },
-        signal: controller.signal,
-        body: new URLSearchParams({
-          prompt: prompt
-        }).toString()
+    
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 60000) // 60 second timeout for Hugging Face
+    
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        inputs: prompt,
+        parameters: {
+          max_new_tokens: 1000,
+          temperature: 0.7,
+          return_full_text: false
+        }
       })
-      
-      clearTimeout(timeout)
+    })
+    
+    clearTimeout(timeout)
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`RapidAPI error: ${response.status} - ${errorText}`)
-      }
-
-      const data = await response.json()
-      const content = data.response || data.output || data.message || data.text || JSON.stringify(data)
-      
-      if (!content) {
-        throw new Error('No content in RapidAPI response')
-      }
-      
-      return JSON.parse(content || '{}')
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error))
-      console.error(`${endpoint.name} endpoint failed for ${platform}:`, lastError.message)
-      continue
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Hugging Face error: ${response.status} - ${errorText}`)
     }
+
+    const data = await response.json()
+    const content = Array.isArray(data) ? data[0]?.generated_text : data.generated_text || data.output || data.text || JSON.stringify(data)
+    
+    if (!content) {
+      throw new Error('No content in Hugging Face response')
+    }
+    
+    return JSON.parse(content || '{}')
+  } catch (error) {
+    console.error(`Hugging Face API failed for ${platform}:`, error)
+    return null
   }
-  
-  console.error(`All endpoints failed for ${platform}`)
-  return null
 }
 
 // Placeholder data to show until AI research completes
@@ -268,13 +257,13 @@ export async function GET() {
 }
 
 export async function POST() {
-  const apiKey = process.env.RAPID_API_UNLIMITED_GPT || process.env.RAPIDAPI || process.env.RAPID_API_KEY
+  const apiKey = process.env.HUGGINGFACE_TOKEN || process.env.RAPID_API_UNLIMITED_GPT || process.env.RAPIDAPI || process.env.RAPID_API_KEY
 
   if (!apiKey) {
-    return NextResponse.json({ error: 'No API key configured. Please set RAPIDAPI, RAPID_API_KEY, or RAPID_API_UNLIMITED_GPT' }, { status: 500 })
+    return NextResponse.json({ error: 'No API key configured. Please set HUGGINGFACE_TOKEN, RAPIDAPI, RAPID_API_KEY, or RAPID_API_UNLIMITED_GPT' }, { status: 500 })
   }
   
-  console.log('Using RapidAPI for algorithm research')
+  console.log('Using Hugging Face for algorithm research')
   
   const data: any = { data: {} }
 
@@ -286,7 +275,7 @@ export async function POST() {
   }
 
   data.lastUpdated = new Date().toISOString()
-  data.provider = 'rapidapi'
+  data.provider = 'huggingface'
   await writeData(data)
 
   return NextResponse.json(data)
