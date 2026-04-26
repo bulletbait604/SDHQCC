@@ -111,8 +111,8 @@ async function writeData(data: any) {
 async function researchAlgorithm(platform: string, apiKey: string) {
   const primaryUrl = process.env.RAPID_API_URL || 'https://deepseek-r12.p.rapidapi.com/chat/completions'
   const primaryHost = process.env.RAPID_API_HOST || 'deepseek-r12.p.rapidapi.com'
-  const backupUrl = process.env.RAPID_API_BACKUP_URL || 'https://deepseek-r1-671b1.p.rapidapi.com/chat/completions'
-  const backupHost = process.env.RAPID_API_BACKUP_HOST || 'deepseek-r1-671b1.p.rapidapi.com'
+  const backupUrl = process.env.RAPID_API_BACKUP_URL || 'https://deepseek-r1-distill-llama-70b.p.rapidapi.com/chat_completions'
+  const backupHost = process.env.RAPID_API_BACKUP_HOST || 'deepseek-r1-distill-llama-70b.p.rapidapi.com'
   
   const endpoints = [
     { url: primaryUrl, host: primaryHost, name: 'primary' },
