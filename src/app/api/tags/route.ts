@@ -25,12 +25,12 @@ function checkRateLimit(identifier: string, maxUses: number = 3, windowMs: numbe
   return { allowed: true, remaining: maxUses - userLimit.count, resetTime: userLimit.resetTime }
 }
 
-// Generate tags using Gemini
-async function generateTagsWithGemini(description: string, platform: string, count: number): Promise<string[]> {
-  const apiKey = process.env.GEMINI_API_KEY
+// Generate tags using DeepSeek
+async function generateTagsWithDeepSeek(description: string, platform: string, count: number): Promise<string[]> {
+  const apiKey = process.env.DEEPSEEK_API_KEY
   
   if (!apiKey) {
-    throw new Error('Gemini API key not configured')
+    throw new Error('DeepSeek API key not configured')
   }
   
   try {
@@ -44,34 +44,39 @@ async function generateTagsWithGemini(description: string, platform: string, cou
     
     const platformName = platformContext[platform.toLowerCase()] || platform
     
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `Generate ${count} relevant hashtags for: "${description}" for ${platformName}. Return only a JSON array of lowercase hashtag strings without the # symbol, like ["tag1", "tag2", "tag3"]. Do not include any other text.`
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 300
-        }
+        model: 'deepseek-chat',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a hashtag generator. Return only a JSON array of lowercase hashtag strings without the # symbol.'
+          },
+          {
+            role: 'user',
+            content: `Generate ${count} relevant hashtags for: "${description}" for ${platformName}. Return as JSON array like ["tag1", "tag2", "tag3"]`
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 300
       })
     })
     
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(`Gemini API error: ${response.status} - ${errorText}`)
+      throw new Error(`DeepSeek API error: ${response.status} - ${errorText}`)
     }
     
     const data = await response.json()
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text
+    const content = data.choices?.[0]?.message?.content
     
     if (!content) {
-      throw new Error('No content in Gemini response')
+      throw new Error('No content in DeepSeek response')
     }
     
     let tags: string[]
@@ -107,7 +112,7 @@ async function generateTagsWithGemini(description: string, platform: string, cou
 // GET endpoint - retrieve tag database status
 export async function GET() {
   return NextResponse.json({ 
-    message: 'Using Gemini for tag generation',
+    message: 'Using DeepSeek for tag generation',
     rateLimit: '3 uses per 24 hours'
   })
 }
@@ -138,8 +143,8 @@ export async function POST(request: Request) {
       }, { status: 429 })
     }
     
-    // Generate tags using Gemini
-    const tags = await generateTagsWithGemini(description, platform, count)
+    // Generate tags using DeepSeek
+    const tags = await generateTagsWithDeepSeek(description, platform, count)
     
     // Add artificial delay to simulate processing
     await new Promise(resolve => setTimeout(resolve, 2000))
@@ -148,7 +153,7 @@ export async function POST(request: Request) {
       tags,
       platform,
       count: tags.length,
-      algorithm: 'gemini',
+      algorithm: 'deepseek',
       rateLimit: {
         remaining: rateLimit.remaining,
         resetTime: rateLimit.resetTime
