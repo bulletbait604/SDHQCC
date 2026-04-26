@@ -25,12 +25,12 @@ function checkRateLimit(identifier: string, maxUses: number = 3, windowMs: numbe
   return { allowed: true, remaining: maxUses - userLimit.count, resetTime: userLimit.resetTime }
 }
 
-// Generate tags using Hugging Face Inference API
+// Generate tags using Groq API
 async function generateTagsWithRapidAPI(description: string, platform: string, count: number): Promise<string[]> {
-  const apiKey = process.env.HUGGINGFACE_TOKEN || process.env.RAPID_API_UNLIMITED_GPT || process.env.RAPIDAPI || process.env.RAPID_API_KEY
-  const modelName = process.env.HUGGINGFACE_MODEL || 'mistralai/Mistral-7B-Instruct-v0.3'
+  const apiKey = process.env.GROQ_API_KEY || process.env.HUGGINGFACE_TOKEN || process.env.RAPID_API_UNLIMITED_GPT || process.env.RAPIDAPI || process.env.RAPID_API_KEY
+  const modelName = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
   
-  const apiUrl = `https://api-inference.huggingface.co/models/${modelName}`
+  const apiUrl = 'https://api.groq.com/openai/v1/chat/completions'
   
   console.log('API Key present:', !!apiKey)
   console.log('API Key length:', apiKey?.length)
@@ -38,11 +38,11 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
   console.log('Model:', modelName)
   
   if (!apiKey) {
-    throw new Error('Hugging Face token not configured')
+    throw new Error('Groq API key not configured')
   }
   
   try {
-    console.log(`Calling Hugging Face API: ${apiUrl}`)
+    console.log(`Calling Groq API: ${apiUrl}`)
     
     const platformContext: Record<string, string> = {
       'tiktok': 'TikTok',
@@ -55,18 +55,7 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
     const platformName = platformContext[platform.toLowerCase()] || platform
     
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 60000) // 60 second timeout for Hugging Face
-    
-    const prompt = `Generate ${count} highly effective hashtags for: "${description}" for ${platformName}.
-
-Requirements:
-- Analyze the content and extract key themes, topics, and entities
-- Consider ${platformName}'s algorithm preferences (what types of tags perform well)
-- Include a mix of specific content tags and broader discovery tags
-- Focus on tags that are currently popular and likely to get impressions
-- Ensure all tags are directly relevant to the described content
-- Return exactly ${count} tags as a JSON array of lowercase strings without # symbols
-- Example format: ["gaming", "callofduty", "warzone", "fps", "competitive"]`
+    const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout for Groq
     
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -76,12 +65,28 @@ Requirements:
       },
       signal: controller.signal,
       body: JSON.stringify({
-        inputs: prompt,
-        parameters: {
-          max_new_tokens: 500,
-          temperature: 0.7,
-          return_full_text: false
-        }
+        model: modelName,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert social media algorithm analyst and hashtag generator. Generate hashtags that are both relevant to the content AND optimized for the platform\'s algorithm to maximize reach and engagement. Return only valid JSON arrays of lowercase strings without # symbols.'
+          },
+          {
+            role: 'user',
+            content: `Generate ${count} highly effective hashtags for: "${description}" for ${platformName}.
+
+Requirements:
+- Analyze the content and extract key themes, topics, and entities
+- Consider ${platformName}'s algorithm preferences (what types of tags perform well)
+- Include a mix of specific content tags and broader discovery tags
+- Focus on tags that are currently popular and likely to get impressions
+- Ensure all tags are directly relevant to the described content
+- Return exactly ${count} tags as a JSON array of lowercase strings without # symbols
+- Example format: ["gaming", "callofduty", "warzone", "fps", "competitive"]`
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 500
       })
     })
     
@@ -89,14 +94,14 @@ Requirements:
     
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(`Hugging Face error: ${response.status} - ${errorText}`)
+      throw new Error(`Groq error: ${response.status} - ${errorText}`)
     }
     
     const data = await response.json()
-    const content = Array.isArray(data) ? data[0]?.generated_text : data.generated_text || data.output || data.text || JSON.stringify(data)
+    const content = data.choices?.[0]?.message?.content
     
     if (!content) {
-      throw new Error('No content in Hugging Face response')
+      throw new Error('No content in Groq response')
     }
     
     let tags: string[]
@@ -132,7 +137,7 @@ Requirements:
 // GET endpoint - retrieve tag database status
 export async function GET() {
   return NextResponse.json({ 
-    message: 'Using Hugging Face for tag generation',
+    message: 'Using Groq for tag generation',
     rateLimit: '3 uses per 24 hours',
     status: 'active'
   })

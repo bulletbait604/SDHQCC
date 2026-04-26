@@ -109,11 +109,11 @@ async function writeData(data: any) {
 }
 
 async function researchAlgorithm(platform: string, apiKey: string) {
-  const modelName = process.env.HUGGINGFACE_MODEL || 'mistralai/Mistral-7B-Instruct-v0.3'
-  const apiUrl = `https://api-inference.huggingface.co/models/${modelName}`
+  const modelName = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
+  const apiUrl = 'https://api.groq.com/openai/v1/chat/completions'
   
   try {
-    console.log(`Calling Hugging Face API for algorithm research: ${apiUrl}`)
+    console.log(`Calling Groq API for algorithm research: ${apiUrl}`)
   
     const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
 {
@@ -133,7 +133,7 @@ async function researchAlgorithm(platform: string, apiKey: string) {
 Focus on recent changes and best practices as of 2026. Be specific and actionable. The summaries should be punchy, platform-specific takeaways that make users want to click Read More.`
     
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 60000) // 60 second timeout for Hugging Face
+    const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout for Groq
     
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -143,12 +143,13 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
       },
       signal: controller.signal,
       body: JSON.stringify({
-        inputs: prompt,
-        parameters: {
-          max_new_tokens: 1000,
-          temperature: 0.7,
-          return_full_text: false
-        }
+        model: modelName,
+        messages: [
+          { role: 'system', content: 'You are an expert in social media algorithms and content optimization. Provide specific, actionable advice based on current best practices. Return only valid JSON.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 1000
       })
     })
     
@@ -156,19 +157,19 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
 
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(`Hugging Face error: ${response.status} - ${errorText}`)
+      throw new Error(`Groq error: ${response.status} - ${errorText}`)
     }
 
     const data = await response.json()
-    const content = Array.isArray(data) ? data[0]?.generated_text : data.generated_text || data.output || data.text || JSON.stringify(data)
+    const content = data.choices?.[0]?.message?.content
     
     if (!content) {
-      throw new Error('No content in Hugging Face response')
+      throw new Error('No content in Groq response')
     }
     
     return JSON.parse(content || '{}')
   } catch (error) {
-    console.error(`Hugging Face API failed for ${platform}:`, error)
+    console.error(`Groq API failed for ${platform}:`, error)
     return null
   }
 }
@@ -257,13 +258,13 @@ export async function GET() {
 }
 
 export async function POST() {
-  const apiKey = process.env.HUGGINGFACE_TOKEN || process.env.RAPID_API_UNLIMITED_GPT || process.env.RAPIDAPI || process.env.RAPID_API_KEY
+  const apiKey = process.env.GROQ_API_KEY || process.env.HUGGINGFACE_TOKEN || process.env.RAPID_API_UNLIMITED_GPT || process.env.RAPIDAPI || process.env.RAPID_API_KEY
 
   if (!apiKey) {
-    return NextResponse.json({ error: 'No API key configured. Please set HUGGINGFACE_TOKEN, RAPIDAPI, RAPID_API_KEY, or RAPID_API_UNLIMITED_GPT' }, { status: 500 })
+    return NextResponse.json({ error: 'No API key configured. Please set GROQ_API_KEY' }, { status: 500 })
   }
   
-  console.log('Using Hugging Face for algorithm research')
+  console.log('Using Groq for algorithm research')
   
   const data: any = { data: {} }
 
@@ -275,7 +276,7 @@ export async function POST() {
   }
 
   data.lastUpdated = new Date().toISOString()
-  data.provider = 'huggingface'
+  data.provider = 'groq'
   await writeData(data)
 
   return NextResponse.json(data)
