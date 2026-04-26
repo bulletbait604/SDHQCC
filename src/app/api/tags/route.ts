@@ -113,6 +113,9 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
     
     return cleanedTags
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timeout - API took too long to respond')
+    }
     throw error
   }
 }
@@ -170,6 +173,15 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    return NextResponse.json({ error: 'Failed to generate tags', details: errorMessage }, { status: 500 })
+    const errorStack = error instanceof Error ? error.stack : 'No stack trace'
+    return NextResponse.json({ 
+      error: 'Failed to generate tags', 
+      details: errorMessage,
+      debug: {
+        apiKeyPresent: !!process.env.RAPID_API_UNLIMITED_GPT,
+        apiKeyLength: process.env.RAPID_API_UNLIMITED_GPT?.length || 0,
+        apiKeyPrefix: process.env.RAPID_API_UNLIMITED_GPT?.substring(0, 5) || 'none'
+      }
+    }, { status: 500 })
   }
 }
