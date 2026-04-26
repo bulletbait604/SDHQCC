@@ -1027,71 +1027,102 @@ export default function HomePage() {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {platforms.map((platform) => (
                     <div
                       key={platform.id}
-                      className={`${cardClasses} transition-all duration-300 hover:shadow-lg`}
+                      className={`relative overflow-hidden rounded-2xl border-2 transition-all duration-300 hover:scale-105 hover:shadow-2xl ${
+                        darkMode 
+                          ? 'bg-gradient-to-br from-sdhq-dark-700 to-sdhq-dark-800 border-sdhq-cyan-500/30 hover:border-sdhq-cyan-500/60' 
+                          : 'bg-gradient-to-br from-white to-gray-50 border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
+                      }`}
                     >
-                      <div className="p-4">
-                        <div className="flex items-center space-x-4 mb-4">
-                          <img
-                            src={platform.image}
-                            alt={platform.name}
-                            className="w-12 h-12 rounded-lg"
-                          />
-                          <h4 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                            {platform.name}
-                          </h4>
+                      {/* Platform-specific gradient accent */}
+                      <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${
+                        platform.id === 'tiktok' ? 'from-pink-500 via-purple-500 to-cyan-500' :
+                        platform.id === 'instagram' ? 'from-purple-500 via-pink-500 to-orange-500' :
+                        platform.id === 'youtube-shorts' ? 'from-red-500 via-red-600 to-red-700' :
+                        platform.id === 'youtube-long' ? 'from-red-600 via-red-700 to-red-800' :
+                        'from-blue-500 via-blue-600 to-blue-700'
+                      }`}></div>
+                      
+                      <div className="p-5">
+                        <div className="flex items-center space-x-4 mb-5">
+                          <div className={`relative p-2 rounded-xl ${
+                            darkMode ? 'bg-sdhq-dark-600' : 'bg-white'
+                          } shadow-lg`}>
+                            <img
+                              src={platform.image}
+                              alt={platform.name}
+                              className="w-14 h-14 rounded-lg object-cover"
+                            />
+                          </div>
+                          <div>
+                            <h4 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                              {platform.name}
+                            </h4>
+                            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                              Algorithm Insights
+                            </p>
+                          </div>
                         </div>
                         
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           {platform.data ? (
                             <>
                               {platform.data.summaries ? (
                                 // Use AI-generated platform-specific summaries
                                 <>
                                   {platform.data.summaries.slice(0, 4).map((summary, index) => (
-                                    <div key={index} className="flex items-start space-x-2">
-                                      <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${index % 2 === 0 ? 'bg-sdhq-cyan-500' : 'bg-sdhq-green-500'}`}></div>
-                                      <p className={`${textClasses} text-sm`}>{summary}</p>
+                                    <div key={index} className="flex items-start space-x-3 group">
+                                      <div className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 transition-all duration-300 ${
+                                        index === 0 ? 'bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-cyan-400 group-hover:scale-125' :
+                                        index === 1 ? 'bg-gradient-to-r from-sdhq-green-500 to-sdhq-green-400 group-hover:scale-125' :
+                                        index === 2 ? 'bg-gradient-to-r from-sdhq-cyan-400 to-sdhq-cyan-300 group-hover:scale-125' :
+                                        'bg-gradient-to-r from-sdhq-green-400 to-sdhq-green-300 group-hover:scale-125'
+                                      }`}></div>
+                                      <p className={`${textClasses} text-sm leading-relaxed group-hover:translate-x-1 transition-transform duration-300`}>{summary}</p>
                                     </div>
                                   ))}
                                 </>
                               ) : (
                                 // Fallback to generic bullets if summaries not available
                                 <>
-                                  <div className="flex items-start space-x-2">
-                                    <div className="w-2 h-2 rounded-full bg-sdhq-cyan-500 mt-1.5 flex-shrink-0"></div>
+                                  <div className="flex items-start space-x-3 group">
+                                    <div className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-cyan-400 group-hover:scale-125"></div>
                                     <p className={`${textClasses} text-sm`}>Key algorithm changes</p>
                                   </div>
-                                  <div className="flex items-start space-x-2">
-                                    <div className="w-2 h-2 rounded-full bg-sdhq-green-500 mt-1.5 flex-shrink-0"></div>
+                                  <div className="flex items-start space-x-3 group">
+                                    <div className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-gradient-to-r from-sdhq-green-500 to-sdhq-green-400 group-hover:scale-125"></div>
                                     <p className={`${textClasses} text-sm`}>Editing optimization tips</p>
                                   </div>
-                                  <div className="flex items-start space-x-2">
-                                    <div className="w-2 h-2 rounded-full bg-sdhq-cyan-500 mt-1.5 flex-shrink-0"></div>
+                                  <div className="flex items-start space-x-3 group">
+                                    <div className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-gradient-to-r from-sdhq-cyan-400 to-sdhq-cyan-300 group-hover:scale-125"></div>
                                     <p className={`${textClasses} text-sm`}>Best posting strategies</p>
                                   </div>
-                                  <div className="flex items-start space-x-2">
-                                    <div className="w-2 h-2 rounded-full bg-sdhq-green-500 mt-1.5 flex-shrink-0"></div>
+                                  <div className="flex items-start space-x-3 group">
+                                    <div className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-gradient-to-r from-sdhq-green-400 to-sdhq-green-300 group-hover:scale-125"></div>
                                     <p className={`${textClasses} text-sm`}>Title & description guides</p>
                                   </div>
                                 </>
                               )}
-                              <div className="pt-3 mt-2">
+                              <div className="pt-4 mt-3 border-t border-gray-200 dark:border-sdhq-dark-600">
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   onClick={() => setExpandedCard(platform.id)}
-                                  className="w-full"
+                                  className="w-full bg-gradient-to-r from-sdhq-cyan-500/10 to-sdhq-green-500/10 hover:from-sdhq-cyan-500/20 hover:to-sdhq-green-500/20 border-sdhq-cyan-500/50 hover:border-sdhq-cyan-500 transition-all duration-300"
                                 >
+                                  <TrendingUp className="w-4 h-4 mr-2" />
                                   Read More
                                 </Button>
                               </div>
                             </>
                           ) : (
-                            <p className={`${subtitleClasses} text-sm`}>Loading algorithm data...</p>
+                            <div className="flex flex-col items-center justify-center py-8 space-y-2">
+                              <div className="w-8 h-8 border-2 border-sdhq-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+                              <p className={`${subtitleClasses} text-sm`}>Loading algorithm data...</p>
+                            </div>
                           )}
                         </div>
                       </div>
