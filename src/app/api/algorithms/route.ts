@@ -136,7 +136,7 @@ async function researchAlgorithm(platform: string, apiKey: string, retries: numb
 Focus on recent changes and best practices as of 2026. Be specific and actionable. The summaries should be punchy, platform-specific takeaways that make users want to click Read More.`
       
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 60000) // 60 second timeout for Groq
+      const timeout = setTimeout(() => controller.abort(), 90000) // 90 second timeout for Groq
       
       console.log(`Making fetch request to ${apiUrl}`)
       const response = await fetch(apiUrl, {
@@ -149,11 +149,11 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
         body: JSON.stringify({
           model: modelName,
           messages: [
-            { role: 'system', content: 'You are an expert in social media algorithms and content optimization. Provide specific, actionable advice based on current best practices. Return only valid JSON.' },
+            { role: 'system', content: 'You are an expert in social media algorithms and content optimization. Provide specific, actionable advice based on current best practices. Return only valid JSON without markdown code blocks.' },
             { role: 'user', content: prompt }
           ],
           temperature: 0.7,
-          max_tokens: 2500
+          max_tokens: 1000
         })
       })
       
@@ -163,6 +163,16 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
       if (!response.ok) {
         const errorText = await response.text()
         console.error(`Groq error response: ${errorText}`)
+        
+        // Handle rate limit error specifically
+        if (response.status === 429) {
+          const match = errorText.match(/Please try again in ([\d.]+)s/)
+          const waitTime = match ? parseFloat(match[1]) * 1000 : 30000
+          console.log(`Rate limited, waiting ${waitTime}ms before retry...`)
+          await new Promise(resolve => setTimeout(resolve, waitTime))
+          throw new Error(`Rate limit exceeded, waited ${waitTime}ms`)
+        }
+        
         throw new Error(`Groq error: ${response.status} - ${errorText}`)
       }
 
@@ -177,7 +187,14 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
         throw new Error('No content in Groq response')
       }
       
-      const parsed = JSON.parse(content || '{}')
+      // Strip markdown code blocks if present
+      let cleanContent = content
+      if (content.includes('```')) {
+        cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+        console.log('Stripped markdown code blocks')
+      }
+      
+      const parsed = JSON.parse(cleanContent || '{}')
       console.log(`Successfully parsed JSON for ${platform}`)
       console.log(`Parsed keys:`, Object.keys(parsed))
       return parsed
@@ -186,7 +203,7 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
       
       if (attempt < retries - 1) {
         // Wait before retrying (exponential backoff)
-        const delay = Math.pow(2, attempt) * 1000
+        const delay = Math.pow(2, attempt) * 2000
         console.log(`Retrying ${platform} in ${delay}ms...`)
         await new Promise(resolve => setTimeout(resolve, delay))
       } else {
@@ -314,6 +331,9 @@ export async function POST() {
       errors.push(`${platform.name}: ${errorMsg}`)
       console.error(`Failed to research ${platform.name}:`, error)
     }
+    
+    // Add delay between platforms to avoid rate limiting
+    await new Promise(resolve => setTimeout(resolve, 3000))
   }
 
   console.log('Research complete. Platforms with data:', Object.keys(data.data).length)
