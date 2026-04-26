@@ -49,6 +49,12 @@ interface Subscriber {
   addedAt: string
 }
 
+interface Admin {
+  id: string
+  username: string
+  addedAt: string
+}
+
 interface ActivityLogEntry {
   id: string
   username: string
@@ -207,7 +213,7 @@ const translations = {
   }
 };
 
-const ADMIN_USERNAMES = ['bulletbait604', 'Bulletbait604'];
+const OWNER_USERNAMES = ['bulletbait604', 'Bulletbait604'];
 
 export default function HomePage() {
   const [user, setUser] = useState<KickUser | null>(null)
@@ -218,6 +224,8 @@ export default function HomePage() {
   const [showSettings, setShowSettings] = useState(false)
   const [subscribers, setSubscribers] = useState<Subscriber[]>([])
   const [newSubscriberUsername, setNewSubscriberUsername] = useState('')
+  const [admins, setAdmins] = useState<Admin[]>([])
+  const [newAdminUsername, setNewAdminUsername] = useState('')
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false)
   const [showTerms, setShowTerms] = useState(false)
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([])
@@ -285,7 +293,8 @@ export default function HomePage() {
   ])
 
   const t = translations[language]
-  const isAdmin = user ? ADMIN_USERNAMES.includes(user.username) : false
+  const isOwner = user ? OWNER_USERNAMES.includes(user.username) : false
+  const isAdmin = user ? (isOwner || admins.some(admin => admin.username.toLowerCase() === user.username.toLowerCase())) : false
   const isSubscribed = user ? (isVerified || subscribers.some(sub => sub.username.toLowerCase() === user.username.toLowerCase())) : false
 
   useEffect(() => {
@@ -297,6 +306,7 @@ export default function HomePage() {
       const storedLanguage = localStorage.getItem('sdhq-language') as Language
       const storedDarkMode = localStorage.getItem('sdhq-darkmode')
       const storedSubscribers = localStorage.getItem('sdhq-subscribers')
+      const storedAdmins = localStorage.getItem('sdhq-admins')
       const storedActivityLog = localStorage.getItem('sdhq-activity-log')
       const storedVerified = localStorage.getItem('isVerified')
       
@@ -326,6 +336,14 @@ export default function HomePage() {
           setSubscribers(JSON.parse(storedSubscribers))
         } catch (error) {
           console.error('Error loading subscribers:', error)
+        }
+      }
+      
+      if (storedAdmins) {
+        try {
+          setAdmins(JSON.parse(storedAdmins))
+        } catch (error) {
+          console.error('Error loading admins:', error)
         }
       }
       
@@ -470,15 +488,26 @@ export default function HomePage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('sdhq-language', language)
+    }
+  }, [language])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
       localStorage.setItem('sdhq-darkmode', darkMode.toString())
     }
-  }, [language, darkMode])
+  }, [darkMode])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('sdhq-subscribers', JSON.stringify(subscribers))
     }
   }, [subscribers])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sdhq-admins', JSON.stringify(admins))
+    }
+  }, [admins])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -501,13 +530,13 @@ export default function HomePage() {
 
   // Update tag rate limit when verification status changes
   useEffect(() => {
-    const isAdmin = user && ADMIN_USERNAMES.includes(user.username)
+    const isAdmin = user && (isOwner || admins.some(admin => admin.username.toLowerCase() === user.username.toLowerCase()))
     if ((tagRateLimit.remaining === 5 || tagRateLimit.remaining === 0) && (isVerified || isAdmin)) {
       setTagRateLimit({ remaining: 25, resetTime: null })
     } else if (tagRateLimit.remaining === 25 && !isVerified && !isAdmin) {
       setTagRateLimit({ remaining: 5, resetTime: null })
     }
-  }, [isVerified, user])
+  }, [isVerified, user, isOwner, admins])
 
   const handleLogin = async () => {
     try {
@@ -660,6 +689,22 @@ export default function HomePage() {
 
   const handleRemoveSubscriber = (id: string) => {
     setSubscribers(subscribers.filter(sub => sub.id !== id))
+  }
+
+  const handleAddAdmin = () => {
+    if (newAdminUsername.trim()) {
+      const newAdmin: Admin = {
+        id: Date.now().toString(),
+        username: newAdminUsername.trim(),
+        addedAt: new Date().toISOString()
+      }
+      setAdmins([...admins, newAdmin])
+      setNewAdminUsername('')
+    }
+  }
+
+  const handleRemoveAdmin = (id: string) => {
+    setAdmins(admins.filter(admin => admin.id !== id))
   }
 
   const handleResetTagUsages = async () => {
@@ -896,25 +941,30 @@ export default function HomePage() {
                       <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                         {user.display_name}
                       </p>
-                      {isAdmin && (
-                        <span className="px-2 py-0.5 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black text-xs font-bold rounded-full">
-                          {t.admin}
+                      {isOwner && (
+                        <span className="px-2 py-0.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-bold rounded-full">
+                          Owner
                         </span>
                       )}
-                      {!isAdmin && isSubscribed && (
+                      {!isOwner && isAdmin && (
+                        <span className="px-2 py-0.5 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black text-xs font-bold rounded-full">
+                          Admin
+                        </span>
+                      )}
+                      {!isOwner && !isAdmin && isSubscribed && (
                         <span className="px-2 py-0.5 bg-gradient-to-r from-sdhq-green-500 to-sdhq-cyan-500 text-black text-xs font-bold rounded-full">
                           Subscribed
                         </span>
                       )}
-                      {!isAdmin && !isSubscribed && (
-                        <span className="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full">
-                          Unverified
+                      {!isOwner && !isAdmin && !isSubscribed && (
+                        <span className="px-2 py-0.5 bg-gray-500 text-white text-xs font-bold rounded-full">
+                          Free User
                         </span>
                       )}
                     </div>
                     <p className={`text-sm ${subtitleClasses}`}>@{user.username}</p>
                   </div>
-                  {!isAdmin && !isSubscribed && (
+                  {!isOwner && !isAdmin && !isSubscribed && (
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -1701,6 +1751,68 @@ export default function HomePage() {
                       Get Lifetime Access
                     </Button>
                   </div>
+
+                  {/* Admin Management - Owner Only */}
+                  {isOwner && (
+                    <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-purple-500/30' : 'bg-gray-50 border-purple-300'}`}>
+                      <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <Shield className="w-5 h-5 mr-2 text-purple-500" />
+                        Admins
+                      </h4>
+                      
+                      {/* Add Admin */}
+                      <div className="flex space-x-2 mb-4">
+                        <input
+                          type="text"
+                          value={newAdminUsername}
+                          onChange={(e) => setNewAdminUsername(e.target.value)}
+                          placeholder="Username"
+                          className={`flex-1 px-3 py-2 rounded-md border ${
+                            darkMode 
+                              ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
+                              : 'bg-white border-gray-300'
+                          }`}
+                          onKeyPress={(e) => e.key === 'Enter' && handleAddAdmin()}
+                        />
+                        <Button 
+                          onClick={handleAddAdmin}
+                          className="bg-gradient-to-r from-purple-500 to-pink-500 text-white"
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          Add Admin
+                        </Button>
+                      </div>
+                      
+                      {/* Admins List */}
+                      <div className={`space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                        {admins.length === 0 ? (
+                          <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No admins yet.</p>
+                        ) : (
+                          admins.map((admin: Admin) => (
+                            <div 
+                              key={admin.id}
+                              className={`flex items-center justify-between p-2 rounded border ${
+                                darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-200'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-2">
+                                <Shield className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                                <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{admin.username}</span>
+                              </div>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleRemoveAdmin(admin.id)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Subscribers Management - Admin Only */}
                   {isAdmin && (
