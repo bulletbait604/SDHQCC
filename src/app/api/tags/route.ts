@@ -44,12 +44,12 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
     
     const platformName = platformContext[platform.toLowerCase()] || platform
     
-    const response = await fetch('https://openai80.p.rapidapi.com/chat/completions', {
+    const response = await fetch('https://unlimited-gpt-4.p.rapidapi.com/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-RapidAPI-Key': apiKey,
-        'X-RapidAPI-Host': 'openai80.p.rapidapi.com'
+        'x-rapidapi-key': apiKey,
+        'x-rapidapi-host': 'unlimited-gpt-4.p.rapidapi.com'
       },
       body: JSON.stringify({
         model: 'gpt-3.5-turbo',
