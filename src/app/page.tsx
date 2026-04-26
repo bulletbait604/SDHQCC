@@ -53,7 +53,7 @@ interface ActivityLogEntry {
   id: string
   username: string
   timestamp: string
-  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh'
+  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh' | 'tag_generation'
   details?: string
 }
 
@@ -1425,6 +1425,17 @@ export default function HomePage() {
                           setGeneratedTags(prev => ({ ...prev, [tagPlatform]: data.tags }))
                           if (data.rateLimit) {
                             setTagRateLimit({ remaining: data.rateLimit.remaining, resetTime: data.rateLimit.resetTime })
+                          }
+                          // Log tag generation activity
+                          if (user) {
+                            const tagEntry: ActivityLogEntry = {
+                              id: Date.now().toString(),
+                              username: user.username,
+                              timestamp: new Date().toISOString(),
+                              action: 'tag_generation',
+                              details: `Generated ${data.tags.length} tags for ${platforms.find(p => p.id === tagPlatform)?.name}`
+                            }
+                            setActivityLog(prev => [tagEntry, ...prev].slice(0, 100))
                           }
                         } catch (error) {
                           console.error('Error generating tags:', error)
