@@ -109,8 +109,8 @@ async function writeData(data: any) {
 }
 
 async function researchAlgorithm(platform: string, apiKey: string) {
-  const primaryUrl = process.env.RAPID_API_URL || 'https://deepseek-r1-671b1.p.rapidapi.com/chat_completions'
-  const primaryHost = process.env.RAPID_API_HOST || 'deepseek-r1-671b1.p.rapidapi.com'
+  const primaryUrl = process.env.RAPID_API_URL || 'https://deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com/deepseek-r1/chat'
+  const primaryHost = process.env.RAPID_API_HOST || 'deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com'
   const backupUrl = process.env.RAPID_API_BACKUP_URL || 'https://deepseek-r12.p.rapidapi.com/chat/completions'
   const backupHost = process.env.RAPID_API_BACKUP_HOST || 'deepseek-r12.p.rapidapi.com'
   
@@ -148,20 +148,14 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
       const response = await fetch(endpoint.url, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
           'x-rapidapi-key': apiKey,
-          'x-rapidapi-host': endpoint.host,
-          'Authorization': `Bearer ${apiKey}`
+          'x-rapidapi-host': endpoint.host
         },
         signal: controller.signal,
-        body: JSON.stringify({
-          ...(endpoint.model && { model: endpoint.model }),
-          messages: [
-            { role: 'system', content: 'You are an expert in social media algorithms and content optimization. Provide specific, actionable advice based on current best practices. Return only valid JSON.' },
-            { role: 'user', content: prompt }
-          ],
-          temperature: 0.7
-        })
+        body: new URLSearchParams({
+          prompt: prompt
+        }).toString()
       })
       
       clearTimeout(timeout)
@@ -172,7 +166,7 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
       }
 
       const data = await response.json()
-      const content = data.choices?.[0]?.message?.content
+      const content = data.response || data.output || data.message || data.text || JSON.stringify(data)
       
       if (!content) {
         throw new Error('No content in RapidAPI response')

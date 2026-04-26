@@ -29,8 +29,8 @@ function checkRateLimit(identifier: string, maxUses: number = 3, windowMs: numbe
 async function generateTagsWithRapidAPI(description: string, platform: string, count: number): Promise<string[]> {
   const apiKey = process.env.RAPID_API_UNLIMITED_GPT || process.env.RAPIDAPI || process.env.RAPID_API_KEY
   
-  const primaryUrl = process.env.RAPID_API_URL || 'https://deepseek-r1-671b1.p.rapidapi.com/chat_completions'
-  const primaryHost = process.env.RAPID_API_HOST || 'deepseek-r1-671b1.p.rapidapi.com'
+  const primaryUrl = process.env.RAPID_API_URL || 'https://deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com/deepseek-r1/chat'
+  const primaryHost = process.env.RAPID_API_HOST || 'deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com'
   const backupUrl = process.env.RAPID_API_BACKUP_URL || 'https://deepseek-r12.p.rapidapi.com/chat/completions'
   const backupHost = process.env.RAPID_API_BACKUP_HOST || 'deepseek-r12.p.rapidapi.com'
   
@@ -69,22 +69,13 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
       const response = await fetch(endpoint.url, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
           'x-rapidapi-key': apiKey,
-          'x-rapidapi-host': endpoint.host,
-          'Authorization': `Bearer ${apiKey}`
+          'x-rapidapi-host': endpoint.host
         },
         signal: controller.signal,
-        body: JSON.stringify({
-          ...(endpoint.model && { model: endpoint.model }),
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an expert social media algorithm analyst and hashtag generator. You understand how different platform algorithms work (TikTok, Instagram, YouTube, Facebook) and what types of content get the most impressions. Generate hashtags that are both relevant to the content AND optimized for the platform\'s algorithm to maximize reach and engagement.'
-            },
-            {
-              role: 'user',
-              content: `Generate ${count} highly effective hashtags for: "${description}" for ${platformName}.
+        body: new URLSearchParams({
+          prompt: `Generate ${count} highly effective hashtags for: "${description}" for ${platformName}.
 
 Requirements:
 - Analyze the content and extract key themes, topics, and entities
@@ -94,9 +85,7 @@ Requirements:
 - Ensure all tags are directly relevant to the described content
 - Return exactly ${count} tags as a JSON array of lowercase strings without # symbols
 - Example format: ["gaming", "callofduty", "warzone", "fps", "competitive"]`
-            }
-          ]
-        })
+        }).toString()
       })
       
       clearTimeout(timeout)
@@ -111,7 +100,7 @@ Requirements:
       }
       
       const data = await response.json()
-      const content = data.choices?.[0]?.message?.content
+      const content = data.response || data.output || data.message || data.text || JSON.stringify(data)
       
       if (!content) {
         throw new Error('No content in RapidAPI response')
