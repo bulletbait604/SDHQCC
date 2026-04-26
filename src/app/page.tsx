@@ -495,12 +495,13 @@ export default function HomePage() {
 
   // Update tag rate limit when verification status changes
   useEffect(() => {
-    if (tagRateLimit.remaining === 5 && isVerified) {
+    const isAdmin = user && ADMIN_USERNAMES.includes(user.username)
+    if ((tagRateLimit.remaining === 5 || tagRateLimit.remaining === 0) && (isVerified || isAdmin)) {
       setTagRateLimit({ remaining: 25, resetTime: null })
-    } else if (tagRateLimit.remaining === 25 && !isVerified) {
+    } else if (tagRateLimit.remaining === 25 && !isVerified && !isAdmin) {
       setTagRateLimit({ remaining: 5, resetTime: null })
     }
-  }, [isVerified])
+  }, [isVerified, user])
 
   const handleLogin = async () => {
     try {
@@ -1441,6 +1442,16 @@ export default function HomePage() {
                     </Button>
                   </div>
 
+                  {/* Tag Generator Status */}
+                  <div className={`text-center mt-4 p-3 rounded-lg ${darkMode ? 'bg-sdhq-dark-700/50' : 'bg-gray-50'}`}>
+                    <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                      <span className="font-semibold">Tag Generator Status:</span> {tagDatabaseStatus.totalTags > 0 ? `${tagDatabaseStatus.totalTags.toLocaleString()} tags available` : 'Loading...'}
+                    </p>
+                    <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      Uses remaining: <span className="font-semibold">{tagRateLimit.remaining === -1 ? 'Unlimited' : tagRateLimit.remaining}</span>
+                    </p>
+                  </div>
+
                   {/* Results Section */}
                   <div className={`p-6 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
                     <h4 className={`font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -1896,12 +1907,6 @@ export default function HomePage() {
                   {tagDatabaseStatus.lastUpdated && (
                     <span className="ml-2">Updated: {new Date(tagDatabaseStatus.lastUpdated).toLocaleDateString()}</span>
                   )}
-                </p>
-              </div>
-              <div className={`flex items-center space-x-2 mt-2 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                <Hash className="w-3 h-3" />
-                <p className="text-xs">
-                  Uses: <span className="font-semibold">{tagRateLimit.remaining === -1 ? 'Unlimited' : `${tagRateLimit.remaining}/${isVerified || isAdmin ? 25 : 5}`}</span>
                 </p>
               </div>
             </div>
