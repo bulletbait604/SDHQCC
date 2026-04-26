@@ -1025,9 +1025,12 @@ export default function HomePage() {
             <TabsContent value="algorithms-explained">
               <div className="space-y-6">
                 <div className={`flex items-center justify-between mb-6`}>
-                  <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                    {t.algorithmsExplained}
-                  </h3>
+                  <div className="flex items-center space-x-3">
+                    <TrendingUp className="w-8 h-8 text-sdhq-cyan-500" />
+                    <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {t.algorithmsExplained}
+                    </h3>
+                  </div>
                   <div className="flex items-center gap-3">
                     {isLoadingAlgorithms && (
                       <span className={`${subtitleClasses} text-sm`}>Loading...</span>
@@ -1300,12 +1303,14 @@ export default function HomePage() {
 
             <TabsContent value="tag-generator-free">
               <div className={`${cardClasses} p-6`}>
-                <div className="text-center mb-8">
-                  <Hash className="w-12 h-12 mx-auto mb-4 text-sdhq-cyan-500" />
-                  <h3 className={`text-2xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorFree}</h3>
-                  <p className={`${textClasses} max-w-2xl mx-auto`}>
-                    Select a platform, describe your content, and generate optimized tags based on platform-specific algorithm insights.
-                  </p>
+                <div className="flex items-center space-x-4 mb-6">
+                  <Hash className="w-10 h-10 text-sdhq-cyan-500" />
+                  <div>
+                    <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorFree}</h3>
+                    <p className={`${textClasses} text-sm`}>
+                      Select a platform, describe your content, and generate optimized tags based on platform-specific algorithm insights.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1525,41 +1530,50 @@ export default function HomePage() {
             </TabsContent>
 
             <TabsContent value="tag-generator-paid">
-              <div className={`text-center py-12 ${cardClasses}`}>
-                <Hash className="w-16 h-16 mx-auto mb-4 text-sdhq-green-500" />
-                <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorPaid}</h3>
-                <p className={`${textClasses} max-w-2xl mx-auto`}>
-                  {t.tagPaidDesc}
-                </p>
-                <p className={`${subtitleClasses} mt-4`}>{t.premiumFeature} - {t.comingSoon}</p>
+              <div className={`py-8 ${cardClasses}`}>
+                <div className="flex items-center space-x-4 mb-6">
+                  <Hash className="w-10 h-10 text-sdhq-green-500" />
+                  <div>
+                    <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorPaid}</h3>
+                    <p className={`${textClasses} text-sm`}>{t.tagPaidDesc}</p>
+                  </div>
+                </div>
+                <p className={`text-center ${subtitleClasses}`}>{t.premiumFeature} - {t.comingSoon}</p>
               </div>
             </TabsContent>
 
             <TabsContent value="clip-analyzer">
-              <div className={`text-center py-12 ${cardClasses}`}>
-                <Video className="w-16 h-16 mx-auto mb-4 text-sdhq-green-500" />
-                <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.clipAnalyzer}</h3>
-                <p className={`${textClasses} max-w-2xl mx-auto`}>
-                  {t.clipAnalyzerDesc}
-                </p>
-                <p className={`${subtitleClasses} mt-4`}>{t.premiumFeature} - {t.comingSoon}</p>
+              <div className={`py-8 ${cardClasses}`}>
+                <div className="flex items-center space-x-4 mb-6">
+                  <Video className="w-10 h-10 text-sdhq-green-500" />
+                  <div>
+                    <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.clipAnalyzer}</h3>
+                    <p className={`${textClasses} text-sm`}>{t.clipAnalyzerDesc}</p>
+                  </div>
+                </div>
+                <p className={`text-center ${subtitleClasses}`}>{t.premiumFeature} - {t.comingSoon}</p>
               </div>
             </TabsContent>
 
             <TabsContent value="content-analyzer">
-              <div className={`text-center py-12 ${cardClasses}`}>
-                <Brain className="w-16 h-16 mx-auto mb-4 text-sdhq-green-500" />
-                <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.contentAnalyzer}</h3>
-                <p className={`${textClasses} max-w-2xl mx-auto`}>
-                  {t.contentAnalyzerDesc}
-                </p>
-                <p className={`${subtitleClasses} mt-4`}>{t.premiumFeature} - {t.comingSoon}</p>
+              <div className={`py-8 ${cardClasses}`}>
+                <div className="flex items-center space-x-4 mb-6">
+                  <Brain className="w-10 h-10 text-sdhq-green-500" />
+                  <div>
+                    <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.contentAnalyzer}</h3>
+                    <p className={`${textClasses} text-sm`}>{t.contentAnalyzerDesc}</p>
+                  </div>
+                </div>
+                <p className={`text-center ${subtitleClasses}`}>{t.premiumFeature} - {t.comingSoon}</p>
               </div>
             </TabsContent>
 
             <TabsContent value="settings">
               <div className={`py-8 ${cardClasses}`}>
-                <h3 className={`text-2xl font-bold mb-6 text-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.settings}</h3>
+                <div className="flex items-center space-x-3 mb-6">
+                  <Settings className="w-8 h-8 text-sdhq-cyan-500" />
+                  <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.settings}</h3>
+                </div>
                 
                 <div className="max-w-2xl mx-auto space-y-6 px-6">
                   {/* Language Setting */}
