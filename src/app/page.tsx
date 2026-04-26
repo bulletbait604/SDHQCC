@@ -788,20 +788,20 @@ export default function HomePage() {
     : 'min-h-screen bg-gradient-to-br from-cyan-50 to-green-50'
   
   const headerClasses = darkMode
-    ? 'bg-sdhq-dark-800/90 backdrop-blur-sm border-b border-sdhq-dark-700'
-    : 'bg-white/80 backdrop-blur-sm border-b border-sdhq-cyan-200'
+    ? 'bg-gradient-to-r from-sdhq-dark-800 via-sdhq-dark-800 to-sdhq-dark-700/90 backdrop-blur-xl border-b border-sdhq-cyan-500/30 shadow-2xl'
+    : 'bg-gradient-to-r from-white via-white to-cyan-50/80 backdrop-blur-xl border-b border-sdhq-cyan-300 shadow-2xl'
   
   const cardClasses = darkMode
     ? 'bg-sdhq-dark-800/90 border border-sdhq-dark-700 rounded-xl shadow-lg'
     : 'bg-white/80 backdrop-blur-sm border border-sdhq-cyan-200 rounded-xl shadow-lg'
   
   const tabListClasses = darkMode
-    ? 'bg-sdhq-dark-800 border border-sdhq-dark-700'
-    : 'bg-white border border-sdhq-cyan-200'
+    ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-700 border-2 border-sdhq-cyan-500/30 shadow-xl'
+    : 'bg-gradient-to-br from-white to-cyan-50 border-2 border-sdhq-cyan-300 shadow-xl'
   
   const tabTriggerActiveClasses = darkMode
-    ? 'bg-sdhq-dark-700 text-sdhq-green-400 shadow-sm'
-    : 'bg-sdhq-cyan-100 text-sdhq-cyan-700 shadow-sm'
+    ? 'bg-gradient-to-r from-sdhq-cyan-500/20 to-sdhq-green-500/20 text-sdhq-cyan-400 border-b-2 border-sdhq-cyan-500 shadow-lg'
+    : 'bg-gradient-to-r from-sdhq-cyan-100 to-sdhq-green-100 text-sdhq-cyan-700 border-b-2 border-sdhq-cyan-500 shadow-lg'
 
   const textClasses = darkMode
     ? 'text-gray-300'
@@ -883,13 +883,17 @@ export default function HomePage() {
             {/* Center - Logo */}
             <div className="flex-1 flex justify-center">
               {user && (
-                <div className="flex items-center space-x-2">
-                  <img 
-                    src="https://iili.io/BebhdFf.png" 
-                    alt="SDHQ Logo"
-                    className="w-8 h-8"
-                  />
-                  <span className={`font-bold text-lg ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                <div className="flex items-center space-x-3 group">
+                  <div className={`relative p-2 rounded-xl transition-all duration-300 group-hover:scale-110 ${
+                    darkMode ? 'bg-sdhq-dark-700 shadow-lg shadow-sdhq-cyan-500/20' : 'bg-white shadow-lg shadow-cyan-500/20'
+                  }`}>
+                    <img 
+                      src="https://iili.io/BebhdFf.png" 
+                      alt="SDHQ Logo"
+                      className="w-12 h-12"
+                    />
+                  </div>
+                  <span className={`font-bold text-2xl bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 bg-clip-text text-transparent transition-all duration-300 group-hover:scale-105`}>
                     SDHQ Creator Corner
                   </span>
                 </div>
