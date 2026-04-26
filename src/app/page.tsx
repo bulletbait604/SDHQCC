@@ -501,8 +501,8 @@ export default function HomePage() {
   const handleLogin = async () => {
     try {
       const { url, codeVerifier } = await createKickAuthURL()
-      sessionStorage.setItem('kickCodeVerifier', codeVerifier)
-      sessionStorage.setItem('kickAuthReturn', window.location.pathname)
+      localStorage.setItem('kickCodeVerifier', codeVerifier)
+      localStorage.setItem('kickAuthReturn', window.location.pathname)
       window.location.href = url
     } catch (error) {
       console.error('Failed to create KICK auth URL:', error)

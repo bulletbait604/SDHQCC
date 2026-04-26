@@ -27,7 +27,7 @@ export default function KickCallbackPage() {
       }
 
       // Get the code verifier stored before redirect
-      const codeVerifier = sessionStorage.getItem('kickCodeVerifier')
+      const codeVerifier = localStorage.getItem('kickCodeVerifier')
 
       if (!codeVerifier) {
         setStatus('error')
@@ -62,7 +62,7 @@ export default function KickCallbackPage() {
         }
 
         // Clean up
-        sessionStorage.removeItem('kickCodeVerifier')
+        localStorage.removeItem('kickCodeVerifier')
 
         setStatus('success')
 
