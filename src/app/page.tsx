@@ -547,10 +547,16 @@ export default function HomePage() {
     const hasUnlimited = isOwner || isLifetime
     if (hasUnlimited) {
       setTagRateLimit({ remaining: -1, resetTime: null })
-    } else if ((tagRateLimit.remaining === 5 || tagRateLimit.remaining === 0) && (isVerified || isAdmin)) {
-      setTagRateLimit({ remaining: 20, resetTime: null })
-    } else if (tagRateLimit.remaining === 20 && !isVerified && !isAdmin) {
-      setTagRateLimit({ remaining: 5, resetTime: null })
+    } else if (isAdmin || isVerified) {
+      // Admins and verified users get 20 uses
+      if (tagRateLimit.remaining !== 20 && tagRateLimit.remaining !== -1) {
+        setTagRateLimit({ remaining: 20, resetTime: null })
+      }
+    } else {
+      // Regular users get 5 uses
+      if (tagRateLimit.remaining !== 5 && tagRateLimit.remaining !== -1) {
+        setTagRateLimit({ remaining: 5, resetTime: null })
+      }
     }
   }, [isVerified, isLifetime, user, isOwner, admins])
 
