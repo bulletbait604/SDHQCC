@@ -62,8 +62,21 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
         model: 'gpt-3.5-turbo',
         messages: [
           {
+            role: 'system',
+            content: 'You are an expert social media algorithm analyst and hashtag generator. You understand how different platform algorithms work (TikTok, Instagram, YouTube, Facebook) and what types of content get the most impressions. Generate hashtags that are both relevant to the content AND optimized for the platform\'s algorithm to maximize reach and engagement.'
+          },
+          {
             role: 'user',
-            content: `Generate ${count} relevant hashtags for: "${description}" for ${platformName}. Return as JSON array like ["tag1", "tag2", "tag3"]`
+            content: `Generate ${count} highly effective hashtags for: "${description}" for ${platformName}.
+
+Requirements:
+- Analyze the content and extract key themes, topics, and entities
+- Consider ${platformName}'s algorithm preferences (what types of tags perform well)
+- Include a mix of specific content tags and broader discovery tags
+- Focus on tags that are currently popular and likely to get impressions
+- Ensure all tags are directly relevant to the described content
+- Return exactly ${count} tags as a JSON array of lowercase strings without # symbols
+- Example format: ["gaming", "callofduty", "warzone", "fps", "competitive"]`
           }
         ]
       })
