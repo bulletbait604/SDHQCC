@@ -61,8 +61,21 @@
         "Grow your TikTok audience with consistent, strategic posting schedules.",
         "Boost engagement with concise, descriptive titles and hashtags."
       ]
+    },
+    "instagram": {
+      "keyChanges": "The Instagram algorithm now prioritizes content from accounts users interact with most, uses AI to predict engagement, and rewards content with high engagement in the first few hours after posting.",
+      "editingTips": "To optimize your posts, edit with the following best practices: use high-quality, visually appealing images; add text overlays with clear, concise captions; and use Instagram's built-in features like Reels and IGTV.",
+      "postingTips": "For optimal posting frequency on Instagram, post at least 3 times per week to maintain user engagement, but avoid overposting as it can lead to fatigue; consider posting during peak hours (12 pm - 4 pm) when user activity is highest.",
+      "titleTips": "Craft effective titles by using: 1) attention-grabbing keywords; 2) short descriptions (under 15 characters); and 3) emojis to add visual appeal and convey emotions.",
+      "descriptionTips": "Write compelling descriptions by: 1) keeping them concise (under 125 characters); 2) including relevant hashtags; and 3) using a clear and direct call-to-action (CTA) to encourage engagement.",
+      "summaries": [
+        "Boost engagement with Reels in the first hour.",
+        "Use Instagram's built-in features for maximum reach.",
+        "Post consistently to avoid losing followers.",
+        "Leverage hashtags for increased discoverability."
+      ]
     }
   },
-  "lastUpdated": "2026-04-26T22:13:18.998Z",
+  "lastUpdated": "2026-04-26T22:13:23.788Z",
   "provider": "groq"
 }
