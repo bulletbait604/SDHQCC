@@ -260,23 +260,27 @@ export async function GET() {
 export async function POST() {
   const apiKey = process.env.GROQ_API_KEY || process.env.HUGGINGFACE_TOKEN || process.env.RAPID_API_UNLIMITED_GPT || process.env.RAPIDAPI || process.env.RAPID_API_KEY
 
-  if (!apiKey) {
-    return NextResponse.json({ error: 'No API key configured. Please set GROQ_API_KEY' }, { status: 500 })
-  }
-  
   console.log('Using Groq for algorithm research')
   
   const data: any = { data: {} }
 
   for (const platform of platforms) {
-    const result = await researchAlgorithm(platform.name, apiKey)
-    if (result) {
-      data.data[platform.id] = result
+    if (apiKey) {
+      const result = await researchAlgorithm(platform.name, apiKey)
+      if (result) {
+        data.data[platform.id] = result
+      } else {
+        // Use placeholder data if API fails
+        data.data[platform.id] = placeholderData[platform.id as keyof typeof placeholderData]
+      }
+    } else {
+      // Use placeholder data if no API key
+      data.data[platform.id] = placeholderData[platform.id as keyof typeof placeholderData]
     }
   }
 
   data.lastUpdated = new Date().toISOString()
-  data.provider = 'groq'
+  data.provider = apiKey ? 'groq' : 'placeholder'
   await writeData(data)
 
   return NextResponse.json(data)
