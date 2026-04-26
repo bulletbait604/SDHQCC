@@ -1892,7 +1892,7 @@ export default function HomePage() {
               <div className={`flex items-center space-x-2 mt-2 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
                 <Hash className="w-3 h-3" />
                 <p className="text-xs">
-                  Uses: <span className="font-semibold">{isVerified || isAdmin ? '25' : '5'}</span>
+                  Uses: <span className="font-semibold">{tagRateLimit.remaining === -1 ? 'Unlimited' : `${tagRateLimit.remaining}/${isVerified || isAdmin ? 25 : 5}`}</span>
                 </p>
               </div>
             </div>
