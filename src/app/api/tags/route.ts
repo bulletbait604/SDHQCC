@@ -70,12 +70,12 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-RapidAPI-Key': apiKey,
-          'X-RapidAPI-Host': endpoint.host
+          'x-rapidapi-key': apiKey,
+          'x-rapidapi-host': endpoint.host
         },
         signal: controller.signal,
         body: JSON.stringify({
-          model: 'deepseek-chat',
+          model: 'deepseek-r1',
           messages: [
             {
               role: 'system',

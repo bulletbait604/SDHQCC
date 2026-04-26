@@ -149,12 +149,12 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-RapidAPI-Key': apiKey,
-          'X-RapidAPI-Host': endpoint.host
+          'x-rapidapi-key': apiKey,
+          'x-rapidapi-host': endpoint.host
         },
         signal: controller.signal,
         body: JSON.stringify({
-          model: 'deepseek-chat',
+          model: 'deepseek-r1',
           messages: [
             { role: 'system', content: 'You are an expert in social media algorithms and content optimization. Provide specific, actionable advice based on current best practices. Return only valid JSON.' },
             { role: 'user', content: prompt }
