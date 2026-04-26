@@ -224,6 +224,11 @@ export default function HomePage() {
   const [showSubscribePopup, setShowSubscribePopup] = useState(false)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   
+  // Activity log filter states
+  const [filterAction, setFilterAction] = useState<string>('all')
+  const [filterUser, setFilterUser] = useState<string>('all')
+  const [filterDate, setFilterDate] = useState<string>('all')
+  
   // Payment states
   const [paypalLoaded, setPaypalLoaded] = useState(false)
   const [subscriptionId, setSubscriptionId] = useState('')
@@ -1840,11 +1845,90 @@ export default function HomePage() {
                         )}
                       </div>
                       
+                      {/* Filters */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                        <div>
+                          <label className={`text-xs font-medium mb-1 block ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Event Type</label>
+                          <select
+                            value={filterAction}
+                            onChange={(e) => setFilterAction(e.target.value)}
+                            className={`w-full px-2 py-1.5 rounded text-sm border ${
+                              darkMode 
+                                ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
+                                : 'bg-white border-gray-300'
+                            }`}
+                          >
+                            <option value="all">All Events</option>
+                            <option value="login">Login</option>
+                            <option value="logout">Logout</option>
+                            <option value="payment_success">Payment Success</option>
+                            <option value="payment_failed">Payment Failed</option>
+                            <option value="verification_attempt">Verification Attempt</option>
+                            <option value="access_expired">Access Expired</option>
+                            <option value="algorithm_refresh">Algorithm Refresh</option>
+                            <option value="tag_generation">Tag Generation</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className={`text-xs font-medium mb-1 block ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>User</label>
+                          <select
+                            value={filterUser}
+                            onChange={(e) => setFilterUser(e.target.value)}
+                            className={`w-full px-2 py-1.5 rounded text-sm border ${
+                              darkMode 
+                                ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
+                                : 'bg-white border-gray-300'
+                            }`}
+                          >
+                            <option value="all">All Users</option>
+                            {Array.from(new Set(activityLog.map(e => e.username))).map(username => (
+                              <option key={username} value={username}>{username}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className={`text-xs font-medium mb-1 block ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Date</label>
+                          <select
+                            value={filterDate}
+                            onChange={(e) => setFilterDate(e.target.value)}
+                            className={`w-full px-2 py-1.5 rounded text-sm border ${
+                              darkMode 
+                                ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
+                                : 'bg-white border-gray-300'
+                            }`}
+                          >
+                            <option value="all">All Time</option>
+                            <option value="today">Today</option>
+                            <option value="week">Last 7 Days</option>
+                            <option value="month">Last 30 Days</option>
+                          </select>
+                        </div>
+                      </div>
+                      
                       <div className={`space-y-2 max-h-80 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
                         {activityLog.length === 0 ? (
                           <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No activity yet.</p>
                         ) : (
-                          activityLog.map((entry: ActivityLogEntry) => {
+                          activityLog
+                            .filter((entry: ActivityLogEntry) => {
+                              if (filterAction !== 'all' && entry.action !== filterAction) return false
+                              if (filterUser !== 'all' && entry.username !== filterUser) return false
+                              if (filterDate !== 'all') {
+                                const entryDate = new Date(entry.timestamp)
+                                const now = new Date()
+                                if (filterDate === 'today') {
+                                  return entryDate.toDateString() === now.toDateString()
+                                } else if (filterDate === 'week') {
+                                  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+                                  return entryDate >= weekAgo
+                                } else if (filterDate === 'month') {
+                                  const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+                                  return entryDate >= monthAgo
+                                }
+                              }
+                              return true
+                            })
+                            .map((entry: ActivityLogEntry) => {
                             const getActionColor = () => {
                               switch (entry.action) {
                                 case 'login': return 'text-blue-500'
@@ -1854,6 +1938,7 @@ export default function HomePage() {
                                 case 'verification_attempt': return 'text-yellow-500'
                                 case 'access_expired': return 'text-orange-500'
                                 case 'algorithm_refresh': return 'text-cyan-400'
+                                case 'tag_generation': return 'text-pink-400'
                                 default: return 'text-sdhq-cyan-500'
                               }
                             }
