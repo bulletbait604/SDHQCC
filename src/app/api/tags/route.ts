@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
 
 // Check rate limit
-function checkRateLimit(identifier: string, maxUses: number = 3, windowMs: number = 24 * 60 * 60 * 1000): { allowed: boolean; remaining: number; resetTime: number } {
+function checkRateLimit(identifier: string, maxUses: number = 5, windowMs: number = 24 * 60 * 60 * 1000): { allowed: boolean; remaining: number; resetTime: number } {
   const now = Date.now()
   const userLimit = rateLimitStore.get(identifier)
   
@@ -158,9 +158,33 @@ Return exactly ${count} tags as a JSON array: ["tag1", "tag2", "tag3", ...]`
 export async function GET() {
   return NextResponse.json({ 
     message: 'Using Groq for tag generation',
-    rateLimit: '3 uses per 24 hours',
-    status: 'active'
+    rateLimit: '5 uses per 24 hours',
+    status: 'active',
+    totalUsers: rateLimitStore.size
   })
+}
+
+// DELETE endpoint - reset rate limit (admin only)
+export async function DELETE(request: Request) {
+  try {
+    const body = await request.json()
+    const { adminKey } = body
+    
+    // Simple admin key check (in production, use proper authentication)
+    if (adminKey !== process.env.ADMIN_RESET_KEY) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    
+    // Clear all rate limits
+    rateLimitStore.clear()
+    
+    return NextResponse.json({ 
+      message: 'Rate limit store cleared successfully',
+      clearedUsers: 0
+    })
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to reset rate limit' }, { status: 500 })
+  }
 }
 
 // POST endpoint - generate tags from description
@@ -176,17 +200,23 @@ export async function POST(request: Request) {
     // Use userId or IP for rate limiting
     const identifier = userId || request.headers.get('x-forwarded-for') || 'anonymous'
     
-    // Check rate limit (3 uses per 24 hours)
-    const rateLimit = checkRateLimit(identifier, 3, 24 * 60 * 60 * 1000)
+    // Admin users bypass rate limit
+    const isAdmin = userId && ['bulletbait604', 'Bulletbait604'].includes(userId)
     
-    if (!rateLimit.allowed) {
-      const resetDate = new Date(rateLimit.resetTime)
-      return NextResponse.json({ 
-        error: 'Rate limit exceeded',
-        message: 'You have used your 3 free tag generations for the day. Please try again later.',
-        resetTime: rateLimit.resetTime,
-        resetDate: resetDate.toISOString()
-      }, { status: 429 })
+    let rateLimitResult = null
+    if (!isAdmin) {
+      // Check rate limit (5 uses per 24 hours)
+      rateLimitResult = checkRateLimit(identifier, 5, 24 * 60 * 60 * 1000)
+      
+      if (!rateLimitResult.allowed) {
+        const resetDate = new Date(rateLimitResult.resetTime)
+        return NextResponse.json({ 
+          error: 'Rate limit exceeded',
+          message: 'You have used your 5 free tag generations for the day. Please try again later.',
+          resetTime: rateLimitResult.resetTime,
+          resetDate: resetDate.toISOString()
+        }, { status: 429 })
+      }
     }
     
     // Generate tags using RapidAPI
@@ -199,10 +229,10 @@ export async function POST(request: Request) {
       tags,
       platform,
       count: tags.length,
-      algorithm: 'rapidapi',
-      rateLimit: {
-        remaining: rateLimit.remaining,
-        resetTime: rateLimit.resetTime
+      algorithm: 'groq',
+      rateLimit: isAdmin ? { remaining: -1, resetTime: null } : {
+        remaining: rateLimitResult!.remaining,
+        resetTime: rateLimitResult!.resetTime
       },
       generatedAt: new Date().toISOString()
     })
