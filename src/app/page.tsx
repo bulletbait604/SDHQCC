@@ -1024,8 +1024,8 @@ export default function HomePage() {
 
             <TabsContent value="algorithms-explained">
               <div className="space-y-6">
-                <div className={`flex items-center justify-between mb-6`}>
-                  <div className="flex items-center space-x-3">
+                <div className={`flex flex-col items-center mb-6`}>
+                  <div className="flex items-center space-x-3 mb-3">
                     <TrendingUp className="w-8 h-8 text-sdhq-cyan-500" />
                     <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                       {t.algorithmsExplained}
@@ -1303,14 +1303,14 @@ export default function HomePage() {
 
             <TabsContent value="tag-generator-free">
               <div className={`${cardClasses} p-6`}>
-                <div className="flex items-center space-x-4 mb-6">
-                  <Hash className="w-10 h-10 text-sdhq-cyan-500" />
-                  <div>
+                <div className="flex flex-col items-center mb-6">
+                  <div className="flex items-center space-x-4 mb-3">
+                    <Hash className="w-10 h-10 text-sdhq-cyan-500" />
                     <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorFree}</h3>
-                    <p className={`${textClasses} text-sm`}>
-                      Select a platform, describe your content, and generate optimized tags based on platform-specific algorithm insights.
-                    </p>
                   </div>
+                  <p className={`${textClasses} text-sm text-center max-w-2xl`}>
+                    Select a platform, describe your content, and generate optimized tags based on platform-specific algorithm insights.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1531,12 +1531,12 @@ export default function HomePage() {
 
             <TabsContent value="tag-generator-paid">
               <div className={`py-8 ${cardClasses}`}>
-                <div className="flex items-center space-x-4 mb-6">
-                  <Hash className="w-10 h-10 text-sdhq-green-500" />
-                  <div>
+                <div className="flex flex-col items-center mb-6">
+                  <div className="flex items-center space-x-4 mb-3">
+                    <Hash className="w-10 h-10 text-sdhq-green-500" />
                     <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorPaid}</h3>
-                    <p className={`${textClasses} text-sm`}>{t.tagPaidDesc}</p>
                   </div>
+                  <p className={`${textClasses} text-sm`}>{t.tagPaidDesc}</p>
                 </div>
                 <p className={`text-center ${subtitleClasses}`}>{t.premiumFeature} - {t.comingSoon}</p>
               </div>
@@ -1544,12 +1544,12 @@ export default function HomePage() {
 
             <TabsContent value="clip-analyzer">
               <div className={`py-8 ${cardClasses}`}>
-                <div className="flex items-center space-x-4 mb-6">
-                  <Video className="w-10 h-10 text-sdhq-green-500" />
-                  <div>
+                <div className="flex flex-col items-center mb-6">
+                  <div className="flex items-center space-x-4 mb-3">
+                    <Video className="w-10 h-10 text-sdhq-green-500" />
                     <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.clipAnalyzer}</h3>
-                    <p className={`${textClasses} text-sm`}>{t.clipAnalyzerDesc}</p>
                   </div>
+                  <p className={`${textClasses} text-sm`}>{t.clipAnalyzerDesc}</p>
                 </div>
                 <p className={`text-center ${subtitleClasses}`}>{t.premiumFeature} - {t.comingSoon}</p>
               </div>
@@ -1557,12 +1557,12 @@ export default function HomePage() {
 
             <TabsContent value="content-analyzer">
               <div className={`py-8 ${cardClasses}`}>
-                <div className="flex items-center space-x-4 mb-6">
-                  <Brain className="w-10 h-10 text-sdhq-green-500" />
-                  <div>
+                <div className="flex flex-col items-center mb-6">
+                  <div className="flex items-center space-x-4 mb-3">
+                    <Brain className="w-10 h-10 text-sdhq-green-500" />
                     <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.contentAnalyzer}</h3>
-                    <p className={`${textClasses} text-sm`}>{t.contentAnalyzerDesc}</p>
                   </div>
+                  <p className={`${textClasses} text-sm`}>{t.contentAnalyzerDesc}</p>
                 </div>
                 <p className={`text-center ${subtitleClasses}`}>{t.premiumFeature} - {t.comingSoon}</p>
               </div>
@@ -1570,9 +1570,11 @@ export default function HomePage() {
 
             <TabsContent value="settings">
               <div className={`py-8 ${cardClasses}`}>
-                <div className="flex items-center space-x-3 mb-6">
-                  <Settings className="w-8 h-8 text-sdhq-cyan-500" />
-                  <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.settings}</h3>
+                <div className="flex flex-col items-center mb-6">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <Settings className="w-8 h-8 text-sdhq-cyan-500" />
+                    <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.settings}</h3>
+                  </div>
                 </div>
                 
                 <div className="max-w-2xl mx-auto space-y-6 px-6">
@@ -1908,15 +1910,6 @@ export default function HomePage() {
               <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 Support: Bulletbait604@gmail.com
               </p>
-              <div className={`flex items-center space-x-2 mt-2 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                <Database className="w-3 h-3" />
-                <p className="text-xs">
-                  Tag Database: <span className="font-semibold">{tagDatabaseStatus.totalTags > 0 ? `${tagDatabaseStatus.totalTags.toLocaleString()} tags` : 'Loading...'}</span>
-                  {tagDatabaseStatus.lastUpdated && (
-                    <span className="ml-2">Updated: {new Date(tagDatabaseStatus.lastUpdated).toLocaleDateString()}</span>
-                  )}
-                </p>
-              </div>
             </div>
             <div className="flex space-x-4">
               <button 
