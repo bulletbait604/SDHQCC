@@ -43,8 +43,8 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
   }
   
   const endpoints = [
-    { url: primaryUrl, host: primaryHost, name: 'primary' },
-    { url: backupUrl, host: backupHost, name: 'backup' }
+    { url: primaryUrl, host: primaryHost, name: 'primary', model: 'deepseek-r1' },
+    { url: backupUrl, host: backupHost, name: 'backup', model: 'llama-3.3-70b' }
   ]
   
   let lastError: Error | null = null
@@ -75,7 +75,7 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
         },
         signal: controller.signal,
         body: JSON.stringify({
-          model: 'deepseek-r1',
+          model: endpoint.model,
           messages: [
             {
               role: 'system',

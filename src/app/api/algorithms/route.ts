@@ -115,8 +115,8 @@ async function researchAlgorithm(platform: string, apiKey: string) {
   const backupHost = process.env.RAPID_API_BACKUP_HOST || 'deepseek-r1-distill-llama-70b.p.rapidapi.com'
   
   const endpoints = [
-    { url: primaryUrl, host: primaryHost, name: 'primary' },
-    { url: backupUrl, host: backupHost, name: 'backup' }
+    { url: primaryUrl, host: primaryHost, name: 'primary', model: 'deepseek-r1' },
+    { url: backupUrl, host: backupHost, name: 'backup', model: 'llama-3.3-70b' }
   ]
   
   let lastError: Error | null = null
@@ -154,7 +154,7 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
         },
         signal: controller.signal,
         body: JSON.stringify({
-          model: 'deepseek-r1',
+          model: endpoint.model,
           messages: [
             { role: 'system', content: 'You are an expert in social media algorithms and content optimization. Provide specific, actionable advice based on current best practices. Return only valid JSON.' },
             { role: 'user', content: prompt }
