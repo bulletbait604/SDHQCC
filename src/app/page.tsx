@@ -1716,7 +1716,13 @@ export default function HomePage() {
                           ? timeUntilReset 
                             ? `Resets in: ${timeUntilReset}`
                             : `Resets at: ${new Date(tagRateLimit.resetTime).toLocaleString()}`
-                          : `${isVerified || isAdmin ? 20 : 5} uses per 24 hours`
+                          : tagRateLimit.remaining === -1
+                            ? 'Unlimited uses'
+                            : (() => {
+                                const maxUses = isVerified || isAdmin ? 20 : 5
+                                const usesMade = maxUses - tagRateLimit.remaining
+                                return `${usesMade} / ${maxUses} uses / 24 hours`
+                              })()
                         }
                       </p>
                     </div>
