@@ -1134,87 +1134,148 @@ export default function HomePage() {
 
             {/* Algorithm Detail Popup */}
             {expandedCard && (
-              <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
                 {(() => {
                   const platform = platforms.find(p => p.id === expandedCard)
                   if (!platform) return null
                   return (
-                    <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 shadow-2xl`}>
-                      <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center space-x-4">
-                          <img
-                            src={platform.image}
-                            alt={platform.name}
-                            className="w-12 h-12 rounded-lg"
-                          />
-                          <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                            {platform.name} Algorithm
-                          </h3>
-                        </div>
-                        <button 
-                          onClick={() => setExpandedCard(null)}
-                          className={`p-2 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'text-gray-600'}`}
-                        >
-                          <X className="w-6 h-6" />
-                        </button>
-                      </div>
+                    <div className={`relative overflow-hidden rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200 ${
+                      darkMode 
+                        ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/30' 
+                        : 'bg-gradient-to-br from-white to-gray-50 border border-sdhq-cyan-200'
+                    }`}>
+                      {/* Platform-specific gradient header */}
+                      <div className={`h-2 bg-gradient-to-r ${
+                        platform.id === 'tiktok' ? 'from-pink-500 via-purple-500 to-cyan-500' :
+                        platform.id === 'instagram' ? 'from-purple-500 via-pink-500 to-orange-500' :
+                        platform.id === 'youtube-shorts' ? 'from-red-500 via-red-600 to-red-700' :
+                        platform.id === 'youtube-long' ? 'from-red-600 via-red-700 to-red-800' :
+                        'from-blue-500 via-blue-600 to-blue-700'
+                      }`}></div>
                       
-                      <div className="space-y-6">
-                        {platform.data ? (
-                          <>
-                            <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-50'}`}>
-                              <h4 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-3 flex items-center`}>
-                                <TrendingUp className="w-4 h-4 mr-2" />
-                                Key Changes
-                              </h4>
-                              <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.keyChanges}</p>
+                      <div className="p-6">
+                        <div className="flex items-center justify-between mb-8">
+                          <div className="flex items-center space-x-4">
+                            <div className={`relative p-2 rounded-xl ${
+                              darkMode ? 'bg-sdhq-dark-700' : 'bg-white'
+                            } shadow-lg`}>
+                              <img
+                                src={platform.image}
+                                alt={platform.name}
+                                className="w-16 h-16 rounded-lg object-cover"
+                              />
                             </div>
-                            
-                            <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-50'}`}>
-                              <h4 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-3 flex items-center`}>
-                                <Video className="w-4 h-4 mr-2" />
-                                Editing Tips
-                              </h4>
-                              <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.editingTips}</p>
+                            <div>
+                              <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                {platform.name}
+                              </h3>
+                              <p className={`text-sm ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                Algorithm Insights
+                              </p>
                             </div>
-                            
-                            <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-50'}`}>
-                              <h4 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-3 flex items-center`}>
-                                <Globe className="w-4 h-4 mr-2" />
-                                Posting Tips
-                              </h4>
-                              <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.postingTips}</p>
-                            </div>
-                            
-                            <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-50'}`}>
-                              <h4 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-3 flex items-center`}>
-                                <Hash className="w-4 h-4 mr-2" />
-                                Title Tips
-                              </h4>
-                              <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.titleTips}</p>
-                            </div>
-                            
-                            <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-50'}`}>
-                              <h4 className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} mb-3 flex items-center`}>
-                                <Brain className="w-4 h-4 mr-2" />
-                                Description Tips
-                              </h4>
-                              <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.descriptionTips}</p>
-                            </div>
-                          </>
-                        ) : (
-                          <p className={`${subtitleClasses} text-center py-8`}>Loading algorithm data...</p>
-                        )}
-                        
-                        <div className="pt-4 border-t border-gray-200 dark:border-sdhq-dark-700">
-                          <Button
-                            variant="outline"
-                            size="lg"
+                          </div>
+                          <button 
                             onClick={() => setExpandedCard(null)}
-                            className="w-full"
+                            className={`p-3 rounded-full transition-all duration-300 hover:scale-110 ${
+                              darkMode 
+                                ? 'bg-sdhq-dark-700 hover:bg-sdhq-dark-600 text-white' 
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                            }`}
                           >
-                            Close
-                          </Button>
+                            <X className="w-6 h-6" />
+                          </button>
+                        </div>
+                        
+                        <div className="space-y-5">
+                          {platform.data ? (
+                            <>
+                              <div className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
+                                darkMode 
+                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
+                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
+                              }`}>
+                                <h4 className={`font-semibold mb-3 flex items-center ${
+                                  darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'
+                                }`}>
+                                  <TrendingUp className="w-5 h-5 mr-2" />
+                                  Key Changes
+                                </h4>
+                                <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.keyChanges}</p>
+                              </div>
+                              
+                              <div className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
+                                darkMode 
+                                  ? 'bg-sdhq-dark-700/50 border-sdhq-green-500/20 hover:border-sdhq-green-500/40' 
+                                  : 'bg-gradient-to-br from-sdhq-green-50 to-white border-sdhq-green-200 hover:border-sdhq-green-400'
+                              }`}>
+                                <h4 className={`font-semibold mb-3 flex items-center ${
+                                  darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'
+                                }`}>
+                                  <Video className="w-5 h-5 mr-2" />
+                                  Editing Tips
+                                </h4>
+                                <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.editingTips}</p>
+                              </div>
+                              
+                              <div className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
+                                darkMode 
+                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
+                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
+                              }`}>
+                                <h4 className={`font-semibold mb-3 flex items-center ${
+                                  darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'
+                                }`}>
+                                  <Globe className="w-5 h-5 mr-2" />
+                                  Posting Tips
+                                </h4>
+                                <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.postingTips}</p>
+                              </div>
+                              
+                              <div className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
+                                darkMode 
+                                  ? 'bg-sdhq-dark-700/50 border-sdhq-green-500/20 hover:border-sdhq-green-500/40' 
+                                  : 'bg-gradient-to-br from-sdhq-green-50 to-white border-sdhq-green-200 hover:border-sdhq-green-400'
+                              }`}>
+                                <h4 className={`font-semibold mb-3 flex items-center ${
+                                  darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'
+                                }`}>
+                                  <Hash className="w-5 h-5 mr-2" />
+                                  Title Tips
+                                </h4>
+                                <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.titleTips}</p>
+                              </div>
+                              
+                              <div className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
+                                darkMode 
+                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
+                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
+                              }`}>
+                                <h4 className={`font-semibold mb-3 flex items-center ${
+                                  darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'
+                                }`}>
+                                  <Brain className="w-5 h-5 mr-2" />
+                                  Description Tips
+                                </h4>
+                                <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.descriptionTips}</p>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-12 space-y-3">
+                              <div className="w-10 h-10 border-3 border-sdhq-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+                              <p className={`${subtitleClasses} text-sm`}>Loading algorithm data...</p>
+                            </div>
+                          )}
+                          
+                          <div className="pt-6 border-t border-gray-200 dark:border-sdhq-dark-700">
+                            <Button
+                              variant="outline"
+                              size="lg"
+                              onClick={() => setExpandedCard(null)}
+                              className="w-full bg-gradient-to-r from-sdhq-cyan-500/10 to-sdhq-green-500/10 hover:from-sdhq-cyan-500/20 hover:to-sdhq-green-500/20 border-sdhq-cyan-500/50 hover:border-sdhq-cyan-500 transition-all duration-300"
+                            >
+                              Close
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
