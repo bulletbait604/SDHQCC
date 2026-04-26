@@ -109,8 +109,8 @@ async function writeData(data: any) {
 }
 
 async function researchAlgorithm(platform: string, apiKey: string) {
-  const apiUrl = process.env.RAPID_API_URL || 'https://openai-chatgpt-gpt-api.p.rapidapi.com/v1/chat/completions'
-  const apiHost = process.env.RAPID_API_HOST || 'openai-chatgpt-gpt-api.p.rapidapi.com'
+  const apiUrl = process.env.RAPID_API_URL || 'https://deepseek-r12.p.rapidapi.com/v1/chat/completions'
+  const apiHost = process.env.RAPID_API_HOST || 'deepseek-r12.p.rapidapi.com'
   
   const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
 {
@@ -142,7 +142,7 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'deepseek-chat',
         messages: [
           { role: 'system', content: 'You are an expert in social media algorithms and content optimization. Provide specific, actionable advice based on current best practices. Return only valid JSON.' },
           { role: 'user', content: prompt }

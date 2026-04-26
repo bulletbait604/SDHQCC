@@ -28,8 +28,8 @@ function checkRateLimit(identifier: string, maxUses: number = 3, windowMs: numbe
 // Generate tags using RapidAPI Unlimited GPT
 async function generateTagsWithRapidAPI(description: string, platform: string, count: number): Promise<string[]> {
   const apiKey = process.env.RAPIDAPI || process.env.RAPID_API_KEY || process.env.RAPID_API_UNLIMITED_GPT
-  const apiUrl = process.env.RAPID_API_URL || 'https://openai-chatgpt-gpt-api.p.rapidapi.com/v1/chat/completions'
-  const apiHost = process.env.RAPID_API_HOST || 'openai-chatgpt-gpt-api.p.rapidapi.com'
+  const apiUrl = process.env.RAPID_API_URL || 'https://deepseek-r12.p.rapidapi.com/v1/chat/completions'
+  const apiHost = process.env.RAPID_API_HOST || 'deepseek-r12.p.rapidapi.com'
   
   console.log('API Key present:', !!apiKey)
   console.log('API Key length:', apiKey?.length)
@@ -64,7 +64,7 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'deepseek-chat',
         messages: [
           {
             role: 'system',
