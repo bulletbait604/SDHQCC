@@ -233,6 +233,7 @@ export default function HomePage() {
   const [paypalLoaded, setPaypalLoaded] = useState(false)
   const [subscriptionId, setSubscriptionId] = useState('')
   const [paypalEmail, setPaypalEmail] = useState('')
+  const [showLifetimePopup, setShowLifetimePopup] = useState(false)
   
   // Verification states
   const [isVerified, setIsVerified] = useState<boolean>(false)
@@ -594,6 +595,51 @@ export default function HomePage() {
       }
     }
   }, [showSubscribePopup, user, paypalLoaded, paypalEmail])
+
+  // Load PayPal SDK for lifetime membership
+  useEffect(() => {
+    if (showLifetimePopup && !paypalLoaded && user) {
+      const script = document.createElement('script')
+      script.src = 'https://www.paypal.com/sdk/js?client-id=AcreigdRauOMN5Md7nV3SIJbF3ykTEMBLUTMSLEzCiaEgNIIsW45ETtIP6JBeRzPigk6IIHkTkDWuMhR&currency=CAD'
+      script.setAttribute('data-sdk-integration-source', 'button-factory')
+      script.onload = () => {
+        // Render PayPal button after SDK loads
+        if (window.paypal && user) {
+          window.paypal.Buttons({
+            style: {
+              shape: 'pill',
+              color: 'blue',
+              layout: 'horizontal',
+              label: 'pay'
+            },
+            createOrder: function(data: any, actions: any) {
+              return actions.order.create({
+                purchase_units: [{
+                  amount: {
+                    value: '54.99',
+                    currency_code: 'CAD'
+                  },
+                  description: 'SDHQ Creator Corner Lifetime Membership'
+                }],
+                custom_id: `${user.username}|${paypalEmail}|lifetime`
+              })
+            },
+            onApprove: function(data: any, actions: any) {
+              console.log('Payment approved:', data.orderID)
+              setSubscriptionId(data.orderID)
+              alert(`Payment successful! Order ID: ${data.orderID}\n\nPlease verify your purchase below.`)
+            }
+          }).render('#paypal-lifetime-button-container')
+          setPaypalLoaded(true)
+        }
+      }
+      document.body.appendChild(script)
+
+      return () => {
+        document.body.removeChild(script)
+      }
+    }
+  }, [showLifetimePopup, user, paypalLoaded, paypalEmail])
 
   const handleClearActivityLog = () => {
     setActivityLog([])
@@ -1638,6 +1684,24 @@ export default function HomePage() {
                     </div>
                   </div>
 
+                  {/* Lifetime Membership - All Users */}
+                  <div className={`p-6 rounded-lg border-2 ${darkMode ? 'bg-gradient-to-br from-sdhq-dark-700 to-sdhq-dark-800 border-sdhq-cyan-500/30' : 'bg-gradient-to-br from-cyan-50 to-green-50 border-sdhq-cyan-300'}`}>
+                    <div className="flex items-center space-x-3 mb-4">
+                      <Crown className="w-6 h-6 text-sdhq-cyan-500" />
+                      <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Lifetime Membership</h4>
+                    </div>
+                    <p className={`text-sm mb-4 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      Want a lifetime membership? $54.99 CAD for lifetime use of all current and upcoming features.
+                    </p>
+                    <Button
+                      onClick={() => setShowLifetimePopup(true)}
+                      className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold"
+                    >
+                      <Crown className="w-4 h-4 mr-2" />
+                      Get Lifetime Access
+                    </Button>
+                  </div>
+
                   {/* Subscribers Management - Admin Only */}
                   {isAdmin && (
                     <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
@@ -2326,6 +2390,90 @@ export default function HomePage() {
                 <Button
                   variant="outline"
                   onClick={() => setShowSubscribePopup(false)}
+                  className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
+                >
+                  Close
+                </Button>
+              </div>
+              
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lifetime Membership Popup */}
+      {showLifetimePopup && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-md w-full p-6 shadow-2xl`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Lifetime Membership</h3>
+              <button 
+                onClick={() => setShowLifetimePopup(false)}
+                className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'text-gray-600'}`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                Get lifetime access to all current and upcoming features for a one-time payment of $54.99 CAD.
+              </p>
+              
+              <div className={`p-4 rounded-lg border-2 border-dashed ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
+                <p className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <strong>Step 1:</strong> Enter your PayPal email address (the email you used to create your PayPal account):
+                </p>
+                <input
+                  type="email"
+                  value={paypalEmail}
+                  onChange={(e) => setPaypalEmail(e.target.value)}
+                  placeholder="your-email@paypal.com"
+                  className={`w-full px-3 py-2 rounded border text-sm ${
+                    darkMode 
+                      ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
+                      : 'bg-white border-gray-300'
+                  }`}
+                />
+                <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  This will be used to verify your lifetime purchase.
+                </p>
+              </div>
+              
+              <div className={`p-4 rounded-lg border ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
+                <p className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PayPal One-Time Payment:</p>
+                <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  $54.99 CAD - Lifetime Access
+                </p>
+              </div>
+              
+              <div id="paypal-lifetime-button-container" className="w-full"></div>
+              
+              {subscriptionId && (
+                <div className={`p-3 rounded-lg border ${darkMode ? 'border-sdhq-green-500 bg-sdhq-green-500/10' : 'border-sdhq-green-500 bg-sdhq-green-50'}`}>
+                  <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    <strong className={darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}>Payment completed!</strong> Transaction ID: {subscriptionId}
+                  </p>
+                  <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Click below to verify your lifetime purchase.
+                  </p>
+                </div>
+              )}
+              
+              <div className="flex space-x-2">
+                <Button
+                  onClick={() => {
+                    setShowLifetimePopup(false)
+                    checkPaymentStatus()
+                  }}
+                  className="flex-1 bg-sdhq-green-600 hover:bg-sdhq-green-700 text-white"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  I&apos;ve Paid - Verify
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowLifetimePopup(false)}
                   className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
                 >
                   Close
