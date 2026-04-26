@@ -109,8 +109,8 @@ async function writeData(data: any) {
 }
 
 async function researchAlgorithm(platform: string, apiKey: string) {
-  const apiUrl = process.env.RAPID_API_URL || 'https://unlimited-gpt-4.p.rapidapi.com/chat/completions'
-  const apiHost = process.env.RAPID_API_HOST || 'unlimited-gpt-4.p.rapidapi.com'
+  const apiUrl = process.env.RAPID_API_URL || 'https://openai-chatgpt-gpt-api.p.rapidapi.com/v1/chat/completions'
+  const apiHost = process.env.RAPID_API_HOST || 'openai-chatgpt-gpt-api.p.rapidapi.com'
   
   const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
 {
@@ -137,8 +137,8 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'x-api-host': apiHost
+        'x-rapidapi-key': apiKey,
+        'x-rapidapi-host': apiHost
       },
       signal: controller.signal,
       body: JSON.stringify({
