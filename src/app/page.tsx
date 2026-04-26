@@ -936,6 +936,10 @@ export default function HomePage() {
     ? 'bg-gradient-to-r from-sdhq-cyan-500/20 to-sdhq-green-500/20 text-sdhq-cyan-400 border-b-2 border-sdhq-cyan-500 shadow-lg'
     : 'bg-gradient-to-r from-sdhq-cyan-100 to-sdhq-green-100 text-sdhq-cyan-700 border-b-2 border-sdhq-cyan-500 shadow-lg'
 
+  const tabTriggerInactiveClasses = darkMode
+    ? 'text-gray-400 hover:text-sdhq-cyan-300 hover:bg-sdhq-dark-700/50 border-r border-sdhq-cyan-500/20 shadow-sm'
+    : 'text-gray-600 hover:text-sdhq-cyan-600 hover:bg-cyan-50/50 border-r border-sdhq-cyan-300 shadow-sm'
+
   const textClasses = darkMode
     ? 'text-gray-300'
     : 'text-gray-600'
@@ -1123,42 +1127,42 @@ export default function HomePage() {
             <TabsList className={`grid w-full grid-cols-6 ${tabListClasses}`}>
               <TabsTrigger 
                 value="algorithms-explained" 
-                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses}`}
+                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
               >
                 <TrendingUp className="w-4 h-4" />
                 <span className="hidden sm:inline">{t.algorithmsExplained}</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="tag-generator-free"
-                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses}`}
+                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
               >
                 <Hash className="w-4 h-4" />
                 <span className="hidden sm:inline">{t.tagGeneratorFree}</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="tag-generator-paid"
-                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses}`}
+                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
               >
                 <Hash className="w-4 h-4" />
                 <span className="hidden sm:inline">{t.tagGeneratorPaid}</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="clip-analyzer"
-                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses}`}
+                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
               >
                 <Video className="w-4 h-4" />
                 <span className="hidden sm:inline">{t.clipAnalyzer}</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="content-analyzer"
-                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses}`}
+                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
               >
                 <Brain className="w-4 h-4" />
                 <span className="hidden sm:inline">{t.contentAnalyzer}</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="settings"
-                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses}`}
+                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
               >
                 <Settings className="w-4 h-4" />
                 <span className="hidden sm:inline">{t.settings}</span>
