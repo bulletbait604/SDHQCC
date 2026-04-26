@@ -109,7 +109,7 @@ async function writeData(data: any) {
 }
 
 async function researchAlgorithm(platform: string, apiKey: string) {
-  const modelName = process.env.HUGGINGFACE_MODEL || 'meta-llama/Llama-3.1-8B-Instruct'
+  const modelName = process.env.HUGGINGFACE_MODEL || 'mistralai/Mistral-7B-Instruct-v0.3'
   const apiUrl = `https://api-inference.huggingface.co/models/${modelName}`
   
   try {
