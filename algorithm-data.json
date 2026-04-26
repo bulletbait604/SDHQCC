@@ -1,5 +1,40 @@
 {
-  "data": {},
-  "lastUpdated": "2026-04-26T21:24:11.797Z",
+  "data": {
+    "facebook-reels": {
+      "keyChanges": "Facebook Reels algorithm now prioritizes content that drives engagement, encourages longer watch times, and rewards creators for consistency and authenticity. The algorithm also considers user feedback, such as likes, comments, and shares, to determine the relevance and quality of content.",
+      "editingTips": [
+        "Use high-quality audio and visuals to grab attention",
+        "Keep Reels concise, ideally between 15-60 seconds",
+        "Add text overlays to provide context and clarity",
+        "Incorporate music that resonates with your audience",
+        "Utilize Facebook's built-in editing features, such as transitions and effects"
+      ],
+      "postingTips": [
+        "Post Reels during peak hours (3-5 pm EST) for maximum visibility",
+        "Aim for 3-5 Reels per week to maintain audience engagement",
+        "Space out Reels to avoid overwhelming your audience",
+        "Experiment with different posting schedules to find what works best for your audience"
+      ],
+      "titleTips": [
+        "Use attention-grabbing, descriptive titles that highlight the main content",
+        "Keep titles concise, ideally 6-10 words",
+        "Include relevant keywords to improve discoverability",
+        "Ask questions or make statements that encourage engagement"
+      ],
+      "descriptionTips": [
+        "Provide context and additional information about the content",
+        "Use a clear and concise writing style",
+        "Include relevant hashtags to expand reach",
+        "End with a call-to-action or a question to encourage engagement"
+      ],
+      "summaries": [
+        "Boost Engagement with Authentic, Consistent Content",
+        "Leverage Music and SoundEffects for Emotional Connection",
+        "Get Ahead with Peak Hour Posting and Consistency",
+        "Unlock Growth with Attention-Grabbing Titles and Captions"
+      ]
+    }
+  },
+  "lastUpdated": "2026-04-26T21:25:54.146Z",
   "provider": "groq"
 }
