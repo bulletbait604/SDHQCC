@@ -136,7 +136,8 @@ Requirements:
 export async function GET() {
   return NextResponse.json({ 
     message: 'Using RapidAPI for tag generation',
-    rateLimit: '3 uses per 24 hours'
+    rateLimit: '3 uses per 24 hours',
+    status: 'active'
   })
 }
 
