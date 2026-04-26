@@ -69,20 +69,33 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
         messages: [
           {
             role: 'system',
-            content: 'You are an expert social media algorithm analyst and hashtag generator. Generate hashtags that are both relevant to the content AND optimized for the platform\'s algorithm to maximize reach and engagement. Return only valid JSON arrays of lowercase strings without # symbols.'
+            content: `You are an expert social media algorithm analyst and hashtag generator. You understand how different platform algorithms work and what types of hashtags perform best on each platform. Generate hashtags that are both relevant to the content AND optimized for the specific platform's algorithm to maximize reach and engagement. Return only valid JSON arrays of lowercase strings without # symbols.
+
+Platform-specific guidance:
+- TikTok: Use trending sounds, viral challenges, and niche-specific tags. Mix of broad discovery tags and specific content tags. 3-5 tags optimal.
+- Instagram: Use a mix of niche, community, and trending tags. Include location tags when relevant. 10-30 tags optimal.
+- YouTube Shorts: Use trending topics, viral content themes, and SEO-friendly tags. Mix of broad and specific tags.
+- YouTube Long-form: Use SEO-focused tags, topic-specific, and search-friendly keywords.
+- Facebook Reels: Use trending topics, community-focused tags, and viral content themes.`
           },
           {
             role: 'user',
-            content: `Generate ${count} highly effective hashtags for: "${description}" for ${platformName}.
+            content: `Generate ${count} highly effective hashtags for: "${description}" specifically for ${platformName}.
+
+IMPORTANT: The platform is ${platformName}. Tailor the hashtags specifically for this platform's algorithm and audience behavior.
 
 Requirements:
 - Analyze the content and extract key themes, topics, and entities
-- Consider ${platformName}'s algorithm preferences (what types of tags perform well)
-- Include a mix of specific content tags and broader discovery tags
-- Focus on tags that are currently popular and likely to get impressions
+- Consider ${platformName}'s algorithm preferences and what types of tags perform best on this specific platform
+- Include a mix of specific content tags and broader discovery tags appropriate for ${platformName}
+- Focus on tags that are currently popular and likely to get impressions on ${platformName}
 - Ensure all tags are directly relevant to the described content
 - Return exactly ${count} tags as a JSON array of lowercase strings without # symbols
-- Example format: ["gaming", "callofduty", "warzone", "fps", "competitive"]`
+- Example format: ["gaming", "callofduty", "warzone", "fps", "competitive"]
+
+Platform: ${platformName}
+Content: "${description}"
+Number of tags: ${count}`
           }
         ],
         temperature: 0.7,
