@@ -1889,6 +1889,12 @@ export default function HomePage() {
                   )}
                 </p>
               </div>
+              <div className={`flex items-center space-x-2 mt-2 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                <Hash className="w-3 h-3" />
+                <p className="text-xs">
+                  Uses: <span className="font-semibold">{isVerified || isAdmin ? '25' : '5'}</span>
+                </p>
+              </div>
             </div>
             <div className="flex space-x-4">
               <button 
@@ -1975,7 +1981,7 @@ export default function HomePage() {
                       Reset Tag Usages
                     </Button>
                     <p className={`text-sm mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Reset all user tag generator usages (5/day limit)
+                      Reset all user tag generator usages (Free: 5/day, Subscribers: 25/day)
                     </p>
                   </div>
 
