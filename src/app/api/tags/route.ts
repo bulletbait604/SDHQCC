@@ -51,8 +51,8 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-rapidapi-key': apiKey,
-        'x-rapidapi-host': 'unlimited-gpt-4.p.rapidapi.com'
+        'X-RapidAPI-Key': apiKey,
+        'X-RapidAPI-Host': 'unlimited-gpt-4.p.rapidapi.com'
       },
       signal: controller.signal,
       body: JSON.stringify({
