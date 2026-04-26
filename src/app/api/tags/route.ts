@@ -44,6 +44,9 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
     
     const platformName = platformContext[platform.toLowerCase()] || platform
     
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+    
     const response = await fetch('https://unlimited-gpt-4.p.rapidapi.com/chat/completions', {
       method: 'POST',
       headers: {
@@ -51,26 +54,27 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
         'x-rapidapi-key': apiKey,
         'x-rapidapi-host': 'unlimited-gpt-4.p.rapidapi.com'
       },
+      signal: controller.signal,
       body: JSON.stringify({
         model: 'gpt-3.5-turbo',
         messages: [
           {
-            role: 'system',
-            content: 'You are a hashtag generator. Return only a JSON array of lowercase hashtag strings without the # symbol.'
-          },
-          {
             role: 'user',
             content: `Generate ${count} relevant hashtags for: "${description}" for ${platformName}. Return as JSON array like ["tag1", "tag2", "tag3"]`
           }
-        ],
-        temperature: 0.7,
-        max_tokens: 300
+        ]
       })
     })
+    
+    clearTimeout(timeout)
     
     if (!response.ok) {
       const errorText = await response.text()
       throw new Error(`RapidAPI error: ${response.status} - ${errorText}`)
+    }
+    
+    if (response.status === 204) {
+      throw new Error('RapidAPI returned no content')
     }
     
     const data = await response.json()
