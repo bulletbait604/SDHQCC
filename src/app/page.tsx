@@ -260,6 +260,7 @@ export default function HomePage() {
   const [isGeneratingTags, setIsGeneratingTags] = useState<boolean>(false)
   const [tagDatabaseStatus, setTagDatabaseStatus] = useState<{lastUpdated: string | null, totalTags: number}>({lastUpdated: null, totalTags: 0})
   const [tagRateLimit, setTagRateLimit] = useState<{remaining: number, resetTime: number | null}>({remaining: 5, resetTime: null})
+  const [timeUntilReset, setTimeUntilReset] = useState<string>('')
   const [platforms, setPlatforms] = useState<Platform[]>([
     {
       id: 'tiktok',
@@ -552,6 +553,43 @@ export default function HomePage() {
       setTagRateLimit({ remaining: 5, resetTime: null })
     }
   }, [isVerified, isLifetime, user, isOwner, admins])
+
+  // Update countdown timer for rate limit reset
+  useEffect(() => {
+    if (tagRateLimit.resetTime) {
+      const updateCountdown = () => {
+        const now = Date.now()
+        const resetTime = tagRateLimit.resetTime
+        if (!resetTime) return
+        
+        const diff = resetTime - now
+
+        if (diff <= 0) {
+          setTimeUntilReset('Reseting now...')
+          return
+        }
+
+        const hours = Math.floor(diff / (1000 * 60 * 60))
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+
+        if (hours > 0) {
+          setTimeUntilReset(`${hours}h ${minutes}m ${seconds}s`)
+        } else if (minutes > 0) {
+          setTimeUntilReset(`${minutes}m ${seconds}s`)
+        } else {
+          setTimeUntilReset(`${seconds}s`)
+        }
+      }
+
+      updateCountdown()
+      const interval = setInterval(updateCountdown, 1000)
+
+      return () => clearInterval(interval)
+    } else {
+      setTimeUntilReset('')
+    }
+  }, [tagRateLimit.resetTime])
 
   const handleLogin = async () => {
     try {
@@ -1560,7 +1598,13 @@ export default function HomePage() {
                               setTagRateLimit({ remaining: 0, resetTime: errorData.resetTime })
                               const resetDate = new Date(errorData.resetTime)
                               const maxUses = isVerified ? 20 : 5
-                              alert(`Rate limit exceeded. You have used your ${maxUses} tag generations for the day.\n\nResets at: ${resetDate.toLocaleString()}`)
+                              const diff = resetDate.getTime() - Date.now()
+                              const hours = Math.floor(diff / (1000 * 60 * 60))
+                              const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+                              const timeString = hours > 0 
+                                ? `${hours} hour${hours > 1 ? 's' : ''} and ${minutes} minute${minutes > 1 ? 's' : ''}`
+                                : `${minutes} minute${minutes > 1 ? 's' : ''}`
+                              alert(`Rate limit exceeded. You have used your ${maxUses} tag generations for the day.\n\nYou can generate more tags in ${timeString}.\n\nResets at: ${resetDate.toLocaleString()}`)
                             } else {
                               const errorMsg = errorData.details || errorData.error || `API error: ${res.status}`
                               throw new Error(errorMsg)
@@ -1669,7 +1713,9 @@ export default function HomePage() {
                       </p>
                       <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         {tagRateLimit.resetTime 
-                          ? `Resets at: ${new Date(tagRateLimit.resetTime).toLocaleString()}`
+                          ? timeUntilReset 
+                            ? `Resets in: ${timeUntilReset}`
+                            : `Resets at: ${new Date(tagRateLimit.resetTime).toLocaleString()}`
                           : `${isVerified || isAdmin ? 20 : 5} uses per 24 hours`
                         }
                       </p>
