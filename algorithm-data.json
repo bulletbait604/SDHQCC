@@ -1,40 +1,75 @@
 {
   "data": {
-    "facebook-reels": {
-      "keyChanges": "Facebook Reels algorithm now prioritizes content that drives engagement, encourages longer watch times, and rewards creators for consistency and authenticity. The algorithm also considers user feedback, such as likes, comments, and shares, to determine the relevance and quality of content.",
+    "tiktok": {
+      "keyChanges": "TikTok's algorithm now prioritizes authenticity and creativity over engagement metrics, giving more weight to videos that spark genuine conversations and interactions. It also looks at the overall health of your account, including factors like comment sections and user feedback.",
       "editingTips": [
-        "Use high-quality audio and visuals to grab attention",
-        "Keep Reels concise, ideally between 15-60 seconds",
-        "Add text overlays to provide context and clarity",
-        "Incorporate music that resonates with your audience",
-        "Utilize Facebook's built-in editing features, such as transitions and effects"
+        "Keep your videos concise and under 3 minutes",
+        "Use catchy, high-energy background music",
+        "Experiment with vertical video formats for optimal viewing",
+        "Incorporate text overlays and captions for accessibility",
+        "Utilize TikTok's exclusive effects and filters to elevate your content"
       ],
       "postingTips": [
-        "Post Reels during peak hours (3-5 pm EST) for maximum visibility",
-        "Aim for 3-5 Reels per week to maintain audience engagement",
-        "Space out Reels to avoid overwhelming your audience",
-        "Experiment with different posting schedules to find what works best for your audience"
+        "Post consistently to maintain a consistent aesthetic and keep your audience engaged",
+        "Experiment with different posting times to reach a broader audience",
+        "Post during peak hours (3-5 pm EST) for optimal engagement",
+        "Space out your posts to avoid overwhelming your audience",
+        "Use TikTok's built-in scheduling tool to plan and schedule your content in advance"
       ],
       "titleTips": [
-        "Use attention-grabbing, descriptive titles that highlight the main content",
-        "Keep titles concise, ideally 6-10 words",
-        "Include relevant keywords to improve discoverability",
-        "Ask questions or make statements that encourage engagement"
+        "Craft attention-grabbing titles that showcase your unique perspective (max 5 words)",
+        "Use action verbs like 'Get ready for' or 'Experience the'",
+        "Ask questions or make a bold statement to encourage engagement",
+        "Include relevant hashtags to increase discoverability",
+        "Keep it concise and clear, avoiding unnecessary words"
       ],
       "descriptionTips": [
-        "Provide context and additional information about the content",
-        "Use a clear and concise writing style",
-        "Include relevant hashtags to expand reach",
-        "End with a call-to-action or a question to encourage engagement"
+        "Use a conversational tone to connect with your audience",
+        "Include a clear CTA (call-to-action) to drive engagement",
+        "Keep your descriptions concise and scannable",
+        "Use relevant keywords to improve discoverability",
+        "Add a touch of personality and humor to make your content stand out"
       ],
       "summaries": [
-        "Boost Engagement with Authentic, Consistent Content",
-        "Leverage Music and SoundEffects for Emotional Connection",
-        "Get Ahead with Peak Hour Posting and Consistency",
-        "Unlock Growth with Attention-Grabbing Titles and Captions"
+        "Boost engagement with authentic, creative content",
+        "TikTok's algorithm favors videos that spark conversations",
+        "Use vertical format and catchy music for success",
+        "Post consistently and experiment with posting times for growth"
+      ]
+    },
+    "instagram": {
+      "keyChanges": "The Instagram algorithm now prioritizes content that sparks meaningful interactions and drives engagement. This includes likes, comments, saves, and shares. The algorithm also considers context and intent, such as when a user is searching for a specific product or service. Additionally, Instagram now uses a more nuanced approach to ranking content, taking into account factors like relevance, timeliness, and user behavior.",
+      "editingTips": [
+        "Use high-quality, visually appealing images and videos.",
+        "Utilize Instagram's editing features, such as filters and effects, to enhance the visual appeal of your content.",
+        "Add text and captions to provide context and make your content more engaging.",
+        "Experiment with different editing styles and aesthetics to stand out from the crowd."
+      ],
+      "postingTips": [
+        "Post content at times when your audience is most active and engaged, such as during peak hours (e.g. 12pm-4pm EST) or during major events and holidays.",
+        "Experiment with different posting frequencies to find what works best for your audience, but aim for at least 3-5 posts per week.",
+        "Consider using Instagram's features, such as IGTV and Reels, to mix up your content and keep your audience engaged."
+      ],
+      "titleTips": [
+        "Use attention-grabbing, descriptive titles that accurately reflect the content of your post.",
+        "Keep titles concise and easy to read, ideally under 5 words.",
+        "Use relevant keywords and hashtags in your titles to improve discoverability.",
+        "Experiment with different title formats, such as questions or statements, to keep your audience engaged."
+      ],
+      "descriptionTips": [
+        "Use descriptive and engaging captions that provide context and encourage interaction.",
+        "Keep descriptions concise and easy to read, ideally under 125 words.",
+        "Use relevant keywords and hashtags in your descriptions to improve discoverability.",
+        "Experiment with different description formats, such as stories or questions, to keep your audience engaged."
+      ],
+      "summaries": [
+        "Boost engagement with interactive Instagram Stories",
+        "Maximize reach with timely and relevant content",
+        "Stand out with visually stunning Instagram Reels",
+        "Grow your audience with Instagram's features and tools"
       ]
     }
   },
-  "lastUpdated": "2026-04-26T21:25:54.146Z",
+  "lastUpdated": "2026-04-26T21:30:14.576Z",
   "provider": "groq"
 }
