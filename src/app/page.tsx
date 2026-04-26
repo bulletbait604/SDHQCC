@@ -1442,16 +1442,6 @@ export default function HomePage() {
                     </Button>
                   </div>
 
-                  {/* Tag Generator Status */}
-                  <div className={`text-center mt-4 p-3 rounded-lg ${darkMode ? 'bg-sdhq-dark-700/50' : 'bg-gray-50'}`}>
-                    <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                      <span className="font-semibold">Tag Generator Status:</span> {tagDatabaseStatus.totalTags > 0 ? `${tagDatabaseStatus.totalTags.toLocaleString()} tags available` : 'Loading...'}
-                    </p>
-                    <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      Uses remaining: <span className="font-semibold">{tagRateLimit.remaining === -1 ? 'Unlimited' : tagRateLimit.remaining}</span>
-                    </p>
-                  </div>
-
                   {/* Results Section */}
                   <div className={`p-6 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
                     <h4 className={`font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -1508,18 +1498,18 @@ export default function HomePage() {
                         Tag Generator Status
                       </p>
                       <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Powered by Google Cloud Natural Language API
+                        Powered by Groq API
                       </p>
                       <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         {tagRateLimit.resetTime 
                           ? `Resets at: ${new Date(tagRateLimit.resetTime).toLocaleString()}`
-                          : '3 uses per 24 hours'
+                          : `${isVerified || isAdmin ? 25 : 5} uses per 24 hours`
                         }
                       </p>
                     </div>
                     <div className="text-right">
                       <p className={`text-2xl font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                        {tagRateLimit.remaining}/3
+                        {tagRateLimit.remaining === -1 ? 'Unlimited' : tagRateLimit.remaining}
                       </p>
                       <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         daily uses remaining
