@@ -1285,7 +1285,8 @@ export default function HomePage() {
                               description: tagDescription,
                               platform: tagPlatform,
                               count: tagCount,
-                              userId: user?.username
+                              userId: user?.username,
+                              isVerified: isVerified
                             })
                           })
                           
@@ -1295,7 +1296,8 @@ export default function HomePage() {
                               // Rate limit exceeded
                               setTagRateLimit({ remaining: 0, resetTime: errorData.resetTime })
                               const resetDate = new Date(errorData.resetTime)
-                              alert(`Rate limit exceeded. You have used your 3 free tag generations for the day.\n\nResets at: ${resetDate.toLocaleString()}`)
+                              const maxUses = isVerified ? 25 : 5
+                              alert(`Rate limit exceeded. You have used your ${maxUses} tag generations for the day.\n\nResets at: ${resetDate.toLocaleString()}`)
                             } else {
                               const errorMsg = errorData.details || errorData.error || `API error: ${res.status}`
                               throw new Error(errorMsg)
@@ -1327,7 +1329,7 @@ export default function HomePage() {
                       ) : (
                         <>
                           <Sparkles className="w-4 h-4 mr-2" />
-                          Generate Tags ({tagRateLimit.remaining === -1 ? 'Unlimited' : `${tagRateLimit.remaining}/5`})
+                          Generate Tags ({tagRateLimit.remaining === -1 ? 'Unlimited' : `${tagRateLimit.remaining}/${isVerified ? 25 : 5}`})
                         </>
                       )}
                     </Button>

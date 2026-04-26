@@ -158,7 +158,7 @@ Return exactly ${count} tags as a JSON array: ["tag1", "tag2", "tag3", ...]`
 export async function GET() {
   return NextResponse.json({ 
     message: 'Using Groq for tag generation',
-    rateLimit: '5 uses per 24 hours',
+    rateLimit: '5 uses per 24 hours (25 for verified users)',
     status: 'active',
     totalUsers: rateLimitStore.size
   })
@@ -193,7 +193,7 @@ export async function DELETE(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { description, platform, count = 10, userId } = body
+    const { description, platform, count = 10, userId, isVerified } = body
     
     if (!description || !platform) {
       return NextResponse.json({ error: 'Description and platform are required' }, { status: 400 })
@@ -205,16 +205,21 @@ export async function POST(request: Request) {
     // Admin users bypass rate limit
     const isAdmin = userId && ['bulletbait604', 'Bulletbait604'].includes(userId)
     
+    // Verified users get 25 uses/day, regular users get 5
+    const maxUses = isVerified ? 25 : 5
+    
     let rateLimitResult = null
     if (!isAdmin) {
-      // Check rate limit (5 uses per 24 hours)
-      rateLimitResult = checkRateLimit(identifier, 5, 24 * 60 * 60 * 1000)
+      // Check rate limit
+      rateLimitResult = checkRateLimit(identifier, maxUses, 24 * 60 * 60 * 1000)
       
       if (!rateLimitResult.allowed) {
         const resetDate = new Date(rateLimitResult.resetTime)
         return NextResponse.json({ 
           error: 'Rate limit exceeded',
-          message: 'You have used your 5 free tag generations for the day. Please try again later.',
+          message: isVerified 
+            ? 'You have used your 25 tag generations for the day. Please try again later.'
+            : 'You have used your 5 free tag generations for the day. Please try again later.',
           resetTime: rateLimitResult.resetTime,
           resetDate: resetDate.toISOString()
         }, { status: 429 })
@@ -234,7 +239,8 @@ export async function POST(request: Request) {
       algorithm: 'groq',
       rateLimit: isAdmin ? { remaining: -1, resetTime: null } : {
         remaining: rateLimitResult!.remaining,
-        resetTime: rateLimitResult!.resetTime
+        resetTime: rateLimitResult!.resetTime,
+        maxUses: maxUses
       },
       generatedAt: new Date().toISOString()
     })
