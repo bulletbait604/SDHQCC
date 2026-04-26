@@ -26,8 +26,15 @@ export default function KickCallbackPage() {
         return
       }
 
-      // Get the code verifier stored before redirect
-      const codeVerifier = localStorage.getItem('kickCodeVerifier')
+      // Get the code verifier from cookie
+      const getCookie = (name: string) => {
+        const value = `; ${document.cookie}`
+        const parts = value.split(`; ${name}=`)
+        if (parts.length === 2) return parts.pop()?.split(';').shift()
+        return null
+      }
+      
+      const codeVerifier = getCookie('kickCodeVerifier')
 
       if (!codeVerifier) {
         setStatus('error')
@@ -61,8 +68,9 @@ export default function KickCallbackPage() {
           localStorage.setItem('kickAccessToken', data.accessToken)
         }
 
-        // Clean up
-        localStorage.removeItem('kickCodeVerifier')
+        // Clean up cookies
+        document.cookie = 'kickCodeVerifier=; path=/; max-age=0; SameSite=Lax'
+        document.cookie = 'kickAuthReturn=; path=/; max-age=0; SameSite=Lax'
 
         setStatus('success')
 
