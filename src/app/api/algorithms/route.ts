@@ -137,7 +137,8 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'x-rapidapi-key': apiKey,
+        'x-rapidapi-host': apiHost
       },
       signal: controller.signal,
       body: JSON.stringify({
