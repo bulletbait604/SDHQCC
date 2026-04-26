@@ -245,6 +245,7 @@ export default function HomePage() {
   
   // Verification states
   const [isVerified, setIsVerified] = useState<boolean>(false)
+  const [isLifetime, setIsLifetime] = useState<boolean>(false)
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false)
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<string>('Loading...')
@@ -258,7 +259,7 @@ export default function HomePage() {
   const [generatedTags, setGeneratedTags] = useState<Record<string, string[]>>({})
   const [isGeneratingTags, setIsGeneratingTags] = useState<boolean>(false)
   const [tagDatabaseStatus, setTagDatabaseStatus] = useState<{lastUpdated: string | null, totalTags: number}>({lastUpdated: null, totalTags: 0})
-  const [tagRateLimit, setTagRateLimit] = useState<{remaining: number, resetTime: number | null}>({remaining: isVerified ? 25 : 5, resetTime: null})
+  const [tagRateLimit, setTagRateLimit] = useState<{remaining: number, resetTime: number | null}>({remaining: 5, resetTime: null})
   const [platforms, setPlatforms] = useState<Platform[]>([
     {
       id: 'tiktok',
@@ -309,9 +310,14 @@ export default function HomePage() {
       const storedAdmins = localStorage.getItem('sdhq-admins')
       const storedActivityLog = localStorage.getItem('sdhq-activity-log')
       const storedVerified = localStorage.getItem('isVerified')
+      const storedLifetime = localStorage.getItem('isLifetime')
       
       if (storedVerified) {
         setIsVerified(storedVerified === 'true')
+      }
+      
+      if (storedLifetime) {
+        setIsLifetime(storedLifetime === 'true')
       }
       
       if (storedUser) {
@@ -515,6 +521,12 @@ export default function HomePage() {
     }
   }, [activityLog])
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('isLifetime', isLifetime.toString())
+    }
+  }, [isLifetime])
+
   // Track user login
   useEffect(() => {
     if (user && typeof window !== 'undefined') {
@@ -531,12 +543,15 @@ export default function HomePage() {
   // Update tag rate limit when verification status changes
   useEffect(() => {
     const isAdmin = user && (isOwner || admins.some(admin => admin.username.toLowerCase() === user.username.toLowerCase()))
-    if ((tagRateLimit.remaining === 5 || tagRateLimit.remaining === 0) && (isVerified || isAdmin)) {
+    const hasUnlimited = isOwner || isLifetime
+    if (hasUnlimited) {
+      setTagRateLimit({ remaining: -1, resetTime: null })
+    } else if ((tagRateLimit.remaining === 5 || tagRateLimit.remaining === 0) && (isVerified || isAdmin)) {
       setTagRateLimit({ remaining: 25, resetTime: null })
     } else if (tagRateLimit.remaining === 25 && !isVerified && !isAdmin) {
       setTagRateLimit({ remaining: 5, resetTime: null })
     }
-  }, [isVerified, user, isOwner, admins])
+  }, [isVerified, isLifetime, user, isOwner, admins])
 
   const handleLogin = async () => {
     try {
@@ -748,12 +763,23 @@ export default function HomePage() {
         if (data.verified) {
           clearInterval(poll)
           
-          // User is automatically verified
-          setIsVerified(true)
-          localStorage.setItem('isVerified', 'true')
-          localStorage.setItem('verifiedUsername', user.username)
-          localStorage.setItem('verificationExpiry', (Date.now() + 30 * 24 * 60 * 60 * 1000).toString()) // 30 days
-          localStorage.setItem('subscriptionId', data.subscriptionId)
+          // Check if this is a lifetime purchase
+          const isLifetimePurchase = data.customId && data.customId.includes('lifetime')
+          
+          if (isLifetimePurchase) {
+            // Lifetime membership - no expiry
+            setIsLifetime(true)
+            localStorage.setItem('isLifetime', 'true')
+            localStorage.setItem('verifiedUsername', user.username)
+            localStorage.setItem('subscriptionId', data.subscriptionId)
+          } else {
+            // Regular subscription - 30 day expiry
+            setIsVerified(true)
+            localStorage.setItem('isVerified', 'true')
+            localStorage.setItem('verifiedUsername', user.username)
+            localStorage.setItem('verificationExpiry', (Date.now() + 30 * 24 * 60 * 60 * 1000).toString()) // 30 days
+            localStorage.setItem('subscriptionId', data.subscriptionId)
+          }
           
           // Add to subscribers list for admin visibility
           const verifiedUser: Subscriber = {
@@ -819,12 +845,23 @@ export default function HomePage() {
       const data = await response.json()
       
       if (data.verified) {
-        // Subscription verified - unlock premium features
-        setIsVerified(true)
-        localStorage.setItem('isVerified', 'true')
-        localStorage.setItem('verifiedUsername', user.username)
-        localStorage.setItem('verificationExpiry', (Date.now() + 30 * 24 * 60 * 60 * 1000).toString()) // 30 days
-        localStorage.setItem('subscriptionId', data.subscriptionId)
+        // Check if this is a lifetime purchase
+        const isLifetimePurchase = data.customId && data.customId.includes('lifetime')
+        
+        if (isLifetimePurchase) {
+          // Lifetime membership - no expiry
+          setIsLifetime(true)
+          localStorage.setItem('isLifetime', 'true')
+          localStorage.setItem('verifiedUsername', user.username)
+          localStorage.setItem('subscriptionId', data.subscriptionId)
+        } else {
+          // Regular subscription - unlock premium features
+          setIsVerified(true)
+          localStorage.setItem('isVerified', 'true')
+          localStorage.setItem('verifiedUsername', user.username)
+          localStorage.setItem('verificationExpiry', (Date.now() + 30 * 24 * 60 * 60 * 1000).toString()) // 30 days
+          localStorage.setItem('subscriptionId', data.subscriptionId)
+        }
         
         // Add to subscribers list for admin visibility
         const verifiedUser = {
@@ -946,17 +983,22 @@ export default function HomePage() {
                           Owner
                         </span>
                       )}
-                      {!isOwner && isAdmin && (
+                      {!isOwner && isLifetime && (
+                        <span className="px-2 py-0.5 bg-gradient-to-r from-yellow-500 to-orange-500 text-black text-xs font-bold rounded-full">
+                          Lifetime
+                        </span>
+                      )}
+                      {!isOwner && !isLifetime && isAdmin && (
                         <span className="px-2 py-0.5 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black text-xs font-bold rounded-full">
                           Admin
                         </span>
                       )}
-                      {!isOwner && !isAdmin && isSubscribed && (
+                      {!isOwner && !isLifetime && !isAdmin && isSubscribed && (
                         <span className="px-2 py-0.5 bg-gradient-to-r from-sdhq-green-500 to-sdhq-cyan-500 text-black text-xs font-bold rounded-full">
                           Subscribed
                         </span>
                       )}
-                      {!isOwner && !isAdmin && !isSubscribed && (
+                      {!isOwner && !isLifetime && !isAdmin && !isSubscribed && (
                         <span className="px-2 py-0.5 bg-gray-500 text-white text-xs font-bold rounded-full">
                           Free User
                         </span>
