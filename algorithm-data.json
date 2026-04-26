@@ -1,36 +1,16 @@
 {
   "data": {
     "youtube-shorts": {
-      "keyChanges": "YouTube Shorts algorithm now prioritizes relevance, watch time, and audience retention. It also focuses on short-form content discovery, using AI-driven recommendations to surface top videos.",
-      "editingTips": [
-        "Keep it concise: Edit your Shorts to 60 seconds or less for maximum engagement.",
-        "Use attention-grabbing thumbnails: Eye-catching visuals can boost click-through rates by up to 20%.",
-        "Add music that resonates: Choose a soundtrack that complements your content and appeals to your target audience.",
-        "Optimize for mobile: Ensure your video looks great on smaller screens to cater to the majority of YouTube viewers."
-      ],
-      "postingTips": [
-        "Post consistently: Regularly upload Shorts to maintain audience engagement and boost your visibility.",
-        "Experiment with different formats: Try out different content styles, such as Q&A, tutorials, or challenges, to find what works best for your brand.",
-        "Time your posts strategically: Post when your audience is most active, typically during peak hours (3-5 pm) or during trending events.",
-        "Engage with the community: Respond to comments and create a dialogue with your viewers to foster a loyal following."
-      ],
-      "titleTips": [
-        "Make it descriptive: Use specific keywords that accurately reflect the content of your video.",
-        "Keep it short: Limit your title to 5-7 words to avoid truncation and ensure maximum visibility.",
-        "Use action words: Begin your title with a verb to create a sense of excitement and encourage viewers to click.",
-        "Add a hook: Incorporate a question, statistic, or surprising fact to pique the viewer's interest."
-      ],
-      "descriptionTips": [
-        "Keep it concise: Limit your description to 150-200 characters to avoid truncation and ensure maximum visibility.",
-        "Use keywords strategically: Include relevant keywords that match your content to improve your video's discoverability.",
-        "Provide context: Give viewers a clear understanding of what your video is about and what they can expect.",
-        "Include a call-to-action: Encourage viewers to engage with your content, subscribe to your channel, or visit your website."
-      ],
+      "keyChanges": "The YouTube Shorts algorithm now prioritizes content with higher engagement, relevance, and audience retention. It also uses AI-powered video analysis to detect and reward creative, unique, and high-quality content. Additionally, the algorithm now takes into account the viewer's watch history and preferences when recommending Shorts.",
+      "editingTips": "For optimal performance, keep your YouTube Shorts concise (less than 60 seconds), engaging, and visually appealing. Use catchy music, colorful graphics, and a clear call-to-action in the first 5 seconds. Edit your Shorts to have a clear narrative structure, with a hook, a buildup, and a resolution.",
+      "postingTips": "To maximize visibility, post your YouTube Shorts during peak hours (12 pm - 4 pm EST) when audience engagement is highest. Aim for a consistent posting schedule (3-5 times a week) to keep your audience engaged and coming back for more.",
+      "titleTips": "Craft attention-grabbing titles that accurately reflect your content. Use relevant keywords, keep it concise (less than 10 words), and make sure it's mobile-friendly. Avoid clickbait titles that might get your content flagged or penalized.",
+      "descriptionTips": "Write descriptive, keyword-rich descriptions that provide context and value to your viewers. Keep it concise (less than 150 characters) and make sure it's easy to read on mobile devices. Include relevant links, hashtags, or tags to increase discoverability.",
       "summaries": [
-        "Get discovered by YouTube Shorts algorithm with attention-grabbing thumbnails and relevant titles.",
-        "Boost engagement and watch time by creating concise, mobile-optimized content that resonates with your audience.",
-        "Unlock the power of YouTube Shorts by posting consistently, experimenting with different formats, and engaging with your community.",
-        "Maximize your YouTube Shorts growth by using action-packed titles, descriptive descriptions, and strategic keyword usage."
+        "Maximize engagement with attention-grabbing titles and thumbnails!",
+        "Boost your Shorts' visibility with strategic posting and timing!",
+        "Create high-quality, unique content that resonates with your audience!",
+        "Use AI-powered video analysis to optimize your Shorts for better performance!"
       ]
     },
     "tiktok": {
@@ -76,6 +56,6 @@
       ]
     }
   },
-  "lastUpdated": "2026-04-26T22:13:23.788Z",
+  "lastUpdated": "2026-04-26T22:13:38.218Z",
   "provider": "groq"
 }
