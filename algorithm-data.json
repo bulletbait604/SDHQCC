@@ -1,5 +1,103 @@
 {
-  "data": {},
-  "lastUpdated": "2026-04-26T21:09:48.956Z",
+  "data": {
+    "instagram": {
+      "keyChanges": "The Instagram algorithm prioritizes content from accounts users interact with most, with a focus on Reels and live streaming. Additionally, the algorithm rewards creators who post consistently and engage with their audience. Long-form content and IGTV have been de-emphasized in favor of bite-sized Reels and Stories.",
+      "editingTips": [
+        "Use the Rule of Thirds when composing your Reels for more visually appealing shots.",
+        "Experiment with Instagram's advanced editing features like 'Magic Edit' to enhance your photos and Reels.",
+        "Incorporate text overlays and captions to add context and engagement to your content.",
+        "Take advantage of Instagram's AR effects to create interactive and immersive experiences."
+      ],
+      "postingTips": [
+        "Post at least 3-5 times per week to maintain a consistent presence and keep your audience engaged.",
+        "Experiment with different posting schedules to find the optimal time for your audience (e.g., lunch breaks, peak hours).",
+        "Use Instagram Insights to track your performance and adjust your posting schedule accordingly.",
+        "Take breaks from posting to avoid flooding your audience's feed and maintain a healthy engagement ratio."
+      ],
+      "titleTips": [
+        "Use attention-grabbing, descriptive titles that accurately reflect the content of your post.",
+        "Keep titles concise and under 10 words for maximum visibility.",
+        "Use emojis and special characters to add visual interest and personality to your titles.",
+        "A/B test different title variations to determine which performs best with your audience."
+      ],
+      "descriptionTips": [
+        "Write engaging, informative descriptions that encourage users to swipe up or click on your link.",
+        "Use a clear call-to-action (CTA) in your description to prompt users to take action.",
+        "Keep descriptions concise and scannable, using bullet points or short paragraphs to break up the text.",
+        "Optimize your descriptions for search by including relevant keywords and hashtags."
+      ],
+      "summaries": [
+        "Boost Engagement with Reels and Live Streaming",
+        "Consistency is Key to Instagram Success",
+        "Use Advanced Editing Features to Stand Out",
+        "Post Strategically to Reach Your Target Audience"
+      ]
+    },
+    "youtube-long": {
+      "keyChanges": "YouTube Long algorithm now prioritizes content with high watch time, engagement, and viewer retention. The algorithm also considers video length, with longer content rewarding creators who produce high-quality, in-depth content. Additionally, YouTube Long now takes into account user behavior, such as pause and scrub behavior, to determine video relevance and value.",
+      "editingTips": [
+        "Use a clear, concise intro to grab viewers' attention.",
+        "Break up long content into smaller sections with headings and subheadings.",
+        "Use high-quality visuals, such as graphics and animations, to enhance the viewing experience.",
+        "Incorporate interactive elements, such as polls and quizzes, to increase engagement.",
+        "Utilize closed captions and subtitles to improve video accessibility and watch time."
+      ],
+      "postingTips": [
+        "Post content consistently to maintain a strong audience presence.",
+        "Experiment with different posting frequencies, such as daily or weekly, to find what works best for your audience.",
+        "Consider posting during peak hours, such as 12pm-4pm EST, to reach a wider audience.",
+        "Use YouTube's built-in analytics to track your viewership and adjust your posting schedule accordingly."
+      ],
+      "titleTips": [
+        "Use attention-grabbing keywords in your title, but avoid clickbait.",
+        "Make sure your title accurately represents the content of your video.",
+        "Keep your title concise, ideally under 60 characters.",
+        "Use a clear, legible font to ensure your title is easily readable."
+      ],
+      "descriptionTips": [
+        "Use keywords relevant to your content, but avoid keyword stuffing.",
+        "Provide a clear summary of the video's content and topic.",
+        "Use a conversational tone to engage viewers and encourage watch time.",
+        "Include relevant links or tags to help viewers find related content."
+      ],
+      "summaries": [
+        "Boost watch time with high-quality, engaging content!",
+        "Maximize viewer retention with interactive video elements.",
+        "Unlock YouTube Long growth with strategic posting schedules.",
+        "Elevate your video's relevance with accurate, concise titles."
+      ]
+    },
+    "facebook-reels": {
+      "keyChanges": "Facebook Reels algorithm now prioritizes content that is visually engaging, authentic, and provides valuable information to users. The algorithm also considers the time spent watching a Reel and rewards content that keeps viewers engaged. Additionally, Facebook Reels now uses AI-driven moderation to detect and remove low-quality content, such as spam or hate speech.",
+      "editingTips": [
+        "Keep it concise: Edit your Reel to 60 seconds or less for maximum engagement",
+        "Make it visually appealing: Use high-quality visuals, transitions, and music to keep viewers engaged",
+        "Use captions and subtitles: Make your content more accessible and increase watch time",
+        "Add a clear call-to-action: Encourage viewers to engage with your content or visit your website"
+      ],
+      "postingTips": [
+        "Post consistently: Aim for 3-5 Reels per week to maintain audience engagement and grow your following",
+        "Experiment with different posting times: Analyze your analytics to determine the best times to post for your audience",
+        "Use Facebook's built-in scheduling feature: Plan and schedule your Reels in advance to save time and increase productivity"
+      ],
+      "titleTips": [
+        "Keep it short and sweet: Use a title that is 6 words or less and accurately reflects the content of your Reel",
+        "Use attention-grabbing language: Craft a title that is attention-grabbing and encourages viewers to click and watch",
+        "Add relevant keywords: Incorporate relevant keywords into your title to improve discoverability and reach"
+      ],
+      "descriptionTips": [
+        "Keep it concise: Keep your description brief and to the point, focusing on the key takeaway or call-to-action",
+        "Add relevant links: Include links to your website, other social media profiles, or relevant resources to increase engagement and drive traffic",
+        "Use a clear and compelling call-to-action: Encourage viewers to engage with your content or visit your website"
+      ],
+      "summaries": [
+        "Get more views with visually engaging Reels",
+        "Boost engagement with authentic and valuable content",
+        "Increase watch time with concise and informative Reels",
+        "Grow your following with consistent and well-timed Reels"
+      ]
+    }
+  },
+  "lastUpdated": "2026-04-26T21:15:32.122Z",
   "provider": "groq"
 }
