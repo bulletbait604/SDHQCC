@@ -1,39 +1,128 @@
 {
   "data": {
     "youtube-shorts": {
-      "keyChanges": "YouTube Shorts algorithm now prioritizes relevance, watch time, and audience retention. It also focuses on short-form content discovery, using AI-driven recommendations to surface top videos.",
+      "keyChanges": "The YouTube Shorts algorithm now prioritizes content with higher engagement, relevance, and audience retention. It also uses AI-powered video analysis to detect and reward creative, unique, and high-quality content. Additionally, the algorithm now takes into account the viewer's watch history and preferences when recommending Shorts.",
+      "editingTips": "For optimal performance, keep your YouTube Shorts concise (less than 60 seconds), engaging, and visually appealing. Use catchy music, colorful graphics, and a clear call-to-action in the first 5 seconds. Edit your Shorts to have a clear narrative structure, with a hook, a buildup, and a resolution.",
+      "postingTips": "To maximize visibility, post your YouTube Shorts during peak hours (12 pm - 4 pm EST) when audience engagement is highest. Aim for a consistent posting schedule (3-5 times a week) to keep your audience engaged and coming back for more.",
+      "titleTips": "Craft attention-grabbing titles that accurately reflect your content. Use relevant keywords, keep it concise (less than 10 words), and make sure it's mobile-friendly. Avoid clickbait titles that might get your content flagged or penalized.",
+      "descriptionTips": "Write descriptive, keyword-rich descriptions that provide context and value to your viewers. Keep it concise (less than 150 characters) and make sure it's easy to read on mobile devices. Include relevant links, hashtags, or tags to increase discoverability.",
+      "summaries": [
+        "Maximize engagement with attention-grabbing titles and thumbnails!",
+        "Boost your Shorts' visibility with strategic posting and timing!",
+        "Create high-quality, unique content that resonates with your audience!",
+        "Use AI-powered video analysis to optimize your Shorts for better performance!"
+      ]
+    },
+    "tiktok": {
+      "keyChanges": "TikTok's algorithm now prioritizes 'For You' page relevance, considering both video content and user behavior, such as time spent watching and engaging with content. The algorithm also weights videos that perform well in the first few hours after posting, suggesting timely posting is crucial.",
       "editingTips": [
-        "Keep it concise: Edit your Shorts to 60 seconds or less for maximum engagement.",
-        "Use attention-grabbing thumbnails: Eye-catching visuals can boost click-through rates by up to 20%.",
-        "Add music that resonates: Choose a soundtrack that complements your content and appeals to your target audience.",
-        "Optimize for mobile: Ensure your video looks great on smaller screens to cater to the majority of YouTube viewers."
+        "Use 15-second to 60-second video lengths for maximum engagement.",
+        "Add music from TikTok's vast library to enhance viewer experience and encourage sharing.",
+        "Emphasize vertical video formats, as they account for 70% of all TikTok content."
       ],
       "postingTips": [
-        "Post consistently: Regularly upload Shorts to maintain audience engagement and boost your visibility.",
-        "Experiment with different formats: Try out different content styles, such as Q&A, tutorials, or challenges, to find what works best for your brand.",
-        "Time your posts strategically: Post when your audience is most active, typically during peak hours (3-5 pm) or during trending events.",
-        "Engage with the community: Respond to comments and create a dialogue with your viewers to foster a loyal following."
+        "Post during 'peak hours' (3-5 pm EST) when users are most active.",
+        "Maintain a consistent posting schedule to maintain audience engagement.",
+        "Experiment with 'Batch Posting' to reach wider audiences and track performance."
       ],
       "titleTips": [
-        "Make it descriptive: Use specific keywords that accurately reflect the content of your video.",
-        "Keep it short: Limit your title to 5-7 words to avoid truncation and ensure maximum visibility.",
-        "Use action words: Begin your title with a verb to create a sense of excitement and encourage viewers to click.",
-        "Add a hook: Incorporate a question, statistic, or surprising fact to pique the viewer's interest."
+        "Use attention-grabbing, descriptive titles that convey the video's content.",
+        "Keep titles concise and under 30 characters for optimal performance.",
+        "Make titles more engaging by asking questions or using emojis."
       ],
       "descriptionTips": [
-        "Keep it concise: Limit your description to 150-200 characters to avoid truncation and ensure maximum visibility.",
-        "Use keywords strategically: Include relevant keywords that match your content to improve your video's discoverability.",
-        "Provide context: Give viewers a clear understanding of what your video is about and what they can expect.",
-        "Include a call-to-action: Encourage viewers to engage with your content, subscribe to your channel, or visit your website."
+        "Include relevant hashtags to increase discoverability.",
+        "Write compelling descriptions that encourage users to watch and engage.",
+        "Use the first few words in the description to entice viewers to watch."
       ],
       "summaries": [
-        "Get discovered by YouTube Shorts algorithm with attention-grabbing thumbnails and relevant titles.",
-        "Boost engagement and watch time by creating concise, mobile-optimized content that resonates with your audience.",
-        "Unlock the power of YouTube Shorts by posting consistently, experimenting with different formats, and engaging with your community.",
-        "Maximize your YouTube Shorts growth by using action-packed titles, descriptive descriptions, and strategic keyword usage."
+        "Get seen on TikTok's 'For You' page with timely, engaging content.",
+        "Maximize video performance with vertical formats and catchy music.",
+        "Grow your TikTok audience with consistent, strategic posting schedules.",
+        "Boost engagement with concise, descriptive titles and hashtags."
+      ]
+    },
+    "instagram": {
+      "keyChanges": "The Instagram algorithm now prioritizes content from accounts users interact with most, uses AI to predict engagement, and rewards content with high engagement in the first few hours after posting.",
+      "editingTips": "To optimize your posts, edit with the following best practices: use high-quality, visually appealing images; add text overlays with clear, concise captions; and use Instagram's built-in features like Reels and IGTV.",
+      "postingTips": "For optimal posting frequency on Instagram, post at least 3 times per week to maintain user engagement, but avoid overposting as it can lead to fatigue; consider posting during peak hours (12 pm - 4 pm) when user activity is highest.",
+      "titleTips": "Craft effective titles by using: 1) attention-grabbing keywords; 2) short descriptions (under 15 characters); and 3) emojis to add visual appeal and convey emotions.",
+      "descriptionTips": "Write compelling descriptions by: 1) keeping them concise (under 125 characters); 2) including relevant hashtags; and 3) using a clear and direct call-to-action (CTA) to encourage engagement.",
+      "summaries": [
+        "Boost engagement with Reels in the first hour.",
+        "Use Instagram's built-in features for maximum reach.",
+        "Post consistently to avoid losing followers.",
+        "Leverage hashtags for increased discoverability."
+      ]
+    },
+    "youtube-long": {
+      "keyChanges": "The YouTube Long algorithm now prioritizes videos with high engagement in the first 10-15 minutes, favoring content that keeps viewers hooked throughout. The algorithm also considers the audience retention curve, rewarding videos that maintain a steady viewership throughout. Additionally, YouTube Long now takes into account the video's overall watch time, rather than just the initial 12-second view count.",
+      "editingTips": [
+        "Keep your intro concise and engaging, ideally within 0-2 minutes.",
+        "Use a mix of music, visuals, and voiceovers to maintain viewer interest.",
+        "Break up longer content into smaller, more manageable chunks.",
+        "Use annotations, cards, or end screens to encourage viewers to stay engaged.",
+        "Optimize your video's pacing and editing to maintain a steady flow."
+      ],
+      "postingTips": [
+        "Post your YouTube Long video during peak hours (3-5 pm EST) for maximum visibility.",
+        "Space out your uploads to avoid flooding your audience's feed.",
+        "Consider posting on weekdays rather than weekends for better engagement.",
+        "Experiment with different posting frequencies to find what works best for your audience."
+      ],
+      "titleTips": [
+        "Use attention-grabbing words like 'exclusive,' 'insider,' or 'revealed' to entice viewers.",
+        "Keep your title concise, ideally under 60 characters.",
+        "Use keywords relevant to your content, but avoid keyword stuffing.",
+        "Make your title descriptive, yet intriguing, to encourage clicks."
+      ],
+      "descriptionTips": [
+        "Use a clear, concise summary of your content in the first 100-150 characters.",
+        "Include relevant keywords to improve video discoverability.",
+        "Use a mix of short and long sentences to maintain reader interest.",
+        "Avoid including links or calls-to-action in your description, as they may be ignored."
+      ],
+      "summaries": [
+        "Maximize YouTube Long views with engaging intro content.",
+        "Boost audience retention with a mix of music and visuals.",
+        "Post during peak hours for maximum YouTube Long visibility.",
+        "Craft attention-grabbing titles with relevant keywords."
+      ]
+    },
+    "facebook-reels": {
+      "keyChanges": "The Facebook Reels algorithm now prioritizes content that keeps users engaged for longer periods, with a focus on watch time and audience retention. Algorithm also considers context and relevance of content to the user's interests.",
+      "editingTips": [
+        "Use the 'Highlights' feature to create a visually appealing Reel with key moments and transitions",
+        "Edit in portrait mode for better mobile viewing",
+        "Experiment with different music styles and genres to match your brand's tone and style",
+        "Add captions and subtitles to improve accessibility and engagement"
+      ],
+      "postingTips": [
+        "Post Reels during peak hours (3-5 pm EST) when audience is most active",
+        "Space out posts to avoid overwhelming your audience (max 3-4 Reels per day)",
+        "Use Facebook's built-in scheduling feature to plan and publish Reels in advance",
+        "Monitor and adjust posting schedule based on audience engagement and performance"
+      ],
+      "titleTips": [
+        "Keep titles concise and descriptive (max 6 words)",
+        "Use attention-grabbing words and emojis to entice viewers",
+        "Make sure titles accurately reflect the content of the Reel",
+        "Experiment with different title variations to optimize performance"
+      ],
+      "descriptionTips": [
+        "Write engaging and informative descriptions to accompany Reels",
+        "Include relevant hashtags and keywords to improve discoverability",
+        "Use calls-to-action in descriptions to drive engagement and conversions",
+        "Keep descriptions concise and scannable for better readability"
+      ],
+      "summaries": [
+        "Boost Reels visibility with strategic music and sound effects",
+        "Get more views with Reels that tell a story or showcase a skill",
+        "Unlock Instagram-style growth with Facebook Reels' new features",
+        "Supercharge engagement with interactive Reels and polls"
       ]
     }
   },
-  "lastUpdated": "2026-04-26T21:30:56.978Z",
+  "lastUpdated": "2026-04-26T22:14:33.611Z",
   "provider": "groq"
 }
