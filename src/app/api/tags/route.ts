@@ -69,33 +69,40 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
         messages: [
           {
             role: 'system',
-            content: `You are an expert social media algorithm analyst and hashtag generator. You understand how different platform algorithms work and what types of hashtags perform best on each platform. Generate hashtags that are both relevant to the content AND optimized for the specific platform's algorithm to maximize reach and engagement. Return only valid JSON arrays of lowercase strings without # symbols.
+            content: `You are an expert social media algorithm analyst and hashtag generator. You MUST generate DIFFERENT hashtags for each platform based on their unique algorithms and audience behaviors. The same content should have completely different hashtag strategies for TikTok vs Instagram vs YouTube.
 
-Platform-specific guidance:
-- TikTok: Use trending sounds, viral challenges, and niche-specific tags. Mix of broad discovery tags and specific content tags. 3-5 tags optimal.
-- Instagram: Use a mix of niche, community, and trending tags. Include location tags when relevant. 10-30 tags optimal.
-- YouTube Shorts: Use trending topics, viral content themes, and SEO-friendly tags. Mix of broad and specific tags.
-- YouTube Long-form: Use SEO-focused tags, topic-specific, and search-friendly keywords.
-- Facebook Reels: Use trending topics, community-focused tags, and viral content themes.`
+CRITICAL: Always analyze the platform first, then generate platform-specific hashtags. Never use the same tags across platforms.
+
+Platform-specific examples:
+- TikTok gaming content: ["fyp", "gaming", "viral", "trending", "fps", "gamer"]
+- Instagram gaming content: ["gamingcommunity", "gamersofinstagram", "esports", "gaminglife", "videogames", "pcgaming"]
+- YouTube Shorts gaming: ["shorts", "gamingclips", "viralshorts", "gamingshorts", "fpsgame", "trending"]
+- Facebook Reels gaming: ["gaming", "videogames", "gamingcommunity", "facebookgaming", "gamers", "entertainment"]
+
+Platform-specific strategies:
+- TikTok: Focus on discovery (fyp, viral, trending) + niche tags. 3-5 tags, broad reach focus.
+- Instagram: Focus on community + niche + aesthetic tags. 10-30 tags, engagement focus.
+- YouTube Shorts: Focus on SEO + viral + content type tags. Mix of search and discovery.
+- YouTube Long-form: Focus on SEO + topic + search intent tags. Search optimization.
+- Facebook Reels: Focus on community + trending + entertainment tags. Social engagement.
+
+Return only valid JSON arrays of lowercase strings without # symbols.`
           },
           {
             role: 'user',
-            content: `Generate ${count} highly effective hashtags for: "${description}" specifically for ${platformName}.
-
-IMPORTANT: The platform is ${platformName}. Tailor the hashtags specifically for this platform's algorithm and audience behavior.
-
-Requirements:
-- Analyze the content and extract key themes, topics, and entities
-- Consider ${platformName}'s algorithm preferences and what types of tags perform best on this specific platform
-- Include a mix of specific content tags and broader discovery tags appropriate for ${platformName}
-- Focus on tags that are currently popular and likely to get impressions on ${platformName}
-- Ensure all tags are directly relevant to the described content
-- Return exactly ${count} tags as a JSON array of lowercase strings without # symbols
-- Example format: ["gaming", "callofduty", "warzone", "fps", "competitive"]
-
-Platform: ${platformName}
+            content: `Platform: ${platformName}
 Content: "${description}"
-Number of tags: ${count}`
+Number of tags: ${count}
+
+Generate ${count} hashtags SPECIFICALLY for ${platformName}. Do NOT use generic tags - make them tailored to ${platformName}'s algorithm and audience.
+
+Think step by step:
+1. What is ${platformName}'s algorithm priority? (discovery, engagement, search, community)
+2. What types of hashtags perform best on ${platformName}?
+3. How should I balance broad vs specific tags for ${platformName}?
+4. What are the optimal tag characteristics for ${platformName}?
+
+Return exactly ${count} tags as a JSON array: ["tag1", "tag2", "tag3", ...]`
           }
         ],
         temperature: 0.7,
