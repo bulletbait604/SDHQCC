@@ -109,6 +109,9 @@ async function writeData(data: any) {
 }
 
 async function researchAlgorithm(platform: string, apiKey: string) {
+  const apiUrl = process.env.RAPID_API_URL || 'https://unlimited-gpt-4.p.rapidapi.com/chat/completions'
+  const apiHost = process.env.RAPID_API_HOST || 'unlimited-gpt-4.p.rapidapi.com'
+  
   const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
 {
   "keyChanges": "Summary of key changes in how the algorithm works",
@@ -130,12 +133,12 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 30000)
     
-    const response = await fetch('https://unlimited-gpt-4.p.rapidapi.com/chat/completions', {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-rapidapi-key': apiKey,
-        'x-rapidapi-host': 'unlimited-gpt-4.p.rapidapi.com'
+        'x-rapidapi-host': apiHost
       },
       signal: controller.signal,
       body: JSON.stringify({
@@ -253,10 +256,10 @@ export async function GET() {
 }
 
 export async function POST() {
-  const apiKey = process.env.RAPID_API_UNLIMITED_GPT
+  const apiKey = process.env.RAPID_API_KEY || process.env.RAPID_API_UNLIMITED_GPT
 
   if (!apiKey) {
-    return NextResponse.json({ error: 'No API key configured. Please set RAPID_API_UNLIMITED_GPT' }, { status: 500 })
+    return NextResponse.json({ error: 'No API key configured. Please set RAPID_API_KEY or RAPID_API_UNLIMITED_GPT' }, { status: 500 })
   }
   
   console.log('Using RapidAPI for algorithm research')

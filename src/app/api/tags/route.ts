@@ -27,14 +27,13 @@ function checkRateLimit(identifier: string, maxUses: number = 3, windowMs: numbe
 
 // Generate tags using RapidAPI Unlimited GPT
 async function generateTagsWithRapidAPI(description: string, platform: string, count: number): Promise<string[]> {
-  const apiKey = process.env.RAPID_API_UNLIMITED_GPT
+  const apiKey = process.env.RAPID_API_KEY || process.env.RAPID_API_UNLIMITED_GPT
+  const apiUrl = process.env.RAPID_API_URL || 'https://unlimited-gpt-4.p.rapidapi.com/chat/completions'
+  const apiHost = process.env.RAPID_API_HOST || 'unlimited-gpt-4.p.rapidapi.com'
   
   if (!apiKey) {
     throw new Error('RapidAPI key not configured')
   }
-  
-  console.log('RapidAPI Key length:', apiKey.length)
-  console.log('RapidAPI Key prefix:', apiKey.substring(0, 10))
   
   try {
     const platformContext: Record<string, string> = {
@@ -50,12 +49,12 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
     
-    const response = await fetch('https://unlimited-gpt-4.p.rapidapi.com/chat/completions', {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-rapidapi-key': apiKey,
-        'x-rapidapi-host': 'unlimited-gpt-4.p.rapidapi.com'
+        'x-rapidapi-host': apiHost
       },
       signal: controller.signal,
       body: JSON.stringify({
