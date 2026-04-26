@@ -27,7 +27,7 @@ function checkRateLimit(identifier: string, maxUses: number = 3, windowMs: numbe
 
 // Generate tags using RapidAPI Unlimited GPT
 async function generateTagsWithRapidAPI(description: string, platform: string, count: number): Promise<string[]> {
-  const apiKey = process.env.RAPIDAPI || process.env.RAPID_API_KEY || process.env.RAPID_API_UNLIMITED_GPT
+  const apiKey = process.env.RAPID_API_UNLIMITED_GPT || process.env.RAPIDAPI || process.env.RAPID_API_KEY
   
   const primaryUrl = process.env.RAPID_API_URL || 'https://deepseek-r1-671b1.p.rapidapi.com/chat_completions'
   const primaryHost = process.env.RAPID_API_HOST || 'deepseek-r1-671b1.p.rapidapi.com'
@@ -207,7 +207,7 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    const apiKey = process.env.RAPIDAPI || process.env.RAPID_API_KEY || process.env.RAPID_API_UNLIMITED_GPT
+    const apiKey = process.env.RAPID_API_UNLIMITED_GPT || process.env.RAPIDAPI || process.env.RAPID_API_KEY
     return NextResponse.json({ 
       error: 'Failed to generate tags', 
       details: errorMessage,

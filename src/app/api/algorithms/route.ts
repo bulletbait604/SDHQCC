@@ -274,7 +274,7 @@ export async function GET() {
 }
 
 export async function POST() {
-  const apiKey = process.env.RAPIDAPI || process.env.RAPID_API_KEY || process.env.RAPID_API_UNLIMITED_GPT
+  const apiKey = process.env.RAPID_API_UNLIMITED_GPT || process.env.RAPIDAPI || process.env.RAPID_API_KEY
 
   if (!apiKey) {
     return NextResponse.json({ error: 'No API key configured. Please set RAPIDAPI, RAPID_API_KEY, or RAPID_API_UNLIMITED_GPT' }, { status: 500 })
