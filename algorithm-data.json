@@ -88,11 +88,41 @@
         "Post during peak hours for maximum YouTube Long visibility.",
         "Craft attention-grabbing titles with relevant keywords."
       ]
+    },
+    "facebook-reels": {
+      "keyChanges": "The Facebook Reels algorithm now prioritizes content that keeps users engaged for longer periods, with a focus on watch time and audience retention. Algorithm also considers context and relevance of content to the user's interests.",
+      "editingTips": [
+        "Use the 'Highlights' feature to create a visually appealing Reel with key moments and transitions",
+        "Edit in portrait mode for better mobile viewing",
+        "Experiment with different music styles and genres to match your brand's tone and style",
+        "Add captions and subtitles to improve accessibility and engagement"
+      ],
+      "postingTips": [
+        "Post Reels during peak hours (3-5 pm EST) when audience is most active",
+        "Space out posts to avoid overwhelming your audience (max 3-4 Reels per day)",
+        "Use Facebook's built-in scheduling feature to plan and publish Reels in advance",
+        "Monitor and adjust posting schedule based on audience engagement and performance"
+      ],
+      "titleTips": [
+        "Keep titles concise and descriptive (max 6 words)",
+        "Use attention-grabbing words and emojis to entice viewers",
+        "Make sure titles accurately reflect the content of the Reel",
+        "Experiment with different title variations to optimize performance"
+      ],
+      "descriptionTips": [
+        "Write engaging and informative descriptions to accompany Reels",
+        "Include relevant hashtags and keywords to improve discoverability",
+        "Use calls-to-action in descriptions to drive engagement and conversions",
+        "Keep descriptions concise and scannable for better readability"
+      ],
+      "summaries": [
+        "Boost Reels visibility with strategic music and sound effects",
+        "Get more views with Reels that tell a story or showcase a skill",
+        "Unlock Instagram-style growth with Facebook Reels' new features",
+        "Supercharge engagement with interactive Reels and polls"
+      ]
     }
   },
-  "lastUpdated": "2026-04-26T22:14:22.773Z",
-  "provider": "groq",
-  "errors": [
-    "Facebook Reels: Failed to research Facebook Reels after 3 attempts: Rate limit exceeded, waited 20420ms"
-  ]
+  "lastUpdated": "2026-04-26T22:14:33.611Z",
+  "provider": "groq"
 }
