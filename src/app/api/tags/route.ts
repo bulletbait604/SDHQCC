@@ -59,8 +59,8 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-rapidapi-key': apiKey,
-        'x-rapidapi-host': apiHost
+        'X-RapidAPI-Key': apiKey,
+        'X-RapidAPI-Host': apiHost
       },
       signal: controller.signal,
       body: JSON.stringify({
@@ -192,14 +192,16 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    const errorStack = error instanceof Error ? error.stack : 'No stack trace'
+    const apiKey = process.env.RAPIDAPI || process.env.RAPID_API_KEY || process.env.RAPID_API_UNLIMITED_GPT
     return NextResponse.json({ 
       error: 'Failed to generate tags', 
       details: errorMessage,
       debug: {
-        apiKeyPresent: !!process.env.RAPID_API_UNLIMITED_GPT,
-        apiKeyLength: process.env.RAPID_API_UNLIMITED_GPT?.length || 0,
-        apiKeyPrefix: process.env.RAPID_API_UNLIMITED_GPT?.substring(0, 5) || 'none'
+        apiKeyPresent: !!apiKey,
+        apiKeyLength: apiKey?.length || 0,
+        apiKeyPrefix: apiKey?.substring(0, 5) || 'none',
+        apiUrl: process.env.RAPID_API_URL || 'https://openai-chatgpt-gpt-api.p.rapidapi.com/v1/chat/completions',
+        apiHost: process.env.RAPID_API_HOST || 'openai-chatgpt-gpt-api.p.rapidapi.com'
       }
     }, { status: 500 })
   }
