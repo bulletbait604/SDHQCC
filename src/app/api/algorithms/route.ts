@@ -112,6 +112,8 @@ async function researchAlgorithm(platform: string, apiKey: string, retries: numb
   const modelName = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
   const apiUrl = 'https://api.groq.com/openai/v1/chat/completions'
   
+  console.log(`researchAlgorithm called for ${platform} with model ${modelName}`)
+  
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       console.log(`Calling Groq API for ${platform} (attempt ${attempt + 1}/${retries})`)
@@ -136,6 +138,7 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 60000) // 60 second timeout for Groq
       
+      console.log(`Making fetch request to ${apiUrl}`)
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -155,21 +158,28 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
       })
       
       clearTimeout(timeout)
+      console.log(`Response status: ${response.status}`)
 
       if (!response.ok) {
         const errorText = await response.text()
+        console.error(`Groq error response: ${errorText}`)
         throw new Error(`Groq error: ${response.status} - ${errorText}`)
       }
 
       const data = await response.json()
+      console.log(`Groq response data keys:`, Object.keys(data))
       const content = data.choices?.[0]?.message?.content
+      
+      console.log(`Content length: ${content?.length || 0}`)
+      console.log(`Content preview: ${content?.substring(0, 200)}...`)
       
       if (!content) {
         throw new Error('No content in Groq response')
       }
       
       const parsed = JSON.parse(content || '{}')
-      console.log(`Successfully retrieved data for ${platform}`)
+      console.log(`Successfully parsed JSON for ${platform}`)
+      console.log(`Parsed keys:`, Object.keys(parsed))
       return parsed
     } catch (error) {
       console.error(`Groq API failed for ${platform} (attempt ${attempt + 1}/${retries}):`, error)
@@ -274,6 +284,9 @@ export async function GET() {
 export async function POST() {
   const apiKey = process.env.GROQ_API_KEY || process.env.HUGGINGFACE_TOKEN || process.env.RAPID_API_UNLIMITED_GPT || process.env.RAPIDAPI || process.env.RAPID_API_KEY
 
+  console.log('API Key check:', !!apiKey)
+  console.log('API Key source:', process.env.GROQ_API_KEY ? 'GROQ_API_KEY' : process.env.HUGGINGFACE_TOKEN ? 'HUGGINGFACE_TOKEN' : 'fallback')
+
   if (!apiKey) {
     return NextResponse.json({ error: 'No API key configured. Please set GROQ_API_KEY' }, { status: 500 })
   }
@@ -285,11 +298,16 @@ export async function POST() {
 
   for (const platform of platforms) {
     try {
+      console.log(`Starting research for ${platform.name}...`)
       const result = await researchAlgorithm(platform.name, apiKey)
+      console.log(`Result for ${platform.name}:`, result ? 'Success' : 'Null')
+      
       if (result) {
         data.data[platform.id] = result
+        console.log(`Added data for ${platform.name}`)
       } else {
         errors.push(`${platform.name}: No data returned`)
+        console.error(`No data returned for ${platform.name}`)
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error'
@@ -297,6 +315,9 @@ export async function POST() {
       console.error(`Failed to research ${platform.name}:`, error)
     }
   }
+
+  console.log('Research complete. Platforms with data:', Object.keys(data.data).length)
+  console.log('Errors:', errors)
 
   if (Object.keys(data.data).length === 0) {
     return NextResponse.json({ 
@@ -308,7 +329,10 @@ export async function POST() {
   data.lastUpdated = new Date().toISOString()
   data.provider = 'groq'
   data.errors = errors.length > 0 ? errors : undefined
+  
+  console.log('Attempting to save data...')
   await writeData(data)
+  console.log('Data saved successfully')
 
   return NextResponse.json(data)
 }
