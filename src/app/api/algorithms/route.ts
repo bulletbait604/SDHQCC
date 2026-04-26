@@ -119,7 +119,7 @@ async function researchAlgorithm(platform: string, apiKey: string) {
   const endpoints = [
     { url: primaryUrl, host: primaryHost, name: 'primary', model: undefined },
     { url: backup1Url, host: backup1Host, name: 'backup1', model: 'deepseek-r1' },
-    { url: backup2Url, host: backup2Host, name: 'backup2', model: undefined }
+    { url: backup2Url, host: backup2Host, name: 'backup2', model: 'llama-3.3-70b' }
   ]
   
   let lastError: Error | null = null
