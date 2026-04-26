@@ -1297,9 +1297,14 @@ export default function HomePage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Input Section */}
                   <div className={`p-6 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
-                    <h4 className={`font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      Content Details
-                    </h4>
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                        Content Details
+                      </h4>
+                      <div className={`text-sm font-medium ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                        {tagRateLimit.remaining === -1 ? 'Unlimited' : `${tagRateLimit.remaining}/${isVerified ? 25 : 5} uses`}
+                      </div>
+                    </div>
                     
                     {/* Platform Selection */}
                     <div className="mb-4">
@@ -1421,7 +1426,7 @@ export default function HomePage() {
                       ) : (
                         <>
                           <Sparkles className="w-4 h-4 mr-2" />
-                          Generate Tags ({tagRateLimit.remaining === -1 ? 'Unlimited' : `${tagRateLimit.remaining}/${isVerified ? 25 : 5}`})
+                          Generate Tags
                         </>
                       )}
                     </Button>
