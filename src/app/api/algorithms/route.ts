@@ -108,7 +108,7 @@ async function writeData(data: any) {
   }
 }
 
-async function researchAlgorithm(platform: string, apiKey: string, provider: 'openai' | 'deepseek' = 'openai') {
+async function researchAlgorithm(platform: string, apiKey: string) {
   const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
 {
   "keyChanges": "Summary of key changes in how the algorithm works",
@@ -127,52 +127,44 @@ async function researchAlgorithm(platform: string, apiKey: string, provider: 'op
 Focus on recent changes and best practices as of 2026. Be specific and actionable. The summaries should be punchy, platform-specific takeaways that make users want to click Read More.`
 
   try {
-    if (provider === 'deepseek') {
-      // Use DeepSeek API
-      const response = await fetch('https://api.deepseek.com/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'deepseek-chat',
-          messages: [
-            { role: 'system', content: 'You are an expert in social media algorithms and content optimization. Provide specific, actionable advice based on current best practices.' },
-            { role: 'user', content: prompt }
-          ],
-          temperature: 0.7,
-          response_format: { type: 'json_object' }
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error(`DeepSeek API error: ${response.status}`)
-      }
-
-      const data = await response.json()
-      const content = data.choices?.[0]?.message?.content
-      return JSON.parse(content || '{}')
-    } else {
-      // Use OpenAI API
-      const { default: OpenAI } = await import('openai')
-      const openai = new OpenAI({ apiKey })
-      
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 30000)
+    
+    const response = await fetch('https://unlimited-gpt-4.p.rapidapi.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-rapidapi-key': apiKey,
+        'x-rapidapi-host': 'unlimited-gpt-4.p.rapidapi.com'
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: 'gpt-4',
         messages: [
-          { role: 'system', content: 'You are an expert in social media algorithms and content optimization. Provide specific, actionable advice based on current best practices.' },
+          { role: 'system', content: 'You are an expert in social media algorithms and content optimization. Provide specific, actionable advice based on current best practices. Return only valid JSON.' },
           { role: 'user', content: prompt }
         ],
-        temperature: 0.7,
-        response_format: { type: 'json_object' }
+        temperature: 0.7
       })
+    })
+    
+    clearTimeout(timeout)
 
-      const content = response.choices[0].message.content
-      return JSON.parse(content || '{}')
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`RapidAPI error: ${response.status} - ${errorText}`)
     }
+
+    const data = await response.json()
+    const content = data.choices?.[0]?.message?.content
+    
+    if (!content) {
+      throw new Error('No content in RapidAPI response')
+    }
+    
+    return JSON.parse(content || '{}')
   } catch (error) {
-    console.error(`Error researching ${platform} with ${provider}:`, error)
+    console.error(`Error researching ${platform} with RapidAPI:`, error)
     return null
   }
 }
@@ -261,31 +253,25 @@ export async function GET() {
 }
 
 export async function POST() {
-  const openaiKey = process.env.OPENAI_API_KEY
-  const deepseekKey = process.env.DEEPSEEK_API_KEY
+  const apiKey = process.env.RAPID_API_UNLIMITED_GPT
 
-  if (!openaiKey && !deepseekKey) {
-    return NextResponse.json({ error: 'No API keys configured. Please set OPENAI_API_KEY or DEEPSEEK_API_KEY' }, { status: 500 })
+  if (!apiKey) {
+    return NextResponse.json({ error: 'No API key configured. Please set RAPID_API_UNLIMITED_GPT' }, { status: 500 })
   }
-
-  // Prefer OpenAI if available, otherwise use DeepSeek
-  const useDeepSeek = !openaiKey && !!deepseekKey
-  const apiKey = openaiKey || deepseekKey
-  const provider: 'openai' | 'deepseek' = useDeepSeek ? 'deepseek' : 'openai'
   
-  console.log(`Using ${provider.toUpperCase()} API for algorithm research`)
+  console.log('Using RapidAPI for algorithm research')
   
   const data: any = { data: {} }
 
   for (const platform of platforms) {
-    const result = await researchAlgorithm(platform.name, apiKey!, provider)
+    const result = await researchAlgorithm(platform.name, apiKey)
     if (result) {
       data.data[platform.id] = result
     }
   }
 
   data.lastUpdated = new Date().toISOString()
-  data.provider = provider
+  data.provider = 'rapidapi'
   await writeData(data)
 
   return NextResponse.json(data)
