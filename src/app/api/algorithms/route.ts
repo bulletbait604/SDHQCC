@@ -109,8 +109,17 @@ async function writeData(data: any) {
 }
 
 async function researchAlgorithm(platform: string, apiKey: string) {
-  const apiUrl = process.env.RAPID_API_URL || 'https://deepseek-r12.p.rapidapi.com/v1/chat/completions'
-  const apiHost = process.env.RAPID_API_HOST || 'deepseek-r12.p.rapidapi.com'
+  const primaryUrl = process.env.RAPID_API_URL || 'https://deepseek-r12.p.rapidapi.com/v1/chat/completions'
+  const primaryHost = process.env.RAPID_API_HOST || 'deepseek-r12.p.rapidapi.com'
+  const backupUrl = process.env.RAPID_API_BACKUP_URL || 'https://openai-chatgpt-gpt-api.p.rapidapi.com/v1/chat/completions'
+  const backupHost = process.env.RAPID_API_BACKUP_HOST || 'openai-chatgpt-gpt-api.p.rapidapi.com'
+  
+  const endpoints = [
+    { url: primaryUrl, host: primaryHost, name: 'primary' },
+    { url: backupUrl, host: backupHost, name: 'backup' }
+  ]
+  
+  let lastError: Error | null = null
   
   const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
 {
@@ -128,48 +137,56 @@ async function researchAlgorithm(platform: string, apiKey: string) {
 }
 
 Focus on recent changes and best practices as of 2026. Be specific and actionable. The summaries should be punchy, platform-specific takeaways that make users want to click Read More.`
-
-  try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 30000)
-    
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-RapidAPI-Key': apiKey,
-        'X-RapidAPI-Host': apiHost
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [
-          { role: 'system', content: 'You are an expert in social media algorithms and content optimization. Provide specific, actionable advice based on current best practices. Return only valid JSON.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.7
+  
+  for (const endpoint of endpoints) {
+    try {
+      console.log(`Trying ${endpoint.name} endpoint for algorithm research: ${endpoint.host}`)
+      
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 30000)
+      
+      const response = await fetch(endpoint.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-RapidAPI-Key': apiKey,
+          'X-RapidAPI-Host': endpoint.host
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [
+            { role: 'system', content: 'You are an expert in social media algorithms and content optimization. Provide specific, actionable advice based on current best practices. Return only valid JSON.' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.7
+        })
       })
-    })
-    
-    clearTimeout(timeout)
+      
+      clearTimeout(timeout)
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`RapidAPI error: ${response.status} - ${errorText}`)
-    }
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`RapidAPI error: ${response.status} - ${errorText}`)
+      }
 
-    const data = await response.json()
-    const content = data.choices?.[0]?.message?.content
-    
-    if (!content) {
-      throw new Error('No content in RapidAPI response')
+      const data = await response.json()
+      const content = data.choices?.[0]?.message?.content
+      
+      if (!content) {
+        throw new Error('No content in RapidAPI response')
+      }
+      
+      return JSON.parse(content || '{}')
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
+      console.error(`${endpoint.name} endpoint failed for ${platform}:`, lastError.message)
+      continue
     }
-    
-    return JSON.parse(content || '{}')
-  } catch (error) {
-    console.error(`Error researching ${platform} with RapidAPI:`, error)
-    return null
   }
+  
+  console.error(`All endpoints failed for ${platform}`)
+  return null
 }
 
 // Placeholder data to show until AI research completes
