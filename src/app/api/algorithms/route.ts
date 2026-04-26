@@ -150,7 +150,8 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
         headers: {
           'Content-Type': 'application/json',
           'x-rapidapi-key': apiKey,
-          'x-rapidapi-host': endpoint.host
+          'x-rapidapi-host': endpoint.host,
+          'Authorization': `Bearer ${apiKey}`
         },
         signal: controller.signal,
         body: JSON.stringify({
