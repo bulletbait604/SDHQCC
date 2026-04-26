@@ -1,75 +1,39 @@
 {
   "data": {
-    "tiktok": {
-      "keyChanges": "TikTok's algorithm now prioritizes authenticity and creativity over engagement metrics, giving more weight to videos that spark genuine conversations and interactions. It also looks at the overall health of your account, including factors like comment sections and user feedback.",
+    "youtube-shorts": {
+      "keyChanges": "YouTube Shorts algorithm now prioritizes relevance, watch time, and audience retention. It also focuses on short-form content discovery, using AI-driven recommendations to surface top videos.",
       "editingTips": [
-        "Keep your videos concise and under 3 minutes",
-        "Use catchy, high-energy background music",
-        "Experiment with vertical video formats for optimal viewing",
-        "Incorporate text overlays and captions for accessibility",
-        "Utilize TikTok's exclusive effects and filters to elevate your content"
+        "Keep it concise: Edit your Shorts to 60 seconds or less for maximum engagement.",
+        "Use attention-grabbing thumbnails: Eye-catching visuals can boost click-through rates by up to 20%.",
+        "Add music that resonates: Choose a soundtrack that complements your content and appeals to your target audience.",
+        "Optimize for mobile: Ensure your video looks great on smaller screens to cater to the majority of YouTube viewers."
       ],
       "postingTips": [
-        "Post consistently to maintain a consistent aesthetic and keep your audience engaged",
-        "Experiment with different posting times to reach a broader audience",
-        "Post during peak hours (3-5 pm EST) for optimal engagement",
-        "Space out your posts to avoid overwhelming your audience",
-        "Use TikTok's built-in scheduling tool to plan and schedule your content in advance"
+        "Post consistently: Regularly upload Shorts to maintain audience engagement and boost your visibility.",
+        "Experiment with different formats: Try out different content styles, such as Q&A, tutorials, or challenges, to find what works best for your brand.",
+        "Time your posts strategically: Post when your audience is most active, typically during peak hours (3-5 pm) or during trending events.",
+        "Engage with the community: Respond to comments and create a dialogue with your viewers to foster a loyal following."
       ],
       "titleTips": [
-        "Craft attention-grabbing titles that showcase your unique perspective (max 5 words)",
-        "Use action verbs like 'Get ready for' or 'Experience the'",
-        "Ask questions or make a bold statement to encourage engagement",
-        "Include relevant hashtags to increase discoverability",
-        "Keep it concise and clear, avoiding unnecessary words"
+        "Make it descriptive: Use specific keywords that accurately reflect the content of your video.",
+        "Keep it short: Limit your title to 5-7 words to avoid truncation and ensure maximum visibility.",
+        "Use action words: Begin your title with a verb to create a sense of excitement and encourage viewers to click.",
+        "Add a hook: Incorporate a question, statistic, or surprising fact to pique the viewer's interest."
       ],
       "descriptionTips": [
-        "Use a conversational tone to connect with your audience",
-        "Include a clear CTA (call-to-action) to drive engagement",
-        "Keep your descriptions concise and scannable",
-        "Use relevant keywords to improve discoverability",
-        "Add a touch of personality and humor to make your content stand out"
+        "Keep it concise: Limit your description to 150-200 characters to avoid truncation and ensure maximum visibility.",
+        "Use keywords strategically: Include relevant keywords that match your content to improve your video's discoverability.",
+        "Provide context: Give viewers a clear understanding of what your video is about and what they can expect.",
+        "Include a call-to-action: Encourage viewers to engage with your content, subscribe to your channel, or visit your website."
       ],
       "summaries": [
-        "Boost engagement with authentic, creative content",
-        "TikTok's algorithm favors videos that spark conversations",
-        "Use vertical format and catchy music for success",
-        "Post consistently and experiment with posting times for growth"
-      ]
-    },
-    "instagram": {
-      "keyChanges": "The Instagram algorithm now prioritizes content that sparks meaningful interactions and drives engagement. This includes likes, comments, saves, and shares. The algorithm also considers context and intent, such as when a user is searching for a specific product or service. Additionally, Instagram now uses a more nuanced approach to ranking content, taking into account factors like relevance, timeliness, and user behavior.",
-      "editingTips": [
-        "Use high-quality, visually appealing images and videos.",
-        "Utilize Instagram's editing features, such as filters and effects, to enhance the visual appeal of your content.",
-        "Add text and captions to provide context and make your content more engaging.",
-        "Experiment with different editing styles and aesthetics to stand out from the crowd."
-      ],
-      "postingTips": [
-        "Post content at times when your audience is most active and engaged, such as during peak hours (e.g. 12pm-4pm EST) or during major events and holidays.",
-        "Experiment with different posting frequencies to find what works best for your audience, but aim for at least 3-5 posts per week.",
-        "Consider using Instagram's features, such as IGTV and Reels, to mix up your content and keep your audience engaged."
-      ],
-      "titleTips": [
-        "Use attention-grabbing, descriptive titles that accurately reflect the content of your post.",
-        "Keep titles concise and easy to read, ideally under 5 words.",
-        "Use relevant keywords and hashtags in your titles to improve discoverability.",
-        "Experiment with different title formats, such as questions or statements, to keep your audience engaged."
-      ],
-      "descriptionTips": [
-        "Use descriptive and engaging captions that provide context and encourage interaction.",
-        "Keep descriptions concise and easy to read, ideally under 125 words.",
-        "Use relevant keywords and hashtags in your descriptions to improve discoverability.",
-        "Experiment with different description formats, such as stories or questions, to keep your audience engaged."
-      ],
-      "summaries": [
-        "Boost engagement with interactive Instagram Stories",
-        "Maximize reach with timely and relevant content",
-        "Stand out with visually stunning Instagram Reels",
-        "Grow your audience with Instagram's features and tools"
+        "Get discovered by YouTube Shorts algorithm with attention-grabbing thumbnails and relevant titles.",
+        "Boost engagement and watch time by creating concise, mobile-optimized content that resonates with your audience.",
+        "Unlock the power of YouTube Shorts by posting consistently, experimenting with different formats, and engaging with your community.",
+        "Maximize your YouTube Shorts growth by using action-packed titles, descriptive descriptions, and strategic keyword usage."
       ]
     }
   },
-  "lastUpdated": "2026-04-26T21:30:14.576Z",
+  "lastUpdated": "2026-04-26T21:30:56.978Z",
   "provider": "groq"
 }
