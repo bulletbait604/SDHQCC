@@ -108,14 +108,15 @@ async function writeData(data: any) {
   }
 }
 
-async function researchAlgorithm(platform: string, apiKey: string) {
+async function researchAlgorithm(platform: string, apiKey: string, retries: number = 3): Promise<any> {
   const modelName = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
   const apiUrl = 'https://api.groq.com/openai/v1/chat/completions'
   
-  try {
-    console.log(`Calling Groq API for algorithm research: ${apiUrl}`)
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      console.log(`Calling Groq API for ${platform} (attempt ${attempt + 1}/${retries})`)
   
-    const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
+      const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
 {
   "keyChanges": "Summary of key changes in how the algorithm works",
   "editingTips": "Tips for editing content for ${platform}",
@@ -131,47 +132,60 @@ async function researchAlgorithm(platform: string, apiKey: string) {
 }
 
 Focus on recent changes and best practices as of 2026. Be specific and actionable. The summaries should be punchy, platform-specific takeaways that make users want to click Read More.`
-    
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout for Groq
-    
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: modelName,
-        messages: [
-          { role: 'system', content: 'You are an expert in social media algorithms and content optimization. Provide specific, actionable advice based on current best practices. Return only valid JSON.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 1000
+      
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 60000) // 60 second timeout for Groq
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: modelName,
+          messages: [
+            { role: 'system', content: 'You are an expert in social media algorithms and content optimization. Provide specific, actionable advice based on current best practices. Return only valid JSON.' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 1500
+        })
       })
-    })
-    
-    clearTimeout(timeout)
+      
+      clearTimeout(timeout)
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Groq error: ${response.status} - ${errorText}`)
-    }
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Groq error: ${response.status} - ${errorText}`)
+      }
 
-    const data = await response.json()
-    const content = data.choices?.[0]?.message?.content
-    
-    if (!content) {
-      throw new Error('No content in Groq response')
+      const data = await response.json()
+      const content = data.choices?.[0]?.message?.content
+      
+      if (!content) {
+        throw new Error('No content in Groq response')
+      }
+      
+      const parsed = JSON.parse(content || '{}')
+      console.log(`Successfully retrieved data for ${platform}`)
+      return parsed
+    } catch (error) {
+      console.error(`Groq API failed for ${platform} (attempt ${attempt + 1}/${retries}):`, error)
+      
+      if (attempt < retries - 1) {
+        // Wait before retrying (exponential backoff)
+        const delay = Math.pow(2, attempt) * 1000
+        console.log(`Retrying ${platform} in ${delay}ms...`)
+        await new Promise(resolve => setTimeout(resolve, delay))
+      } else {
+        throw new Error(`Failed to research ${platform} after ${retries} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      }
     }
-    
-    return JSON.parse(content || '{}')
-  } catch (error) {
-    console.error(`Groq API failed for ${platform}:`, error)
-    return null
   }
+  
+  return null
 }
 
 // Placeholder data to show until AI research completes
@@ -260,27 +274,40 @@ export async function GET() {
 export async function POST() {
   const apiKey = process.env.GROQ_API_KEY || process.env.HUGGINGFACE_TOKEN || process.env.RAPID_API_UNLIMITED_GPT || process.env.RAPIDAPI || process.env.RAPID_API_KEY
 
+  if (!apiKey) {
+    return NextResponse.json({ error: 'No API key configured. Please set GROQ_API_KEY' }, { status: 500 })
+  }
+  
   console.log('Using Groq for algorithm research')
   
   const data: any = { data: {} }
+  const errors: string[] = []
 
   for (const platform of platforms) {
-    if (apiKey) {
+    try {
       const result = await researchAlgorithm(platform.name, apiKey)
       if (result) {
         data.data[platform.id] = result
       } else {
-        // Use placeholder data if API fails
-        data.data[platform.id] = placeholderData[platform.id as keyof typeof placeholderData]
+        errors.push(`${platform.name}: No data returned`)
       }
-    } else {
-      // Use placeholder data if no API key
-      data.data[platform.id] = placeholderData[platform.id as keyof typeof placeholderData]
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+      errors.push(`${platform.name}: ${errorMsg}`)
+      console.error(`Failed to research ${platform.name}:`, error)
     }
   }
 
+  if (Object.keys(data.data).length === 0) {
+    return NextResponse.json({ 
+      error: 'Failed to research any platforms',
+      details: errors 
+    }, { status: 500 })
+  }
+
   data.lastUpdated = new Date().toISOString()
-  data.provider = apiKey ? 'groq' : 'placeholder'
+  data.provider = 'groq'
+  data.errors = errors.length > 0 ? errors : undefined
   await writeData(data)
 
   return NextResponse.json(data)
