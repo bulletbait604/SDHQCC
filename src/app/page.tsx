@@ -1577,7 +1577,11 @@ export default function HomePage() {
                               setIsLoadingAlgorithms(true)
                               
                               try {
-                                const res = await fetch('/api/algorithms', { method: 'POST' })
+                                const res = await fetch('/api/algorithms', { 
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({})
+                                })
                                 if (!res.ok) throw new Error(`API error: ${res.status}`)
                                 
                                 const data = await res.json()
@@ -1613,8 +1617,66 @@ export default function HomePage() {
                             className="w-full"
                           >
                             <TrendingUp className="w-4 h-4 mr-2" />
-                            {isLoadingAlgorithms ? 'Refreshing Algorithms...' : 'Refresh Algorithms'}
+                            {isLoadingAlgorithms ? 'Refreshing All...' : 'Refresh All Algorithms'}
                           </Button>
+                        </div>
+
+                        {/* Individual Platform Refresh Buttons */}
+                        <div className="grid grid-cols-2 gap-2">
+                          {platforms.map((platform) => (
+                            <Button
+                              key={platform.id}
+                              variant="outline"
+                              size="sm"
+                              onClick={async () => {
+                                if (!user || !isAdmin) return
+                                
+                                setIsLoadingAlgorithms(true)
+                                
+                                try {
+                                  const res = await fetch('/api/algorithms', { 
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ platformId: platform.id })
+                                  })
+                                  if (!res.ok) throw new Error(`API error: ${res.status}`)
+                                  
+                                  const data = await res.json()
+                                  if (data.data) {
+                                    localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
+                                    localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
+                                    setLastUpdated(data.lastUpdated)
+                                    setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
+                                      ...p,
+                                      data: data.data[p.id] || null
+                                    })))
+                                    
+                                    // Log the manual refresh
+                                    const refreshEntry: ActivityLogEntry = {
+                                      id: Date.now().toString(),
+                                      username: user.username,
+                                      timestamp: new Date().toISOString(),
+                                      action: 'algorithm_refresh',
+                                      details: `Manual ${platform.name} algorithm refresh${data.provider ? ` via ${data.provider}` : ''}`
+                                    }
+                                    setActivityLog(prev => [refreshEntry, ...prev].slice(0, 100))
+                                    
+                                    alert(`${platform.name} algorithm refreshed successfully!`)
+                                  }
+                                } catch (error) {
+                                  console.error(`Error refreshing ${platform.name}:`, error)
+                                  alert(`Failed to refresh ${platform.name}. Please try again.`)
+                                } finally {
+                                  setIsLoadingAlgorithms(false)
+                                }
+                              }}
+                              disabled={isLoadingAlgorithms}
+                              className="text-xs"
+                            >
+                              <TrendingUp className="w-3 h-3 mr-1" />
+                              {platform.name}
+                            </Button>
+                          ))}
                         </div>
                       </div>
                     </div>

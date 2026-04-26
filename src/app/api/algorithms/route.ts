@@ -108,11 +108,11 @@ async function writeData(data: any) {
   }
 }
 
-async function researchAlgorithm(platform: string, apiKey: string, retries: number = 3): Promise<any> {
+async function researchAlgorithm(platform: string, apiKey: string, retries: number = 3, maxTokens: number = 1000): Promise<any> {
   const modelName = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
   const apiUrl = 'https://api.groq.com/openai/v1/chat/completions'
   
-  console.log(`researchAlgorithm called for ${platform} with model ${modelName}`)
+  console.log(`researchAlgorithm called for ${platform} with model ${modelName}, maxTokens: ${maxTokens}`)
   
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
@@ -153,7 +153,7 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
             { role: 'user', content: prompt }
           ],
           temperature: 0.7,
-          max_tokens: 1000
+          max_tokens: maxTokens
         })
       })
       
@@ -298,7 +298,7 @@ export async function GET() {
   return NextResponse.json(storedData)
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   const apiKey = process.env.GROQ_API_KEY || process.env.HUGGINGFACE_TOKEN || process.env.RAPID_API_UNLIMITED_GPT || process.env.RAPIDAPI || process.env.RAPID_API_KEY
 
   console.log('API Key check:', !!apiKey)
@@ -308,15 +308,28 @@ export async function POST() {
     return NextResponse.json({ error: 'No API key configured. Please set GROQ_API_KEY' }, { status: 500 })
   }
   
-  console.log('Using Groq for algorithm research')
+  const body = await request.json()
+  const platformId = body.platformId // Optional: specific platform to refresh
   
-  const data: any = { data: {} }
+  console.log('Using Groq for algorithm research')
+  console.log('Platform to refresh:', platformId || 'all platforms')
+  
+  // Read existing data first
+  const existingData = await readData()
+  const data: any = { data: { ...existingData.data } }
   const errors: string[] = []
 
-  for (const platform of platforms) {
+  const platformsToRefresh = platformId 
+    ? platforms.filter(p => p.id === platformId)
+    : platforms
+
+  // Use higher max_tokens for single platform refresh, lower for all platforms
+  const maxTokens = platformId ? 2500 : 1000
+
+  for (const platform of platformsToRefresh) {
     try {
       console.log(`Starting research for ${platform.name}...`)
-      const result = await researchAlgorithm(platform.name, apiKey)
+      const result = await researchAlgorithm(platform.name, apiKey, 3, maxTokens)
       console.log(`Result for ${platform.name}:`, result ? 'Success' : 'Null')
       
       if (result) {
@@ -331,9 +344,6 @@ export async function POST() {
       errors.push(`${platform.name}: ${errorMsg}`)
       console.error(`Failed to research ${platform.name}:`, error)
     }
-    
-    // Add delay between platforms to avoid rate limiting
-    await new Promise(resolve => setTimeout(resolve, 3000))
   }
 
   console.log('Research complete. Platforms with data:', Object.keys(data.data).length)
