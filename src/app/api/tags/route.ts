@@ -29,10 +29,12 @@ function checkRateLimit(identifier: string, maxUses: number = 3, windowMs: numbe
 async function generateTagsWithRapidAPI(description: string, platform: string, count: number): Promise<string[]> {
   const apiKey = process.env.RAPIDAPI || process.env.RAPID_API_KEY || process.env.RAPID_API_UNLIMITED_GPT
   
-  const primaryUrl = process.env.RAPID_API_URL || 'https://deepseek-r12.p.rapidapi.com/chat/completions'
-  const primaryHost = process.env.RAPID_API_HOST || 'deepseek-r12.p.rapidapi.com'
-  const backupUrl = process.env.RAPID_API_BACKUP_URL || 'https://deepseek-r1-distill-llama-70b.p.rapidapi.com/chat_completions'
-  const backupHost = process.env.RAPID_API_BACKUP_HOST || 'deepseek-r1-distill-llama-70b.p.rapidapi.com'
+  const primaryUrl = process.env.RAPID_API_URL || 'https://deepseek-r1-671b1.p.rapidapi.com/chat_completions'
+  const primaryHost = process.env.RAPID_API_HOST || 'deepseek-r1-671b1.p.rapidapi.com'
+  const backup1Url = process.env.RAPID_API_BACKUP_URL || 'https://deepseek-r12.p.rapidapi.com/chat/completions'
+  const backup1Host = process.env.RAPID_API_BACKUP_HOST || 'deepseek-r12.p.rapidapi.com'
+  const backup2Url = process.env.RAPID_API_BACKUP2_URL || 'https://deepseek-r1-distill-llama-70b.p.rapidapi.com/chat_completions'
+  const backup2Host = process.env.RAPID_API_BACKUP2_HOST || 'deepseek-r1-distill-llama-70b.p.rapidapi.com'
   
   console.log('API Key present:', !!apiKey)
   console.log('API Key length:', apiKey?.length)
@@ -43,8 +45,9 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
   }
   
   const endpoints = [
-    { url: primaryUrl, host: primaryHost, name: 'primary', model: 'deepseek-r1' },
-    { url: backupUrl, host: backupHost, name: 'backup', model: 'llama-3.3-70b' }
+    { url: primaryUrl, host: primaryHost, name: 'primary', model: undefined },
+    { url: backup1Url, host: backup1Host, name: 'backup1', model: 'deepseek-r1' },
+    { url: backup2Url, host: backup2Host, name: 'backup2', model: undefined }
   ]
   
   let lastError: Error | null = null
@@ -75,7 +78,7 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
         },
         signal: controller.signal,
         body: JSON.stringify({
-          model: endpoint.model,
+          ...(endpoint.model && { model: endpoint.model }),
           messages: [
             {
               role: 'system',

@@ -109,14 +109,17 @@ async function writeData(data: any) {
 }
 
 async function researchAlgorithm(platform: string, apiKey: string) {
-  const primaryUrl = process.env.RAPID_API_URL || 'https://deepseek-r12.p.rapidapi.com/chat/completions'
-  const primaryHost = process.env.RAPID_API_HOST || 'deepseek-r12.p.rapidapi.com'
-  const backupUrl = process.env.RAPID_API_BACKUP_URL || 'https://deepseek-r1-distill-llama-70b.p.rapidapi.com/chat_completions'
-  const backupHost = process.env.RAPID_API_BACKUP_HOST || 'deepseek-r1-distill-llama-70b.p.rapidapi.com'
+  const primaryUrl = process.env.RAPID_API_URL || 'https://deepseek-r1-671b1.p.rapidapi.com/chat_completions'
+  const primaryHost = process.env.RAPID_API_HOST || 'deepseek-r1-671b1.p.rapidapi.com'
+  const backup1Url = process.env.RAPID_API_BACKUP_URL || 'https://deepseek-r12.p.rapidapi.com/chat/completions'
+  const backup1Host = process.env.RAPID_API_BACKUP_HOST || 'deepseek-r12.p.rapidapi.com'
+  const backup2Url = process.env.RAPID_API_BACKUP2_URL || 'https://deepseek-r1-distill-llama-70b.p.rapidapi.com/chat_completions'
+  const backup2Host = process.env.RAPID_API_BACKUP2_HOST || 'deepseek-r1-distill-llama-70b.p.rapidapi.com'
   
   const endpoints = [
-    { url: primaryUrl, host: primaryHost, name: 'primary', model: 'deepseek-r1' },
-    { url: backupUrl, host: backupHost, name: 'backup', model: 'llama-3.3-70b' }
+    { url: primaryUrl, host: primaryHost, name: 'primary', model: undefined },
+    { url: backup1Url, host: backup1Host, name: 'backup1', model: 'deepseek-r1' },
+    { url: backup2Url, host: backup2Host, name: 'backup2', model: undefined }
   ]
   
   let lastError: Error | null = null
@@ -154,7 +157,7 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
         },
         signal: controller.signal,
         body: JSON.stringify({
-          model: endpoint.model,
+          ...(endpoint.model && { model: endpoint.model }),
           messages: [
             { role: 'system', content: 'You are an expert in social media algorithms and content optimization. Provide specific, actionable advice based on current best practices. Return only valid JSON.' },
             { role: 'user', content: prompt }
