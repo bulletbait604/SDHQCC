@@ -547,8 +547,8 @@ export default function HomePage() {
     if (hasUnlimited) {
       setTagRateLimit({ remaining: -1, resetTime: null })
     } else if ((tagRateLimit.remaining === 5 || tagRateLimit.remaining === 0) && (isVerified || isAdmin)) {
-      setTagRateLimit({ remaining: 25, resetTime: null })
-    } else if (tagRateLimit.remaining === 25 && !isVerified && !isAdmin) {
+      setTagRateLimit({ remaining: 20, resetTime: null })
+    } else if (tagRateLimit.remaining === 20 && !isVerified && !isAdmin) {
       setTagRateLimit({ remaining: 5, resetTime: null })
     }
   }, [isVerified, isLifetime, user, isOwner, admins])
@@ -1555,7 +1555,7 @@ export default function HomePage() {
                               // Rate limit exceeded
                               setTagRateLimit({ remaining: 0, resetTime: errorData.resetTime })
                               const resetDate = new Date(errorData.resetTime)
-                              const maxUses = isVerified ? 25 : 5
+                              const maxUses = isVerified ? 20 : 5
                               alert(`Rate limit exceeded. You have used your ${maxUses} tag generations for the day.\n\nResets at: ${resetDate.toLocaleString()}`)
                             } else {
                               const errorMsg = errorData.details || errorData.error || `API error: ${res.status}`
@@ -1666,7 +1666,7 @@ export default function HomePage() {
                       <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         {tagRateLimit.resetTime 
                           ? `Resets at: ${new Date(tagRateLimit.resetTime).toLocaleString()}`
-                          : `${isVerified || isAdmin ? 25 : 5} uses per 24 hours`
+                          : `${isVerified || isAdmin ? 20 : 5} uses per 24 hours`
                         }
                       </p>
                     </div>

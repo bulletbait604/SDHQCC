@@ -158,7 +158,7 @@ Return exactly ${count} tags as a JSON array: ["tag1", "tag2", "tag3", ...]`
 export async function GET() {
   return NextResponse.json({ 
     message: 'Using Groq for tag generation',
-    rateLimit: '5 uses per 24 hours (25 for verified users)',
+    rateLimit: '5 uses per 24 hours (20 for verified users)',
     status: 'active',
     totalUsers: rateLimitStore.size
   })
@@ -205,8 +205,8 @@ export async function POST(request: Request) {
     // Admin users bypass rate limit
     const isAdmin = userId && ['bulletbait604', 'Bulletbait604'].includes(userId)
     
-    // Verified users get 25 uses/day, regular users get 5
-    const maxUses = isVerified ? 25 : 5
+    // Verified users get 20 uses/day, regular users get 5
+    const maxUses = isVerified ? 20 : 5
     
     let rateLimitResult = null
     if (!isAdmin) {
@@ -218,7 +218,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ 
           error: 'Rate limit exceeded',
           message: isVerified 
-            ? 'You have used your 25 tag generations for the day. Please try again later.'
+            ? 'You have used your 20 tag generations for the day. Please try again later.'
             : 'You have used your 5 free tag generations for the day. Please try again later.',
           resetTime: rateLimitResult.resetTime,
           resetDate: resetDate.toISOString()
