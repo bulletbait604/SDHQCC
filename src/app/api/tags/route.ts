@@ -168,10 +168,12 @@ export async function GET() {
 export async function DELETE(request: Request) {
   try {
     const body = await request.json()
-    const { adminKey } = body
+    const { userId } = body
     
-    // Simple admin key check (in production, use proper authentication)
-    if (adminKey !== process.env.ADMIN_RESET_KEY) {
+    // Check if user is admin
+    const isAdmin = userId && ['bulletbait604', 'Bulletbait604'].includes(userId)
+    
+    if (!isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     

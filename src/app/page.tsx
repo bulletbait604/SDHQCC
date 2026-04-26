@@ -244,12 +244,7 @@ export default function HomePage() {
   const [generatedTags, setGeneratedTags] = useState<Record<string, string[]>>({})
   const [isGeneratingTags, setIsGeneratingTags] = useState<boolean>(false)
   const [tagDatabaseStatus, setTagDatabaseStatus] = useState<{lastUpdated: string | null, totalTags: number}>({lastUpdated: null, totalTags: 0})
-  const [isRefreshingTags, setIsRefreshingTags] = useState<boolean>(false)
-  const [tagRefreshProgress, setTagRefreshProgress] = useState<number>(0)
-  const [algorithmRefreshProgress, setAlgorithmRefreshProgress] = useState<number>(0)
-  const [isRefreshingHashy, setIsRefreshingHashy] = useState<boolean>(false)
-  const [hashyRefreshStatus, setHashyRefreshStatus] = useState<string | null>(null)
-  const [tagRateLimit, setTagRateLimit] = useState<{remaining: number, resetTime: number | null}>({remaining: 3, resetTime: null})
+  const [tagRateLimit, setTagRateLimit] = useState<{remaining: number, resetTime: number | null}>({remaining: 5, resetTime: null})
   const [platforms, setPlatforms] = useState<Platform[]>([
     {
       id: 'tiktok',
@@ -606,37 +601,6 @@ export default function HomePage() {
     setSubscribers(subscribers.filter(sub => sub.id !== id))
   }
 
-  const handleRefreshHashy = async () => {
-    if (!isAdmin) return
-
-    setIsRefreshingHashy(true)
-    setHashyRefreshStatus('Analyzing platform algorithms...')
-
-    try {
-      const response = await fetch('/api/admin/refresh-hashy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isAdmin: true })
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setHashyRefreshStatus(`Updated ${data.updatedPlatforms.length} platforms`)
-        setTimeout(() => setHashyRefreshStatus(null), 3000)
-      } else {
-        setHashyRefreshStatus('Failed to refresh Hashy')
-        setTimeout(() => setHashyRefreshStatus(null), 3000)
-      }
-    } catch (error) {
-      console.error('Error refreshing Hashy:', error)
-      setHashyRefreshStatus('Error refreshing Hashy')
-      setTimeout(() => setHashyRefreshStatus(null), 3000)
-    } finally {
-      setIsRefreshingHashy(false)
-    }
-  }
-
   const handleResetTagUsages = async () => {
     if (!isAdmin) return
 
@@ -648,7 +612,7 @@ export default function HomePage() {
       const response = await fetch('/api/tags', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminKey: 'admin-reset-key-2026' })
+        body: JSON.stringify({ userId: user?.username })
       })
 
       if (response.ok) {
@@ -1600,7 +1564,7 @@ export default function HomePage() {
                       </h4>
                       
                       <div className="space-y-4">
-                        {/* Refresh Algorithms Button with Progress */}
+                        {/* Refresh Algorithms Button */}
                         <div>
                           <Button
                             variant="outline"
@@ -1609,15 +1573,6 @@ export default function HomePage() {
                               if (!user || !isAdmin) return
                               
                               setIsLoadingAlgorithms(true)
-                              setAlgorithmRefreshProgress(0)
-                              
-                              // Simulate progress updates
-                              const progressInterval = setInterval(() => {
-                                setAlgorithmRefreshProgress(prev => {
-                                  if (prev >= 90) return prev
-                                  return prev + Math.random() * 15
-                                })
-                              }, 1000)
                               
                               try {
                                 const res = await fetch('/api/algorithms', { method: 'POST' })
@@ -1643,16 +1598,13 @@ export default function HomePage() {
                                   }
                                   setActivityLog(prev => [refreshEntry, ...prev].slice(0, 100))
                                   
-                                  setAlgorithmRefreshProgress(100)
                                   alert('Algorithms refreshed successfully!')
                                 }
                               } catch (error) {
                                 console.error('Error refreshing algorithms:', error)
                                 alert('Failed to refresh algorithms. Please try again.')
                               } finally {
-                                clearInterval(progressInterval)
                                 setIsLoadingAlgorithms(false)
-                                setTimeout(() => setAlgorithmRefreshProgress(0), 2000)
                               }
                             }}
                             disabled={isLoadingAlgorithms}
@@ -1661,96 +1613,6 @@ export default function HomePage() {
                             <TrendingUp className="w-4 h-4 mr-2" />
                             {isLoadingAlgorithms ? 'Refreshing Algorithms...' : 'Refresh Algorithms'}
                           </Button>
-                          
-                          {/* Algorithm Refresh Progress Bar */}
-                          {isLoadingAlgorithms && (
-                            <div className="mt-2">
-                              <div className={`w-full h-2 rounded-full ${darkMode ? 'bg-sdhq-dark-600' : 'bg-gray-200'}`}>
-                                <div 
-                                  className="h-2 rounded-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 transition-all duration-300"
-                                  style={{ width: `${Math.min(algorithmRefreshProgress, 100)}%` }}
-                                />
-                              </div>
-                              <p className={`text-xs mt-1 text-center ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                {Math.round(algorithmRefreshProgress)}% complete
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Refresh Tag Database Button with Progress */}
-                        <div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={async () => {
-                              if (!user || !isAdmin) return
-                              
-                              setIsRefreshingTags(true)
-                              setTagRefreshProgress(0)
-                              
-                              // Simulate progress updates
-                              const progressInterval = setInterval(() => {
-                                setTagRefreshProgress(prev => {
-                                  if (prev >= 90) return prev
-                                  return prev + Math.random() * 10
-                                })
-                              }, 1500)
-                              
-                              try {
-                                const res = await fetch('/api/tags', { method: 'PUT' })
-                                if (!res.ok) throw new Error(`API error: ${res.status}`)
-                                
-                                const data = await res.json()
-                                if (data.success) {
-                                  setTagDatabaseStatus({
-                                    lastUpdated: data.lastUpdated,
-                                    totalTags: data.totalTags
-                                  })
-                                  
-                                  // Log the tag refresh
-                                  const refreshEntry: ActivityLogEntry = {
-                                    id: Date.now().toString(),
-                                    username: user.username,
-                                    timestamp: new Date().toISOString(),
-                                    action: 'algorithm_refresh',
-                                    details: `Manual tag database refresh${data.provider ? ` via ${data.provider}` : ''} - ${data.totalTags.toLocaleString()} tags`
-                                  }
-                                  setActivityLog(prev => [refreshEntry, ...prev].slice(0, 100))
-                                  
-                                  setTagRefreshProgress(100)
-                                  alert(`Tag database refreshed successfully! ${data.totalTags.toLocaleString()} tags generated.`)
-                                }
-                              } catch (error) {
-                                console.error('Error refreshing tag database:', error)
-                                alert('Failed to refresh tag database. Please try again.')
-                              } finally {
-                                clearInterval(progressInterval)
-                                setIsRefreshingTags(false)
-                                setTimeout(() => setTagRefreshProgress(0), 2000)
-                              }
-                            }}
-                            disabled={isRefreshingTags}
-                            className="w-full"
-                          >
-                            <Database className="w-4 h-4 mr-2" />
-                            {isRefreshingTags ? 'Refreshing Tags...' : 'Refresh Tag Database'}
-                          </Button>
-                          
-                          {/* Tag Refresh Progress Bar */}
-                          {isRefreshingTags && (
-                            <div className="mt-2">
-                              <div className={`w-full h-2 rounded-full ${darkMode ? 'bg-sdhq-dark-600' : 'bg-gray-200'}`}>
-                                <div 
-                                  className="h-2 rounded-full bg-gradient-to-r from-sdhq-green-500 to-sdhq-cyan-500 transition-all duration-300"
-                                  style={{ width: `${Math.min(tagRefreshProgress, 100)}%` }}
-                                />
-                              </div>
-                              <p className={`text-xs mt-1 text-center ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                {Math.round(tagRefreshProgress)}% complete - Generating 100k+ tags across 5 platforms...
-                              </p>
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -1954,35 +1816,6 @@ export default function HomePage() {
                     <p className={`text-sm mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                       Reset all user tag generator usages (5/day limit)
                     </p>
-                  </div>
-
-                  <div className={`p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-dark-600' : 'bg-white border-gray-200'}`}>
-                    <h4 className={`font-semibold mb-3 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      <Brain className="w-4 h-4 mr-2 text-sdhq-cyan-500" />
-                      Hashy Algorithm
-                    </h4>
-                    <Button
-                      onClick={handleRefreshHashy}
-                      disabled={isRefreshingHashy}
-                      className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
-                    >
-                      {isRefreshingHashy ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Refreshing...
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="w-4 h-4 mr-2" />
-                          Refresh Hashy Algorithm
-                        </>
-                      )}
-                    </Button>
-                    {hashyRefreshStatus && (
-                      <p className={`text-sm mt-2 ${hashyRefreshStatus.includes('Updated') ? 'text-green-500' : 'text-red-500'}`}>
-                        {hashyRefreshStatus}
-                      </p>
-                    )}
                   </div>
 
                   <div className={`p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-dark-600' : 'bg-white border-gray-200'}`}>
