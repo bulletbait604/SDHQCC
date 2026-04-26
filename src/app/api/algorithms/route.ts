@@ -109,7 +109,7 @@ async function writeData(data: any) {
 }
 
 async function researchAlgorithm(platform: string, apiKey: string) {
-  const modelName = process.env.HUGGINGFACE_MODEL || 'deepseek-ai/DeepSeek-R1'
+  const modelName = process.env.HUGGINGFACE_MODEL || 'meta-llama/Llama-3.3-70B-Instruct'
   const apiUrl = `https://api-inference.huggingface.co/models/${modelName}`
   
   try {
