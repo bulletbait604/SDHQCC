@@ -33,6 +33,9 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
     throw new Error('RapidAPI key not configured')
   }
   
+  console.log('RapidAPI Key length:', apiKey.length)
+  console.log('RapidAPI Key prefix:', apiKey.substring(0, 10))
+  
   try {
     const platformContext: Record<string, string> = {
       'tiktok': 'TikTok',
@@ -51,8 +54,8 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-RapidAPI-Key': apiKey,
-        'X-RapidAPI-Host': 'unlimited-gpt-4.p.rapidapi.com'
+        'x-rapidapi-key': apiKey,
+        'x-rapidapi-host': 'unlimited-gpt-4.p.rapidapi.com'
       },
       signal: controller.signal,
       body: JSON.stringify({
