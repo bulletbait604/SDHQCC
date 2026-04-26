@@ -244,7 +244,7 @@ export default function HomePage() {
   const [generatedTags, setGeneratedTags] = useState<Record<string, string[]>>({})
   const [isGeneratingTags, setIsGeneratingTags] = useState<boolean>(false)
   const [tagDatabaseStatus, setTagDatabaseStatus] = useState<{lastUpdated: string | null, totalTags: number}>({lastUpdated: null, totalTags: 0})
-  const [tagRateLimit, setTagRateLimit] = useState<{remaining: number, resetTime: number | null}>({remaining: 5, resetTime: null})
+  const [tagRateLimit, setTagRateLimit] = useState<{remaining: number, resetTime: number | null}>({remaining: isVerified ? 25 : 5, resetTime: null})
   const [platforms, setPlatforms] = useState<Platform[]>([
     {
       id: 'tiktok',
@@ -492,6 +492,15 @@ export default function HomePage() {
       setActivityLog(prev => [newEntry, ...prev].slice(0, 100)) // Keep last 100 entries
     }
   }, [user?.id]) // Only run when user ID changes (login)
+
+  // Update tag rate limit when verification status changes
+  useEffect(() => {
+    if (tagRateLimit.remaining === 5 && isVerified) {
+      setTagRateLimit({ remaining: 25, resetTime: null })
+    } else if (tagRateLimit.remaining === 25 && !isVerified) {
+      setTagRateLimit({ remaining: 5, resetTime: null })
+    }
+  }, [isVerified])
 
   const handleLogin = async () => {
     try {
@@ -1302,7 +1311,7 @@ export default function HomePage() {
                         Content Details
                       </h4>
                       <div className={`text-sm font-medium ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                        {tagRateLimit.remaining === -1 ? 'Unlimited' : `${tagRateLimit.remaining}/${isVerified ? 25 : 5} uses`}
+                        Uses: {tagRateLimit.remaining === -1 ? 'Unlimited' : tagRateLimit.remaining}
                       </div>
                     </div>
                     
