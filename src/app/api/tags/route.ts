@@ -31,6 +31,12 @@ async function generateTagsWithRapidAPI(description: string, platform: string, c
   const apiUrl = process.env.RAPID_API_URL || 'https://openai-chatgpt-gpt-api.p.rapidapi.com/v1/chat/completions'
   const apiHost = process.env.RAPID_API_HOST || 'openai-chatgpt-gpt-api.p.rapidapi.com'
   
+  console.log('API Key present:', !!apiKey)
+  console.log('API Key length:', apiKey?.length)
+  console.log('API Key prefix:', apiKey?.substring(0, 5))
+  console.log('API URL:', apiUrl)
+  console.log('API Host:', apiHost)
+  
   if (!apiKey) {
     throw new Error('RapidAPI key not configured')
   }
