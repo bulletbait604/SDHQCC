@@ -38,8 +38,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Platform is required' }, { status: 400 })
     }
 
-    // Check file size (limit to 25MB to avoid API payload limits)
-    const maxSize = 25 * 1024 * 1024 // 25MB
+    // Check file size (limit to 100MB)
+    const maxSize = 100 * 1024 * 1024 // 100MB
     if (file.size > maxSize) {
       return NextResponse.json({ error: `File size exceeds ${maxSize / (1024 * 1024)}MB limit. Please upload a smaller video.` }, { status: 400 })
     }
