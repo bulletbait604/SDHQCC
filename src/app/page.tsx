@@ -627,8 +627,8 @@ export default function HomePage() {
   const handleClipFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      if (file.size > 75 * 1024 * 1024) {
-        setClipError('File size exceeds 75MB limit.')
+      if (file.size > 150 * 1024 * 1024) {
+        setClipError('File size exceeds 150MB limit.')
         setClipFile(null)
         setClipThumbnail('')
         return
@@ -684,6 +684,7 @@ export default function HomePage() {
       
       const formData = new FormData()
       formData.append('file', clipFile)
+      formData.append('thumbnail', clipThumbnail)
       formData.append('platform', clipPlatform)
       formData.append('userId', user?.id || '')
       formData.append('userType', userType)
@@ -1936,7 +1937,7 @@ export default function HomePage() {
                       </div>
 
                       <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Upload Video Clip (Max 75MB)
+                        Upload Video Clip (Max 150MB)
                       </label>
                       <div className="flex gap-3">
                         <input
@@ -1999,7 +2000,7 @@ export default function HomePage() {
                       </div>
 
                       <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Upload Video Clip (Max 75MB)
+                        Upload Video Clip (Max 150MB)
                       </label>
                       <div className="flex gap-3">
                         <input

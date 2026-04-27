@@ -26,6 +26,7 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File
+    const thumbnail = formData.get('thumbnail') as string
     const platform = formData.get('platform') as string
     const userId = formData.get('userId') as string
     const userType = formData.get('userType') as string
@@ -34,12 +35,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'File is required' }, { status: 400 })
     }
 
+    if (!thumbnail) {
+      return NextResponse.json({ error: 'Thumbnail is required' }, { status: 400 })
+    }
+
     if (!platform) {
       return NextResponse.json({ error: 'Platform is required' }, { status: 400 })
     }
 
-    // Check file size (limit to 75MB)
-    const maxSize = 75 * 1024 * 1024 // 75MB
+    // Check file size (limit to 150MB)
+    const maxSize = 150 * 1024 * 1024 // 150MB
     if (file.size > maxSize) {
       return NextResponse.json({ error: `File size exceeds ${maxSize / (1024 * 1024)}MB limit. Please upload a smaller video.` }, { status: 400 })
     }
@@ -72,23 +77,16 @@ export async function POST(request: Request) {
 
     const apiUrl = 'https://gemini-ai-all-models.p.rapidapi.com/v1/chat/completions'
 
-    // Convert file to base64
-    console.log('Converting file to base64, file size:', file.size, 'bytes')
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-    const base64 = buffer.toString('base64')
-    const dataUrl = `data:${file.type};base64,${base64}`
-    console.log('Base64 data URL length:', dataUrl.length, 'characters')
+    console.log('Using thumbnail for analysis, thumbnail length:', thumbnail.length, 'characters')
 
-    const systemPrompt = `You are a social media algorithm expert and video content strategist. Analyze the provided video clip for ${platform} and return a comprehensive optimization report.
+    const systemPrompt = `You are a social media algorithm expert and video content strategist. Analyze the provided video thumbnail/frame for ${platform} and return a comprehensive optimization report.
 
-Examine the actual visual content from the video and apply deep knowledge of ${platform}'s current (2026) algorithm to give specific, actionable insights. Analyze:
+Examine the visual content from the thumbnail and apply deep knowledge of ${platform}'s current (2026) algorithm to give specific, actionable insights. Analyze:
 - Visual quality and appeal
-- Hook strength in the opening frames
+- Hook strength in the opening frame
 - Text overlays and captions visible
 - Overall production value
 - Engagement potential based on visual elements
-- Pacing and editing quality
 - How the content aligns with ${platform}'s specific algorithm priorities
 
 IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside the JSON.
@@ -122,16 +120,16 @@ Return this exact structure:
   "tags": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8"]
 }`
 
-    const userPrompt = `Analyze this video clip for maximum discoverability and engagement optimization on ${platform}.
+    const userPrompt = `Analyze this video thumbnail/frame for maximum discoverability and engagement optimization on ${platform}.
 
 Focus on:
-1. Visual analysis of the video content - what elements are visible, colors, composition, text overlays, pacing
+1. Visual analysis of the thumbnail - what elements are visible, colors, composition, text overlays
 2. ${platform}'s current (2026) algorithm priorities: completion rate, shares, comments, saves/bookmarks, early engagement signals, trending audio usage, hook strength in first 2 seconds, caption keyword density, hashtag strategy, optimal posting signals, and watch time patterns
 3. How the visual content aligns with ${platform}'s algorithm best practices
 4. Specific recommendations for overlays, text overlays, audio choices, visual edits, and CTAs that work well on ${platform}
 5. Optimized title, description, and hashtag suggestions tailored for ${platform}
 
-Provide a realistic score based on the actual video content and ${platform}'s algorithm alignment.`
+Provide a realistic score based on the visual content and ${platform}'s algorithm alignment.`
 
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 120000) // 120 second timeout for video processing
@@ -151,7 +149,7 @@ Provide a realistic score based on the actual video content and ${platform}'s al
             role: 'user',
             content: [
               { type: 'text', text: `${systemPrompt}\n\n${userPrompt}` },
-              { type: 'image_url', image_url: { url: dataUrl } }
+              { type: 'image_url', image_url: { url: thumbnail } }
             ]
           }
         ],
