@@ -221,6 +221,24 @@ const translations = {
 
 const OWNER_USERNAMES = ['bulletbait604', 'Bulletbait604'];
 
+const ROLE_HIERARCHY = {
+  free: 1,
+  subscriber: 2,
+  subscriber_lifetime: 3,
+  admin: 4,
+  owner: 5
+} as const;
+
+type Role = keyof typeof ROLE_HIERARCHY;
+
+const ROLE_CONFIG = {
+  owner: { badge: '👑 Owner', rank: 5, label: 'Owner' },
+  admin: { badge: '🛡 Admin', rank: 4, label: 'Admin' },
+  subscriber_lifetime: { badge: '💎 Lifetime', rank: 3, label: 'Lifetime Subscriber' },
+  subscriber: { badge: '⭐ Subscriber', rank: 2, label: 'Subscriber' },
+  free: { badge: '🙂 Free User', rank: 1, label: 'Free User' }
+} as const;
+
 export default function HomePage() {
   const [user, setUser] = useState<KickUser | null>(null)
   const [mounted, setMounted] = useState(false)
@@ -228,12 +246,21 @@ export default function HomePage() {
   const [language, setLanguage] = useState<Language>('en')
   const [darkMode, setDarkMode] = useState(true)
   const [showSettings, setShowSettings] = useState(false)
+  
+  // Role-based state
+  const [userRole, setUserRole] = useState<Role>('free')
+  const [usersWithRoles, setUsersWithRoles] = useState<any[]>([])
+  const [roleSearchUsername, setRoleSearchUsername] = useState('')
+  const [selectedRole, setSelectedRole] = useState<Role>('free')
+  
+  // Legacy state (will be removed after migration)
   const [subscribers, setSubscribers] = useState<Subscriber[]>([])
   const [newSubscriberUsername, setNewSubscriberUsername] = useState('')
   const [lifetimeMembers, setLifetimeMembers] = useState<LifetimeMember[]>([])
   const [newLifetimeUsername, setNewLifetimeUsername] = useState('')
   const [admins, setAdmins] = useState<Admin[]>([])
   const [newAdminUsername, setNewAdminUsername] = useState('')
+  
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false)
   const [showTerms, setShowTerms] = useState(false)
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([])
@@ -315,30 +342,85 @@ export default function HomePage() {
 
   const t = translations[language]
   const isOwner = user ? OWNER_USERNAMES.includes(user.username.replace(/^@/, '')) : false
+
+  // Fetch user's role from MongoDB
+  const fetchUserRole = async () => {
+    if (!user) return
+    try {
+      const response = await fetch(`/api/roles?username=${user.username}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.user) {
+          setUserRole(data.user.role)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user role:', error)
+    }
+  }
+
+  // Fetch user role when user changes
+  useEffect(() => {
+    if (user) {
+      fetchUserRole()
+    }
+  }, [user])
+
+  // Fetch all users with roles
+  const fetchUsersWithRoles = async () => {
+    try {
+      const response = await fetch('/api/roles')
+      if (response.ok) {
+        const data = await response.json()
+        setUsersWithRoles(data.users || [])
+      }
+    } catch (error) {
+      console.error('Error fetching users with roles:', error)
+    }
+  }
+
+  // Update user role
+  const handleUpdateRole = async (username: string, newRole: Role) => {
+    try {
+      const response = await fetch('/api/roles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          username, 
+          role: newRole, 
+          currentAdminRole: userRole 
+        })
+      })
+
+      if (response.ok) {
+        // Refresh users list
+        await fetchUsersWithRoles()
+        // If updating self, refresh own role
+        if (username.toLowerCase() === user?.username.toLowerCase()) {
+          await fetchUserRole()
+        }
+        alert(`Role updated to ${ROLE_CONFIG[newRole].label}`)
+      } else {
+        const error = await response.json()
+        alert(error.message || 'Failed to update role')
+      }
+    } catch (error) {
+      console.error('Error updating role:', error)
+      alert('Failed to update role')
+    }
+  }
+
+  // Legacy role calculation (will be removed)
   const [isAdmin, setIsAdmin] = useState(false)
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [isLifetimeMember, setIsLifetimeMember] = useState(false)
 
-  // Recalculate roles when user or lists change
+  // Recalculate roles when user or lists change (legacy)
   useEffect(() => {
     const normalizedUsername = user?.username?.replace(/^@/, '').toLowerCase() || ''
     const isAdminValue = user ? (isOwner || admins.some(admin => admin.username.toLowerCase() === normalizedUsername)) : false
     const isSubscribedValue = user ? (isVerified || subscribers.some(sub => sub.username.toLowerCase() === normalizedUsername)) : false
     const isLifetimeMemberValue = user ? (isLifetime || lifetimeMembers.some(member => member.username.toLowerCase() === normalizedUsername)) : false
-    
-    console.log('Role recalculation:', {
-      username: user?.username,
-      normalizedUsername,
-      admins: admins.map(a => a.username),
-      subscribers: subscribers.map(s => s.username),
-      lifetimeMembers: lifetimeMembers.map(m => m.username),
-      isAdminValue,
-      isSubscribedValue,
-      isLifetimeMemberValue,
-      isOwner,
-      isVerified,
-      isLifetime
-    })
     
     setIsAdmin(isAdminValue)
     setIsSubscribed(isSubscribedValue)
@@ -405,9 +487,10 @@ export default function HomePage() {
         setDarkMode(storedDarkMode === 'true')
       }
       
-      // Role lists are now stored in MongoDB only, not localStorage
+      // Fetch role-based data
+      fetchUsersWithRoles()
       
-      // Sync with backend (MongoDB) to get latest data
+      // Legacy: Sync with backend (MongoDB) to get latest data
       fetchUserLists()
 
       // Load algorithm data from API on every page load
