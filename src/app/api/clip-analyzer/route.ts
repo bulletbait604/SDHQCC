@@ -24,11 +24,13 @@ function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const { url, platform, userId, userType } = body
+    const formData = await request.formData()
+    const file = formData.get('file') as File
+    const userId = formData.get('userId') as string
+    const userType = formData.get('userType') as string
 
-    if (!url || !platform) {
-      return NextResponse.json({ error: 'URL and platform are required' }, { status: 400 })
+    if (!file) {
+      return NextResponse.json({ error: 'File is required' }, { status: 400 })
     }
 
     // Rate limiting
@@ -59,34 +61,21 @@ export async function POST(request: Request) {
 
     const apiUrl = 'https://gemini-ai-all-models.p.rapidapi.com/v1/chat/completions'
 
-    // Fetch the page to extract thumbnail image
-    let imageUrl = url
-    try {
-      const pageResponse = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-      })
-      if (pageResponse.ok) {
-        const html = await pageResponse.text()
-        // Try to extract og:image
-        const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
-        if (ogImageMatch && ogImageMatch[1]) {
-          imageUrl = ogImageMatch[1]
-        }
-      }
-    } catch (e) {
-      console.log('Could not fetch page for thumbnail extraction, using original URL')
-    }
+    // Convert file to base64
+    const bytes = await file.arrayBuffer()
+    const buffer = Buffer.from(bytes)
+    const base64 = buffer.toString('base64')
+    const dataUrl = `data:${file.type};base64,${base64}`
 
-    const systemPrompt = `You are a social media algorithm expert and video content strategist. Analyze the video content from the provided ${platform} URL and return a comprehensive optimization report.
+    const systemPrompt = `You are a social media algorithm expert and video content strategist. Analyze the provided video clip and return a comprehensive optimization report.
 
-Examine the actual visual content, including the thumbnail/frame, and apply deep knowledge of ${platform}'s current (2026) algorithm to give specific, actionable insights. Analyze:
+Examine the actual visual content from the video and apply deep knowledge of social media algorithms (2026) to give specific, actionable insights. Analyze:
 - Visual quality and appeal
-- Hook strength in the opening frame
-- Text overlays and captions visible in the thumbnail
+- Hook strength in the opening frames
+- Text overlays and captions visible
 - Overall production value
 - Engagement potential based on visual elements
+- Pacing and editing quality
 
 IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside the JSON.
 
@@ -119,19 +108,19 @@ Return this exact structure:
   "tags": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8"]
 }`
 
-    const userPrompt = `Analyze this ${platform} video content from the URL: ${url}
+    const userPrompt = `Analyze this video clip for maximum discoverability and engagement optimization.
 
 Focus on:
-1. Visual analysis of the thumbnail/frame - what elements are visible, colors, composition, text overlays
-2. ${platform}'s current (2026) algorithm priorities: completion rate, shares, comments, saves/bookmarks, early engagement signals, trending audio usage, hook strength in first 2 seconds, caption keyword density, hashtag strategy, optimal posting signals, and watch time patterns
-3. How the visual content aligns with ${platform}'s algorithm best practices
+1. Visual analysis of the video content - what elements are visible, colors, composition, text overlays, pacing
+2. Current (2026) social media algorithm priorities: completion rate, shares, comments, saves/bookmarks, early engagement signals, trending audio usage, hook strength in first 2 seconds, caption keyword density, hashtag strategy, optimal posting signals, and watch time patterns
+3. How the visual content aligns with algorithm best practices
 4. Specific recommendations for overlays, text overlays, audio choices, visual edits, and CTAs
 5. Optimized title, description, and hashtag suggestions
 
-Provide a realistic score based on the actual visual content and algorithm alignment.`
+Provide a realistic score based on the actual video content and algorithm alignment.`
 
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 60000) // 60 second timeout
+    const timeout = setTimeout(() => controller.abort(), 120000) // 120 second timeout for video processing
 
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -148,7 +137,7 @@ Provide a realistic score based on the actual visual content and algorithm align
             role: 'user',
             content: [
               { type: 'text', text: `${systemPrompt}\n\n${userPrompt}` },
-              { type: 'image_url', image_url: { url: imageUrl } }
+              { type: 'image_url', image_url: { url: dataUrl } }
             ]
           }
         ],

@@ -263,8 +263,7 @@ export default function HomePage() {
   const [timeUntilReset, setTimeUntilReset] = useState<string>('')
 
   // Clip Analyzer states
-  const [clipUrl, setClipUrl] = useState<string>('')
-  const [detectedPlatform, setDetectedPlatform] = useState<{name: string, color: string, emoji: string} | null>(null)
+  const [clipFile, setClipFile] = useState<File | null>(null)
   const [isAnalyzingClip, setIsAnalyzingClip] = useState<boolean>(false)
   const [clipAnalysisResult, setClipAnalysisResult] = useState<any>(null)
   const [clipError, setClipError] = useState<string>('')
@@ -623,32 +622,22 @@ export default function HomePage() {
   }, [tagRateLimit.resetTime])
 
   // Clip Analyzer functions
-  const detectPlatform = (url: string) => {
-    if (!url) return null
-    const lower = url.toLowerCase()
-    if (lower.includes('tiktok.com')) return { name: 'TikTok', color: '#ff4d8b', emoji: '🎵' }
-    if (lower.includes('instagram.com')) return { name: 'Instagram Reels', color: '#f7b733', emoji: '📸' }
-    if (lower.includes('facebook.com') || lower.includes('fb.watch')) return { name: 'Facebook Reels', color: '#4c8ef7', emoji: '👍' }
-    if (lower.includes('youtube.com') || lower.includes('youtu.be')) return { name: 'YouTube Shorts', color: '#ff6b6b', emoji: '▶️' }
-    return null
-  }
-
-  const handleClipUrlChange = (value: string) => {
-    setClipUrl(value)
-    const platform = detectPlatform(value)
-    setDetectedPlatform(platform)
-    setClipError('')
+  const handleClipFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 150 * 1024 * 1024) {
+        setClipError('File size exceeds 150MB limit.')
+        setClipFile(null)
+        return
+      }
+      setClipFile(file)
+      setClipError('')
+    }
   }
 
   const handleAnalyzeClip = async () => {
-    if (!clipUrl.trim()) {
-      setClipError('Please enter a clip URL.')
-      return
-    }
-
-    const platform = detectPlatform(clipUrl)
-    if (!platform) {
-      setClipError('Unsupported platform. Paste a TikTok, Instagram Reels, Facebook Reels, or YouTube Shorts URL.')
+    if (!clipFile) {
+      setClipError('Please select a video file to analyze.')
       return
     }
 
@@ -657,10 +646,10 @@ export default function HomePage() {
     setClipAnalysisResult(null)
 
     const loadingSteps = [
-      'Fetching page metadata...',
-      'Detecting platform & content type...',
+      'Uploading video file...',
+      'Analyzing visual content...',
+      'Detecting platform algorithm patterns...',
       'Cross-referencing algorithm signals...',
-      'Analyzing engagement potential...',
       'Generating optimization report...',
     ]
 
@@ -674,15 +663,15 @@ export default function HomePage() {
 
     try {
       const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetime ? 'lifetime' : isSubscribed ? 'subscribed' : 'free'
+      
+      const formData = new FormData()
+      formData.append('file', clipFile)
+      formData.append('userId', user?.id || '')
+      formData.append('userType', userType)
+
       const res = await fetch('/api/clip-analyzer', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: clipUrl,
-          platform: platform.name,
-          userId: user?.id,
-          userType: userType
-        })
+        body: formData
       })
 
       clearInterval(stepInterval)
@@ -719,8 +708,7 @@ export default function HomePage() {
   }
 
   const handleResetClip = () => {
-    setClipUrl('')
-    setDetectedPlatform(null)
+    setClipFile(null)
     setClipAnalysisResult(null)
     setClipError('')
   }
@@ -1906,15 +1894,14 @@ export default function HomePage() {
                     {/* Blurred out content for free tier */}
                     <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-6 blur-sm select-none`}>
                       <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Clip URL
+                        Upload Video Clip (Max 150MB)
                       </label>
                       <div className="flex gap-3">
                         <input
-                          type="text"
-                          value=""
+                          type="file"
+                          accept="video/*"
                           disabled
-                          placeholder="https://www.tiktok.com/@user/video/..."
-                          className={`flex-1 px-4 py-3 rounded-lg text-sm font-mono outline-none ${
+                          className={`flex-1 px-4 py-3 rounded-lg text-sm outline-none ${
                             darkMode 
                               ? 'bg-sdhq-dark-900 border-sdhq-dark-700 text-gray-300' 
                               : 'bg-white border-gray-300 text-gray-800'
@@ -1939,42 +1926,34 @@ export default function HomePage() {
                     {/* Input Section */}
                     <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-6`}>
                       <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Clip URL
+                        Upload Video Clip (Max 150MB)
                       </label>
                       <div className="flex gap-3">
                         <input
-                          type="text"
-                          value={clipUrl}
-                          onChange={(e) => handleClipUrlChange(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleAnalyzeClip()}
-                          placeholder="https://www.tiktok.com/@user/video/..."
-                          className={`flex-1 px-4 py-3 rounded-lg text-sm font-mono outline-none transition-colors ${
+                          type="file"
+                          accept="video/*"
+                          onChange={handleClipFileChange}
+                          className={`flex-1 px-4 py-3 rounded-lg text-sm outline-none transition-colors ${
                             darkMode 
-                              ? 'bg-sdhq-dark-900 border-sdhq-dark-700 text-gray-300 placeholder-gray-600 focus:border-sdhq-cyan-500' 
-                              : 'bg-white border-gray-300 text-gray-800 placeholder-gray-400 focus:border-sdhq-cyan-300'
+                              ? 'bg-sdhq-dark-900 border-sdhq-dark-700 text-gray-300 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-sdhq-cyan-500 file:text-white hover:file:bg-sdhq-cyan-600' 
+                              : 'bg-white border-gray-300 text-gray-800 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-sdhq-cyan-500 file:text-white hover:file:bg-sdhq-cyan-600'
                           } border`}
                         />
                         <Button
                           onClick={handleAnalyzeClip}
-                          disabled={isAnalyzingClip}
+                          disabled={isAnalyzingClip || !clipFile}
                           className="sdhq-button flex items-center gap-2"
                         >
                           <span>Analyze</span>
                           <span>→</span>
                         </Button>
                       </div>
-                      {detectedPlatform && clipUrl.length > 10 && (
+                      {clipFile && (
                         <div className="flex items-center gap-2 mt-3 text-sm">
-                          <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Detected:</span>
-                          <span
-                            className="px-3 py-1 rounded-full text-xs font-semibold"
-                            style={{
-                              background: `${detectedPlatform.color}22`,
-                              color: detectedPlatform.color,
-                              border: `1px solid ${detectedPlatform.color}44`
-                            }}
-                          >
-                            {detectedPlatform.emoji} {detectedPlatform.name}
+                          <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Selected:</span>
+                          <span className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{clipFile.name}</span>
+                          <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                            ({(clipFile.size / (1024 * 1024)).toFixed(2)} MB)
                           </span>
                         </div>
                       )}
