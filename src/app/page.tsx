@@ -350,18 +350,26 @@ export default function HomePage() {
       const response = await fetch(`/api/roles?username=${user.username}`)
       if (response.ok) {
         const data = await response.json()
-        if (data.user) {
+        console.log('User role response:', data)
+        if (data.user && data.user.role) {
           setUserRole(data.user.role)
+        } else {
+          // Default to 'free' if no role found
+          setUserRole('free')
+          console.log('No role found, defaulting to free')
         }
       }
     } catch (error) {
       console.error('Error fetching user role:', error)
+      // Default to 'free' on error
+      setUserRole('free')
     }
   }
 
   // Fetch user role when user changes
   useEffect(() => {
-    if (user) {
+    if (user && user.username) {
+      console.log('Fetching role for user:', user.username)
       fetchUserRole()
     }
   }, [user])
