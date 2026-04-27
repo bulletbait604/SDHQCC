@@ -389,6 +389,7 @@ export default function HomePage() {
 
   // Update user role
   const handleUpdateRole = async (username: string, newRole: Role) => {
+    console.log('handleUpdateRole called:', { username, newRole, currentUserRole: userRole })
     try {
       const response = await fetch('/api/roles', {
         method: 'POST',
@@ -400,16 +401,22 @@ export default function HomePage() {
         })
       })
 
+      console.log('API response status:', response.status)
+      const data = await response.json()
+      console.log('API response data:', data)
+
       if (response.ok) {
         // Refresh users list
         await fetchUsersWithRoles()
         // If updating self, refresh own role
         if (username.toLowerCase() === user?.username.toLowerCase()) {
+          console.log('Updating self, refreshing own role')
           await fetchUserRole()
         }
         alert(`Role updated to ${ROLE_CONFIG[newRole].label}`)
       } else {
-        const error = await response.json()
+        const error = data
+        console.error('API error:', error)
         alert(error.message || 'Failed to update role')
       }
     } catch (error) {
