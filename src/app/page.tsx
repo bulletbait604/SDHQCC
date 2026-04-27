@@ -1166,7 +1166,7 @@ export default function HomePage() {
     // Persist to localStorage
     localStorage.setItem('sdhq-subscribers', JSON.stringify(updatedSubscribers))
     
-    // Sync to backend (MongoDB)
+    // Sync to backend (MongoDB) - don't wait for it, local state is already updated
     if (subscriber) {
       fetch('/api/subscribers', {
         method: 'POST',
@@ -1195,9 +1195,6 @@ export default function HomePage() {
         })
       }).catch(error => console.error('Failed to log to backend:', error))
     }
-    
-    // Refresh lists from backend to ensure consistency
-    fetchUserLists()
   }
 
   const handleAddLifetime = () => {
@@ -1250,7 +1247,7 @@ export default function HomePage() {
     // Persist to localStorage
     localStorage.setItem('sdhq-lifetime-members', JSON.stringify(updatedLifetimeMembers))
     
-    // Sync to backend (MongoDB)
+    // Sync to backend (MongoDB) - don't wait for it, local state is already updated
     if (member) {
       fetch('/api/lifetime', {
         method: 'POST',
@@ -1279,9 +1276,6 @@ export default function HomePage() {
         })
       }).catch(error => console.error('Failed to log to backend:', error))
     }
-    
-    // Refresh lists from backend to ensure consistency
-    fetchUserLists()
   }
 
   const handleAddAdmin = () => {
@@ -1334,7 +1328,7 @@ export default function HomePage() {
     // Persist to localStorage
     localStorage.setItem('sdhq-admins', JSON.stringify(updatedAdmins))
     
-    // Sync to backend (MongoDB)
+    // Sync to backend (MongoDB) - don't wait for it, local state is already updated
     if (admin) {
       fetch('/api/admins', {
         method: 'POST',
@@ -1363,9 +1357,6 @@ export default function HomePage() {
         })
       }).catch(error => console.error('Failed to log to backend:', error))
     }
-    
-    // Refresh lists from backend to ensure consistency
-    fetchUserLists()
   }
 
   const handleResetTagUsages = async () => {
