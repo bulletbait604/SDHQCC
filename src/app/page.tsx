@@ -598,19 +598,27 @@ export default function HomePage() {
 
   // Update clip analyzer rate limit when verification status changes
   useEffect(() => {
-    const hasUnlimited = isOwner || isLifetime || isAdmin
+    const isAdmin = user && (isOwner || admins.some(admin => admin.username.toLowerCase() === user.username.toLowerCase()))
+    const hasUnlimited = isOwner || isAdmin
     if (hasUnlimited) {
       setClipRateLimit({ remaining: -1, resetTime: null })
+    } else if (isLifetime) {
+      // Lifetime members get 7 uses
+      if (clipRateLimit.remaining !== 7 && clipRateLimit.remaining !== -1) {
+        setClipRateLimit({ remaining: 7, resetTime: null })
+      }
     } else if (isSubscribed) {
-      // Subscribers get 5 uses
-      if (clipRateLimit.remaining !== 5 && clipRateLimit.remaining !== -1) {
-        setClipRateLimit({ remaining: 5, resetTime: null })
+      // Subscribers get 7 uses
+      if (clipRateLimit.remaining !== 7 && clipRateLimit.remaining !== -1) {
+        setClipRateLimit({ remaining: 7, resetTime: null })
       }
     } else {
-      // Free users get 0 uses
-      setClipRateLimit({ remaining: 0, resetTime: null })
+      // Free users get 2 uses
+      if (clipRateLimit.remaining !== 2 && clipRateLimit.remaining !== -1) {
+        setClipRateLimit({ remaining: 2, resetTime: null })
+      }
     }
-  }, [isOwner, isLifetime, isAdmin, isSubscribed])
+  }, [isOwner, isLifetime, isAdmin, isSubscribed, user, admins])
 
   // Update countdown timer for rate limit reset
   useEffect(() => {
@@ -749,7 +757,8 @@ export default function HomePage() {
         setActivityLog(prev => [clipEntry, ...prev].slice(0, 100))
       }
       
-      if (userType === 'subscribed') {
+      // Decrement rate limit after successful analysis (only if not unlimited)
+      if (clipRateLimit.remaining !== -1) {
         setClipRateLimit(prev => ({ ...prev, remaining: Math.max(0, prev.remaining - 1) }))
       }
     } catch (error) {
@@ -2033,6 +2042,25 @@ export default function HomePage() {
                   <p className={`${textClasses} text-sm`}>{t.clipAnalyzerDesc}</p>
                 </div>
 
+                {/* Steps */}
+                <div className={`max-w-2xl mx-auto mb-6 p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
+                  <h4 className={`text-sm font-semibold mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>How to use:</h4>
+                  <ol className={`space-y-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <li className="flex items-start gap-2">
+                      <span className={`font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>1.</span>
+                      <span>Enter in your clip url</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className={`font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>2.</span>
+                      <span>Click analyze and wait for our AI Powered system to analyze your clip and cross reference it to your platforms algorithm.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className={`font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>3.</span>
+                      <span>Use the provided clip analysis to make adjustments to your clip and help create better clips in the future.</span>
+                    </li>
+                  </ol>
+                </div>
+
                 {/* Access Control */}
                 {!user ? (
                   <div className="text-center py-12">
@@ -2093,6 +2121,24 @@ export default function HomePage() {
                   </div>
                 ) : (
                   <div className="space-y-6">
+                    {/* Rate Limit Display */}
+                    <div className={`rounded-lg p-4 border ${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Database className={`w-4 h-4 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`} />
+                          <span className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Content Analyzer Uses</span>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-2xl font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                            {clipRateLimit.remaining === -1 ? 'Unlimited' : clipRateLimit.remaining}
+                          </p>
+                          <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            uses remaining
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Input Section */}
                     <div className={`relative overflow-hidden rounded-2xl p-6 ${
                       darkMode 
@@ -2159,9 +2205,12 @@ export default function HomePage() {
                             </div>
                           </div>
                           <p className={`font-mono text-xs uppercase tracking-widest mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                            Analyzing your clip
+                            Please wait while AI analyzes your clip
                           </p>
-                          <p className={`text-sm min-h-5 font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{loadingStep}</p>
+                          <p className={`text-sm min-h-5 font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{loadingStep}</p>
+                          <p className={`text-xs font-bold uppercase tracking-wider ${darkMode ? 'text-red-400' : 'text-red-600'}`}>
+                            DO NOT REFRESH until it has finished
+                          </p>
                         </div>
                       </div>
                     )}
@@ -3586,3 +3635,4 @@ export default function HomePage() {
     </div>
   )
 }
+
