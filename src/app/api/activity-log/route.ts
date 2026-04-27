@@ -1,7 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { readFile, writeFile, mkdir } from 'fs/promises'
+import { existsSync } from 'fs'
+import path from 'path'
 
-// In-memory storage for activity logs (in production, this should be a database)
+// File path for persistent storage
+const LOGS_FILE_PATH = path.join(process.cwd(), 'data', 'activity-logs.json')
+
+// Load logs from file on startup
 let activityLogs: any[] = []
+
+async function loadLogsFromFile() {
+  try {
+    if (existsSync(LOGS_FILE_PATH)) {
+      const data = await readFile(LOGS_FILE_PATH, 'utf-8')
+      activityLogs = JSON.parse(data)
+      console.log('Loaded activity logs from file:', activityLogs.length)
+    } else {
+      activityLogs = []
+      console.log('No existing logs file found, starting fresh')
+    }
+  } catch (error) {
+    console.error('Error loading logs from file:', error)
+    activityLogs = []
+  }
+}
+
+// Save logs to file
+async function saveLogsToFile() {
+  try {
+    // Ensure data directory exists
+    const dataDir = path.dirname(LOGS_FILE_PATH)
+    if (!existsSync(dataDir)) {
+      await mkdir(dataDir, { recursive: true })
+    }
+    await writeFile(LOGS_FILE_PATH, JSON.stringify(activityLogs, null, 2), 'utf-8')
+    console.log('Saved activity logs to file:', activityLogs.length)
+  } catch (error) {
+    console.error('Error saving logs to file:', error)
+  }
+}
+
+// Load logs on startup
+loadLogsFromFile()
 
 export async function GET(request: NextRequest) {
   try {
@@ -52,10 +92,13 @@ export async function POST(request: NextRequest) {
 
     activityLogs.push(newLog)
     
-    // Keep only last 1000 logs to prevent memory issues
+    // Keep only last 1000 logs to prevent memory/file size issues
     if (activityLogs.length > 1000) {
       activityLogs = activityLogs.slice(-1000)
     }
+
+    // Save to file for persistence
+    await saveLogsToFile()
 
     return NextResponse.json({ success: true, log: newLog })
   } catch (error: any) {
@@ -76,6 +119,9 @@ export async function DELETE(request: NextRequest) {
       // Clear all logs
       activityLogs = []
     }
+
+    // Save to file for persistence
+    await saveLogsToFile()
 
     return NextResponse.json({ success: true })
   } catch (error: any) {

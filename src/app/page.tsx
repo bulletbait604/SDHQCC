@@ -328,7 +328,6 @@ export default function HomePage() {
       const storedDarkMode = localStorage.getItem('sdhq-darkmode')
       const storedSubscribers = localStorage.getItem('sdhq-subscribers')
       const storedAdmins = localStorage.getItem('sdhq-admins')
-      const storedActivityLog = localStorage.getItem('sdhq-activity-log')
       const storedVerified = localStorage.getItem('isVerified')
       const storedLifetime = localStorage.getItem('isLifetime')
       
@@ -382,13 +381,7 @@ export default function HomePage() {
         }
       }
       
-      if (storedActivityLog) {
-        try {
-          setActivityLog(JSON.parse(storedActivityLog))
-        } catch (error) {
-          console.error('Error loading activity log:', error)
-        }
-      }
+      // Activity logs are now persisted server-side via backend API, no localStorage loading needed
 
       // Load algorithm data from API on every page load
       setIsLoadingAlgorithms(true)
@@ -550,11 +543,7 @@ export default function HomePage() {
     }
   }, [admins])
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('sdhq-activity-log', JSON.stringify(activityLog))
-    }
-  }, [activityLog])
+  // Activity logs are now persisted server-side via backend API, no localStorage needed
 
   // Fetch activity logs from backend for admins
   useEffect(() => {
