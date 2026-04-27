@@ -561,6 +561,22 @@ export default function HomePage() {
     }
   }, [isAdmin, user])
 
+  // Refresh activity logs
+  const refreshActivityLog = () => {
+    if (isAdmin && user) {
+      fetch('/api/activity-log')
+        .then(res => res.json())
+        .then(data => {
+          if (data.logs) {
+            setActivityLog(data.logs)
+          }
+        })
+        .catch(error => {
+          console.error('Error refreshing activity logs:', error)
+        })
+    }
+  }
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('isLifetime', isLifetime.toString())
@@ -3058,16 +3074,27 @@ export default function HomePage() {
                           <TrendingUp className="w-5 h-5 mr-2 text-sdhq-green-500" />
                           Activity Feed
                         </h4>
-                        {activityLog.length > 0 && (
+                        <div className="flex gap-2">
                           <Button
-                            variant="destructive"
+                            variant="outline"
                             size="sm"
-                            onClick={() => setShowClearConfirm(true)}
+                            onClick={refreshActivityLog}
+                            className={darkMode ? 'border-sdhq-dark-600 text-white' : 'border-sdhq-cyan-300 text-gray-900'}
                           >
-                            <Trash2 className="w-4 h-4 mr-1" />
-                            Clear
+                            <RefreshCw className="w-4 h-4 mr-1" />
+                            Refresh
                           </Button>
-                        )}
+                          {activityLog.length > 0 && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setShowClearConfirm(true)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-1" />
+                              Clear
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       
                       {/* Filters */}
@@ -3080,7 +3107,7 @@ export default function HomePage() {
                             className={`w-full px-2 py-1.5 rounded text-base border ${
                               darkMode 
                                 ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
-                                : 'bg-white border-gray-300 text-gray-900'
+                                : 'bg-cyan-50 border-cyan-300 text-black'
                             }`}
                           >
                             <option value="all">All Events</option>
@@ -3102,7 +3129,7 @@ export default function HomePage() {
                             className={`w-full px-2 py-1.5 rounded text-base border ${
                               darkMode 
                                 ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
-                                : 'bg-white border-gray-300 text-gray-900'
+                                : 'bg-cyan-50 border-cyan-300 text-black'
                             }`}
                           >
                             <option value="all">All Users</option>
@@ -3119,7 +3146,7 @@ export default function HomePage() {
                             className={`w-full px-2 py-1.5 rounded text-base border ${
                               darkMode 
                                 ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
-                                : 'bg-white border-gray-300 text-gray-900'
+                                : 'bg-cyan-50 border-cyan-300 text-black'
                             }`}
                           >
                             <option value="all">All Time</option>
