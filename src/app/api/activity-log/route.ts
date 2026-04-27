@@ -3,7 +3,7 @@ import { MongoClient, Db } from 'mongodb'
 
 // MongoDB connection
 const MONGODB_URI = process.env.MONGODB_URI
-const DB_NAME = process.env.MONGODB_DB_NAME || 'sdhq-creator-corner'
+const DB_NAME = 'sdhq'
 const COLLECTION_NAME = 'activity-logs'
 
 let client: MongoClient | null = null

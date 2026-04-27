@@ -4,7 +4,9 @@ import clientPromise from '@/lib/mongodb';
 export async function GET() {
   try {
     const client = await clientPromise;
-    const db = client.db('sdhq-creator-corner');
+    const db = client.db('sdhq');
+    
+    console.log('Fetching from database: sdhq')
     
     const subscribers = await db.collection('subscribers').find({}).toArray();
     const admins = await db.collection('admins').find({}).toArray();
