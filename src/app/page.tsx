@@ -322,9 +322,27 @@ export default function HomePage() {
   // Recalculate roles when user or lists change
   useEffect(() => {
     const normalizedUsername = user?.username?.replace(/^@/, '').toLowerCase() || ''
-    setIsAdmin(user ? (isOwner || admins.some(admin => admin.username.toLowerCase() === normalizedUsername)) : false)
-    setIsSubscribed(user ? (isVerified || subscribers.some(sub => sub.username.toLowerCase() === normalizedUsername)) : false)
-    setIsLifetimeMember(user ? (isLifetime || lifetimeMembers.some(member => member.username.toLowerCase() === normalizedUsername)) : false)
+    const isAdminValue = user ? (isOwner || admins.some(admin => admin.username.toLowerCase() === normalizedUsername)) : false
+    const isSubscribedValue = user ? (isVerified || subscribers.some(sub => sub.username.toLowerCase() === normalizedUsername)) : false
+    const isLifetimeMemberValue = user ? (isLifetime || lifetimeMembers.some(member => member.username.toLowerCase() === normalizedUsername)) : false
+    
+    console.log('Role recalculation:', {
+      username: user?.username,
+      normalizedUsername,
+      admins: admins.map(a => a.username),
+      subscribers: subscribers.map(s => s.username),
+      lifetimeMembers: lifetimeMembers.map(m => m.username),
+      isAdminValue,
+      isSubscribedValue,
+      isLifetimeMemberValue,
+      isOwner,
+      isVerified,
+      isLifetime
+    })
+    
+    setIsAdmin(isAdminValue)
+    setIsSubscribed(isSubscribedValue)
+    setIsLifetimeMember(isLifetimeMemberValue)
   }, [user, isOwner, admins, subscribers, lifetimeMembers, isVerified, isLifetime])
 
   const fetchUserLists = async () => {
@@ -332,19 +350,22 @@ export default function HomePage() {
       const response = await fetch('/api/users')
       if (response.ok) {
         const data = await response.json()
-        // Update state with backend data if available
-        if (data.subscribers && data.subscribers.length > 0) {
-          setSubscribers(data.subscribers)
-          localStorage.setItem('sdhq-subscribers', JSON.stringify(data.subscribers))
+        console.log('Fetched user lists from backend:', data)
+        // Update state with backend data (even if empty)
+        if (data.subscribers !== undefined) {
+          setSubscribers(data.subscribers || [])
+          localStorage.setItem('sdhq-subscribers', JSON.stringify(data.subscribers || []))
         }
-        if (data.admins && data.admins.length > 0) {
-          setAdmins(data.admins)
-          localStorage.setItem('sdhq-admins', JSON.stringify(data.admins))
+        if (data.admins !== undefined) {
+          setAdmins(data.admins || [])
+          localStorage.setItem('sdhq-admins', JSON.stringify(data.admins || []))
         }
-        if (data.lifetimeMembers && data.lifetimeMembers.length > 0) {
-          setLifetimeMembers(data.lifetimeMembers)
-          localStorage.setItem('sdhq-lifetime-members', JSON.stringify(data.lifetimeMembers))
+        if (data.lifetimeMembers !== undefined) {
+          setLifetimeMembers(data.lifetimeMembers || [])
+          localStorage.setItem('sdhq-lifetime-members', JSON.stringify(data.lifetimeMembers || []))
         }
+      } else {
+        console.error('Failed to fetch user lists:', response.status)
       }
     } catch (error) {
       console.error('Error fetching user lists from backend:', error)
