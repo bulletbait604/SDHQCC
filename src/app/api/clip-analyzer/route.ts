@@ -158,27 +158,31 @@ Return this exact structure:
   "scoreTitle": "<short title: Excellent/Good/Fair/Needs Improvement>",
   "scoreSummary": "<2 sentences: main strength + 1 key improvement needed>",
   "insights": [
-    { "icon": "<emoji>", "label": "Hook Strength", "value": "<rating: Strong/Moderate/Weak>", "description": "<why this rating + specific improvement>" },
-    { "icon": "<emoji>", "label": "Engagement Potential", "value": "<rating: High/Medium/Low>", "description": "<factors affecting engagement + specific boost>" },
-    { "icon": "<emoji>", "label": "Visual Quality", "value": "<rating: Professional/Good/Fair>", "description": "<production assessment + specific fix>" },
-    { "icon": "<emoji>", "label": "Audio Quality", "value": "<rating: Clear/Muffled/Unbalanced>", "description": "<sound assessment + specific fix>" }
+    { "icon": "<emoji>", "label": "Hook Strength", "value": "<rating: Strong/Moderate/Weak>", "description": "<why this rating + specific improvement - NO abbreviations>" },
+    { "icon": "<emoji>", "label": "Engagement Potential", "value": "<rating: High/Medium/Low>", "description": "<factors affecting engagement + specific boost - NO abbreviations>" },
+    { "icon": "<emoji>", "label": "Visual Quality", "value": "<rating: Professional/Good/Fair>", "description": "<production assessment + specific fix - NO abbreviations>" },
+    { "icon": "<emoji>", "label": "Audio Quality", "value": "<rating: Clear/Muffled/Unbalanced>", "description": "<sound assessment + specific fix - NO abbreviations>" }
   ],
   "recommendations": [
-    { "priority": "high", "category": "Hook", "text": "<specific, actionable hook improvement>" },
-    { "priority": "high", "category": "Pacing", "text": "<specific pacing adjustment>" },
-    { "priority": "med",  "category": "Visual", "text": "<specific visual enhancement>" },
-    { "priority": "med",  "category": "Audio", "text": "<specific audio improvement>" },
-    { "priority": "low",  "category": "Metadata", "text": "<specific metadata optimization>" }
+    { "priority": "high", "category": "Hook", "text": "<specific, actionable hook improvement - NO abbreviations>" },
+    { "priority": "high", "category": "Pacing", "text": "<specific pacing adjustment - NO abbreviations>" },
+    { "priority": "med",  "category": "Visual", "text": "<specific visual enhancement - NO abbreviations>" },
+    { "priority": "med",  "category": "Audio", "text": "<specific audio improvement - NO abbreviations>" },
+    { "priority": "low",  "category": "Metadata", "text": "<specific metadata optimization - NO abbreviations>" }
   ],
   "overlays": [
-    { "type": "text",   "description": "<specific text overlay suggestion>", "timing": "<exact timestamp>" },
-    { "type": "sound",  "description": "<specific audio/music suggestion>", "timing": "<exact timestamp>" },
-    { "type": "visual", "description": "<specific visual effect or edit>", "timing": "<exact timestamp>" },
-    { "type": "cta",    "description": "<specific call-to-action>", "timing": "<exact timestamp>" }
+    { "type": "text",   "description": "<specific text overlay suggestion - NO abbreviations>", "timing": "<exact timestamp>" },
+    { "type": "sound",  "description": "<specific audio/music suggestion - NO abbreviations>", "timing": "<exact timestamp>" },
+    { "type": "visual", "description": "<specific visual effect or edit - NO abbreviations>", "timing": "<exact timestamp>" },
+    { "type": "cta",    "description": "<specific call-to-action - NO abbreviations>", "timing": "<exact timestamp>" }
   ],
-  "title": "<optimized title: 50-60 chars max, strong hook + keywords>",
-  "description": "<optimized description: 150-200 chars, keywords + CTA, platform-optimized>",
-  "tags": ["<8-10 specific, relevant hashtags for platform>"]
+  "titles": [
+    "<optimized title option 1: 50-60 chars max, strong hook + keywords>",
+    "<optimized title option 2: 50-60 chars max, strong hook + keywords>",
+    "<optimized title option 3: 50-60 chars max, strong hook + keywords>"
+  ],
+  "description": "<optimized description: 150-200 characters, keywords + call to action, platform-optimized - NO abbreviations>",
+  "tags": ["<15-20 specific, relevant hashtags for platform>"]
 }
 
 GUIDELINES:
@@ -187,7 +191,10 @@ GUIDELINES:
 - Focus on platform-specific best practices
 - Ensure suggestions are practical and implementable
 - Keep descriptions concise but informative
-- Score realistically based on actual content quality`
+- Score realistically based on actual content quality
+- NEVER use abbreviations (write "description" not "desc", "information" not "info", "second" not "sec")
+- Provide 15-20 relevant, specific hashtags
+- Provide 3 distinct title options with different hooks`
           },
           {
             role: 'user',
