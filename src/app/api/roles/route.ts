@@ -115,3 +115,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch user roles', details: String(error) }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    console.log('DELETE /api/roles called');
+    const client = await clientPromise;
+    const db = client.db('sdhq');
+    const { searchParams } = new URL(request.url);
+    const username = searchParams.get('username');
+
+    if (!username) {
+      return NextResponse.json({ message: 'Username is required' }, { status: 400 });
+    }
+
+    const normalizedUsername = username.toLowerCase();
+    console.log('Deleting user:', normalizedUsername);
+
+    const result = await db.collection('users').deleteOne({ username: normalizedUsername });
+    console.log('Delete result:', result);
+
+    if (result.deletedCount === 0) {
+      return NextResponse.json({ message: 'User not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Failed to delete user:', error);
+    return NextResponse.json({ message: 'Failed to delete user', error: String(error) }, { status: 500 });
+  }
+}

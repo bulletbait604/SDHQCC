@@ -438,6 +438,42 @@ export default function HomePage() {
     }
   }
 
+  // Delete user from roles
+  const handleDeleteUser = async (username: string) => {
+    if (!confirm(`Are you sure you want to remove ${username} from the role system?`)) {
+      return
+    }
+
+    console.log('handleDeleteUser called:', { username })
+    try {
+      const response = await fetch(`/api/roles?username=${username}`, {
+        method: 'DELETE'
+      })
+
+      console.log('Delete API response status:', response.status)
+      const data = await response.json()
+      console.log('Delete API response data:', data)
+
+      if (response.ok) {
+        // Refresh users list
+        await fetchUsersWithRoles()
+        // If deleting self, refresh own role
+        if (username.toLowerCase() === user?.username.toLowerCase()) {
+          console.log('Deleting self, refreshing own role')
+          await fetchUserRole()
+        }
+        alert(`${username} removed from role system`)
+      } else {
+        const error = data
+        console.error('Delete API error:', error)
+        alert(error.message || 'Failed to delete user')
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      alert('Failed to delete user')
+    }
+  }
+
   // Legacy role calculation (will be removed)
   const [isAdmin, setIsAdmin] = useState(false)
   const [isSubscribed, setIsSubscribed] = useState(false)
@@ -3384,21 +3420,32 @@ export default function HomePage() {
                                   {ROLE_CONFIG[u.role as Role]?.label || u.role}
                                 </span>
                               </div>
-                              <select
-                                value={u.role}
-                                onChange={(e) => handleUpdateRole(u.username, e.target.value as Role)}
-                                className={`px-2 py-1 rounded text-sm border ${
-                                  darkMode 
-                                    ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
-                                    : 'bg-white border-gray-300 text-gray-900'
-                                }`}
-                              >
-                                <option value="free">Free</option>
-                                <option value="subscriber">Subscriber</option>
-                                <option value="subscriber_lifetime">Lifetime</option>
-                                <option value="admin">Admin</option>
-                                <option value="owner" disabled={userRole !== 'owner'}>Owner</option>
-                              </select>
+                              <div className="flex items-center space-x-2">
+                                <select
+                                  value={u.role}
+                                  onChange={(e) => handleUpdateRole(u.username, e.target.value as Role)}
+                                  className={`px-2 py-1 rounded text-sm border ${
+                                    darkMode 
+                                      ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
+                                      : 'bg-white border-gray-300 text-gray-900'
+                                  }`}
+                                >
+                                  <option value="free">Free</option>
+                                  <option value="subscriber">Subscriber</option>
+                                  <option value="subscriber_lifetime">Lifetime</option>
+                                  <option value="admin">Admin</option>
+                                  <option value="owner" disabled={userRole !== 'owner'}>Owner</option>
+                                </select>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handleDeleteUser(u.username)}
+                                  className="text-red-500 hover:text-red-700"
+                                  title="Remove from role system"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
                             </div>
                           ))
                         )}
