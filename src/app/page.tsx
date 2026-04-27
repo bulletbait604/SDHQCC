@@ -65,7 +65,7 @@ interface ActivityLogEntry {
   id: string
   username: string
   timestamp: string
-  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh' | 'tag_generation' | 'clip_analysis' | 'clip_reanalysis' | 'subscriber_added' | 'subscriber_removed' | 'lifetime_added' | 'lifetime_removed' | 'admin_added' | 'admin_removed'
+  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh' | 'tag_generation' | 'clip_analysis' | 'clip_reanalysis' | 'subscriber_added' | 'subscriber_removed' | 'lifetime_added' | 'lifetime_removed' | 'admin_added' | 'admin_removed' | 'sync_completed'
   details?: string
 }
 
@@ -1128,15 +1128,8 @@ export default function HomePage() {
       const updatedSubscribers = [...subscribers, newSubscriber]
       setSubscribers(updatedSubscribers)
       setNewSubscriberUsername('')
-      // Persist to localStorage
+      // Persist to localStorage only - sync manually via button
       localStorage.setItem('sdhq-subscribers', JSON.stringify(updatedSubscribers))
-      
-      // Sync to backend (MongoDB) - don't wait for it, local state is already updated
-      fetch('/api/subscribers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username, action: 'add' })
-      }).catch(error => console.error('Failed to sync to backend:', error))
       
       // Log to activity
       const logEntry: ActivityLogEntry = {
@@ -1144,18 +1137,9 @@ export default function HomePage() {
         username: user?.username || 'Unknown',
         timestamp: new Date().toISOString(),
         action: 'subscriber_added',
-        details: `Added ${username} to subscribers list`
+        details: `Added ${username} to subscribers list (pending sync)`
       }
       setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
-      fetch('/api/activity-log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: user?.username || 'Unknown',
-          action: 'subscriber_added',
-          details: `Added ${username} to subscribers list`
-        })
-      }).catch(error => console.error('Failed to log to backend:', error))
     }
   }
 
@@ -1163,17 +1147,8 @@ export default function HomePage() {
     const subscriber = subscribers.find(sub => sub.id === id)
     const updatedSubscribers = subscribers.filter(sub => sub.id !== id)
     setSubscribers(updatedSubscribers)
-    // Persist to localStorage
+    // Persist to localStorage only - sync manually via button
     localStorage.setItem('sdhq-subscribers', JSON.stringify(updatedSubscribers))
-    
-    // Sync to backend (MongoDB) - don't wait for it, local state is already updated
-    if (subscriber) {
-      fetch('/api/subscribers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: subscriber.username, action: 'remove' })
-      }).catch(error => console.error('Failed to sync to backend:', error))
-    }
     
     // Log to activity
     if (subscriber) {
@@ -1182,18 +1157,9 @@ export default function HomePage() {
         username: user?.username || 'Unknown',
         timestamp: new Date().toISOString(),
         action: 'subscriber_removed',
-        details: `Removed ${subscriber.username} from subscribers list`
+        details: `Removed ${subscriber.username} from subscribers list (pending sync)`
       }
       setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
-      fetch('/api/activity-log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: user?.username || 'Unknown',
-          action: 'subscriber_removed',
-          details: `Removed ${subscriber.username} from subscribers list`
-        })
-      }).catch(error => console.error('Failed to log to backend:', error))
     }
   }
 
@@ -1209,15 +1175,8 @@ export default function HomePage() {
       const updatedLifetimeMembers = [...lifetimeMembers, newLifetimeMember]
       setLifetimeMembers(updatedLifetimeMembers)
       setNewLifetimeUsername('')
-      // Persist to localStorage
+      // Persist to localStorage only - sync manually via button
       localStorage.setItem('sdhq-lifetime-members', JSON.stringify(updatedLifetimeMembers))
-      
-      // Sync to backend (MongoDB) - don't wait for it, local state is already updated
-      fetch('/api/lifetime', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username, action: 'add' })
-      }).catch(error => console.error('Failed to sync to backend:', error))
       
       // Log to activity
       const logEntry: ActivityLogEntry = {
@@ -1225,18 +1184,9 @@ export default function HomePage() {
         username: user?.username || 'Unknown',
         timestamp: new Date().toISOString(),
         action: 'lifetime_added',
-        details: `Added ${username} to lifetime members list`
+        details: `Added ${username} to lifetime members list (pending sync)`
       }
       setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
-      fetch('/api/activity-log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: user?.username || 'Unknown',
-          action: 'lifetime_added',
-          details: `Added ${username} to lifetime members list`
-        })
-      }).catch(error => console.error('Failed to log to backend:', error))
     }
   }
 
@@ -1244,17 +1194,8 @@ export default function HomePage() {
     const member = lifetimeMembers.find(m => m.id === id)
     const updatedLifetimeMembers = lifetimeMembers.filter(member => member.id !== id)
     setLifetimeMembers(updatedLifetimeMembers)
-    // Persist to localStorage
+    // Persist to localStorage only - sync manually via button
     localStorage.setItem('sdhq-lifetime-members', JSON.stringify(updatedLifetimeMembers))
-    
-    // Sync to backend (MongoDB) - don't wait for it, local state is already updated
-    if (member) {
-      fetch('/api/lifetime', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: member.username, action: 'remove' })
-      }).catch(error => console.error('Failed to sync to backend:', error))
-    }
     
     // Log to activity
     if (member) {
@@ -1263,18 +1204,9 @@ export default function HomePage() {
         username: user?.username || 'Unknown',
         timestamp: new Date().toISOString(),
         action: 'lifetime_removed',
-        details: `Removed ${member.username} from lifetime members list`
+        details: `Removed ${member.username} from lifetime members list (pending sync)`
       }
       setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
-      fetch('/api/activity-log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: user?.username || 'Unknown',
-          action: 'lifetime_removed',
-          details: `Removed ${member.username} from lifetime members list`
-        })
-      }).catch(error => console.error('Failed to log to backend:', error))
     }
   }
 
@@ -1290,15 +1222,8 @@ export default function HomePage() {
       const updatedAdmins = [...admins, newAdmin]
       setAdmins(updatedAdmins)
       setNewAdminUsername('')
-      // Persist to localStorage
+      // Persist to localStorage only - sync manually via button
       localStorage.setItem('sdhq-admins', JSON.stringify(updatedAdmins))
-      
-      // Sync to backend (MongoDB) - don't wait for it, local state is already updated
-      fetch('/api/admins', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username, action: 'add' })
-      }).catch(error => console.error('Failed to sync to backend:', error))
       
       // Log to activity
       const logEntry: ActivityLogEntry = {
@@ -1306,18 +1231,9 @@ export default function HomePage() {
         username: user?.username || 'Unknown',
         timestamp: new Date().toISOString(),
         action: 'admin_added',
-        details: `Added ${username} to admins list`
+        details: `Added ${username} to admins list (pending sync)`
       }
       setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
-      fetch('/api/activity-log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: user?.username || 'Unknown',
-          action: 'admin_added',
-          details: `Added ${username} to admins list`
-        })
-      }).catch(error => console.error('Failed to log to backend:', error))
     }
   }
 
@@ -1325,17 +1241,8 @@ export default function HomePage() {
     const admin = admins.find(a => a.id === id)
     const updatedAdmins = admins.filter(admin => admin.id !== id)
     setAdmins(updatedAdmins)
-    // Persist to localStorage
+    // Persist to localStorage only - sync manually via button
     localStorage.setItem('sdhq-admins', JSON.stringify(updatedAdmins))
-    
-    // Sync to backend (MongoDB) - don't wait for it, local state is already updated
-    if (admin) {
-      fetch('/api/admins', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: admin.username, action: 'remove' })
-      }).catch(error => console.error('Failed to sync to backend:', error))
-    }
     
     // Log to activity
     if (admin) {
@@ -1344,18 +1251,55 @@ export default function HomePage() {
         username: user?.username || 'Unknown',
         timestamp: new Date().toISOString(),
         action: 'admin_removed',
-        details: `Removed ${admin.username} from admins list`
+        details: `Removed ${admin.username} from admins list (pending sync)`
       }
       setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
-      fetch('/api/activity-log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: user?.username || 'Unknown',
-          action: 'admin_removed',
-          details: `Removed ${admin.username} from admins list`
+    }
+  }
+
+  const handleSyncToBackend = async () => {
+    try {
+      // Sync subscribers
+      for (const subscriber of subscribers) {
+        await fetch('/api/subscribers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: subscriber.username, action: 'add' })
         })
-      }).catch(error => console.error('Failed to log to backend:', error))
+      }
+      
+      // Sync admins
+      for (const admin of admins) {
+        await fetch('/api/admins', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: admin.username, action: 'add' })
+        })
+      }
+      
+      // Sync lifetime members
+      for (const member of lifetimeMembers) {
+        await fetch('/api/lifetime', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: member.username, action: 'add' })
+        })
+      }
+      
+      // Log sync to activity
+      const logEntry: ActivityLogEntry = {
+        id: Date.now().toString(),
+        username: user?.username || 'Unknown',
+        timestamp: new Date().toISOString(),
+        action: 'sync_completed',
+        details: `Synced ${subscribers.length} subscribers, ${admins.length} admins, ${lifetimeMembers.length} lifetime members to backend`
+      }
+      setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
+      
+      alert('Sync completed successfully! Roles and badges will update for all users on their next refresh.')
+    } catch (error) {
+      console.error('Sync failed:', error)
+      alert('Sync failed. Please try again.')
     }
   }
 
@@ -3229,10 +3173,21 @@ export default function HomePage() {
                   {/* Subscribers - Admin Only */}
                   {isAdmin && (
                     <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
-                      <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                        <Crown className="w-5 h-5 mr-2 text-sdhq-green-500" />
-                        {t.subscribers}
-                      </h4>
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className={`font-semibold flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                          <Crown className="w-5 h-5 mr-2 text-sdhq-green-500" />
+                          {t.subscribers}
+                        </h4>
+                        <Button 
+                          onClick={handleSyncToBackend}
+                          variant="outline"
+                          size="sm"
+                          className="bg-gradient-to-r from-sdhq-cyan-500/10 to-sdhq-green-500/10 border-sdhq-cyan-500/50 hover:border-sdhq-cyan-500"
+                        >
+                          <RefreshCw className="w-4 h-4 mr-1" />
+                          Sync to Backend
+                        </Button>
+                      </div>
                       
                       {/* Add Subscriber */}
                       <div className="flex space-x-2 mb-4">
