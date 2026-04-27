@@ -3287,7 +3287,98 @@ export default function HomePage() {
                     </div>
                   )}
 
-                  {/* Subscribers - Admin Only */}
+                  {/* Role Management - Owner Only (NEW SYSTEM) */}
+                  {isOwner && (
+                    <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-yellow-500/30' : 'bg-gray-50 border-yellow-300'}`}>
+                      <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <Crown className="w-5 h-5 mr-2 text-yellow-500" />
+                        Role Management (New System)
+                      </h4>
+                      
+                      {/* Search and Assign Role */}
+                      <div className="space-y-3 mb-4">
+                        <div className="flex space-x-2">
+                          <input
+                            type="text"
+                            value={roleSearchUsername}
+                            onChange={(e) => setRoleSearchUsername(e.target.value)}
+                            placeholder="Enter username to assign role..."
+                            className={`flex-1 px-3 py-2 rounded-md border ${
+                              darkMode 
+                                ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
+                                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                            }`}
+                          />
+                          <select
+                            value={selectedRole}
+                            onChange={(e) => setSelectedRole(e.target.value as Role)}
+                            className={`px-3 py-2 rounded-md border ${
+                              darkMode 
+                                ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
+                                : 'bg-white border-gray-300 text-gray-900'
+                            }`}
+                          >
+                            <option value="free">Free User</option>
+                            <option value="subscriber">Subscriber</option>
+                            <option value="subscriber_lifetime">Lifetime Subscriber</option>
+                            <option value="admin">Admin</option>
+                            <option value="owner">Owner</option>
+                          </select>
+                          <Button 
+                            onClick={() => roleSearchUsername && handleUpdateRole(roleSearchUsername, selectedRole)}
+                            disabled={!roleSearchUsername}
+                            className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white"
+                          >
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Assign
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {/* Users with Roles List */}
+                      <div className={`space-y-2 max-h-80 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                        {usersWithRoles.length === 0 ? (
+                          <p className={`text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No users with roles yet.</p>
+                        ) : (
+                          usersWithRoles.map((u: any) => (
+                            <div 
+                              key={u.id}
+                              className={`flex items-center justify-between p-2 rounded border ${
+                                darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-200'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-2">
+                                <span className={`text-lg`}>{ROLE_CONFIG[u.role as Role]?.badge || '❓'}</span>
+                                <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{u.username}</span>
+                                <span className={`text-xs px-2 py-1 rounded ${
+                                  darkMode ? 'bg-sdhq-dark-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+                                }`}>
+                                  {ROLE_CONFIG[u.role as Role]?.label || u.role}
+                                </span>
+                              </div>
+                              <select
+                                value={u.role}
+                                onChange={(e) => handleUpdateRole(u.username, e.target.value as Role)}
+                                className={`px-2 py-1 rounded text-sm border ${
+                                  darkMode 
+                                    ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
+                                    : 'bg-white border-gray-300 text-gray-900'
+                                }`}
+                              >
+                                <option value="free">Free</option>
+                                <option value="subscriber">Subscriber</option>
+                                <option value="subscriber_lifetime">Lifetime</option>
+                                <option value="admin">Admin</option>
+                                <option value="owner" disabled={userRole !== 'owner'}>Owner</option>
+                              </select>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Legacy Subscriber Management - Will be removed after migration */}
                   {isAdmin && (
                     <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
                       <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
