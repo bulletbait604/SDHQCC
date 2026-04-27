@@ -556,6 +556,22 @@ export default function HomePage() {
     }
   }, [activityLog])
 
+  // Fetch activity logs from backend for admins
+  useEffect(() => {
+    if (isAdmin && user) {
+      fetch('/api/activity-log')
+        .then(res => res.json())
+        .then(data => {
+          if (data.logs) {
+            setActivityLog(data.logs)
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching activity logs from backend:', error)
+        })
+    }
+  }, [isAdmin, user])
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('isLifetime', isLifetime.toString())
@@ -565,15 +581,23 @@ export default function HomePage() {
   // Track user login
   useEffect(() => {
     if (user && typeof window !== 'undefined') {
-      const ip = 'IP-hidden' // In production, you'd get this from the backend
       const newEntry: ActivityLogEntry = {
         id: Date.now().toString(),
         username: user.username,
         timestamp: new Date().toISOString(),
-        action: 'login',
-        details: `User logged in [${ip}]`
+        action: 'login'
       }
-      setActivityLog(prev => [newEntry, ...prev].slice(0, 100)) // Keep last 100 entries
+      setActivityLog(prev => [newEntry, ...prev].slice(0, 100))
+      
+      // Also log to backend
+      fetch('/api/activity-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: user.username,
+          action: 'login'
+        })
+      }).catch(error => console.error('Failed to log to backend:', error))
     }
   }, [user?.id]) // Only run when user ID changes (login)
 
@@ -746,15 +770,25 @@ export default function HomePage() {
       
       // Log clip analysis activity
       if (user) {
-        const ip = 'IP-hidden' // In production, you'd get this from the backend
         const clipEntry: ActivityLogEntry = {
           id: Date.now().toString(),
           username: user.username,
           timestamp: new Date().toISOString(),
           action: 'clip_analysis',
-          details: `Analyzed video for ${platforms.find(p => p.id === detectedPlatform)?.name} (score: ${data.score}) [${ip}]`
+          details: `Analyzed video for ${platforms.find(p => p.id === detectedPlatform)?.name} (score: ${data.score})`
         }
         setActivityLog(prev => [clipEntry, ...prev].slice(0, 100))
+        
+        // Log to backend
+        fetch('/api/activity-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: user.username,
+            action: 'clip_analysis',
+            details: `Analyzed video for ${platforms.find(p => p.id === detectedPlatform)?.name} (score: ${data.score})`
+          })
+        }).catch(error => console.error('Failed to log to backend:', error))
       }
       
       // Decrement rate limit after successful analysis (only if not unlimited)
@@ -825,15 +859,25 @@ export default function HomePage() {
       
       // Log re-analysis activity
       if (user) {
-        const ip = 'IP-hidden' // In production, you'd get this from the backend
         const reanalysisEntry: ActivityLogEntry = {
           id: Date.now().toString(),
           username: user.username,
           timestamp: new Date().toISOString(),
           action: 'clip_reanalysis',
-          details: `Re-analyzed video for ${platforms.find(p => p.id === newPlatform)?.name} (score: ${data.score}) [${ip}]`
+          details: `Re-analyzed for ${platforms.find(p => p.id === newPlatform)?.name}`
         }
         setActivityLog(prev => [reanalysisEntry, ...prev].slice(0, 100))
+        
+        // Log to backend
+        fetch('/api/activity-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: user.username,
+            action: 'clip_reanalysis',
+            details: `Re-analyzed for ${platforms.find(p => p.id === newPlatform)?.name}`
+          })
+        }).catch(error => console.error('Failed to log to backend:', error))
       }
     } catch (error) {
       clearInterval(stepInterval)
@@ -868,15 +912,23 @@ export default function HomePage() {
   const handleLogout = () => {
     // Log logout activity
     if (user && isAdmin) {
-      const ip = 'IP-hidden' // In production, you'd get this from the backend
       const logoutEntry: ActivityLogEntry = {
         id: Date.now().toString(),
         username: user.username,
         timestamp: new Date().toISOString(),
-        action: 'logout',
-        details: `User logged out [${ip}]`
+        action: 'logout'
       }
       setActivityLog(prev => [logoutEntry, ...prev].slice(0, 100))
+      
+      // Log to backend
+      fetch('/api/activity-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: user.username,
+          action: 'logout'
+        })
+      }).catch(error => console.error('Failed to log to backend:', error))
     }
     
     setUser(null)
@@ -986,9 +1038,16 @@ export default function HomePage() {
     }
   }, [showLifetimePopup, user, paypalLoaded, paypalEmail])
 
-  const handleClearActivityLog = () => {
+  const handleClearActivityLog = async () => {
     setActivityLog([])
     setShowClearConfirm(false)
+    
+    // Clear from backend
+    try {
+      await fetch('/api/activity-log', { method: 'DELETE' })
+    } catch (error) {
+      console.error('Failed to clear activity logs from backend:', error)
+    }
   }
 
   const handleAddSubscriber = () => {
@@ -1898,15 +1957,25 @@ export default function HomePage() {
                           }
                           // Log tag generation activity
                           if (user) {
-                            const ip = 'IP-hidden' // In production, you'd get this from the backend
                             const tagEntry: ActivityLogEntry = {
                               id: Date.now().toString(),
                               username: user.username,
                               timestamp: new Date().toISOString(),
                               action: 'tag_generation',
-                              details: `Generated ${data.tags.length} tags for ${platforms.find(p => p.id === tagPlatform)?.name} [${ip}]`
+                              details: `Generated ${data.tags.length} tags for ${platforms.find(p => p.id === tagPlatform)?.name}`
                             }
                             setActivityLog(prev => [tagEntry, ...prev].slice(0, 100))
+                            
+                            // Log to backend
+                            fetch('/api/activity-log', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                username: user.username,
+                                action: 'tag_generation',
+                                details: `Generated ${data.tags.length} tags for ${platforms.find(p => p.id === tagPlatform)?.name}`
+                              })
+                            }).catch(error => console.error('Failed to log to backend:', error))
                           }
                         } catch (error) {
                           console.error('Error generating tags:', error)

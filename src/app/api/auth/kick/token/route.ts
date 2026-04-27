@@ -69,9 +69,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Log the login
+    // Log the login to backend
     if (user) {
       console.log(`User login: ${user.username} (ID: ${user.id}) at ${new Date().toISOString()}`)
+      
+      // Log to activity log API
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/activity-log`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: user.username,
+            action: 'login'
+          })
+        })
+      } catch (error) {
+        console.error('Failed to log login to activity log:', error)
+      }
     }
 
     return NextResponse.json({
