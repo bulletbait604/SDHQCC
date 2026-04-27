@@ -1750,7 +1750,7 @@ export default function HomePage() {
                         className={`w-full px-3 py-2 rounded-md border ${
                           darkMode 
                             ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
-                            : 'bg-white border-gray-300'
+                            : 'bg-white border-gray-300 text-gray-900'
                         }`}
                       >
                         {platforms.map((platform) => (
@@ -1774,7 +1774,7 @@ export default function HomePage() {
                         className={`w-full px-3 py-2 rounded-md border resize-none ${
                           darkMode 
                             ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
-                            : 'bg-white border-gray-300'
+                            : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
                         }`}
                       />
                     </div>
@@ -2568,7 +2568,7 @@ export default function HomePage() {
                           className={`flex-1 px-3 py-2 rounded-md border ${
                             darkMode 
                               ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
-                              : 'bg-white border-gray-300'
+                              : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
                           }`}
                           onKeyPress={(e) => e.key === 'Enter' && handleAddAdmin()}
                         />
@@ -2630,7 +2630,7 @@ export default function HomePage() {
                           className={`flex-1 px-3 py-2 rounded-md border ${
                             darkMode 
                               ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
-                              : 'bg-white border-gray-300'
+                              : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
                           }`}
                           onKeyPress={(e) => e.key === 'Enter' && handleAddSubscriber()}
                         />
