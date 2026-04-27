@@ -1745,7 +1745,7 @@ export default function HomePage() {
                         {user.display_name}
                       </p>
                       <span className={`px-2 py-0.5 text-sm font-bold rounded-full ${ROLE_CONFIG[userRole]?.badgeClass || 'bg-gray-500 text-white'}`}>
-                        {ROLE_CONFIG[userRole]?.badge || '❓'} {ROLE_CONFIG[userRole]?.label || 'Free User'}
+                        {ROLE_CONFIG[userRole]?.badge || '🙂 Free User'}
                       </span>
                     </div>
                     <p className={`text-base ${subtitleClasses}`}>@{user.username}</p>
