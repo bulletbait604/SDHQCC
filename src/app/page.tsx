@@ -780,46 +780,45 @@ export default function HomePage() {
     }
   }, [user?.id]) // Only run when user ID changes (login)
 
-  // Update tag rate limit when verification status changes
+  // Update tag rate limit when role changes
   useEffect(() => {
-    const hasUnlimited = isOwner || isLifetimeMember
+    const hasUnlimited = userRole === 'owner' || userRole === 'admin'
+    const isPaidUser = userRole === 'subscriber' || userRole === 'subscriber_lifetime'
+    
     if (hasUnlimited) {
       setTagRateLimit({ remaining: -1, resetTime: null })
-    } else if (isAdmin || isVerified) {
-      // Admins and verified users get 20 uses
+    } else if (isPaidUser) {
+      // Subscribers and lifetime get 20 uses
       if (tagRateLimit.remaining !== 20 && tagRateLimit.remaining !== -1) {
         setTagRateLimit({ remaining: 20, resetTime: null })
       }
     } else {
-      // Regular users get 5 uses
+      // Free users get 5 uses
       if (tagRateLimit.remaining !== 5 && tagRateLimit.remaining !== -1) {
         setTagRateLimit({ remaining: 5, resetTime: null })
       }
     }
-  }, [isVerified, isLifetimeMember, isAdmin, user, isOwner])
+  }, [userRole])
 
-  // Update clip analyzer rate limit when verification status changes
+  // Update clip analyzer rate limit when role changes
   useEffect(() => {
-    const hasUnlimited = isOwner || isAdmin
+    const hasUnlimited = userRole === 'owner' || userRole === 'admin'
+    const isPaidUser = userRole === 'subscriber' || userRole === 'subscriber_lifetime'
+    
     if (hasUnlimited) {
       setClipRateLimit({ remaining: -1, resetTime: null })
-    } else if (isLifetimeMember) {
-      // Lifetime members get 7 uses
-      if (clipRateLimit.remaining !== 7 && clipRateLimit.remaining !== -1) {
-        setClipRateLimit({ remaining: 7, resetTime: null })
-      }
-    } else if (isSubscribed) {
-      // Subscribers get 7 uses
-      if (clipRateLimit.remaining !== 7 && clipRateLimit.remaining !== -1) {
-        setClipRateLimit({ remaining: 7, resetTime: null })
+    } else if (isPaidUser) {
+      // Subscribers and lifetime get 3 uses
+      if (clipRateLimit.remaining !== 3 && clipRateLimit.remaining !== -1) {
+        setClipRateLimit({ remaining: 3, resetTime: null })
       }
     } else {
-      // Free users get 2 uses
-      if (clipRateLimit.remaining !== 2 && clipRateLimit.remaining !== -1) {
-        setClipRateLimit({ remaining: 2, resetTime: null })
+      // Free users get no access (0 uses)
+      if (clipRateLimit.remaining !== 0 && clipRateLimit.remaining !== -1) {
+        setClipRateLimit({ remaining: 0, resetTime: null })
       }
     }
-  }, [isOwner, isLifetimeMember, isAdmin, isSubscribed, user])
+  }, [userRole])
 
   // Update countdown timer for rate limit reset
   useEffect(() => {
@@ -1750,7 +1749,7 @@ export default function HomePage() {
                     </div>
                     <p className={`text-base ${subtitleClasses}`}>@{user.username}</p>
                   </div>
-                  {!isOwner && !isAdmin && !isSubscribed && (
+                  {userRole === 'free' && (
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -2511,7 +2510,7 @@ export default function HomePage() {
                   <div className="text-center py-12">
                     <p className={`${subtitleClasses}`}>{t.premiumFeature} - Login required</p>
                   </div>
-                ) : !(isOwner || isAdmin || isSubscribed || isLifetimeMember) ? (
+                ) : !(userRole === 'owner' || userRole === 'admin' || userRole === 'subscriber' || userRole === 'subscriber_lifetime') ? (
                   <div className="space-y-6">
                     {/* Blurred out content for free tier */}
                     <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-6 blur-sm select-none`}>
@@ -3075,7 +3074,21 @@ export default function HomePage() {
                   </div>
                   <p className={`${textClasses} text-base`}>{t.contentAnalyzerDesc}</p>
                 </div>
-                <p className={`text-center ${subtitleClasses}`}>{t.premiumFeature} - {t.comingSoon}</p>
+                {/* Access Control */}
+                {!user ? (
+                  <div className="text-center py-12">
+                    <p className={`${subtitleClasses}`}>{t.premiumFeature} - Login required</p>
+                  </div>
+                ) : !(userRole === 'owner' || userRole === 'admin' || userRole === 'subscriber' || userRole === 'subscriber_lifetime') ? (
+                  <div className="text-center py-12">
+                    <p className={`${subtitleClasses}`}>{t.premiumFeature} - Subscribe to access</p>
+                    <Button onClick={handleVerifySubscription} className="sdhq-button mt-4">
+                      Subscribe Now
+                    </Button>
+                  </div>
+                ) : (
+                  <p className={`text-center ${subtitleClasses}`}>{t.premiumFeature} - {t.comingSoon}</p>
+                )}
               </div>
             </TabsContent>
 
@@ -3135,8 +3148,8 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  {/* Lifetime Pass - Non-admin, non-subscribed, non-lifetime users only */}
-                  {!isOwner && !isAdmin && !isSubscribed && !isLifetimeMember && (
+                  {/* Lifetime Pass - Free users only */}
+                  {userRole === 'free' && (
                     <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-200 shadow-sm'}`}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
@@ -3157,8 +3170,8 @@ export default function HomePage() {
                     </div>
                   )}
 
-                  {/* Activity Feed - Admin Only */}
-                  {isAdmin && (
+                  {/* Activity Feed - Admin and Owner only */}
+                  {(userRole === 'admin' || userRole === 'owner') && (
                     <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
                       <div className="flex items-center justify-between mb-4">
                         <h4 className={`font-semibold flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
