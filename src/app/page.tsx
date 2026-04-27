@@ -94,8 +94,8 @@ const translations = {
     algorithmsExplained: 'Algorithms Explained',
     tagGeneratorFree: 'Tag Generator (Free)',
     tagGeneratorPaid: 'Tag Generator (Paid)',
-    clipAnalyzer: 'Clip Analyzer (Paid)',
-    contentAnalyzer: 'Content Analyzer (Paid)',
+    clipAnalyzer: 'Content Analyzer (Paid)',
+    contentAnalyzer: 'Clip Analyzer (Paid)',
     settings: 'Settings',
     logout: 'Logout',
     verifySubscription: 'Verify Subscription',
@@ -125,8 +125,8 @@ const translations = {
     algorithmsExplained: 'Algoritmos Explicados',
     tagGeneratorFree: 'Generador de Etiquetas (Gratis)',
     tagGeneratorPaid: 'Generador de Etiquetas (Pago)',
-    clipAnalyzer: 'Analizador de Clips (Pago)',
-    contentAnalyzer: 'Analizador de Contenido (Pago)',
+    clipAnalyzer: 'Analizador de Contenido (Pago)',
+    contentAnalyzer: 'Analizador de Clips (Pago)',
     settings: 'Configuración',
     logout: 'Cerrar sesión',
     verifySubscription: 'Verificar Suscripción',
@@ -156,8 +156,8 @@ const translations = {
     algorithmsExplained: 'Algorithmes Expliqués',
     tagGeneratorFree: 'Générateur de Tags (Gratuit)',
     tagGeneratorPaid: 'Générateur de Tags (Payant)',
-    clipAnalyzer: 'Analyseur de Clips (Payant)',
-    contentAnalyzer: 'Analyseur de Contenu (Payant)',
+    clipAnalyzer: 'Analyseur de Contenu (Payant)',
+    contentAnalyzer: 'Analyseur de Clips (Payant)',
     settings: 'Paramètres',
     logout: 'Déconnexion',
     verifySubscription: 'Vérifier Abonnement',
@@ -187,8 +187,8 @@ const translations = {
     algorithmsExplained: 'Algorithmen Erklärt',
     tagGeneratorFree: 'Tag Generator (Kostenlos)',
     tagGeneratorPaid: 'Tag Generator (Bezahlt)',
-    clipAnalyzer: 'Clip Analyzer (Bezahlt)',
-    contentAnalyzer: 'Content Analyzer (Bezahlt)',
+    clipAnalyzer: 'Content Analyzer (Bezahlt)',
+    contentAnalyzer: 'Clip Analyzer (Bezahlt)',
     settings: 'Einstellungen',
     logout: 'Abmelden',
     verifySubscription: 'Abonnement Verifizieren',
@@ -1729,7 +1729,7 @@ export default function HomePage() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Input Section */}
-                  <div className={`p-6 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
+                  <div className={`p-6 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-300 shadow-md'}`}>
                     <div className="flex items-center justify-between mb-4">
                       <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                         Content Details
@@ -1884,7 +1884,7 @@ export default function HomePage() {
                   </div>
 
                   {/* Results Section */}
-                  <div className={`p-6 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
+                  <div className={`p-6 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-300 shadow-md'}`}>
                     <h4 className={`font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                       Generated Tags for {platforms.find(p => p.id === tagPlatform)?.name}
                     </h4>
@@ -1932,7 +1932,7 @@ export default function HomePage() {
                 </div>
 
                 {/* Tag Database Status */}
-                <div className={`mt-6 p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-800' : 'bg-gray-100'}`}>
+                <div className={`mt-6 p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-sdhq-cyan-200 shadow-sm'}`}>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -2197,16 +2197,18 @@ export default function HomePage() {
                             Content Insights
                             <span className="flex-1 h-px bg-gradient-to-r from-sdhq-cyan-500/50 to-transparent"></span>
                           </h4>
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 gap-3">
                             {(clipAnalysisResult.insights || []).map((insight: any, idx: number) => (
-                              <div key={idx} className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover:scale-105 hover:shadow-lg ${
+                              <div key={idx} className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg flex items-center gap-4 ${
                                 darkMode 
                                   ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
-                                  : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                                  : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-300 shadow-sm'
                               }`}>
                                 <div className={`absolute inset-0 bg-gradient-to-r from-sdhq-cyan-500/5 to-sdhq-green-500/5 opacity-0 hover:opacity-100 transition-opacity`}></div>
-                                <div className="relative">
-                                  <span className="text-2xl mb-2 block">{insight.icon || '📊'}</span>
+                                <div className="relative flex-shrink-0">
+                                  <span className="text-3xl">{insight.icon || '📊'}</span>
+                                </div>
+                                <div className="relative flex-1">
                                   <div className={`text-xs font-semibold tracking-wider uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                     {insight.label}
                                   </div>
@@ -2227,10 +2229,10 @@ export default function HomePage() {
                           </h4>
                           <div className="space-y-2">
                             {(clipAnalysisResult.recommendations || []).map((rec: any, idx: number) => (
-                              <div key={idx} className={`relative overflow-hidden rounded-xl p-4 flex gap-3 items-start transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
+                              <div key={idx} className={`relative overflow-hidden rounded-xl p-4 flex gap-3 items-start transition-all duration-300 hover:scale-[1.01] hover:shadow-lg ${
                                 darkMode 
                                   ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
-                                  : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                                  : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-300 shadow-sm'
                               }`}>
                                 <div className={`absolute inset-0 bg-gradient-to-r ${
                                   rec.priority === 'high' 
@@ -2279,10 +2281,10 @@ export default function HomePage() {
                                 cta: 'from-red-500/20 to-pink-500/20'
                               }
                               return (
-                                <div key={idx} className={`relative overflow-hidden rounded-xl p-4 flex gap-3 items-center transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
+                                <div key={idx} className={`relative overflow-hidden rounded-xl p-4 flex gap-3 items-center transition-all duration-300 hover:scale-[1.01] hover:shadow-lg ${
                                   darkMode 
                                     ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
-                                    : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                                    : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-300 shadow-sm'
                                 }`}>
                                   <div className={`absolute inset-0 bg-gradient-to-r ${bgMap[overlay.type] || 'from-gray-500/20 to-gray-600/20'} opacity-0 hover:opacity-100 transition-opacity`}></div>
                                   <div className="relative">
@@ -2311,10 +2313,10 @@ export default function HomePage() {
                             <span className="flex-1 h-px bg-gradient-to-r from-sdhq-cyan-500/50 to-transparent"></span>
                           </h4>
                           <div className="space-y-3">
-                            <div className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
+                            <div className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg ${
                               darkMode 
                                 ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
-                                : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                                : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-300 shadow-sm'
                             }`}>
                               <div className={`absolute inset-0 bg-gradient-to-r from-sdhq-cyan-500/5 to-sdhq-green-500/5 opacity-0 hover:opacity-100 transition-opacity`}></div>
                               <div className="relative">
@@ -2326,10 +2328,10 @@ export default function HomePage() {
                                 </div>
                               </div>
                             </div>
-                            <div className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
+                            <div className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg ${
                               darkMode 
                                 ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
-                                : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                                : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-300 shadow-sm'
                             }`}>
                               <div className={`absolute inset-0 bg-gradient-to-r from-sdhq-cyan-500/5 to-sdhq-green-500/5 opacity-0 hover:opacity-100 transition-opacity`}></div>
                               <div className="relative">
@@ -2341,10 +2343,10 @@ export default function HomePage() {
                                 </div>
                               </div>
                             </div>
-                            <div className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
+                            <div className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg ${
                               darkMode 
                                 ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
-                                : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                                : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-300 shadow-sm'
                             }`}>
                               <div className={`absolute inset-0 bg-gradient-to-r from-sdhq-cyan-500/5 to-sdhq-green-500/5 opacity-0 hover:opacity-100 transition-opacity`}></div>
                               <div className="relative">
@@ -2356,7 +2358,7 @@ export default function HomePage() {
                                     <span key={idx} className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all duration-300 hover:scale-110 hover:shadow-md ${
                                       darkMode 
                                         ? 'bg-gradient-to-br from-sdhq-dark-900 to-sdhq-dark-800 text-sdhq-cyan-400 border-sdhq-cyan-500/30' 
-                                        : 'bg-gradient-to-br from-gray-200 to-gray-100 text-sdhq-cyan-600 border-sdhq-cyan-300'
+                                        : 'bg-gradient-to-br from-gray-200 to-gray-100 text-sdhq-cyan-600 border-sdhq-cyan-300 shadow-sm'
                                     } border`}>
                                       #{tag.replace(/^#/, '')}
                                     </span>
@@ -2447,7 +2449,7 @@ export default function HomePage() {
                 
                 <div className="max-w-2xl mx-auto space-y-6 px-6">
                   {/* Language Setting */}
-                  <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-50'}`}>
+                  <div className={`p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-dark-600' : 'bg-gray-50 border-sdhq-cyan-200 shadow-sm'}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <Globe className="w-5 h-5 text-sdhq-cyan-500" />
@@ -2471,12 +2473,12 @@ export default function HomePage() {
                   </div>
 
                   {/* Dark Mode Setting */}
-                  <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-50'}`}>
+                  <div className={`p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-dark-600' : 'bg-gray-50 border-sdhq-cyan-200 shadow-sm'}`}>
                     <div className="flex items-center justify-between">
 
 {/* Subscribers Management - Admin Only */}
 {isAdmin && (
-  <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
+  <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-300 shadow-md'}`}>
     <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
       <Crown className="w-5 h-5 mr-2 text-sdhq-green-500" />
       {t.subscribers}
