@@ -23,7 +23,7 @@ async function getDb(): Promise<Db> {
   return db!
 }
 
-const MAX_LOGS = 1000
+const MAX_LOGS = 500
 
 export async function GET(request: NextRequest) {
   try {

@@ -314,17 +314,43 @@ export default function HomePage() {
   ])
 
   const t = translations[language]
-  const isOwner = user ? OWNER_USERNAMES.includes(user.username) : false
+  const isOwner = user ? OWNER_USERNAMES.includes(user.username.replace(/^@/, '')) : false
   const [isAdmin, setIsAdmin] = useState(false)
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [isLifetimeMember, setIsLifetimeMember] = useState(false)
 
   // Recalculate roles when user or lists change
   useEffect(() => {
-    setIsAdmin(user ? (isOwner || admins.some(admin => admin.username.toLowerCase() === user.username.toLowerCase())) : false)
-    setIsSubscribed(user ? (isVerified || subscribers.some(sub => sub.username.toLowerCase() === user.username.toLowerCase())) : false)
-    setIsLifetimeMember(user ? (isLifetime || lifetimeMembers.some(member => member.username.toLowerCase() === user.username.toLowerCase())) : false)
+    const normalizedUsername = user?.username?.replace(/^@/, '').toLowerCase() || ''
+    setIsAdmin(user ? (isOwner || admins.some(admin => admin.username.toLowerCase() === normalizedUsername)) : false)
+    setIsSubscribed(user ? (isVerified || subscribers.some(sub => sub.username.toLowerCase() === normalizedUsername)) : false)
+    setIsLifetimeMember(user ? (isLifetime || lifetimeMembers.some(member => member.username.toLowerCase() === normalizedUsername)) : false)
   }, [user, isOwner, admins, subscribers, lifetimeMembers, isVerified, isLifetime])
+
+  const fetchUserLists = async () => {
+    try {
+      const response = await fetch('/api/users')
+      if (response.ok) {
+        const data = await response.json()
+        // Update state with backend data if available
+        if (data.subscribers && data.subscribers.length > 0) {
+          setSubscribers(data.subscribers)
+          localStorage.setItem('sdhq-subscribers', JSON.stringify(data.subscribers))
+        }
+        if (data.admins && data.admins.length > 0) {
+          setAdmins(data.admins)
+          localStorage.setItem('sdhq-admins', JSON.stringify(data.admins))
+        }
+        if (data.lifetimeMembers && data.lifetimeMembers.length > 0) {
+          setLifetimeMembers(data.lifetimeMembers)
+          localStorage.setItem('sdhq-lifetime-members', JSON.stringify(data.lifetimeMembers))
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user lists from backend:', error)
+      // If backend fails, continue with localStorage data
+    }
+  }
 
   useEffect(() => {
     setMounted(true)
@@ -390,6 +416,9 @@ export default function HomePage() {
       }
       
       // Activity logs are now persisted server-side via backend API, no localStorage loading needed
+
+      // Sync with backend (MongoDB) to get latest data
+      fetchUserLists()
 
       // Load algorithm data from API on every page load
       setIsLoadingAlgorithms(true)
@@ -1068,9 +1097,11 @@ export default function HomePage() {
 
   const handleAddSubscriber = () => {
     if (newSubscriberUsername.trim()) {
+      // Strip @ prefix if present
+      const username = newSubscriberUsername.trim().replace(/^@/, '')
       const newSubscriber: Subscriber = {
         id: Date.now().toString(),
-        username: newSubscriberUsername.trim(),
+        username: username,
         addedAt: new Date().toISOString()
       }
       const updatedSubscribers = [...subscribers, newSubscriber]
@@ -1079,13 +1110,20 @@ export default function HomePage() {
       // Persist to localStorage
       localStorage.setItem('sdhq-subscribers', JSON.stringify(updatedSubscribers))
       
+      // Sync to backend (MongoDB)
+      fetch('/api/subscribers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username, action: 'add' })
+      }).catch(error => console.error('Failed to sync to backend:', error))
+      
       // Log to activity
       const logEntry: ActivityLogEntry = {
         id: Date.now().toString(),
         username: user?.username || 'Unknown',
         timestamp: new Date().toISOString(),
         action: 'subscriber_added',
-        details: `Added ${newSubscriberUsername.trim()} to subscribers list`
+        details: `Added ${username} to subscribers list`
       }
       setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
       fetch('/api/activity-log', {
@@ -1094,7 +1132,7 @@ export default function HomePage() {
         body: JSON.stringify({
           username: user?.username || 'Unknown',
           action: 'subscriber_added',
-          details: `Added ${newSubscriberUsername.trim()} to subscribers list`
+          details: `Added ${username} to subscribers list`
         })
       }).catch(error => console.error('Failed to log to backend:', error))
     }
@@ -1106,6 +1144,15 @@ export default function HomePage() {
     setSubscribers(updatedSubscribers)
     // Persist to localStorage
     localStorage.setItem('sdhq-subscribers', JSON.stringify(updatedSubscribers))
+    
+    // Sync to backend (MongoDB)
+    if (subscriber) {
+      fetch('/api/subscribers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: subscriber.username, action: 'remove' })
+      }).catch(error => console.error('Failed to sync to backend:', error))
+    }
     
     // Log to activity
     if (subscriber) {
@@ -1131,9 +1178,11 @@ export default function HomePage() {
 
   const handleAddLifetime = () => {
     if (newLifetimeUsername.trim()) {
+      // Strip @ prefix if present
+      const username = newLifetimeUsername.trim().replace(/^@/, '')
       const newLifetimeMember: LifetimeMember = {
         id: Date.now().toString(),
-        username: newLifetimeUsername.trim(),
+        username: username,
         addedAt: new Date().toISOString()
       }
       const updatedLifetimeMembers = [...lifetimeMembers, newLifetimeMember]
@@ -1142,13 +1191,20 @@ export default function HomePage() {
       // Persist to localStorage
       localStorage.setItem('sdhq-lifetime-members', JSON.stringify(updatedLifetimeMembers))
       
+      // Sync to backend (MongoDB)
+      fetch('/api/lifetime', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username, action: 'add' })
+      }).catch(error => console.error('Failed to sync to backend:', error))
+      
       // Log to activity
       const logEntry: ActivityLogEntry = {
         id: Date.now().toString(),
         username: user?.username || 'Unknown',
         timestamp: new Date().toISOString(),
         action: 'lifetime_added',
-        details: `Added ${newLifetimeUsername.trim()} to lifetime members list`
+        details: `Added ${username} to lifetime members list`
       }
       setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
       fetch('/api/activity-log', {
@@ -1157,7 +1213,7 @@ export default function HomePage() {
         body: JSON.stringify({
           username: user?.username || 'Unknown',
           action: 'lifetime_added',
-          details: `Added ${newLifetimeUsername.trim()} to lifetime members list`
+          details: `Added ${username} to lifetime members list`
         })
       }).catch(error => console.error('Failed to log to backend:', error))
     }
@@ -1169,6 +1225,15 @@ export default function HomePage() {
     setLifetimeMembers(updatedLifetimeMembers)
     // Persist to localStorage
     localStorage.setItem('sdhq-lifetime-members', JSON.stringify(updatedLifetimeMembers))
+    
+    // Sync to backend (MongoDB)
+    if (member) {
+      fetch('/api/lifetime', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: member.username, action: 'remove' })
+      }).catch(error => console.error('Failed to sync to backend:', error))
+    }
     
     // Log to activity
     if (member) {
@@ -1194,9 +1259,11 @@ export default function HomePage() {
 
   const handleAddAdmin = () => {
     if (newAdminUsername.trim()) {
+      // Strip @ prefix if present
+      const username = newAdminUsername.trim().replace(/^@/, '')
       const newAdmin: Admin = {
         id: Date.now().toString(),
-        username: newAdminUsername.trim(),
+        username: username,
         addedAt: new Date().toISOString()
       }
       const updatedAdmins = [...admins, newAdmin]
@@ -1205,13 +1272,20 @@ export default function HomePage() {
       // Persist to localStorage
       localStorage.setItem('sdhq-admins', JSON.stringify(updatedAdmins))
       
+      // Sync to backend (MongoDB)
+      fetch('/api/admins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username, action: 'add' })
+      }).catch(error => console.error('Failed to sync to backend:', error))
+      
       // Log to activity
       const logEntry: ActivityLogEntry = {
         id: Date.now().toString(),
         username: user?.username || 'Unknown',
         timestamp: new Date().toISOString(),
         action: 'admin_added',
-        details: `Added ${newAdminUsername.trim()} to admins list`
+        details: `Added ${username} to admins list`
       }
       setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
       fetch('/api/activity-log', {
@@ -1220,7 +1294,7 @@ export default function HomePage() {
         body: JSON.stringify({
           username: user?.username || 'Unknown',
           action: 'admin_added',
-          details: `Added ${newAdminUsername.trim()} to admins list`
+          details: `Added ${username} to admins list`
         })
       }).catch(error => console.error('Failed to log to backend:', error))
     }
@@ -1232,6 +1306,15 @@ export default function HomePage() {
     setAdmins(updatedAdmins)
     // Persist to localStorage
     localStorage.setItem('sdhq-admins', JSON.stringify(updatedAdmins))
+    
+    // Sync to backend (MongoDB)
+    if (admin) {
+      fetch('/api/admins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: admin.username, action: 'remove' })
+      }).catch(error => console.error('Failed to sync to backend:', error))
+    }
     
     // Log to activity
     if (admin) {
