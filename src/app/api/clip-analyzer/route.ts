@@ -59,9 +59,9 @@ export async function POST(request: Request) {
 
     const apiUrl = 'https://chatgpt-vision1.p.rapidapi.com/matagvision2'
 
-    const systemPrompt = `You are a social media algorithm expert and video content strategist. Analyze the video content at the provided URL on the specified platform and return a comprehensive optimization report.
+    const systemPrompt = `You are a social media algorithm expert and video content strategist. Analyze the provided ${platform} URL and return a comprehensive optimization report based on your deep knowledge of ${platform}'s current (2026) algorithm.
 
-Fetch and analyze the actual video content, metadata, caption, engagement metrics, and visual/audio elements. Apply deep knowledge of ${platform}'s current (2026) algorithm to give specific, actionable insights.
+Since you cannot fetch the actual video content from social media URLs, analyze the URL structure and apply your expertise in ${platform}'s algorithm to provide actionable insights. Focus on algorithm optimization strategies, best practices, and recommendations that would apply to content on this platform.
 
 IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside the JSON.
 
@@ -94,11 +94,19 @@ Return this exact structure:
   "tags": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8"]
 }`
 
-    const userPrompt = `Analyze the video content at this ${platform} URL: ${url}
+    const userPrompt = `This is a ${platform} clip URL: ${url}
 
-Research and apply ${platform}'s current algorithm priorities including: completion rate, shares, comments, saves/bookmarks, early engagement signals, trending audio usage, hook strength in first 2 seconds, caption keyword density, hashtag strategy, optimal posting signals, and watch time patterns.
+Provide algorithm-based optimization recommendations for ${platform} content. Focus on:
 
-Cross-reference the actual video content with ${platform}'s algorithm to score discoverability and provide specific, actionable optimization recommendations tailored to this specific clip.`
+1. ${platform}'s current (2026) algorithm priorities: completion rate, shares, comments, saves/bookmarks, early engagement signals, trending audio usage, hook strength in first 2 seconds, caption keyword density, hashtag strategy, optimal posting signals, and watch time patterns.
+
+2. General best practices for maximizing discoverability on ${platform}.
+
+3. Specific recommendations for overlays, text overlays, audio choices, visual edits, and CTAs that perform well on ${platform}.
+
+4. Optimized title, description, and hashtag suggestions that align with ${platform}'s algorithm.
+
+Provide a realistic score and actionable recommendations based on ${platform}'s algorithm expertise.`
 
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 60000) // 60 second timeout
@@ -115,10 +123,7 @@ Cross-reference the actual video content with ${platform}'s algorithm to score d
         messages: [
           {
             role: 'user',
-            content: [
-              { type: 'text', text: `${systemPrompt}\n\n${userPrompt}` },
-              { type: 'image_url', image_url: { url: url } }
-            ]
+            content: `${systemPrompt}\n\n${userPrompt}`
           }
         ],
         web_access: false
@@ -136,7 +141,10 @@ Cross-reference the actual video content with ${platform}'s algorithm to score d
     console.log('API Response:', JSON.stringify(data, null, 2))
 
     // Try different response structures
-    let content = data.choices?.[0]?.message?.content
+    let content = data.result
+    if (!content) {
+      content = data.choices?.[0]?.message?.content
+    }
     if (!content) {
       content = data.content
     }
