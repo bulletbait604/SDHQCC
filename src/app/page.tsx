@@ -1090,6 +1090,15 @@ export default function HomePage() {
       // Strip @ prefix if present
       const username = newSubscriberUsername.trim().replace(/^@/, '')
       
+      // Optimistic update - add to local state immediately
+      const newSubscriber: Subscriber = {
+        id: Date.now().toString(),
+        username: username,
+        addedAt: new Date().toISOString()
+      }
+      setSubscribers(prev => [...prev, newSubscriber])
+      setNewSubscriberUsername('')
+      
       try {
         const response = await fetch('/api/subscribers', {
           method: 'POST',
@@ -1098,10 +1107,9 @@ export default function HomePage() {
         })
         
         if (response.ok) {
-          setNewSubscriberUsername('')
           // Wait for MongoDB to complete the write
-          await new Promise(resolve => setTimeout(resolve, 500))
-          // Refresh lists from backend
+          await new Promise(resolve => setTimeout(resolve, 2000))
+          // Refresh lists from backend to confirm
           await fetchUserLists()
           
           // Log to activity
@@ -1113,10 +1121,17 @@ export default function HomePage() {
             details: `Added ${username} to subscribers list`
           }
           setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
+        } else {
+          console.error('Failed to add subscriber:', response.status)
+          alert('Failed to add subscriber. Server returned error.')
+          // Revert optimistic update on error
+          setSubscribers(prev => prev.filter(s => s.id !== newSubscriber.id))
         }
       } catch (error) {
         console.error('Failed to add subscriber:', error)
         alert('Failed to add subscriber. Please try again.')
+        // Revert optimistic update on error
+        setSubscribers(prev => prev.filter(s => s.id !== newSubscriber.id))
       }
     }
   }
@@ -1124,6 +1139,9 @@ export default function HomePage() {
   const handleRemoveSubscriber = async (id: string) => {
     const subscriber = subscribers.find(sub => sub.id === id)
     if (!subscriber) return
+    
+    // Optimistic update - remove from local state immediately
+    setSubscribers(prev => prev.filter(s => s.id !== id))
     
     try {
       const response = await fetch('/api/subscribers', {
@@ -1134,8 +1152,8 @@ export default function HomePage() {
       
       if (response.ok) {
         // Wait for MongoDB to complete the write
-        await new Promise(resolve => setTimeout(resolve, 500))
-        // Refresh lists from backend
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        // Refresh lists from backend to confirm
         await fetchUserLists()
         
         // Log to activity
@@ -1147,10 +1165,17 @@ export default function HomePage() {
           details: `Removed ${subscriber.username} from subscribers list`
         }
         setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
+      } else {
+        console.error('Failed to remove subscriber:', response.status)
+        alert('Failed to remove subscriber. Server returned error.')
+        // Revert optimistic update on error
+        setSubscribers(prev => [...prev, subscriber])
       }
     } catch (error) {
       console.error('Failed to remove subscriber:', error)
       alert('Failed to remove subscriber. Please try again.')
+      // Revert optimistic update on error
+      setSubscribers(prev => [...prev, subscriber])
     }
   }
 
@@ -1158,6 +1183,15 @@ export default function HomePage() {
     if (newLifetimeUsername.trim()) {
       // Strip @ prefix if present
       const username = newLifetimeUsername.trim().replace(/^@/, '')
+      
+      // Optimistic update - add to local state immediately
+      const newLifetimeMember: LifetimeMember = {
+        id: Date.now().toString(),
+        username: username,
+        addedAt: new Date().toISOString()
+      }
+      setLifetimeMembers(prev => [...prev, newLifetimeMember])
+      setNewLifetimeUsername('')
       
       try {
         const response = await fetch('/api/lifetime', {
@@ -1167,10 +1201,9 @@ export default function HomePage() {
         })
         
         if (response.ok) {
-          setNewLifetimeUsername('')
           // Wait for MongoDB to complete the write
-          await new Promise(resolve => setTimeout(resolve, 500))
-          // Refresh lists from backend
+          await new Promise(resolve => setTimeout(resolve, 2000))
+          // Refresh lists from backend to confirm
           await fetchUserLists()
           
           // Log to activity
@@ -1182,10 +1215,17 @@ export default function HomePage() {
             details: `Added ${username} to lifetime members list`
           }
           setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
+        } else {
+          console.error('Failed to add lifetime member:', response.status)
+          alert('Failed to add lifetime member. Server returned error.')
+          // Revert optimistic update on error
+          setLifetimeMembers(prev => prev.filter(m => m.id !== newLifetimeMember.id))
         }
       } catch (error) {
         console.error('Failed to add lifetime member:', error)
         alert('Failed to add lifetime member. Please try again.')
+        // Revert optimistic update on error
+        setLifetimeMembers(prev => prev.filter(m => m.id !== newLifetimeMember.id))
       }
     }
   }
@@ -1193,6 +1233,9 @@ export default function HomePage() {
   const handleRemoveLifetime = async (id: string) => {
     const member = lifetimeMembers.find(m => m.id === id)
     if (!member) return
+    
+    // Optimistic update - remove from local state immediately
+    setLifetimeMembers(prev => prev.filter(m => m.id !== id))
     
     try {
       const response = await fetch('/api/lifetime', {
@@ -1203,8 +1246,8 @@ export default function HomePage() {
       
       if (response.ok) {
         // Wait for MongoDB to complete the write
-        await new Promise(resolve => setTimeout(resolve, 500))
-        // Refresh lists from backend
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        // Refresh lists from backend to confirm
         await fetchUserLists()
         
         // Log to activity
@@ -1216,10 +1259,17 @@ export default function HomePage() {
           details: `Removed ${member.username} from lifetime members list`
         }
         setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
+      } else {
+        console.error('Failed to remove lifetime member:', response.status)
+        alert('Failed to remove lifetime member. Server returned error.')
+        // Revert optimistic update on error
+        setLifetimeMembers(prev => [...prev, member])
       }
     } catch (error) {
       console.error('Failed to remove lifetime member:', error)
       alert('Failed to remove lifetime member. Please try again.')
+      // Revert optimistic update on error
+      setLifetimeMembers(prev => [...prev, member])
     }
   }
 
@@ -1227,6 +1277,15 @@ export default function HomePage() {
     if (newAdminUsername.trim()) {
       // Strip @ prefix if present
       const username = newAdminUsername.trim().replace(/^@/, '')
+      
+      // Optimistic update - add to local state immediately
+      const newAdmin: Admin = {
+        id: Date.now().toString(),
+        username: username,
+        addedAt: new Date().toISOString()
+      }
+      setAdmins(prev => [...prev, newAdmin])
+      setNewAdminUsername('')
       
       try {
         const response = await fetch('/api/admins', {
@@ -1236,10 +1295,9 @@ export default function HomePage() {
         })
         
         if (response.ok) {
-          setNewAdminUsername('')
           // Wait for MongoDB to complete the write
-          await new Promise(resolve => setTimeout(resolve, 500))
-          // Refresh lists from backend
+          await new Promise(resolve => setTimeout(resolve, 2000))
+          // Refresh lists from backend to confirm
           await fetchUserLists()
           
           // Log to activity
@@ -1251,10 +1309,17 @@ export default function HomePage() {
             details: `Added ${username} to admins list`
           }
           setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
+        } else {
+          console.error('Failed to add admin:', response.status)
+          alert('Failed to add admin. Server returned error.')
+          // Revert optimistic update on error
+          setAdmins(prev => prev.filter(a => a.id !== newAdmin.id))
         }
       } catch (error) {
         console.error('Failed to add admin:', error)
         alert('Failed to add admin. Please try again.')
+        // Revert optimistic update on error
+        setAdmins(prev => prev.filter(a => a.id !== newAdmin.id))
       }
     }
   }
@@ -1262,6 +1327,9 @@ export default function HomePage() {
   const handleRemoveAdmin = async (id: string) => {
     const admin = admins.find(a => a.id === id)
     if (!admin) return
+    
+    // Optimistic update - remove from local state immediately
+    setAdmins(prev => prev.filter(a => a.id !== id))
     
     try {
       const response = await fetch('/api/admins', {
@@ -1272,8 +1340,8 @@ export default function HomePage() {
       
       if (response.ok) {
         // Wait for MongoDB to complete the write
-        await new Promise(resolve => setTimeout(resolve, 500))
-        // Refresh lists from backend
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        // Refresh lists from backend to confirm
         await fetchUserLists()
         
         // Log to activity
@@ -1285,10 +1353,17 @@ export default function HomePage() {
           details: `Removed ${admin.username} from admins list`
         }
         setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
+      } else {
+        console.error('Failed to remove admin:', response.status)
+        alert('Failed to remove admin. Server returned error.')
+        // Revert optimistic update on error
+        setAdmins(prev => [...prev, admin])
       }
     } catch (error) {
       console.error('Failed to remove admin:', error)
       alert('Failed to remove admin. Please try again.')
+      // Revert optimistic update on error
+      setAdmins(prev => [...prev, admin])
     }
   }
 
