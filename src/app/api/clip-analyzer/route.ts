@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
     }
 
-    const apiUrl = 'https://chatgpt-vision1.p.rapidapi.com/chat/completions'
+    const apiUrl = 'https://chatgpt-vision1.p.rapidapi.com/matagvision2'
 
     const systemPrompt = `You are a social media algorithm expert and video content strategist. Analyze the video content at the provided URL on the specified platform and return a comprehensive optimization report.
 
@@ -112,13 +112,16 @@ Cross-reference the actual video content with ${platform}'s algorithm to score d
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: 'gpt-4o',
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: `${systemPrompt}\n\n${userPrompt}` },
+              { type: 'image_url', image_url: { url: url } }
+            ]
+          }
         ],
-        max_tokens: 2000,
-        temperature: 0.7
+        web_access: false
       })
     })
 
