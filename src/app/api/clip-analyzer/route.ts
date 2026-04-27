@@ -72,7 +72,7 @@ export async function POST(request: Request) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supadataApiKey}`
+        'x-api-key': supadataApiKey
       },
       body: JSON.stringify({
         url: url,
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
       
       const resultResponse = await fetch(`https://api.supadata.ai/v1/extract/${supadataJob.jobId}`, {
         headers: {
-          'Authorization': `Bearer ${supadataApiKey}`
+          'x-api-key': supadataApiKey
         }
       })
 
