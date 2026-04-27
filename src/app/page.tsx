@@ -1544,26 +1544,15 @@ export default function HomePage() {
                     <p className={`text-base ${subtitleClasses}`}>@{user.username}</p>
                   </div>
                   {!isOwner && !isAdmin && !isSubscribed && (
-                    <>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={handleVerifySubscription}
-                        className="ml-2"
-                      >
-                        <Shield className="w-4 h-4 mr-1" />
-                        {t.verifySubscription}
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={handleLifetimeSubscription}
-                        className="ml-2"
-                      >
-                        <Crown className="w-4 h-4 mr-1" />
-                        Lifetime Pass
-                      </Button>
-                    </>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleVerifySubscription}
+                      className="ml-2"
+                    >
+                      <Shield className="w-4 h-4 mr-1" />
+                      {t.verifySubscription}
+                    </Button>
                   )}
                 </div>
               ) : (
