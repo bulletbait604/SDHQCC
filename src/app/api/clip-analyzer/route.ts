@@ -77,14 +77,15 @@ export async function POST(request: Request) {
 
     const apiUrl = 'https://gemini-ai-all-models.p.rapidapi.com/v1/chat/completions'
 
-    console.log('Using thumbnail for analysis, thumbnail length:', thumbnail.length, 'characters')
+    console.log('Using multi-frame grid for analysis, thumbnail length:', thumbnail.length, 'characters')
 
-    const systemPrompt = `You are a social media algorithm expert and video content strategist. Analyze the provided video thumbnail/frame for ${platform} and return a comprehensive optimization report.
+    const systemPrompt = `You are a social media algorithm expert and video content strategist. Analyze the provided video frame grid for ${platform} and return a comprehensive optimization report.
 
-Examine the visual content from the thumbnail and apply deep knowledge of ${platform}'s current (2026) algorithm to give specific, actionable insights. Analyze:
-- Visual quality and appeal
-- Hook strength in the opening frame
+The image contains 5 frames from different points in the video (0.1s, 0.25s, 0.5s, 0.75s, 1.0s). Examine all frames to understand:
+- Visual quality and appeal across the video
+- Hook strength in the opening frames
 - Text overlays and captions visible
+- Pacing and visual changes between frames
 - Overall production value
 - Engagement potential based on visual elements
 - How the content aligns with ${platform}'s specific algorithm priorities
@@ -120,16 +121,16 @@ Return this exact structure:
   "tags": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8"]
 }`
 
-    const userPrompt = `Analyze this video thumbnail/frame for maximum discoverability and engagement optimization on ${platform}.
+    const userPrompt = `Analyze this video frame grid (5 frames from different timestamps) for maximum discoverability and engagement optimization on ${platform}.
 
 Focus on:
-1. Visual analysis of the thumbnail - what elements are visible, colors, composition, text overlays
+1. Visual analysis across all frames - what elements are visible, colors, composition, text overlays, pacing, and visual changes
 2. ${platform}'s current (2026) algorithm priorities: completion rate, shares, comments, saves/bookmarks, early engagement signals, trending audio usage, hook strength in first 2 seconds, caption keyword density, hashtag strategy, optimal posting signals, and watch time patterns
-3. How the visual content aligns with ${platform}'s algorithm best practices
+3. How the visual content and pacing aligns with ${platform}'s algorithm best practices
 4. Specific recommendations for overlays, text overlays, audio choices, visual edits, and CTAs that work well on ${platform}
 5. Optimized title, description, and hashtag suggestions tailored for ${platform}
 
-Provide a realistic score based on the visual content and ${platform}'s algorithm alignment.`
+Provide a realistic score based on the visual content across frames and ${platform}'s algorithm alignment.`
 
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 120000) // 120 second timeout for video processing

@@ -636,19 +636,63 @@ export default function HomePage() {
       setClipFile(file)
       setClipError('')
       
-      // Generate thumbnail from video
+      // Generate multiple frames from video for better analysis
       const video = document.createElement('video')
       video.src = URL.createObjectURL(file)
-      video.currentTime = 0.5
-      video.onloadeddata = () => {
+      video.muted = true
+      
+      const frames: string[] = []
+      const durations = [0.1, 0.25, 0.5, 0.75, 1.0] // Extract frames at different points
+      let currentIndex = 0
+      
+      const extractFrame = () => {
+        if (currentIndex >= durations.length) {
+          // Combine all frames into a single image (grid layout)
+          const canvas = document.createElement('canvas')
+          const cols = 3
+          const rows = 2
+          const frameWidth = 320
+          const frameHeight = 180
+          canvas.width = frameWidth * cols
+          canvas.height = frameHeight * rows
+          const ctx = canvas.getContext('2d')
+          
+          if (ctx) {
+            frames.forEach((frame, i) => {
+              const img = new Image()
+              img.onload = () => {
+                const col = i % cols
+                const row = Math.floor(i / cols)
+                ctx.drawImage(img, col * frameWidth, row * frameHeight, frameWidth, frameHeight)
+                
+                if (i === frames.length - 1) {
+                  setClipThumbnail(canvas.toDataURL('image/jpeg', 0.8))
+                }
+              }
+              img.src = frame
+            })
+          }
+          return
+        }
+        
+        video.currentTime = durations[currentIndex]
+      }
+      
+      video.onseeked = () => {
         const canvas = document.createElement('canvas')
         canvas.width = video.videoWidth
         canvas.height = video.videoHeight
         const ctx = canvas.getContext('2d')
         if (ctx) {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-          setClipThumbnail(canvas.toDataURL('image/jpeg', 0.7))
+          frames.push(canvas.toDataURL('image/jpeg', 0.7))
+          currentIndex++
+          extractFrame()
         }
+      }
+      
+      video.onloadeddata = () => {
+        extractFrame()
       }
     }
   }
