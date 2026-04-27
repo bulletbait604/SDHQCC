@@ -183,6 +183,12 @@ Focus on:
 4. Specific recommendations for overlays, text overlays, audio choices, visual edits, and CTAs that work well on ${platform}
 5. Optimized title, description, and hashtag suggestions tailored for ${platform}
 
+For the "insights" section, provide specific, measurable metrics and detailed explanations:
+- Hook Strength: Rate the first 3 seconds (e.g., "Strong - immediate visual hook with motion")
+- Engagement Potential: Based on content type and pacing (e.g., "High - fast-paced with dynamic cuts")
+- Visual Quality: Production quality assessment (e.g., "Professional - good lighting and framing")
+- Audio Quality: Sound and music assessment (e.g., "Clear - balanced levels with trending audio")
+
 Provide a realistic score based on the comprehensive content analysis (visual + audio) and ${platform}'s algorithm alignment.`
           }
         ],

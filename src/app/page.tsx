@@ -2341,7 +2341,7 @@ export default function HomePage() {
                           </div>
                         </div>
 
-                        {/* Content Insights - Horizontal Grid */}
+                        {/* Content Insights - Tall Cards */}
                         <div>
                           <div className={`relative overflow-hidden rounded-xl p-3 ${
                             darkMode 
@@ -2351,28 +2351,26 @@ export default function HomePage() {
                             <h4 className={`text-[10px] font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                               Content Insights
                             </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                               {(clipAnalysisResult.insights || []).map((insight: any, idx: number) => (
-                                <div key={idx} className={`rounded-lg p-3 transition-all duration-300 hover:scale-[1.02] ${
+                                <div key={idx} className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
                                   darkMode 
-                                    ? 'bg-sdhq-dark-900 border border-sdhq-cyan-500/10' 
-                                    : 'bg-gray-50 border border-sdhq-cyan-200'
+                                    ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
+                                    : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
                                 }`}>
-                                  <div className="relative flex items-start gap-2">
-                                    <span className="text-lg flex-shrink-0">{insight.icon || '📊'}</span>
-                                    <div className="flex-1 min-w-0">
-                                      <div className={`text-[10px] font-semibold uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                        {insight.label}
-                                      </div>
-                                      <div className={`text-xs font-medium mb-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                        {insight.value}
-                                      </div>
-                                      {insight.description && (
-                                        <div className={`text-[10px] ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                          {insight.description}
-                                        </div>
-                                      )}
+                                  <div className="flex flex-col items-center text-center">
+                                    <span className="text-3xl mb-2">{insight.icon || '📊'}</span>
+                                    <div className={`text-xs font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                      {insight.label}
                                     </div>
+                                    <div className={`text-sm font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                      {insight.value}
+                                    </div>
+                                    {insight.description && (
+                                      <div className={`text-xs leading-relaxed ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                        {insight.description}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               ))}
@@ -2380,7 +2378,7 @@ export default function HomePage() {
                           </div>
                         </div>
 
-                        {/* Recommendations - Horizontal Grid */}
+                        {/* Recommendations - Tall Cards */}
                         <div>
                           <div className={`relative overflow-hidden rounded-xl p-3 ${
                             darkMode 
@@ -2390,22 +2388,22 @@ export default function HomePage() {
                             <h4 className={`text-[10px] font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                               Algorithm Recommendations
                             </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                               {(clipAnalysisResult.recommendations || []).map((rec: any, idx: number) => (
-                                <div key={idx} className={`rounded-lg p-2 flex gap-2 items-start transition-all duration-300 hover:scale-[1.02] ${
+                                <div key={idx} className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
                                   darkMode 
-                                    ? 'bg-sdhq-dark-900 border border-sdhq-cyan-500/10' 
-                                    : 'bg-gray-50 border border-sdhq-cyan-200'
+                                    ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
+                                    : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
                                 }`}>
-                                  <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${
-                                    rec.priority === 'high' ? 'bg-red-400' :
-                                    rec.priority === 'med' ? 'bg-yellow-400' : 'bg-green-400'
-                                  }`}></div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className={`text-[10px] font-semibold uppercase mb-0.5 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                  <div className="flex flex-col items-center text-center">
+                                    <div className={`w-2 h-2 rounded-full mb-3 ${
+                                      rec.priority === 'high' ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.5)]' :
+                                      rec.priority === 'med' ? 'bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.5)]' : 'bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)]'
+                                    }`}></div>
+                                    <div className={`text-xs font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                       {rec.category}
                                     </div>
-                                    <div className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    <div className={`text-sm leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                       {rec.text}
                                     </div>
                                   </div>
@@ -2415,7 +2413,7 @@ export default function HomePage() {
                           </div>
                         </div>
 
-                        {/* Overlays - Horizontal Grid */}
+                        {/* Overlays - Tall Cards */}
                         <div>
                           <div className={`relative overflow-hidden rounded-xl p-3 ${
                             darkMode 
@@ -2425,7 +2423,7 @@ export default function HomePage() {
                             <h4 className={`text-[10px] font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                               Overlay & Edit Suggestions
                             </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                               {(clipAnalysisResult.overlays || []).map((overlay: any, idx: number) => {
                                 const iconMap: Record<string, string> = {
                                   text: '✏️',
@@ -2434,19 +2432,19 @@ export default function HomePage() {
                                   cta: '👆'
                                 }
                                 return (
-                                  <div key={idx} className={`rounded-lg p-2 flex gap-2 items-center transition-all duration-300 hover:scale-[1.02] ${
+                                  <div key={idx} className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
                                     darkMode 
-                                      ? 'bg-sdhq-dark-900 border border-sdhq-cyan-500/10' 
-                                      : 'bg-gray-50 border border-sdhq-cyan-200'
+                                      ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
+                                      : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
                                   }`}>
-                                    <div className="text-lg flex-shrink-0">
-                                      {iconMap[overlay.type] || '✨'}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    <div className="flex flex-col items-center text-center">
+                                      <div className="text-3xl mb-2">
+                                        {iconMap[overlay.type] || '✨'}
+                                      </div>
+                                      <div className={`text-sm mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                         {overlay.description}
                                       </div>
-                                      <div className={`text-[10px] font-mono mt-0.5 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                      <div className={`text-xs font-mono ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                         {overlay.timing}
                                       </div>
                                     </div>
@@ -2457,7 +2455,7 @@ export default function HomePage() {
                           </div>
                         </div>
 
-                        {/* Metadata - Horizontal Grid */}
+                        {/* Metadata - Tall Cards */}
                         <div>
                           <div className={`relative overflow-hidden rounded-xl p-3 ${
                             darkMode 
@@ -2467,49 +2465,58 @@ export default function HomePage() {
                             <h4 className={`text-[10px] font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                               Metadata Optimization
                             </h4>
-                            <div className="space-y-2">
-                              <div className={`rounded-lg p-2 ${
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <div className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
                                 darkMode 
-                                  ? 'bg-sdhq-dark-900 border border-sdhq-cyan-500/10' 
-                                  : 'bg-gray-50 border border-sdhq-cyan-200'
+                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
+                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
                               }`}>
-                                <div className={`text-[10px] font-semibold uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                  Optimized Title
-                                </div>
-                                <div className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                  {clipAnalysisResult.title || '—'}
+                                <div className="flex flex-col items-center text-center">
+                                  <span className="text-3xl mb-2">📝</span>
+                                  <div className={`text-xs font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                    Optimized Title
+                                  </div>
+                                  <div className={`text-sm leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    {clipAnalysisResult.title || '—'}
+                                  </div>
                                 </div>
                               </div>
-                              <div className={`rounded-lg p-2 ${
+                              <div className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
                                 darkMode 
-                                  ? 'bg-sdhq-dark-900 border border-sdhq-cyan-500/10' 
-                                  : 'bg-gray-50 border border-sdhq-cyan-200'
+                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
+                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
                               }`}>
-                                <div className={`text-[10px] font-semibold uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                  Optimized Description
-                                </div>
-                                <div className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                  {clipAnalysisResult.description || '—'}
+                                <div className="flex flex-col items-center text-center">
+                                  <span className="text-3xl mb-2">📄</span>
+                                  <div className={`text-xs font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                    Optimized Description
+                                  </div>
+                                  <div className={`text-sm leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    {clipAnalysisResult.description || '—'}
+                                  </div>
                                 </div>
                               </div>
-                              <div className={`rounded-lg p-2 ${
+                              <div className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
                                 darkMode 
-                                  ? 'bg-sdhq-dark-900 border border-sdhq-cyan-500/10' 
-                                  : 'bg-gray-50 border border-sdhq-cyan-200'
+                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
+                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
                               }`}>
-                                <div className={`text-[10px] font-semibold uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                  Recommended Tags
-                                </div>
-                                <div className="flex flex-wrap gap-1.5 mt-1">
-                                  {(clipAnalysisResult.tags || []).map((tag: string, idx: number) => (
-                                    <span key={idx} className={`px-2 py-0.5 rounded text-[10px] font-mono ${
-                                      darkMode 
-                                        ? 'bg-sdhq-dark-800 text-sdhq-cyan-400 border border-sdhq-cyan-500/20' 
-                                        : 'bg-gray-100 text-sdhq-cyan-600 border border-sdhq-cyan-300'
-                                    }`}>
-                                      #{tag.replace(/^#/, '')}
-                                    </span>
-                                  ))}
+                                <div className="flex flex-col items-center text-center">
+                                  <span className="text-3xl mb-2">#️⃣</span>
+                                  <div className={`text-xs font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                    Recommended Tags
+                                  </div>
+                                  <div className="flex flex-wrap justify-center gap-1.5">
+                                    {(clipAnalysisResult.tags || []).map((tag: string, idx: number) => (
+                                      <span key={idx} className={`px-2 py-1 rounded text-[10px] font-mono ${
+                                        darkMode 
+                                          ? 'bg-sdhq-dark-800 text-sdhq-cyan-400 border border-sdhq-cyan-500/20' 
+                                          : 'bg-gray-100 text-sdhq-cyan-600 border border-sdhq-cyan-300'
+                                      }`}>
+                                        #{tag.replace(/^#/, '')}
+                                      </span>
+                                    ))}
+                                  </div>
                                 </div>
                               </div>
                             </div>
