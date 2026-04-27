@@ -1156,6 +1156,9 @@ export default function HomePage() {
           details: `Added ${username} to subscribers list`
         })
       }).catch(error => console.error('Failed to log to backend:', error))
+      
+      // Refresh lists from backend to ensure consistency
+      fetchUserLists()
     }
   }
 
@@ -1195,6 +1198,9 @@ export default function HomePage() {
         })
       }).catch(error => console.error('Failed to log to backend:', error))
     }
+    
+    // Refresh lists from backend to ensure consistency
+    fetchUserLists()
   }
 
   const handleAddLifetime = () => {
@@ -1237,6 +1243,9 @@ export default function HomePage() {
           details: `Added ${username} to lifetime members list`
         })
       }).catch(error => console.error('Failed to log to backend:', error))
+      
+      // Refresh lists from backend to ensure consistency
+      fetchUserLists()
     }
   }
 
@@ -1276,6 +1285,9 @@ export default function HomePage() {
         })
       }).catch(error => console.error('Failed to log to backend:', error))
     }
+    
+    // Refresh lists from backend to ensure consistency
+    fetchUserLists()
   }
 
   const handleAddAdmin = () => {
@@ -1318,6 +1330,9 @@ export default function HomePage() {
           details: `Added ${username} to admins list`
         })
       }).catch(error => console.error('Failed to log to backend:', error))
+      
+      // Refresh lists from backend to ensure consistency
+      fetchUserLists()
     }
   }
 
@@ -1357,6 +1372,9 @@ export default function HomePage() {
         })
       }).catch(error => console.error('Failed to log to backend:', error))
     }
+    
+    // Refresh lists from backend to ensure consistency
+    fetchUserLists()
   }
 
   const handleResetTagUsages = async () => {
