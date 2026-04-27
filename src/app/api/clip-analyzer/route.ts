@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
     }
 
-    const apiUrl = 'https://chatgpt-vision1.p.rapidapi.com/matagvision2'
+    const apiUrl = 'https://gemini-ai-all-models.p.rapidapi.com/v1/chat/completions'
 
     const systemPrompt = `You are a social media algorithm expert and video content strategist. Analyze the provided ${platform} URL and return a comprehensive optimization report based on your deep knowledge of ${platform}'s current (2026) algorithm.
 
@@ -115,18 +115,18 @@ Provide a realistic score and actionable recommendations based on ${platform}'s 
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-rapidapi-host': 'chatgpt-vision1.p.rapidapi.com',
+        'x-rapidapi-host': 'gemini-ai-all-models.p.rapidapi.com',
         'x-rapidapi-key': apiKey
       },
       signal: controller.signal,
       body: JSON.stringify({
+        model: 'gemini-1.5-pro',
         messages: [
-          {
-            role: 'user',
-            content: `${systemPrompt}\n\n${userPrompt}`
-          }
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
         ],
-        web_access: false
+        max_tokens: 2000,
+        temperature: 0.7
       })
     })
 
@@ -140,10 +140,10 @@ Provide a realistic score and actionable recommendations based on ${platform}'s 
     const data = await response.json()
     console.log('API Response:', JSON.stringify(data, null, 2))
 
-    // Try different response structures
-    let content = data.result
+    // Try different response structures (Gemini uses OpenAI-compatible format)
+    let content = data.choices?.[0]?.message?.content
     if (!content) {
-      content = data.choices?.[0]?.message?.content
+      content = data.result
     }
     if (!content) {
       content = data.content
