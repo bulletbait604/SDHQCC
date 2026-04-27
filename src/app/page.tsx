@@ -1099,6 +1099,8 @@ export default function HomePage() {
         
         if (response.ok) {
           setNewSubscriberUsername('')
+          // Wait for MongoDB to complete the write
+          await new Promise(resolve => setTimeout(resolve, 500))
           // Refresh lists from backend
           await fetchUserLists()
           
@@ -1131,6 +1133,8 @@ export default function HomePage() {
       })
       
       if (response.ok) {
+        // Wait for MongoDB to complete the write
+        await new Promise(resolve => setTimeout(resolve, 500))
         // Refresh lists from backend
         await fetchUserLists()
         
@@ -1164,6 +1168,8 @@ export default function HomePage() {
         
         if (response.ok) {
           setNewLifetimeUsername('')
+          // Wait for MongoDB to complete the write
+          await new Promise(resolve => setTimeout(resolve, 500))
           // Refresh lists from backend
           await fetchUserLists()
           
@@ -1196,6 +1202,8 @@ export default function HomePage() {
       })
       
       if (response.ok) {
+        // Wait for MongoDB to complete the write
+        await new Promise(resolve => setTimeout(resolve, 500))
         // Refresh lists from backend
         await fetchUserLists()
         
@@ -1229,6 +1237,8 @@ export default function HomePage() {
         
         if (response.ok) {
           setNewAdminUsername('')
+          // Wait for MongoDB to complete the write
+          await new Promise(resolve => setTimeout(resolve, 500))
           // Refresh lists from backend
           await fetchUserLists()
           
@@ -1261,6 +1271,8 @@ export default function HomePage() {
       })
       
       if (response.ok) {
+        // Wait for MongoDB to complete the write
+        await new Promise(resolve => setTimeout(resolve, 500))
         // Refresh lists from backend
         await fetchUserLists()
         
