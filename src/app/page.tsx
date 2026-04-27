@@ -264,11 +264,13 @@ export default function HomePage() {
 
   // Clip Analyzer states
   const [clipFile, setClipFile] = useState<File | null>(null)
+  const [clipPlatform, setClipPlatform] = useState<string>('tiktok')
   const [isAnalyzingClip, setIsAnalyzingClip] = useState<boolean>(false)
   const [clipAnalysisResult, setClipAnalysisResult] = useState<any>(null)
   const [clipError, setClipError] = useState<string>('')
   const [loadingStep, setLoadingStep] = useState<string>('')
   const [clipRateLimit, setClipRateLimit] = useState<{remaining: number, resetTime: number | null}>({remaining: 5, resetTime: null})
+  const [clipThumbnail, setClipThumbnail] = useState<string>('')
   const [platforms, setPlatforms] = useState<Platform[]>([
     {
       id: 'tiktok',
@@ -628,10 +630,26 @@ export default function HomePage() {
       if (file.size > 150 * 1024 * 1024) {
         setClipError('File size exceeds 150MB limit.')
         setClipFile(null)
+        setClipThumbnail('')
         return
       }
       setClipFile(file)
       setClipError('')
+      
+      // Generate thumbnail from video
+      const video = document.createElement('video')
+      video.src = URL.createObjectURL(file)
+      video.currentTime = 0.5
+      video.onloadeddata = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = video.videoWidth
+        canvas.height = video.videoHeight
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+          setClipThumbnail(canvas.toDataURL('image/jpeg', 0.7))
+        }
+      }
     }
   }
 
@@ -666,6 +684,7 @@ export default function HomePage() {
       
       const formData = new FormData()
       formData.append('file', clipFile)
+      formData.append('platform', clipPlatform)
       formData.append('userId', user?.id || '')
       formData.append('userType', userType)
 
@@ -709,8 +728,10 @@ export default function HomePage() {
 
   const handleResetClip = () => {
     setClipFile(null)
+    setClipPlatform('tiktok')
     setClipAnalysisResult(null)
     setClipError('')
+    setClipThumbnail('')
   }
 
   const handleLogin = async () => {
@@ -1894,6 +1915,27 @@ export default function HomePage() {
                     {/* Blurred out content for free tier */}
                     <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-6 blur-sm select-none`}>
                       <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Target Platform
+                      </label>
+                      <div className="grid grid-cols-4 gap-3 mb-6">
+                        {platforms.map((platform) => (
+                          <div
+                            key={platform.id}
+                            className={`relative rounded-xl p-4 ${darkMode ? 'bg-sdhq-dark-900' : 'bg-white'}`}
+                          >
+                            <img
+                              src={platform.image}
+                              alt={platform.name}
+                              className="w-12 h-12 mx-auto mb-2 rounded-lg object-cover opacity-50"
+                            />
+                            <span className={`text-xs font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                              {platform.name}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Upload Video Clip (Max 150MB)
                       </label>
                       <div className="flex gap-3">
@@ -1926,6 +1968,37 @@ export default function HomePage() {
                     {/* Input Section */}
                     <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-6`}>
                       <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Target Platform
+                      </label>
+                      <div className="grid grid-cols-4 gap-3 mb-6">
+                        {platforms.map((platform) => (
+                          <button
+                            key={platform.id}
+                            onClick={() => setClipPlatform(platform.id)}
+                            className={`relative rounded-xl p-4 transition-all ${
+                              clipPlatform === platform.id
+                                ? 'ring-2 ring-sdhq-cyan-500'
+                                : 'opacity-70 hover:opacity-100'
+                            } ${darkMode ? 'bg-sdhq-dark-900' : 'bg-white'}`}
+                          >
+                            <img
+                              src={platform.image}
+                              alt={platform.name}
+                              className="w-12 h-12 mx-auto mb-2 rounded-lg object-cover"
+                            />
+                            <span className={`text-xs font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                              {platform.name}
+                            </span>
+                            {clipPlatform === platform.id && (
+                              <div className="absolute top-2 right-2 w-4 h-4 bg-sdhq-cyan-500 rounded-full flex items-center justify-center">
+                                <span className="text-white text-xs">✓</span>
+                              </div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+
+                      <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Upload Video Clip (Max 150MB)
                       </label>
                       <div className="flex gap-3">
@@ -1949,12 +2022,22 @@ export default function HomePage() {
                         </Button>
                       </div>
                       {clipFile && (
-                        <div className="flex items-center gap-2 mt-3 text-sm">
-                          <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Selected:</span>
-                          <span className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{clipFile.name}</span>
-                          <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                            ({(clipFile.size / (1024 * 1024)).toFixed(2)} MB)
-                          </span>
+                        <div className="mt-4 flex items-center gap-4">
+                          {clipThumbnail && (
+                            <img
+                              src={clipThumbnail}
+                              alt="Thumbnail"
+                              className="w-24 h-16 object-cover rounded-lg border-2 border-sdhq-cyan-500"
+                            />
+                          )}
+                          <div className="flex flex-col gap-1">
+                            <span className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                              {clipFile.name}
+                            </span>
+                            <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                              {(clipFile.size / (1024 * 1024)).toFixed(2)} MB
+                            </span>
+                          </div>
                         </div>
                       )}
                       {clipError && (
