@@ -950,6 +950,11 @@ export default function HomePage() {
     setPaypalLoaded(false)
   }
 
+  const handleLifetimeSubscription = () => {
+    setShowLifetimePopup(true)
+    setPaypalLoaded(false)
+  }
+
   // Load PayPal SDK and render subscription button
   useEffect(() => {
     if (showSubscribePopup && !paypalLoaded) {
@@ -1411,15 +1416,26 @@ export default function HomePage() {
                     <p className={`text-base ${subtitleClasses}`}>@{user.username}</p>
                   </div>
                   {!isOwner && !isAdmin && !isSubscribed && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={handleVerifySubscription}
-                      className="ml-2"
-                    >
-                      <Shield className="w-4 h-4 mr-1" />
-                      {t.verifySubscription}
-                    </Button>
+                    <>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleVerifySubscription}
+                        className="ml-2"
+                      >
+                        <Shield className="w-4 h-4 mr-1" />
+                        {t.verifySubscription}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleLifetimeSubscription}
+                        className="ml-2"
+                      >
+                        <Crown className="w-4 h-4 mr-1" />
+                        Lifetime ($54.99)
+                      </Button>
+                    </>
                   )}
                 </div>
               ) : (
@@ -3368,6 +3384,25 @@ export default function HomePage() {
                   </Button>
                 </div>
               </div>
+              
+              {!isOwner && !isAdmin && !isSubscribed && !isLifetimeMember && (
+                <div className={`p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-dark-600' : 'bg-white border-gray-200'}`}>
+                  <h4 className={`font-semibold mb-3 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    <Crown className="w-4 h-4 mr-2 text-sdhq-cyan-500" />
+                    Upgrade to Lifetime
+                  </h4>
+                  <p className={`text-sm mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Get lifetime access to all premium features for a one-time payment of $54.99 CAD.
+                  </p>
+                  <Button
+                    onClick={handleLifetimeSubscription}
+                    className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
+                  >
+                    <Crown className="w-4 h-4 mr-2" />
+                    Get Lifetime ($54.99)
+                  </Button>
+                </div>
+              )}
               
               {isAdmin && (
                 <>
