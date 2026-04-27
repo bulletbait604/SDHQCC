@@ -1359,32 +1359,32 @@ export default function HomePage() {
                         {user.display_name}
                       </p>
                       {isOwner && (
-                        <span className="px-2 py-0.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-bold rounded-full">
+                        <span className="px-2 py-0.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-bold rounded-full">
                           Owner
                         </span>
                       )}
                       {!isOwner && isLifetime && (
-                        <span className="px-2 py-0.5 bg-gradient-to-r from-yellow-500 to-orange-500 text-black text-xs font-bold rounded-full">
+                        <span className="px-2 py-0.5 bg-gradient-to-r from-yellow-500 to-orange-500 text-black text-sm font-bold rounded-full">
                           Lifetime
                         </span>
                       )}
                       {!isOwner && !isLifetime && isAdmin && (
-                        <span className="px-2 py-0.5 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black text-xs font-bold rounded-full">
+                        <span className="px-2 py-0.5 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black text-sm font-bold rounded-full">
                           Admin
                         </span>
                       )}
                       {!isOwner && !isLifetime && !isAdmin && isSubscribed && (
-                        <span className="px-2 py-0.5 bg-gradient-to-r from-sdhq-green-500 to-sdhq-cyan-500 text-black text-xs font-bold rounded-full">
+                        <span className="px-2 py-0.5 bg-gradient-to-r from-sdhq-green-500 to-sdhq-cyan-500 text-black text-sm font-bold rounded-full">
                           Subscribed
                         </span>
                       )}
                       {!isOwner && !isLifetime && !isAdmin && !isSubscribed && (
-                        <span className="px-2 py-0.5 bg-gray-500 text-white text-xs font-bold rounded-full">
+                        <span className="px-2 py-0.5 bg-gray-500 text-white text-sm font-bold rounded-full">
                           Free User
                         </span>
                       )}
                     </div>
-                    <p className={`text-sm ${subtitleClasses}`}>@{user.username}</p>
+                    <p className={`text-base ${subtitleClasses}`}>@{user.username}</p>
                   </div>
                   {!isOwner && !isAdmin && !isSubscribed && (
                     <Button 
@@ -1416,7 +1416,7 @@ export default function HomePage() {
                       className="w-12 h-12"
                     />
                   </div>
-                  <span className={`font-bold text-2xl bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 bg-clip-text text-transparent transition-all duration-300 group-hover:scale-105`}>
+                  <span className={`font-bold text-3xl bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 bg-clip-text text-transparent transition-all duration-300 group-hover:scale-105`}>
                     SDHQ Creator Corner
                   </span>
                 </div>
@@ -1439,7 +1439,7 @@ export default function HomePage() {
               <select 
                 value={language}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleLanguageChange(e.target.value as Language)}
-                className={`px-3 py-1.5 rounded-md text-sm border ${
+                className={`px-3 py-1.5 rounded-md text-base border ${
                   darkMode 
                     ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
                     : 'bg-white border-sdhq-cyan-200 text-gray-900'
@@ -1487,13 +1487,13 @@ export default function HomePage() {
                 alt="SDHQ Creator Corner" 
                 className="h-40 mx-auto mb-4"
               />
-              <h2 className={`text-2xl font-bold gradient-text mb-4 ${darkMode ? 'from-sdhq-cyan-400 to-sdhq-green-400' : ''}`}>
+              <h2 className={`text-3xl font-bold gradient-text mb-4 ${darkMode ? 'from-sdhq-cyan-400 to-sdhq-green-400' : ''}`}>
                 {t.welcome}
               </h2>
               <p className={`${textClasses} mb-8`}>
                 {t.description}
               </p>
-              <Button onClick={handleLogin} className="sdhq-button text-lg px-8 py-3">
+              <Button onClick={handleLogin} className="sdhq-button text-xl px-8 py-3">
                 {t.loginButton}
               </Button>
             </div>
@@ -1550,18 +1550,18 @@ export default function HomePage() {
                 <div className={`flex flex-col items-center mb-6`}>
                   <div className="flex items-center space-x-3 mb-3">
                     <TrendingUp className="w-8 h-8 text-sdhq-cyan-500" />
-                    <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                       {t.algorithmsExplained}
                     </h3>
                   </div>
                   <div className="flex items-center gap-3">
                     {isLoadingAlgorithms && (
-                      <span className={`${subtitleClasses} text-sm`}>Loading...</span>
+                      <span className={`${subtitleClasses} text-base`}>Loading...</span>
                     )}
                     {algorithmError && (
-                      <span className="text-red-500 text-sm">{algorithmError}</span>
+                      <span className="text-red-500 text-base">{algorithmError}</span>
                     )}
-                    <p className={`${subtitleClasses} text-sm`}>
+                    <p className={`${subtitleClasses} text-base`}>
                       Last updated: {lastUpdated}
                     </p>
                   </div>
@@ -1598,10 +1598,10 @@ export default function HomePage() {
                             />
                           </div>
                           <div>
-                            <h4 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                            <h4 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                               {platform.name}
                             </h4>
-                            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                               Algorithm Insights
                             </p>
                           </div>
@@ -1621,7 +1621,7 @@ export default function HomePage() {
                                         index === 2 ? 'bg-gradient-to-r from-sdhq-cyan-400 to-sdhq-cyan-300 group-hover:scale-125' :
                                         'bg-gradient-to-r from-sdhq-green-400 to-sdhq-green-300 group-hover:scale-125'
                                       }`}></div>
-                                      <p className={`${textClasses} text-sm leading-relaxed group-hover:translate-x-1 transition-transform duration-300`}>{summary}</p>
+                                      <p className={`${textClasses} text-base leading-relaxed group-hover:translate-x-1 transition-transform duration-300`}>{summary}</p>
                                     </div>
                                   ))}
                                 </>
@@ -1630,19 +1630,19 @@ export default function HomePage() {
                                 <>
                                   <div className="flex items-start space-x-3 group">
                                     <div className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-cyan-400 group-hover:scale-125"></div>
-                                    <p className={`${textClasses} text-sm`}>Key algorithm changes</p>
+                                    <p className={`${textClasses} text-base`}>Key algorithm changes</p>
                                   </div>
                                   <div className="flex items-start space-x-3 group">
                                     <div className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-gradient-to-r from-sdhq-green-500 to-sdhq-green-400 group-hover:scale-125"></div>
-                                    <p className={`${textClasses} text-sm`}>Editing optimization tips</p>
+                                    <p className={`${textClasses} text-base`}>Editing optimization tips</p>
                                   </div>
                                   <div className="flex items-start space-x-3 group">
                                     <div className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-gradient-to-r from-sdhq-cyan-400 to-sdhq-cyan-300 group-hover:scale-125"></div>
-                                    <p className={`${textClasses} text-sm`}>Best posting strategies</p>
+                                    <p className={`${textClasses} text-base`}>Best posting strategies</p>
                                   </div>
                                   <div className="flex items-start space-x-3 group">
                                     <div className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-gradient-to-r from-sdhq-green-400 to-sdhq-green-300 group-hover:scale-125"></div>
-                                    <p className={`${textClasses} text-sm`}>Title & description guides</p>
+                                    <p className={`${textClasses} text-base`}>Title & description guides</p>
                                   </div>
                                 </>
                               )}
@@ -1661,7 +1661,7 @@ export default function HomePage() {
                           ) : (
                             <div className="flex flex-col items-center justify-center py-8 space-y-2">
                               <div className="w-8 h-8 border-2 border-sdhq-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-                              <p className={`${subtitleClasses} text-sm`}>Loading algorithm data...</p>
+                              <p className={`${subtitleClasses} text-base`}>Loading algorithm data...</p>
                             </div>
                           )}
                         </div>
@@ -1706,10 +1706,10 @@ export default function HomePage() {
                               />
                             </div>
                             <div>
-                              <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                              <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                                 {platform.name}
                               </h3>
-                              <p className={`text-sm ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                              <p className={`text-base ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                 Algorithm Insights
                               </p>
                             </div>
@@ -1740,7 +1740,7 @@ export default function HomePage() {
                                   <TrendingUp className="w-5 h-5 mr-2" />
                                   Key Changes
                                 </h4>
-                                <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.keyChanges}</p>
+                                <p className={`${textClasses} text-base leading-relaxed`}>{platform.data.keyChanges}</p>
                               </div>
                               
                               <div className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
@@ -1754,7 +1754,7 @@ export default function HomePage() {
                                   <Video className="w-5 h-5 mr-2" />
                                   Editing Tips
                                 </h4>
-                                <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.editingTips}</p>
+                                <p className={`${textClasses} text-base leading-relaxed`}>{platform.data.editingTips}</p>
                               </div>
                               
                               <div className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
@@ -1768,7 +1768,7 @@ export default function HomePage() {
                                   <Globe className="w-5 h-5 mr-2" />
                                   Posting Tips
                                 </h4>
-                                <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.postingTips}</p>
+                                <p className={`${textClasses} text-base leading-relaxed`}>{platform.data.postingTips}</p>
                               </div>
                               
                               <div className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
@@ -1782,7 +1782,7 @@ export default function HomePage() {
                                   <Hash className="w-5 h-5 mr-2" />
                                   Title Tips
                                 </h4>
-                                <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.titleTips}</p>
+                                <p className={`${textClasses} text-base leading-relaxed`}>{platform.data.titleTips}</p>
                               </div>
                               
                               <div className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
@@ -1796,13 +1796,13 @@ export default function HomePage() {
                                   <Brain className="w-5 h-5 mr-2" />
                                   Description Tips
                                 </h4>
-                                <p className={`${textClasses} text-sm leading-relaxed`}>{platform.data.descriptionTips}</p>
+                                <p className={`${textClasses} text-base leading-relaxed`}>{platform.data.descriptionTips}</p>
                               </div>
                             </>
                           ) : (
                             <div className="flex flex-col items-center justify-center py-12 space-y-3">
                               <div className="w-10 h-10 border-3 border-sdhq-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-                              <p className={`${subtitleClasses} text-sm`}>Loading algorithm data...</p>
+                              <p className={`${subtitleClasses} text-base`}>Loading algorithm data...</p>
                             </div>
                           )}
                           
@@ -1829,9 +1829,9 @@ export default function HomePage() {
                 <div className="flex flex-col items-center mb-6">
                   <div className="flex items-center space-x-4 mb-3">
                     <Hash className="w-10 h-10 text-sdhq-cyan-500" />
-                    <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorFree}</h3>
+                    <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorFree}</h3>
                   </div>
-                  <p className={`${textClasses} text-sm text-center max-w-2xl`}>
+                  <p className={`${textClasses} text-base text-center max-w-2xl`}>
                     Select a platform, describe your content, and generate optimized tags based on platform-specific algorithm insights.
                   </p>
                 </div>
@@ -1843,14 +1843,14 @@ export default function HomePage() {
                       <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                         Content Details
                       </h4>
-                      <div className={`text-sm font-medium ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                      <div className={`text-base font-medium ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                         Uses: {tagRateLimit.remaining === -1 ? 'Unlimited' : tagRateLimit.remaining}
                       </div>
                     </div>
                     
                     {/* Platform Selection */}
                     <div className="mb-4">
-                      <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      <label className={`block text-base font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                         Select Platform
                       </label>
                       <select
@@ -1872,7 +1872,7 @@ export default function HomePage() {
 
                     {/* Description Input */}
                     <div className="mb-4">
-                      <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      <label className={`block text-base font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                         Video/Clip Description
                       </label>
                       <textarea
@@ -1890,7 +1890,7 @@ export default function HomePage() {
 
                     {/* Tag Count */}
                     <div className="mb-4">
-                      <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      <label className={`block text-base font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                         Number of Tags: {tagCount}
                       </label>
                       <input
@@ -1901,7 +1901,7 @@ export default function HomePage() {
                         onChange={(e) => setTagCount(parseInt(e.target.value))}
                         className="w-full h-2 bg-sdhq-cyan-500 rounded-lg appearance-none cursor-pointer"
                       />
-                      <div className="flex justify-between text-xs mt-1 text-gray-500">
+                      <div className="flex justify-between text-sm mt-1 text-gray-500">
                         <span>5</span>
                         <span>30</span>
                       </div>
@@ -2014,7 +2014,7 @@ export default function HomePage() {
                           {generatedTags[tagPlatform].map((tag, index) => (
                             <span
                               key={index}
-                              className={`px-3 py-1 rounded-full text-sm font-medium ${
+                              className={`px-3 py-1 rounded-full text-base font-medium ${
                                 darkMode 
                                   ? 'bg-sdhq-cyan-500/20 text-sdhq-cyan-400 border border-sdhq-cyan-500/30' 
                                   : 'bg-sdhq-cyan-100 text-sdhq-cyan-700 border border-sdhq-cyan-200'
@@ -2054,13 +2054,13 @@ export default function HomePage() {
                 <div className={`mt-6 p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-sdhq-cyan-200 shadow-sm'}`}>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      <p className={`text-base font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                         Tag Generator Status
                       </p>
-                      <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Powered by Groq API
                       </p>
-                      <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         {tagRateLimit.resetTime 
                           ? timeUntilReset 
                             ? `Resets in: ${timeUntilReset}`
@@ -2076,10 +2076,10 @@ export default function HomePage() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className={`text-2xl font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                      <p className={`text-3xl font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                         {tagRateLimit.remaining === -1 ? 'Unlimited' : tagRateLimit.remaining}
                       </p>
-                      <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         daily uses remaining
                       </p>
                     </div>
@@ -2093,9 +2093,9 @@ export default function HomePage() {
                 <div className="flex flex-col items-center mb-6">
                   <div className="flex items-center space-x-4 mb-3">
                     <Hash className="w-10 h-10 text-sdhq-green-500" />
-                    <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorPaid}</h3>
+                    <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorPaid}</h3>
                   </div>
-                  <p className={`${textClasses} text-sm`}>{t.tagPaidDesc}</p>
+                  <p className={`${textClasses} text-base`}>{t.tagPaidDesc}</p>
                 </div>
                 <p className={`text-center ${subtitleClasses}`}>{t.premiumFeature} - {t.comingSoon}</p>
               </div>
@@ -2106,15 +2106,15 @@ export default function HomePage() {
                 <div className="flex flex-col items-center mb-6">
                   <div className="flex items-center space-x-4 mb-3">
                     <Video className="w-10 h-10 text-sdhq-green-500" />
-                    <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.clipAnalyzer}</h3>
+                    <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.clipAnalyzer}</h3>
                   </div>
-                  <p className={`${textClasses} text-sm`}>{t.clipAnalyzerDesc}</p>
+                  <p className={`${textClasses} text-base`}>{t.clipAnalyzerDesc}</p>
                 </div>
 
                 {/* Steps */}
                 <div className={`max-w-2xl mx-auto mb-6 p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
-                  <h4 className={`text-sm font-semibold mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>How to use:</h4>
-                  <ol className={`space-y-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  <h4 className={`text-base font-semibold mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>How to use:</h4>
+                  <ol className={`space-y-2 text-base ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                     <li className="flex items-start gap-2">
                       <span className={`font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>1.</span>
                       <span>Enter your clip URL</span>
@@ -2139,7 +2139,7 @@ export default function HomePage() {
                   <div className="space-y-6">
                     {/* Blurred out content for free tier */}
                     <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-6 blur-sm select-none`}>
-                      <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      <label className={`block text-sm font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Target Platform
                       </label>
                       <div className="grid grid-cols-5 gap-3 mb-6">
@@ -2153,14 +2153,14 @@ export default function HomePage() {
                               alt={platform.name}
                               className="w-12 h-12 mx-auto mb-2 rounded-lg object-cover opacity-50"
                             />
-                            <span className={`text-xs font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                            <span className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                               {platform.name}
                             </span>
                           </div>
                         ))}
                       </div>
 
-                      <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      <label className={`block text-sm font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Video URL
                       </label>
                       <div className="flex gap-3">
@@ -2168,7 +2168,7 @@ export default function HomePage() {
                           type="text"
                           disabled
                           placeholder="https://www.tiktok.com/@user/video/..."
-                          className={`flex-1 px-4 py-3 rounded-lg text-sm font-mono outline-none ${
+                          className={`flex-1 px-4 py-3 rounded-lg text-base font-mono outline-none ${
                             darkMode 
                               ? 'bg-sdhq-dark-900 border-sdhq-dark-700 text-gray-300' 
                               : 'bg-white border-gray-300 text-gray-800'
@@ -2195,9 +2195,9 @@ export default function HomePage() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <Database className={`w-4 h-4 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`} />
-                          <span className={`text-xs font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Uses</span>
+                          <span className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Uses</span>
                         </div>
-                        <p className={`text-lg font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                        <p className={`text-xl font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                           {clipRateLimit.remaining === -1 ? '∞' : clipRateLimit.remaining}
                         </p>
                       </div>
@@ -2211,7 +2211,7 @@ export default function HomePage() {
                     }`}>
                       <div className={`absolute inset-0 bg-gradient-to-r from-sdhq-cyan-500/5 to-sdhq-green-500/5 animate-pulse`}></div>
                       <div className="relative">
-                        <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                        <label className={`block text-sm font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                           Video URL
                         </label>
                         <div className="flex gap-3">
@@ -2221,7 +2221,7 @@ export default function HomePage() {
                             onChange={(e) => setClipUrl(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleAnalyzeClip()}
                             placeholder="https://www.tiktok.com/@user/video/..."
-                            className={`flex-1 px-4 py-3 rounded-xl text-sm font-mono outline-none transition-all duration-300 ${
+                            className={`flex-1 px-4 py-3 rounded-xl text-base font-mono outline-none transition-all duration-300 ${
                               darkMode 
                                 ? 'bg-sdhq-dark-900/80 border-sdhq-cyan-500/30 text-gray-300 placeholder-gray-600 focus:border-sdhq-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)]' 
                                 : 'bg-white/80 border-sdhq-cyan-300 text-gray-800 placeholder-gray-400 focus:border-sdhq-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.2)]'
@@ -2237,13 +2237,13 @@ export default function HomePage() {
                           </Button>
                         </div>
                         {clipUrl && (
-                          <div className="mt-3 text-sm">
+                          <div className="mt-3 text-base">
                             <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>URL:</span>
                             <span className={`ml-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>{clipUrl}</span>
                           </div>
                         )}
                         {clipError && (
-                          <div className={`mt-3 px-4 py-3 rounded-xl text-sm animate-shake ${
+                          <div className={`mt-3 px-4 py-3 rounded-xl text-base animate-shake ${
                             darkMode ? 'bg-red-900/30 border-red-500/50 text-red-400' : 'bg-red-50 border-red-300 text-red-600'
                           } border`}>
                             {clipError}
@@ -2268,11 +2268,11 @@ export default function HomePage() {
                               <Video className="w-6 h-6 text-sdhq-cyan-500" />
                             </div>
                           </div>
-                          <p className={`font-mono text-xs uppercase tracking-widest mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                          <p className={`font-mono text-sm uppercase tracking-widest mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                             Please wait while AI analyzes your clip
                           </p>
-                          <p className={`text-sm min-h-5 font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{loadingStep}</p>
-                          <p className={`text-xs font-bold uppercase tracking-wider ${darkMode ? 'text-red-400' : 'text-red-600'}`}>
+                          <p className={`text-base min-h-5 font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{loadingStep}</p>
+                          <p className={`text-sm font-bold uppercase tracking-wider ${darkMode ? 'text-red-400' : 'text-red-600'}`}>
                             DO NOT REFRESH until it has finished
                           </p>
                         </div>
@@ -2320,7 +2320,7 @@ export default function HomePage() {
                                   />
                                 </svg>
                                 <div className="absolute inset-0 flex flex-col items-center justify-center font-mono">
-                                  <span className={`text-xl font-bold ${
+                                  <span className={`text-2xl font-bold ${
                                     clipAnalysisResult.score >= 70 ? 'text-green-400' :
                                     clipAnalysisResult.score >= 45 ? 'text-yellow-400' : 'text-red-400'
                                   }`}>
@@ -2331,10 +2331,10 @@ export default function HomePage() {
                               </div>
                             </div>
                             <div className="relative flex-1">
-                              <h3 className={`text-base font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                              <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                                 {clipAnalysisResult.scoreTitle || 'Discoverability Score'}
                               </h3>
-                              <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                              <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                 {clipAnalysisResult.scoreSummary || ''}
                               </p>
                             </div>
@@ -2360,14 +2360,14 @@ export default function HomePage() {
                                 }`}>
                                   <div className="flex flex-col items-center text-center">
                                     <span className="text-3xl mb-2">{insight.icon || '📊'}</span>
-                                    <div className={`text-xs font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                    <div className={`text-sm font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                       {insight.label}
                                     </div>
-                                    <div className={`text-sm font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    <div className={`text-base font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                                       {insight.value}
                                     </div>
                                     {insight.description && (
-                                      <div className={`text-xs leading-relaxed ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                      <div className={`text-sm leading-relaxed ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                         {insight.description}
                                       </div>
                                     )}
@@ -2400,10 +2400,10 @@ export default function HomePage() {
                                       rec.priority === 'high' ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.5)]' :
                                       rec.priority === 'med' ? 'bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.5)]' : 'bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)]'
                                     }`}></div>
-                                    <div className={`text-xs font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                    <div className={`text-sm font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                       {rec.category}
                                     </div>
-                                    <div className={`text-sm leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    <div className={`text-base leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                       {rec.text}
                                     </div>
                                   </div>
@@ -2441,10 +2441,10 @@ export default function HomePage() {
                                       <div className="text-3xl mb-2">
                                         {iconMap[overlay.type] || '✨'}
                                       </div>
-                                      <div className={`text-sm mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      <div className={`text-base mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                         {overlay.description}
                                       </div>
-                                      <div className={`text-xs font-mono ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                      <div className={`text-sm font-mono ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                         {overlay.timing}
                                       </div>
                                     </div>
@@ -2473,10 +2473,10 @@ export default function HomePage() {
                               }`}>
                                 <div className="flex flex-col items-center text-center">
                                   <span className="text-3xl mb-2">📝</span>
-                                  <div className={`text-xs font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                  <div className={`text-sm font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                     Optimized Title
                                   </div>
-                                  <div className={`text-sm leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                  <div className={`text-base leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                     {clipAnalysisResult.title || '—'}
                                   </div>
                                 </div>
@@ -2488,10 +2488,10 @@ export default function HomePage() {
                               }`}>
                                 <div className="flex flex-col items-center text-center">
                                   <span className="text-3xl mb-2">📄</span>
-                                  <div className={`text-xs font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                  <div className={`text-sm font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                     Optimized Description
                                   </div>
-                                  <div className={`text-sm leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                  <div className={`text-base leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                     {clipAnalysisResult.description || '—'}
                                   </div>
                                 </div>
@@ -2503,7 +2503,7 @@ export default function HomePage() {
                               }`}>
                                 <div className="flex flex-col items-center text-center">
                                   <span className="text-3xl mb-2">#️⃣</span>
-                                  <div className={`text-xs font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                  <div className={`text-sm font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                     Recommended Tags
                                   </div>
                                   <div className="flex flex-wrap justify-center gap-1.5">
@@ -2532,18 +2532,18 @@ export default function HomePage() {
                           }`}>
                             <div className={`absolute inset-0 bg-gradient-to-r from-sdhq-cyan-500/5 to-sdhq-green-500/5 animate-pulse`}></div>
                             <div className="relative">
-                              <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                              <h4 className={`text-sm font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                 Analyze for Different Platform
                                 <span className="flex-1 h-px bg-gradient-to-r from-sdhq-cyan-500/50 to-transparent"></span>
                               </h4>
-                              <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                              <p className={`text-base mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                 Currently optimized for: <span className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>{platforms.find(p => p.id === clipPlatform)?.name}</span>
                               </p>
                               <div className="flex gap-3">
                                 <select
                                   onChange={(e) => e.target.value && handleReanalyzeClip(e.target.value)}
                                   disabled={isAnalyzingClip}
-                                  className={`flex-1 px-4 py-3 rounded-xl text-sm outline-none transition-all duration-300 ${
+                                  className={`flex-1 px-4 py-3 rounded-xl text-base outline-none transition-all duration-300 ${
                                     darkMode 
                                       ? 'bg-sdhq-dark-900/80 border-sdhq-cyan-500/30 text-gray-300 focus:border-sdhq-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)]' 
                                       : 'bg-white/80 border-sdhq-cyan-300 text-gray-800 focus:border-sdhq-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.2)]'
@@ -2564,7 +2564,7 @@ export default function HomePage() {
                         {/* Reset Button */}
                         <button
                           onClick={handleResetClip}
-                          className={`w-full py-4 px-6 rounded-2xl text-sm font-semibold transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
+                          className={`w-full py-4 px-6 rounded-2xl text-base font-semibold transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
                             darkMode 
                               ? 'border-sdhq-cyan-500/30 text-sdhq-cyan-400 hover:bg-sdhq-cyan-500/10 hover:border-sdhq-cyan-500 hover:shadow-[0_0_30px_rgba(6,182,212,0.3)]' 
                               : 'border-sdhq-cyan-300 text-sdhq-cyan-600 hover:bg-sdhq-cyan-50 hover:border-sdhq-cyan-500 hover:shadow-[0_0_30px_rgba(6,182,212,0.2)]'
@@ -2584,9 +2584,9 @@ export default function HomePage() {
                 <div className="flex flex-col items-center mb-6">
                   <div className="flex items-center space-x-4 mb-3">
                     <Brain className="w-10 h-10 text-sdhq-green-500" />
-                    <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.contentAnalyzer}</h3>
+                    <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.contentAnalyzer}</h3>
                   </div>
-                  <p className={`${textClasses} text-sm`}>{t.contentAnalyzerDesc}</p>
+                  <p className={`${textClasses} text-base`}>{t.contentAnalyzerDesc}</p>
                 </div>
                 <p className={`text-center ${subtitleClasses}`}>{t.premiumFeature} - {t.comingSoon}</p>
               </div>
@@ -2597,7 +2597,7 @@ export default function HomePage() {
                 <div className="flex flex-col items-center mb-6">
                   <div className="flex items-center space-x-3 mb-3">
                     <Settings className="w-8 h-8 text-sdhq-cyan-500" />
-                    <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.settings}</h3>
+                    <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.settings}</h3>
                   </div>
                 </div>
                 
@@ -2682,7 +2682,7 @@ export default function HomePage() {
     {/* Subscribers List */}
     <div className={`space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
       {subscribers.length === 0 ? (
-        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No subscribers yet.</p>
+        <p className={`text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No subscribers yet.</p>
       ) : (
         subscribers.map((sub: Subscriber) => (
           <div 
@@ -2744,7 +2744,7 @@ export default function HomePage() {
     {/* Lifetime Members List */}
     <div className={`space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
       {lifetimeMembers.length === 0 ? (
-        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No lifetime members yet.</p>
+        <p className={`text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No lifetime members yet.</p>
       ) : (
         lifetimeMembers.map((member: LifetimeMember) => (
           <div 
@@ -2806,7 +2806,7 @@ export default function HomePage() {
                       {/* Admins List */}
                       <div className={`space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
                         {admins.length === 0 ? (
-                          <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No admins yet.</p>
+                          <p className={`text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No admins yet.</p>
                         ) : (
                           admins.map((admin: Admin) => (
                             <div 
@@ -2868,7 +2868,7 @@ export default function HomePage() {
                       {/* Subscribers List */}
                       <div className={`space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
                         {subscribers.length === 0 ? (
-                          <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No subscribers yet.</p>
+                          <p className={`text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No subscribers yet.</p>
                         ) : (
                           subscribers.map((sub: Subscriber) => (
                             <div 
@@ -3010,7 +3010,7 @@ export default function HomePage() {
                                 }
                               }}
                               disabled={isLoadingAlgorithms}
-                              className="text-xs"
+                              className="text-sm"
                             >
                               <TrendingUp className="w-3 h-3 mr-1" />
                               {platform.name}
@@ -3044,11 +3044,11 @@ export default function HomePage() {
                       {/* Filters */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                         <div>
-                          <label className={`text-xs font-medium mb-1 block ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Event Type</label>
+                          <label className={`text-sm font-medium mb-1 block ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Event Type</label>
                           <select
                             value={filterAction}
                             onChange={(e) => setFilterAction(e.target.value)}
-                            className={`w-full px-2 py-1.5 rounded text-sm border ${
+                            className={`w-full px-2 py-1.5 rounded text-base border ${
                               darkMode 
                                 ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
                                 : 'bg-white border-gray-300'
@@ -3066,11 +3066,11 @@ export default function HomePage() {
                           </select>
                         </div>
                         <div>
-                          <label className={`text-xs font-medium mb-1 block ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>User</label>
+                          <label className={`text-sm font-medium mb-1 block ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>User</label>
                           <select
                             value={filterUser}
                             onChange={(e) => setFilterUser(e.target.value)}
-                            className={`w-full px-2 py-1.5 rounded text-sm border ${
+                            className={`w-full px-2 py-1.5 rounded text-base border ${
                               darkMode 
                                 ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
                                 : 'bg-white border-gray-300'
@@ -3083,11 +3083,11 @@ export default function HomePage() {
                           </select>
                         </div>
                         <div>
-                          <label className={`text-xs font-medium mb-1 block ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Date</label>
+                          <label className={`text-sm font-medium mb-1 block ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Date</label>
                           <select
                             value={filterDate}
                             onChange={(e) => setFilterDate(e.target.value)}
-                            className={`w-full px-2 py-1.5 rounded text-sm border ${
+                            className={`w-full px-2 py-1.5 rounded text-base border ${
                               darkMode 
                                 ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
                                 : 'bg-white border-gray-300'
@@ -3103,7 +3103,7 @@ export default function HomePage() {
                       
                       <div className={`space-y-2 max-h-80 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
                         {activityLog.length === 0 ? (
-                          <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No activity yet.</p>
+                          <p className={`text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No activity yet.</p>
                         ) : (
                           activityLog
                             .filter((entry: ActivityLogEntry) => {
@@ -3159,18 +3159,18 @@ export default function HomePage() {
                               >
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center space-x-2">
-                                    <span className="text-sm">{getActionIcon()}</span>
+                                    <span className="text-base">{getActionIcon()}</span>
                                     <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{entry.username}</span>
-                                    <span className={`text-xs font-semibold uppercase ${getActionColor()}`}>
+                                    <span className={`text-sm font-semibold uppercase ${getActionColor()}`}>
                                       {entry.action.replace('_', ' ')}
                                     </span>
                                   </div>
-                                  <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                  <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                     {new Date(entry.timestamp).toLocaleString()}
                                   </span>
                                 </div>
                                 {entry.details && (
-                                  <p className={`text-xs mt-1 pl-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                  <p className={`text-sm mt-1 pl-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                     {entry.details}
                                   </p>
                                 )}
@@ -3193,26 +3193,26 @@ export default function HomePage() {
         <div className="container mx-auto px-4 py-6">
           <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
             <div className="text-center md:text-left">
-              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 {t.footerCopyright}
               </p>
-              <p className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+              <p className={`text-sm mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
                 {t.footerTagline}
               </p>
-              <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 Support: Bulletbait604@gmail.com
               </p>
             </div>
             <div className="flex space-x-4">
               <button 
                 onClick={() => setShowPrivacyPolicy(true)}
-                className={`text-sm hover:underline ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}
+                className={`text-base hover:underline ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}
               >
                 {t.privacyPolicy}
               </button>
               <button 
                 onClick={() => setShowTerms(true)}
-                className={`text-sm hover:underline ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}
+                className={`text-base hover:underline ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}
               >
                 {t.termsOfService}
               </button>
@@ -3226,7 +3226,7 @@ export default function HomePage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-md w-full p-6 shadow-2xl`}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.settings}</h3>
+              <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.settings}</h3>
               <button 
                 onClick={() => setShowSettings(false)}
                 className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'text-gray-600'}`}
@@ -3287,7 +3287,7 @@ export default function HomePage() {
                       <RefreshCw className="w-4 h-4 mr-2" />
                       Reset Tag Usages
                     </Button>
-                    <p className={`text-sm mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    <p className={`text-base mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                       Reset all user tag generator usages (Free: 5/day, Subscribers: 25/day)
                     </p>
                   </div>
@@ -3303,7 +3303,7 @@ export default function HomePage() {
                         value={newSubscriberUsername}
                         onChange={(e) => setNewSubscriberUsername(e.target.value)}
                         placeholder="Username"
-                        className={`flex-1 px-3 py-1.5 rounded border text-sm ${
+                        className={`flex-1 px-3 py-1.5 rounded border text-base ${
                           darkMode 
                             ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
                             : 'bg-white border-gray-300'
@@ -3321,7 +3321,7 @@ export default function HomePage() {
                     {/* Subscriber List */}
                     <div className="space-y-1 max-h-40 overflow-y-auto">
                       {subscribers.length === 0 ? (
-                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No subscribers yet.</p>
+                        <p className={`text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No subscribers yet.</p>
                       ) : (
                         subscribers.map((sub: Subscriber) => (
                           <div 
@@ -3359,7 +3359,7 @@ export default function HomePage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 shadow-2xl`}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.privacyPolicy}</h3>
+              <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.privacyPolicy}</h3>
               <button 
                 onClick={() => setShowPrivacyPolicy(false)}
                 className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'text-gray-600'}`}
@@ -3368,7 +3368,7 @@ export default function HomePage() {
               </button>
             </div>
             
-            <div className={`space-y-4 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            <div className={`space-y-4 text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
               <section>
                 <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>1. Information We Collect</h4>
                 <p>We collect information you provide directly to us when you create an account, including your Kick username, profile picture, and email address. We also collect usage data related to your content analysis activities.</p>
@@ -3403,7 +3403,7 @@ export default function HomePage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 shadow-2xl`}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.termsOfService}</h3>
+              <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.termsOfService}</h3>
               <button 
                 onClick={() => setShowTerms(false)}
                 className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'text-gray-600'}`}
@@ -3412,7 +3412,7 @@ export default function HomePage() {
               </button>
             </div>
             
-            <div className={`space-y-4 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            <div className={`space-y-4 text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
               <section>
                 <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>1. Acceptance of Terms</h4>
                 <p>By accessing and using SDHQ Creator Corner, you agree to be bound by these Terms of Service. If you do not agree, please do not use our service.</p>
@@ -3457,7 +3457,7 @@ export default function HomePage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-md w-full p-6 shadow-2xl`}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Unlock Premium Features</h3>
+              <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Unlock Premium Features</h3>
               <button 
                 onClick={() => setShowSubscribePopup(false)}
                 className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'text-gray-600'}`}
@@ -3467,12 +3467,12 @@ export default function HomePage() {
             </div>
             
             <div className="space-y-4">
-              <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              <p className={`text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                 Subscribe to unlock all premium features for $6.99 CAD/month.
               </p>
               
               <div className={`p-4 rounded-lg border-2 border-dashed ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
-                <p className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   <strong>Step 1:</strong> Enter your PayPal email address (the email you used to create your PayPal account):
                 </p>
                 <input
@@ -3480,19 +3480,19 @@ export default function HomePage() {
                   value={paypalEmail}
                   onChange={(e) => setPaypalEmail(e.target.value)}
                   placeholder="your-email@paypal.com"
-                  className={`w-full px-3 py-2 rounded border text-sm ${
+                  className={`w-full px-3 py-2 rounded border text-base ${
                     darkMode 
                       ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
                       : 'bg-white border-gray-300'
                   }`}
                 />
-                <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                <p className={`text-sm mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   This will be used to verify your subscription ownership.
                 </p>
               </div>
               
               <div className={`p-4 rounded-lg border ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
-                <p className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PayPal Subscription:</p>
+                <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PayPal Subscription:</p>
                 <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                   $6.99 CAD / month - Premium Access
                 </p>
@@ -3502,10 +3502,10 @@ export default function HomePage() {
               
               {subscriptionId && (
                 <div className={`p-3 rounded-lg border ${darkMode ? 'border-sdhq-green-500 bg-sdhq-green-500/10' : 'border-sdhq-green-500 bg-sdhq-green-50'}`}>
-                  <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                  <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                     <strong className={darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}>Subscription created!</strong> Subscription ID: {subscriptionId}
                   </p>
-                  <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                     Click below to verify your subscription.
                   </p>
                 </div>
@@ -3538,7 +3538,7 @@ export default function HomePage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-md w-full p-6 shadow-2xl`}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Lifetime Membership</h3>
+              <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Lifetime Membership</h3>
               <button 
                 onClick={() => setShowLifetimePopup(false)}
                 className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'text-gray-600'}`}
@@ -3548,12 +3548,12 @@ export default function HomePage() {
             </div>
             
             <div className="space-y-4">
-              <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              <p className={`text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                 Get lifetime access to all current and upcoming features for a one-time payment of $54.99 CAD.
               </p>
               
               <div className={`p-4 rounded-lg border-2 border-dashed ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
-                <p className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   <strong>Step 1:</strong> Enter your PayPal email address (the email you used to create your PayPal account):
                 </p>
                 <input
@@ -3561,19 +3561,19 @@ export default function HomePage() {
                   value={paypalEmail}
                   onChange={(e) => setPaypalEmail(e.target.value)}
                   placeholder="your-email@paypal.com"
-                  className={`w-full px-3 py-2 rounded border text-sm ${
+                  className={`w-full px-3 py-2 rounded border text-base ${
                     darkMode 
                       ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
                       : 'bg-white border-gray-300'
                   }`}
                 />
-                <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                <p className={`text-sm mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   This will be used to verify your lifetime purchase.
                 </p>
               </div>
               
               <div className={`p-4 rounded-lg border ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
-                <p className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PayPal One-Time Payment:</p>
+                <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PayPal One-Time Payment:</p>
                 <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                   $54.99 CAD - Lifetime Access
                 </p>
@@ -3583,10 +3583,10 @@ export default function HomePage() {
               
               {subscriptionId && (
                 <div className={`p-3 rounded-lg border ${darkMode ? 'border-sdhq-green-500 bg-sdhq-green-500/10' : 'border-sdhq-green-500 bg-sdhq-green-50'}`}>
-                  <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                  <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                     <strong className={darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}>Payment completed!</strong> Transaction ID: {subscriptionId}
                   </p>
-                  <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                     Click below to verify your lifetime purchase.
                   </p>
                 </div>
@@ -3621,8 +3621,8 @@ export default function HomePage() {
       {showClearConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-sm w-full p-6 shadow-2xl`}>
-            <h3 className={`text-xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Clear Activity Log?</h3>
-            <p className={`text-sm mb-6 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Clear Activity Log?</h3>
+            <p className={`text-base mb-6 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
               Are you sure you want to clear all activity log entries? This action cannot be undone.
             </p>
             <div className="flex space-x-2">
@@ -3651,7 +3651,7 @@ export default function HomePage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-sm w-full p-6 shadow-2xl`}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Confirm Payment</h3>
+              <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Confirm Payment</h3>
               <button 
                 onClick={() => setShowPaymentConfirm(false)}
                 className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-700 text-white' : 'text-gray-600'}`}
@@ -3662,13 +3662,13 @@ export default function HomePage() {
             
             <div className="space-y-4">
               <div className={`p-4 rounded-lg border-2 border-yellow-500 ${darkMode ? 'bg-yellow-500/10' : 'bg-yellow-50'}`}>
-                <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                <p className={`text-base font-semibold mb-2 ${darkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
                   Verify your subscription
                 </p>
-                <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                   PayPal Email: <strong className={darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}>{paypalEmail}</strong>
                 </p>
-                <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                <p className={`text-sm mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   We will verify your subscription by matching your KICK username and PayPal email.
                 </p>
               </div>
