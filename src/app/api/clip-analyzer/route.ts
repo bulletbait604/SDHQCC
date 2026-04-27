@@ -57,8 +57,11 @@ export async function POST(request: Request) {
     }
 
     const supadataApiKey = process.env.SUPADATA_API_KEY
-    if (!supadataApiKey) {
-      return NextResponse.json({ error: 'Supadata API key not configured' }, { status: 500 })
+    const rapidApiKey = process.env.RAPID_API_KEY
+    const pollinationsApiKey = process.env.POLLINATIONS_API_KEY
+    
+    if (!supadataApiKey && !rapidApiKey && !pollinationsApiKey) {
+      return NextResponse.json({ error: 'No video extraction API key configured' }, { status: 500 })
     }
 
     const groqApiKey = process.env.GROQ_API_KEY
@@ -66,61 +69,221 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'GROQ API key not configured' }, { status: 500 })
     }
 
-    // Step 1: Extract video information using Supadata
-    console.log('Starting Supadata extraction for URL:', url)
-    const supadataResponse = await fetch('https://api.supadata.ai/v1/extract', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': supadataApiKey
-      },
-      body: JSON.stringify({
-        url: url,
-        prompt: 'Extract comprehensive information about this video including: main topics and themes, key points discussed, visual elements (people, objects, scenes, colors, text overlays, graphics), audio content (speech/transcript, music, sound effects, background audio), captions/subtitles, engagement indicators, pacing, editing style, hook strength, production quality, and any other relevant metadata. Provide a detailed summary of both visual and audio content to give full context for algorithm analysis.'
-      })
-    })
+    // Step 1: Extract video information using Supadata (with RapidAPI fallback)
+    let supadataResult = null
+    let extractionSource = 'none'
 
-    if (!supadataResponse.ok) {
-      const errorText = await supadataResponse.text()
-      console.error('Supadata error:', errorText)
-      throw new Error(`Supadata API error: ${supadataResponse.status} - ${errorText}`)
+    // Try Supadata first
+    if (supadataApiKey) {
+      try {
+        console.log('Starting Supadata extraction for URL:', url)
+        const supadataResponse = await fetch('https://api.supadata.ai/v1/extract', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': supadataApiKey
+          },
+          body: JSON.stringify({
+            url: url,
+            prompt: 'Extract comprehensive information about this video including: main topics and themes, key points discussed, visual elements (people, objects, scenes, colors, text overlays, graphics), audio content (speech/transcript, music, sound effects, background audio), captions/subtitles, engagement indicators, pacing, editing style, hook strength, production quality, and any other relevant metadata. Provide a detailed summary of both visual and audio content to give full context for algorithm analysis.'
+          })
+        })
+
+        if (supadataResponse.ok) {
+          const supadataJob = await supadataResponse.json()
+          console.log('Supadata job created:', supadataJob.jobId)
+
+          // Poll for Supadata results
+          let attempts = 0
+          const maxAttempts = 30 // 30 attempts with 2 second delay = 60 seconds max
+
+          while (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2 seconds
+            
+            const resultResponse = await fetch(`https://api.supadata.ai/v1/extract/${supadataJob.jobId}`, {
+              headers: {
+                'x-api-key': supadataApiKey
+              }
+            })
+
+            if (resultResponse.ok) {
+              const resultData = await resultResponse.json()
+              if (resultData.status === 'completed') {
+                supadataResult = resultData.data
+                extractionSource = 'supadata'
+                break
+              } else if (resultData.status === 'failed') {
+                console.log('Supadata extraction failed, trying fallback')
+                break
+              }
+            }
+            
+            attempts++
+          }
+
+          if (supadataResult) {
+            console.log('Supadata extraction completed')
+          } else {
+            console.log('Supadata extraction timed out, trying fallback')
+          }
+        } else {
+          const errorText = await supadataResponse.text()
+          console.error('Supadata error:', errorText)
+        }
+      } catch (supadataError) {
+        console.error('Supadata extraction error:', supadataError)
+      }
     }
 
-    const supadataJob = await supadataResponse.json()
-    console.log('Supadata job created:', supadataJob.jobId)
+    // Fallback to RapidAPI if Supadata failed or is not available
+    if (!supadataResult && rapidApiKey) {
+      try {
+        console.log('Falling back to RapidAPI for video extraction')
+        const rapidResponse = await fetch(`https://deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com/v1/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-RapidAPI-Key': rapidApiKey,
+            'X-RapidAPI-Host': 'deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com'
+          },
+          body: JSON.stringify({
+            model: 'deepseek-r1-zero',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a video content analyzer. Extract comprehensive information about the video at the given URL including: main topics and themes, key points discussed, visual elements (people, objects, scenes, colors, text overlays, graphics), audio content (speech/transcript, music, sound effects, background audio), captions/subtitles, engagement indicators, pacing, editing style, hook strength, production quality. Return the analysis as a structured JSON object with fields: topics, keyPoints, visualElements, audioContent, captions, pacing, editingStyle, hookStrength, productionQuality, summary.'
+              },
+              {
+                role: 'user',
+                content: `Analyze this video URL: ${url}. Provide a comprehensive analysis of the content including visual and audio elements, topics discussed, pacing, and production quality.`
+              }
+            ],
+            max_tokens: 2000,
+            temperature: 0.7
+          })
+        })
 
-    // Poll for Supadata results
-    let supadataResult = null
-    let attempts = 0
-    const maxAttempts = 30 // 30 attempts with 2 second delay = 60 seconds max
+        if (rapidResponse.ok) {
+          const rapidData = await rapidResponse.json()
+          const content = rapidData.choices?.[0]?.message?.content || ''
+          
+          // Parse the response to extract structured data
+          let cleanContent = content
+          if (content.includes('```')) {
+            cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+          }
 
-    while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2 seconds
-      
-      const resultResponse = await fetch(`https://api.supadata.ai/v1/extract/${supadataJob.jobId}`, {
-        headers: {
-          'x-api-key': supadataApiKey
+          try {
+            const parsedData = JSON.parse(cleanContent)
+            // Format the RapidAPI response to match Supadata structure
+            supadataResult = {
+              ...parsedData,
+              summary: parsedData.summary || 'Video analysis completed via RapidAPI',
+              transcript: parsedData.audioContent?.transcript || '',
+              visualAnalysis: parsedData.visualElements || '',
+              audioAnalysis: parsedData.audioContent || ''
+            }
+            extractionSource = 'rapidapi'
+            console.log('RapidAPI extraction completed')
+          } catch (parseError) {
+            // If JSON parsing fails, create a basic structure from the text
+            supadataResult = {
+              summary: cleanContent,
+              transcript: '',
+              visualAnalysis: cleanContent,
+              audioAnalysis: cleanContent,
+              topics: [],
+              keyPoints: []
+            }
+            extractionSource = 'rapidapi'
+            console.log('RapidAPI extraction completed (text fallback)')
+          }
+        } else {
+          const errorText = await rapidResponse.text()
+          console.error('RapidAPI error:', errorText)
         }
-      })
-
-      if (resultResponse.ok) {
-        const resultData = await resultResponse.json()
-        if (resultData.status === 'completed') {
-          supadataResult = resultData.data
-          break
-        } else if (resultData.status === 'failed') {
-          throw new Error('Supadata extraction failed')
-        }
+      } catch (rapidError) {
+        console.error('RapidAPI extraction error:', rapidError)
       }
-      
-      attempts++
+    }
+
+    // Fallback to Pollinations if both Supadata and RapidAPI failed
+    if (!supadataResult && pollinationsApiKey) {
+      try {
+        console.log('Falling back to Pollinations for video extraction')
+        const pollinationsResponse = await fetch('https://text.pollinations.ai/openai', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${pollinationsApiKey}`
+          },
+          body: JSON.stringify({
+            model: 'openai',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a video content analyzer. Extract comprehensive information about the video at the given URL including: main topics and themes, key points discussed, visual elements (people, objects, scenes, colors, text overlays, graphics), audio content (speech/transcript, music, sound effects, background audio), captions/subtitles, engagement indicators, pacing, editing style, hook strength, production quality. Return the analysis as a structured JSON object with fields: topics, keyPoints, visualElements, audioContent, captions, pacing, editingStyle, hookStrength, productionQuality, summary.'
+              },
+              {
+                role: 'user',
+                content: `Analyze this video URL: ${url}. Provide a comprehensive analysis of the content including visual and audio elements, topics discussed, pacing, and production quality.`
+              }
+            ],
+            max_tokens: 2000,
+            temperature: 0.7,
+            reasoning_effort: 'medium'
+          })
+        })
+
+        if (pollinationsResponse.ok) {
+          const pollinationsData = await pollinationsResponse.json()
+          const content = pollinationsData.choices?.[0]?.message?.content || ''
+          
+          // Parse the response to extract structured data
+          let cleanContent = content
+          if (content.includes('```')) {
+            cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+          }
+
+          try {
+            const parsedData = JSON.parse(cleanContent)
+            // Format the Pollinations response to match Supadata structure
+            supadataResult = {
+              ...parsedData,
+              summary: parsedData.summary || 'Video analysis completed via Pollinations',
+              transcript: parsedData.audioContent?.transcript || '',
+              visualAnalysis: parsedData.visualElements || '',
+              audioAnalysis: parsedData.audioContent || ''
+            }
+            extractionSource = 'pollinations'
+            console.log('Pollinations extraction completed')
+          } catch (parseError) {
+            // If JSON parsing fails, create a basic structure from the text
+            supadataResult = {
+              summary: cleanContent,
+              transcript: '',
+              visualAnalysis: cleanContent,
+              audioAnalysis: cleanContent,
+              topics: [],
+              keyPoints: []
+            }
+            extractionSource = 'pollinations'
+            console.log('Pollinations extraction completed (text fallback)')
+          }
+        } else {
+          const errorText = await pollinationsResponse.text()
+          console.error('Pollinations error:', errorText)
+        }
+      } catch (pollinationsError) {
+        console.error('Pollinations extraction error:', pollinationsError)
+      }
     }
 
     if (!supadataResult) {
-      throw new Error('Supadata extraction timed out')
+      return NextResponse.json({ error: 'Failed to extract video information from Supadata, RapidAPI, and Pollinations' }, { status: 500 })
     }
 
-    console.log('Supadata extraction completed')
+    console.log(`Video extraction completed using: ${extractionSource}`)
 
     // Step 2: Use GROQ to analyze the extracted information and research algorithms
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {

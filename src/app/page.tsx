@@ -2693,379 +2693,6 @@ export default function HomePage() {
                     </div>
                   </div>
 
-{/* Subscribers - Admin Only */}
-{isAdmin && (
-  <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-300 shadow-md'}`}>
-    <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-      <CheckCircle className="w-5 h-5 mr-2 text-sdhq-green-500" />
-      {t.subscribers}
-    </h4>
-    
-    {/* Add Subscriber */}
-    <div className="flex space-x-2 mb-4">
-      <input
-        type="text"
-        value={newSubscriberUsername}
-        onChange={(e) => setNewSubscriberUsername(e.target.value)}
-        placeholder="Username"
-        className={`flex-1 px-3 py-2 rounded-md border ${
-          darkMode 
-            ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
-            : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
-        }`}
-        onKeyPress={(e) => e.key === 'Enter' && handleAddSubscriber()}
-      />
-      <Button 
-        onClick={handleAddSubscriber}
-        className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
-      >
-        <Plus className="w-4 h-4 mr-1" />
-        {t.addSubscriber}
-      </Button>
-    </div>
-    
-    {/* Subscribers List */}
-    <div className={`space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-      {subscribers.length === 0 ? (
-        <p className={`text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No subscribers yet.</p>
-      ) : (
-        subscribers.map((sub: Subscriber) => (
-          <div 
-            key={sub.id}
-            className={`flex items-center justify-between p-2 rounded border ${
-              darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-200'
-            }`}
-          >
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="w-4 h-4 text-sdhq-green-500 flex-shrink-0" />
-              <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{sub.username}</span>
-            </div>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => handleRemoveSubscriber(sub.id)}
-              className="text-red-500 hover:text-red-700"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
-        ))
-      )}
-    </div>
-  </div>
-)}
-
-{/* Lifetime Membership - Owner Only */}
-{isOwner && (
-  <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-300 shadow-md'}`}>
-    <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-      <Crown className="w-5 h-5 mr-2 text-sdhq-cyan-500" />
-      Lifetime Membership
-    </h4>
-    
-    {/* Add Lifetime Member */}
-    <div className="flex space-x-2 mb-4">
-      <input
-        type="text"
-        value={newLifetimeUsername}
-        onChange={(e) => setNewLifetimeUsername(e.target.value)}
-        placeholder="Username"
-        className={`flex-1 px-3 py-2 rounded-md border ${
-          darkMode 
-            ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
-            : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
-        }`}
-        onKeyPress={(e) => e.key === 'Enter' && handleAddLifetime()}
-      />
-      <Button 
-        onClick={handleAddLifetime}
-        className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
-      >
-        <Plus className="w-4 h-4 mr-1" />
-        Add Lifetime
-      </Button>
-    </div>
-    
-    {/* Lifetime Members List */}
-    <div className={`space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-      {lifetimeMembers.length === 0 ? (
-        <p className={`text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No lifetime members yet.</p>
-      ) : (
-        lifetimeMembers.map((member: LifetimeMember) => (
-          <div 
-            key={member.id}
-            className={`flex items-center justify-between p-2 rounded border ${
-              darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-200'
-            }`}
-          >
-            <div className="flex items-center space-x-2">
-              <Crown className="w-4 h-4 text-sdhq-cyan-500 flex-shrink-0" />
-              <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{member.username}</span>
-            </div>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => handleRemoveLifetime(member.id)}
-              className="text-red-500 hover:text-red-700"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
-        ))
-      )}
-    </div>
-  </div>
-)}
-
-                  {/* Admin Management - Owner Only */}
-                  {isOwner && (
-                    <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-purple-500/30' : 'bg-gray-50 border-purple-300'}`}>
-                      <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                        <Shield className="w-5 h-5 mr-2 text-purple-500" />
-                        Admins
-                      </h4>
-                      
-                      {/* Add Admin */}
-                      <div className="flex space-x-2 mb-4">
-                        <input
-                          type="text"
-                          value={newAdminUsername}
-                          onChange={(e) => setNewAdminUsername(e.target.value)}
-                          placeholder="Username"
-                          className={`flex-1 px-3 py-2 rounded-md border ${
-                            darkMode 
-                              ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
-                              : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
-                          }`}
-                          onKeyPress={(e) => e.key === 'Enter' && handleAddAdmin()}
-                        />
-                        <Button 
-                          onClick={handleAddAdmin}
-                          className="bg-gradient-to-r from-purple-500 to-pink-500 text-white"
-                        >
-                          <Plus className="w-4 h-4 mr-1" />
-                          Add Admin
-                        </Button>
-                      </div>
-                      
-                      {/* Admins List */}
-                      <div className={`space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-                        {admins.length === 0 ? (
-                          <p className={`text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No admins yet.</p>
-                        ) : (
-                          admins.map((admin: Admin) => (
-                            <div 
-                              key={admin.id}
-                              className={`flex items-center justify-between p-2 rounded border ${
-                                darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-200'
-                              }`}
-                            >
-                              <div className="flex items-center space-x-2">
-                                <Shield className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                                <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{admin.username}</span>
-                              </div>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleRemoveAdmin(admin.id)}
-                                className="text-red-500 hover:text-red-700"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Subscribers Management - Admin Only */}
-                  {isAdmin && (
-                    <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
-                      <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                        <Crown className="w-5 h-5 mr-2 text-sdhq-green-500" />
-                        {t.subscribers}
-                      </h4>
-                      
-                      {/* Add Subscriber */}
-                      <div className="flex space-x-2 mb-4">
-                        <input
-                          type="text"
-                          value={newSubscriberUsername}
-                          onChange={(e) => setNewSubscriberUsername(e.target.value)}
-                          placeholder="Username"
-                          className={`flex-1 px-3 py-2 rounded-md border ${
-                            darkMode 
-                              ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
-                              : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
-                          }`}
-                          onKeyPress={(e) => e.key === 'Enter' && handleAddSubscriber()}
-                        />
-                        <Button 
-                          onClick={handleAddSubscriber}
-                          className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
-                        >
-                          <Plus className="w-4 h-4 mr-1" />
-                          {t.addSubscriber}
-                        </Button>
-                      </div>
-                      
-                      {/* Subscribers List */}
-                      <div className={`space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-                        {subscribers.length === 0 ? (
-                          <p className={`text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No subscribers yet.</p>
-                        ) : (
-                          subscribers.map((sub: Subscriber) => (
-                            <div 
-                              key={sub.id}
-                              className={`flex items-center justify-between p-2 rounded border ${
-                                darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-200'
-                              }`}
-                            >
-                              <div className="flex items-center space-x-2">
-                                <CheckCircle className="w-4 h-4 text-sdhq-green-500 flex-shrink-0" />
-                                <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{sub.username}</span>
-                              </div>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleRemoveSubscriber(sub.id)}
-                                className="text-red-500 hover:text-red-700"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Admin Tools - Bulletbait604 Only */}
-                  {isAdmin && user?.username.toLowerCase() === 'bulletbait604' && (
-                    <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
-                      <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                        <Settings className="w-5 h-5 mr-2 text-sdhq-cyan-500" />
-                        Admin Tools
-                      </h4>
-                      
-                      <div className="space-y-4">
-                        {/* Refresh Algorithms Button */}
-                        <div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={async () => {
-                              if (!user || !isAdmin) return
-                              
-                              setIsLoadingAlgorithms(true)
-                              
-                              try {
-                                const res = await fetch('/api/algorithms', { 
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({})
-                                })
-                                if (!res.ok) throw new Error(`API error: ${res.status}`)
-                                
-                                const data = await res.json()
-                                if (data.data) {
-                                  localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
-                                  localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
-                                  setLastUpdated(data.lastUpdated)
-                                  setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
-                                    ...p,
-                                    data: data.data[p.id] || null
-                                  })))
-                                  
-                                  // Log the manual refresh
-                                  const refreshEntry: ActivityLogEntry = {
-                                    id: Date.now().toString(),
-                                    username: user.username,
-                                    timestamp: new Date().toISOString(),
-                                    action: 'algorithm_refresh',
-                                    details: `Manual algorithm refresh${data.provider ? ` via ${data.provider}` : ''}`
-                                  }
-                                  setActivityLog(prev => [refreshEntry, ...prev].slice(0, 100))
-                                  
-                                  alert('Algorithms refreshed successfully!')
-                                }
-                              } catch (error) {
-                                console.error('Error refreshing algorithms:', error)
-                                alert('Failed to refresh algorithms. Please try again.')
-                              } finally {
-                                setIsLoadingAlgorithms(false)
-                              }
-                            }}
-                            disabled={isLoadingAlgorithms}
-                            className="w-full"
-                          >
-                            <TrendingUp className="w-4 h-4 mr-2" />
-                            {isLoadingAlgorithms ? 'Refreshing All...' : 'Refresh All Algorithms'}
-                          </Button>
-                        </div>
-
-                        {/* Individual Platform Refresh Buttons */}
-                        <div className="grid grid-cols-2 gap-2">
-                          {platforms.map((platform) => (
-                            <Button
-                              key={platform.id}
-                              variant="outline"
-                              size="sm"
-                              onClick={async () => {
-                                if (!user || !isAdmin) return
-                                
-                                setIsLoadingAlgorithms(true)
-                                
-                                try {
-                                  const res = await fetch('/api/algorithms', { 
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ platformId: platform.id })
-                                  })
-                                  if (!res.ok) throw new Error(`API error: ${res.status}`)
-                                  
-                                  const data = await res.json()
-                                  if (data.data) {
-                                    localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
-                                    localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
-                                    setLastUpdated(data.lastUpdated)
-                                    setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
-                                      ...p,
-                                      data: data.data[p.id] || null
-                                    })))
-                                    
-                                    // Log the manual refresh
-                                    const refreshEntry: ActivityLogEntry = {
-                                      id: Date.now().toString(),
-                                      username: user.username,
-                                      timestamp: new Date().toISOString(),
-                                      action: 'algorithm_refresh',
-                                      details: `Manual ${platform.name} algorithm refresh${data.provider ? ` via ${data.provider}` : ''}`
-                                    }
-                                    setActivityLog(prev => [refreshEntry, ...prev].slice(0, 100))
-                                    
-                                    alert(`${platform.name} algorithm refreshed successfully!`)
-                                  }
-                                } catch (error) {
-                                  console.error(`Error refreshing ${platform.name}:`, error)
-                                  alert(`Failed to refresh ${platform.name}. Please try again.`)
-                                } finally {
-                                  setIsLoadingAlgorithms(false)
-                                }
-                              }}
-                              disabled={isLoadingAlgorithms}
-                              className="text-sm"
-                            >
-                              <TrendingUp className="w-3 h-3 mr-1" />
-                              {platform.name}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
                   {/* Activity Feed - Admin Only */}
                   {isAdmin && (
                     <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
@@ -3234,6 +2861,317 @@ export default function HomePage() {
                             )
                           })
                         )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Subscribers - Admin Only */}
+                  {isAdmin && (
+                    <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
+                      <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <Crown className="w-5 h-5 mr-2 text-sdhq-green-500" />
+                        {t.subscribers}
+                      </h4>
+                      
+                      {/* Add Subscriber */}
+                      <div className="flex space-x-2 mb-4">
+                        <input
+                          type="text"
+                          value={newSubscriberUsername}
+                          onChange={(e) => setNewSubscriberUsername(e.target.value)}
+                          placeholder="Username"
+                          className={`flex-1 px-3 py-2 rounded-md border ${
+                            darkMode 
+                              ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
+                              : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                          }`}
+                          onKeyPress={(e) => e.key === 'Enter' && handleAddSubscriber()}
+                        />
+                        <Button 
+                          onClick={handleAddSubscriber}
+                          className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          {t.addSubscriber}
+                        </Button>
+                      </div>
+                      
+                      {/* Subscribers List */}
+                      <div className={`space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                        {subscribers.length === 0 ? (
+                          <p className={`text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No subscribers yet.</p>
+                        ) : (
+                          subscribers.map((sub: Subscriber) => (
+                            <div 
+                              key={sub.id}
+                              className={`flex items-center justify-between p-2 rounded border ${
+                                darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-200'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-2">
+                                <CheckCircle className="w-4 h-4 text-sdhq-green-500 flex-shrink-0" />
+                                <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{sub.username}</span>
+                              </div>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleRemoveSubscriber(sub.id)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Admin Management - Owner Only */}
+                  {isOwner && (
+                    <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-purple-500/30' : 'bg-gray-50 border-purple-300'}`}>
+                      <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <Shield className="w-5 h-5 mr-2 text-purple-500" />
+                        Admins
+                      </h4>
+                      
+                      {/* Add Admin */}
+                      <div className="flex space-x-2 mb-4">
+                        <input
+                          type="text"
+                          value={newAdminUsername}
+                          onChange={(e) => setNewAdminUsername(e.target.value)}
+                          placeholder="Username"
+                          className={`flex-1 px-3 py-2 rounded-md border ${
+                            darkMode 
+                              ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
+                              : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                          }`}
+                          onKeyPress={(e) => e.key === 'Enter' && handleAddAdmin()}
+                        />
+                        <Button 
+                          onClick={handleAddAdmin}
+                          className="bg-gradient-to-r from-purple-500 to-pink-500 text-white"
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          Add Admin
+                        </Button>
+                      </div>
+                      
+                      {/* Admins List */}
+                      <div className={`space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                        {admins.length === 0 ? (
+                          <p className={`text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No admins yet.</p>
+                        ) : (
+                          admins.map((admin: Admin) => (
+                            <div 
+                              key={admin.id}
+                              className={`flex items-center justify-between p-2 rounded border ${
+                                darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-200'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-2">
+                                <Shield className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                                <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{admin.username}</span>
+                              </div>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleRemoveAdmin(admin.id)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Lifetime Membership - Owner Only */}
+                  {isOwner && (
+                    <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-300 shadow-md'}`}>
+                      <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <Crown className="w-5 h-5 mr-2 text-sdhq-cyan-500" />
+                        Lifetime Membership
+                      </h4>
+                      
+                      {/* Add Lifetime Member */}
+                      <div className="flex space-x-2 mb-4">
+                        <input
+                          type="text"
+                          value={newLifetimeUsername}
+                          onChange={(e) => setNewLifetimeUsername(e.target.value)}
+                          placeholder="Username"
+                          className={`flex-1 px-3 py-2 rounded-md border ${
+                            darkMode 
+                              ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
+                              : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                          }`}
+                          onKeyPress={(e) => e.key === 'Enter' && handleAddLifetime()}
+                        />
+                        <Button 
+                          onClick={handleAddLifetime}
+                          className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          Add Lifetime
+                        </Button>
+                      </div>
+                      
+                      {/* Lifetime Members List */}
+                      <div className={`space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                        {lifetimeMembers.length === 0 ? (
+                          <p className={`text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No lifetime members yet.</p>
+                        ) : (
+                          lifetimeMembers.map((member: LifetimeMember) => (
+                            <div 
+                              key={member.id}
+                              className={`flex items-center justify-between p-2 rounded border ${
+                                darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-200'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-2">
+                                <Crown className="w-4 h-4 text-sdhq-cyan-500 flex-shrink-0" />
+                                <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{member.username}</span>
+                              </div>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleRemoveLifetime(member.id)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Admin Tools - Bulletbait604 Only */}
+                  {isAdmin && user?.username.toLowerCase() === 'bulletbait604' && (
+                    <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
+                      <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <Settings className="w-5 h-5 mr-2 text-sdhq-cyan-500" />
+                        Admin Tools
+                      </h4>
+                      
+                      <div className="space-y-4">
+                        {/* Refresh Algorithms Button */}
+                        <div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              if (!user || !isAdmin) return
+                              
+                              setIsLoadingAlgorithms(true)
+                              
+                              try {
+                                const res = await fetch('/api/algorithms', { 
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({})
+                                })
+                                if (!res.ok) throw new Error(`API error: ${res.status}`)
+                                
+                                const data = await res.json()
+                                if (data.data) {
+                                  localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
+                                  localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
+                                  setLastUpdated(data.lastUpdated)
+                                  setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
+                                    ...p,
+                                    data: data.data[p.id] || null
+                                  })))
+                                  
+                                  // Log the manual refresh
+                                  const refreshEntry: ActivityLogEntry = {
+                                    id: Date.now().toString(),
+                                    username: user.username,
+                                    timestamp: new Date().toISOString(),
+                                    action: 'algorithm_refresh',
+                                    details: `Manual algorithm refresh${data.provider ? ` via ${data.provider}` : ''}`
+                                  }
+                                  setActivityLog(prev => [refreshEntry, ...prev].slice(0, 100))
+                                  
+                                  alert('Algorithms refreshed successfully!')
+                                }
+                              } catch (error) {
+                                console.error('Error refreshing algorithms:', error)
+                                alert('Failed to refresh algorithms. Please try again.')
+                              } finally {
+                                setIsLoadingAlgorithms(false)
+                              }
+                            }}
+                            disabled={isLoadingAlgorithms}
+                            className="w-full"
+                          >
+                            <TrendingUp className="w-4 h-4 mr-2" />
+                            {isLoadingAlgorithms ? 'Refreshing All...' : 'Refresh All Algorithms'}
+                          </Button>
+                        </div>
+
+                        {/* Individual Platform Refresh Buttons */}
+                        <div className="grid grid-cols-2 gap-2">
+                          {platforms.map((platform) => (
+                            <Button
+                              key={platform.id}
+                              variant="outline"
+                              size="sm"
+                              onClick={async () => {
+                                if (!user || !isAdmin) return
+                                
+                                setIsLoadingAlgorithms(true)
+                                
+                                try {
+                                  const res = await fetch('/api/algorithms', { 
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ platformId: platform.id })
+                                  })
+                                  if (!res.ok) throw new Error(`API error: ${res.status}`)
+                                  
+                                  const data = await res.json()
+                                  if (data.data) {
+                                    localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
+                                    localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
+                                    setLastUpdated(data.lastUpdated)
+                                    setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
+                                      ...p,
+                                      data: data.data[p.id] || null
+                                    })))
+                                    
+                                    // Log the manual refresh
+                                    const refreshEntry: ActivityLogEntry = {
+                                      id: Date.now().toString(),
+                                      username: user.username,
+                                      timestamp: new Date().toISOString(),
+                                      action: 'algorithm_refresh',
+                                      details: `Manual ${platform.name} algorithm refresh${data.provider ? ` via ${data.provider}` : ''}`
+                                    }
+                                    setActivityLog(prev => [refreshEntry, ...prev].slice(0, 100))
+                                    
+                                    alert(`${platform.name} algorithm refreshed successfully!`)
+                                  }
+                                } catch (error) {
+                                  console.error(`Error refreshing ${platform.name}:`, error)
+                                  alert(`Failed to refresh ${platform.name}. Please try again.`)
+                                } finally {
+                                  setIsLoadingAlgorithms(false)
+                                }
+                              }}
+                              disabled={isLoadingAlgorithms}
+                              className="text-sm"
+                            >
+                              <TrendingUp className="w-3 h-3 mr-1" />
+                              {platform.name}
+                            </Button>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}
