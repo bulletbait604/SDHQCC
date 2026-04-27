@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
     }
 
-    const apiUrl = 'https://chatgpt-vision1.p.rapidapi.com/v1/chat/completions'
+    const apiUrl = 'https://chatgpt-vision1.p.rapidapi.com/chat/completions'
 
     const systemPrompt = `You are a social media algorithm expert and video content strategist. Analyze the video content at the provided URL on the specified platform and return a comprehensive optimization report.
 
