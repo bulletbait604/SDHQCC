@@ -49,6 +49,12 @@ interface Subscriber {
   addedAt: string
 }
 
+interface LifetimeMember {
+  id: string
+  username: string
+  addedAt: string
+}
+
 interface Admin {
   id: string
   username: string
@@ -224,6 +230,8 @@ export default function HomePage() {
   const [showSettings, setShowSettings] = useState(false)
   const [subscribers, setSubscribers] = useState<Subscriber[]>([])
   const [newSubscriberUsername, setNewSubscriberUsername] = useState('')
+  const [lifetimeMembers, setLifetimeMembers] = useState<LifetimeMember[]>([])
+  const [newLifetimeUsername, setNewLifetimeUsername] = useState('')
   const [admins, setAdmins] = useState<Admin[]>([])
   const [newAdminUsername, setNewAdminUsername] = useState('')
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false)
@@ -356,7 +364,16 @@ export default function HomePage() {
           console.error('Error loading subscribers:', error)
         }
       }
-      
+
+      const storedLifetimeMembers = localStorage.getItem('sdhq-lifetime-members')
+      if (storedLifetimeMembers) {
+        try {
+          setLifetimeMembers(JSON.parse(storedLifetimeMembers))
+        } catch (error) {
+          console.error('Error loading lifetime members:', error)
+        }
+      }
+
       if (storedAdmins) {
         try {
           setAdmins(JSON.parse(storedAdmins))
@@ -520,6 +537,12 @@ export default function HomePage() {
       localStorage.setItem('sdhq-subscribers', JSON.stringify(subscribers))
     }
   }, [subscribers])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sdhq-lifetime-members', JSON.stringify(lifetimeMembers))
+    }
+  }, [lifetimeMembers])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -973,6 +996,22 @@ export default function HomePage() {
 
   const handleRemoveSubscriber = (id: string) => {
     setSubscribers(subscribers.filter(sub => sub.id !== id))
+  }
+
+  const handleAddLifetime = () => {
+    if (newLifetimeUsername.trim()) {
+      const newLifetimeMember: LifetimeMember = {
+        id: Date.now().toString(),
+        username: newLifetimeUsername.trim(),
+        addedAt: new Date().toISOString()
+      }
+      setLifetimeMembers([...lifetimeMembers, newLifetimeMember])
+      setNewLifetimeUsername('')
+    }
+  }
+
+  const handleRemoveLifetime = (id: string) => {
+    setLifetimeMembers(lifetimeMembers.filter(member => member.id !== id))
   }
 
   const handleAddAdmin = () => {
@@ -2547,6 +2586,68 @@ export default function HomePage() {
               variant="ghost" 
               size="sm"
               onClick={() => handleRemoveSubscriber(sub.id)}
+              className="text-red-500 hover:text-red-700"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+)}
+
+{/* Lifetime Membership - Owner Only */}
+{isOwner && (
+  <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-300 shadow-md'}`}>
+    <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+      <Crown className="w-5 h-5 mr-2 text-sdhq-cyan-500" />
+      Lifetime Membership
+    </h4>
+    
+    {/* Add Lifetime Member */}
+    <div className="flex space-x-2 mb-4">
+      <input
+        type="text"
+        value={newLifetimeUsername}
+        onChange={(e) => setNewLifetimeUsername(e.target.value)}
+        placeholder="Username"
+        className={`flex-1 px-3 py-2 rounded-md border ${
+          darkMode 
+            ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
+            : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+        }`}
+        onKeyPress={(e) => e.key === 'Enter' && handleAddLifetime()}
+      />
+      <Button 
+        onClick={handleAddLifetime}
+        className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
+      >
+        <Plus className="w-4 h-4 mr-1" />
+        Add Lifetime
+      </Button>
+    </div>
+    
+    {/* Lifetime Members List */}
+    <div className={`space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+      {lifetimeMembers.length === 0 ? (
+        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No lifetime members yet.</p>
+      ) : (
+        lifetimeMembers.map((member: LifetimeMember) => (
+          <div 
+            key={member.id}
+            className={`flex items-center justify-between p-2 rounded border ${
+              darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-200'
+            }`}
+          >
+            <div className="flex items-center space-x-2">
+              <Crown className="w-4 h-4 text-sdhq-cyan-500 flex-shrink-0" />
+              <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{member.username}</span>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => handleRemoveLifetime(member.id)}
               className="text-red-500 hover:text-red-700"
             >
               <Trash2 className="w-4 h-4" />
