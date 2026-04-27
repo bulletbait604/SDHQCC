@@ -133,10 +133,28 @@ Cross-reference the actual video content with ${platform}'s algorithm to score d
     }
 
     const data = await response.json()
-    const content = data.choices?.[0]?.message?.content
+    console.log('API Response:', JSON.stringify(data, null, 2))
+
+    // Try different response structures
+    let content = data.choices?.[0]?.message?.content
+    if (!content) {
+      content = data.content
+    }
+    if (!content) {
+      content = data.message
+    }
+    if (!content) {
+      content = data.text
+    }
+    if (!content) {
+      content = data.data?.content
+    }
+    if (!content) {
+      content = data.data?.message
+    }
 
     if (!content) {
-      throw new Error('No content in API response')
+      throw new Error('No content in API response. Response structure: ' + JSON.stringify(data))
     }
 
     // Parse JSON from response (handle markdown code blocks if present)
