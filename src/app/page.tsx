@@ -713,12 +713,13 @@ export default function HomePage() {
       
       // Log clip analysis activity
       if (user) {
+        const ip = 'IP-hidden' // In production, you'd get this from the backend
         const clipEntry: ActivityLogEntry = {
           id: Date.now().toString(),
           username: user.username,
           timestamp: new Date().toISOString(),
           action: 'clip_analysis',
-          details: `Analyzed video for ${platforms.find(p => p.id === detectedPlatform)?.name} (score: ${data.score})`
+          details: `Analyzed video for ${platforms.find(p => p.id === detectedPlatform)?.name} (score: ${data.score}) [${ip}]`
         }
         setActivityLog(prev => [clipEntry, ...prev].slice(0, 100))
       }
@@ -790,12 +791,13 @@ export default function HomePage() {
       
       // Log re-analysis activity
       if (user) {
+        const ip = 'IP-hidden' // In production, you'd get this from the backend
         const reanalysisEntry: ActivityLogEntry = {
           id: Date.now().toString(),
           username: user.username,
           timestamp: new Date().toISOString(),
           action: 'clip_reanalysis',
-          details: `Re-analyzed video for ${platforms.find(p => p.id === newPlatform)?.name} (score: ${data.score})`
+          details: `Re-analyzed video for ${platforms.find(p => p.id === newPlatform)?.name} (score: ${data.score}) [${ip}]`
         }
         setActivityLog(prev => [reanalysisEntry, ...prev].slice(0, 100))
       }
@@ -832,12 +834,13 @@ export default function HomePage() {
   const handleLogout = () => {
     // Log logout activity
     if (user && isAdmin) {
+      const ip = 'IP-hidden' // In production, you'd get this from the backend
       const logoutEntry: ActivityLogEntry = {
         id: Date.now().toString(),
         username: user.username,
         timestamp: new Date().toISOString(),
         action: 'logout',
-        details: 'User logged out'
+        details: `User logged out [${ip}]`
       }
       setActivityLog(prev => [logoutEntry, ...prev].slice(0, 100))
     }
@@ -1845,12 +1848,13 @@ export default function HomePage() {
                           }
                           // Log tag generation activity
                           if (user) {
+                            const ip = 'IP-hidden' // In production, you'd get this from the backend
                             const tagEntry: ActivityLogEntry = {
                               id: Date.now().toString(),
                               username: user.username,
                               timestamp: new Date().toISOString(),
                               action: 'tag_generation',
-                              details: `Generated ${data.tags.length} tags for ${platforms.find(p => p.id === tagPlatform)?.name}`
+                              details: `Generated ${data.tags.length} tags for ${platforms.find(p => p.id === tagPlatform)?.name} [${ip}]`
                             }
                             setActivityLog(prev => [tagEntry, ...prev].slice(0, 100))
                           }

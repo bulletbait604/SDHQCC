@@ -200,10 +200,10 @@ Provide a realistic score based on the comprehensive content analysis (visual + 
     const groqData = await groqResponse.json()
     console.log('GROQ Response:', JSON.stringify(groqData, null, 2))
 
-    const content = groqData.choices?.[0]?.message?.content
-    if (!content) {
-      throw new Error('No content in GROQ response')
-    }
+    const content = groqData.choices[0]?.message?.content || ''
+    
+    console.log('GROQ response content length:', content.length)
+    console.log('GROQ response content preview:', content.substring(0, 200))
 
     // Parse JSON from response (handle markdown code blocks if present)
     let cleanContent = content
@@ -211,7 +211,10 @@ Provide a realistic score based on the comprehensive content analysis (visual + 
       cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
     }
 
+    console.log('Cleaned content preview:', cleanContent.substring(0, 200))
+
     const result = JSON.parse(cleanContent)
+    console.log('Parsed result keys:', Object.keys(result))
 
     // Include extracted data in response for re-analysis
     const response = NextResponse.json({
