@@ -59,9 +59,34 @@ export async function POST(request: Request) {
 
     const apiUrl = 'https://gemini-ai-all-models.p.rapidapi.com/v1/chat/completions'
 
-    const systemPrompt = `You are a social media algorithm expert and video content strategist. Analyze the provided ${platform} URL and return a comprehensive optimization report based on your deep knowledge of ${platform}'s current (2026) algorithm.
+    // Fetch the page to extract thumbnail image
+    let imageUrl = url
+    try {
+      const pageResponse = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      })
+      if (pageResponse.ok) {
+        const html = await pageResponse.text()
+        // Try to extract og:image
+        const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
+        if (ogImageMatch && ogImageMatch[1]) {
+          imageUrl = ogImageMatch[1]
+        }
+      }
+    } catch (e) {
+      console.log('Could not fetch page for thumbnail extraction, using original URL')
+    }
 
-Since you cannot fetch the actual video content from social media URLs, analyze the URL structure and apply your expertise in ${platform}'s algorithm to provide actionable insights. Focus on algorithm optimization strategies, best practices, and recommendations that would apply to content on this platform.
+    const systemPrompt = `You are a social media algorithm expert and video content strategist. Analyze the video content from the provided ${platform} URL and return a comprehensive optimization report.
+
+Examine the actual visual content, including the thumbnail/frame, and apply deep knowledge of ${platform}'s current (2026) algorithm to give specific, actionable insights. Analyze:
+- Visual quality and appeal
+- Hook strength in the opening frame
+- Text overlays and captions visible in the thumbnail
+- Overall production value
+- Engagement potential based on visual elements
 
 IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside the JSON.
 
@@ -94,19 +119,16 @@ Return this exact structure:
   "tags": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8"]
 }`
 
-    const userPrompt = `This is a ${platform} clip URL: ${url}
+    const userPrompt = `Analyze this ${platform} video content from the URL: ${url}
 
-Provide algorithm-based optimization recommendations for ${platform} content. Focus on:
+Focus on:
+1. Visual analysis of the thumbnail/frame - what elements are visible, colors, composition, text overlays
+2. ${platform}'s current (2026) algorithm priorities: completion rate, shares, comments, saves/bookmarks, early engagement signals, trending audio usage, hook strength in first 2 seconds, caption keyword density, hashtag strategy, optimal posting signals, and watch time patterns
+3. How the visual content aligns with ${platform}'s algorithm best practices
+4. Specific recommendations for overlays, text overlays, audio choices, visual edits, and CTAs
+5. Optimized title, description, and hashtag suggestions
 
-1. ${platform}'s current (2026) algorithm priorities: completion rate, shares, comments, saves/bookmarks, early engagement signals, trending audio usage, hook strength in first 2 seconds, caption keyword density, hashtag strategy, optimal posting signals, and watch time patterns.
-
-2. General best practices for maximizing discoverability on ${platform}.
-
-3. Specific recommendations for overlays, text overlays, audio choices, visual edits, and CTAs that perform well on ${platform}.
-
-4. Optimized title, description, and hashtag suggestions that align with ${platform}'s algorithm.
-
-Provide a realistic score and actionable recommendations based on ${platform}'s algorithm expertise.`
+Provide a realistic score based on the actual visual content and algorithm alignment.`
 
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 60000) // 60 second timeout
@@ -122,8 +144,13 @@ Provide a realistic score and actionable recommendations based on ${platform}'s 
       body: JSON.stringify({
         model: 'gemini-1.5-pro',
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: `${systemPrompt}\n\n${userPrompt}` },
+              { type: 'image_url', image_url: { url: imageUrl } }
+            ]
+          }
         ],
         max_tokens: 2000,
         temperature: 0.7
