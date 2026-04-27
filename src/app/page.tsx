@@ -2048,15 +2048,15 @@ export default function HomePage() {
                   <ol className={`space-y-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                     <li className="flex items-start gap-2">
                       <span className={`font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>1.</span>
-                      <span>Enter in your clip url</span>
+                      <span>Enter your clip URL</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className={`font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>2.</span>
-                      <span>Click analyze and wait for our AI Powered system to analyze your clip and cross reference it to your platforms algorithm.</span>
+                      <span>Click analyze and wait for AI analysis</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className={`font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>3.</span>
-                      <span>Use the provided clip analysis to make adjustments to your clip and help create better clips in the future.</span>
+                      <span>Use the analysis to improve your clips</span>
                     </li>
                   </ol>
                 </div>
@@ -2122,20 +2122,15 @@ export default function HomePage() {
                 ) : (
                   <div className="space-y-6">
                     {/* Rate Limit Display */}
-                    <div className={`rounded-lg p-4 border ${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
+                    <div className={`rounded-lg p-3 border ${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <Database className={`w-4 h-4 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`} />
-                          <span className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Content Analyzer Uses</span>
+                          <span className={`text-xs font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Uses</span>
                         </div>
-                        <div className="text-right">
-                          <p className={`text-2xl font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                            {clipRateLimit.remaining === -1 ? 'Unlimited' : clipRateLimit.remaining}
-                          </p>
-                          <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                            uses remaining
-                          </p>
-                        </div>
+                        <p className={`text-lg font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                          {clipRateLimit.remaining === -1 ? '∞' : clipRateLimit.remaining}
+                        </p>
                       </div>
                     </div>
 
