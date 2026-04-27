@@ -38,8 +38,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Platform is required' }, { status: 400 })
     }
 
-    // Check file size (limit to 100MB)
-    const maxSize = 100 * 1024 * 1024 // 100MB
+    // Check file size (limit to 75MB)
+    const maxSize = 75 * 1024 * 1024 // 75MB
     if (file.size > maxSize) {
       return NextResponse.json({ error: `File size exceeds ${maxSize / (1024 * 1024)}MB limit. Please upload a smaller video.` }, { status: 400 })
     }
@@ -73,10 +73,12 @@ export async function POST(request: Request) {
     const apiUrl = 'https://gemini-ai-all-models.p.rapidapi.com/v1/chat/completions'
 
     // Convert file to base64
+    console.log('Converting file to base64, file size:', file.size, 'bytes')
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
     const base64 = buffer.toString('base64')
     const dataUrl = `data:${file.type};base64,${base64}`
+    console.log('Base64 data URL length:', dataUrl.length, 'characters')
 
     const systemPrompt = `You are a social media algorithm expert and video content strategist. Analyze the provided video clip for ${platform} and return a comprehensive optimization report.
 
