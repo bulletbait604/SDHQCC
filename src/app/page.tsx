@@ -1259,7 +1259,26 @@ export default function HomePage() {
 
   const handleSyncToBackend = async () => {
     try {
-      // Sync subscribers
+      // First, clear all collections in MongoDB
+      await fetch('/api/subscribers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'clear' })
+      })
+      
+      await fetch('/api/admins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'clear' })
+      })
+      
+      await fetch('/api/lifetime', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'clear' })
+      })
+      
+      // Then sync all current users from localStorage
       for (const subscriber of subscribers) {
         await fetch('/api/subscribers', {
           method: 'POST',
@@ -1268,7 +1287,6 @@ export default function HomePage() {
         })
       }
       
-      // Sync admins
       for (const admin of admins) {
         await fetch('/api/admins', {
           method: 'POST',
@@ -1277,7 +1295,6 @@ export default function HomePage() {
         })
       }
       
-      // Sync lifetime members
       for (const member of lifetimeMembers) {
         await fetch('/api/lifetime', {
           method: 'POST',

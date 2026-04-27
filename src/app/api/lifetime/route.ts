@@ -3,35 +3,34 @@ import clientPromise from '@/lib/mongodb';
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, action } = await request.json();
-    
-    if (!username) {
-      return NextResponse.json({ error: 'Username is required' }, { status: 400 });
-    }
-
     const client = await clientPromise;
     const db = client.db('sdhq-creator-corner');
-    
+    const { username, action } = await request.json();
+
+    if (action === 'clear') {
+      await db.collection('lifetimeMembers').deleteMany({});
+      return NextResponse.json({ message: 'Lifetime members cleared successfully' });
+    }
+
+    if (!username || !action) {
+      return NextResponse.json({ message: 'Username and action are required' }, { status: 400 });
+    }
+
     if (action === 'add') {
-      const existing = await db.collection('lifetimeMembers').findOne({ username: username.toLowerCase() });
-      if (existing) {
-        return NextResponse.json({ error: 'User already in lifetime members list' }, { status: 400 });
-      }
-      
-      await db.collection('lifetimeMembers').insertOne({
-        username: username.toLowerCase(),
-        addedAt: new Date().toISOString()
-      });
-      
-      return NextResponse.json({ success: true });
+      await db.collection('lifetimeMembers').updateOne(
+        { username: username.toLowerCase() },
+        { $set: { username: username.toLowerCase(), addedAt: new Date().toISOString() } },
+        { upsert: true }
+      );
+      return NextResponse.json({ message: 'Lifetime member added successfully' });
     } else if (action === 'remove') {
       await db.collection('lifetimeMembers').deleteOne({ username: username.toLowerCase() });
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ message: 'Lifetime member removed successfully' });
+    } else {
+      return NextResponse.json({ message: 'Invalid action' }, { status: 400 });
     }
-    
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
-    console.error('Error managing lifetime members:', error);
-    return NextResponse.json({ error: 'Failed to manage lifetime members' }, { status: 500 });
+    console.error('Failed to update lifetime members:', error);
+    return NextResponse.json({ message: 'Failed to update lifetime members' }, { status: 500 });
   }
 }
