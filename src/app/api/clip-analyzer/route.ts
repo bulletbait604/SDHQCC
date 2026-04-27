@@ -38,6 +38,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Platform is required' }, { status: 400 })
     }
 
+    // Check file size (limit to 25MB to avoid API payload limits)
+    const maxSize = 25 * 1024 * 1024 // 25MB
+    if (file.size > maxSize) {
+      return NextResponse.json({ error: `File size exceeds ${maxSize / (1024 * 1024)}MB limit. Please upload a smaller video.` }, { status: 400 })
+    }
+
     // Rate limiting
     const identifier = userId || 'anonymous'
     let maxUses = 5 // Default for subscribers
@@ -156,6 +162,7 @@ Provide a realistic score based on the actual video content and ${platform}'s al
 
     if (!response.ok) {
       const errorText = await response.text()
+      console.error('API Error Response:', errorText)
       throw new Error(`API error: ${response.status} - ${errorText}`)
     }
 
