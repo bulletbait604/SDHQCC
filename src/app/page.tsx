@@ -2092,6 +2092,18 @@ export default function HomePage() {
 
             <TabsContent value="clip-analyzer">
               <div className={`py-8 ${cardClasses}`}>
+                {/* Platform Logos */}
+                <div className="flex justify-center gap-4 mb-6">
+                  {platforms.map((platform) => (
+                    <img
+                      key={platform.id}
+                      src={platform.image}
+                      alt={platform.name}
+                      className="w-10 h-10 rounded-lg object-cover opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                  ))}
+                </div>
+
                 <div className="flex flex-col items-center mb-6">
                   <div className="flex items-center space-x-4 mb-3">
                     <Video className="w-10 h-10 text-sdhq-green-500" />
