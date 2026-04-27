@@ -1917,7 +1917,7 @@ export default function HomePage() {
                       <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Target Platform
                       </label>
-                      <div className="grid grid-cols-4 gap-3 mb-6">
+                      <div className="grid grid-cols-5 gap-3 mb-6">
                         {platforms.map((platform) => (
                           <div
                             key={platform.id}
@@ -1970,7 +1970,7 @@ export default function HomePage() {
                       <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Target Platform
                       </label>
-                      <div className="grid grid-cols-4 gap-3 mb-6">
+                      <div className="grid grid-cols-5 gap-3 mb-6">
                         {platforms.map((platform) => (
                           <button
                             key={platform.id}
