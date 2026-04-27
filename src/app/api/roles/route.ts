@@ -65,8 +65,12 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('GET /api/roles called');
     const client = await clientPromise;
+    console.log('MongoDB client connected');
     const db = client.db('sdhq');
+    console.log('Database: sdhq');
+    
     const { searchParams } = new URL(request.url);
     const username = searchParams.get('username');
 
@@ -74,11 +78,14 @@ export async function GET(request: NextRequest) {
 
     if (username) {
       const user = await db.collection('users').findOne({ username: username.toLowerCase() });
+      console.log('User found:', user);
       return NextResponse.json({ user: user ? { role: user.role, username: user.username } : null });
     }
 
     // Get all users with roles
+    console.log('Fetching all users with roles');
     const users = await db.collection('users').find({}).toArray();
+    console.log('Users found:', users.length);
     return NextResponse.json({ 
       users: users.map(u => ({ 
         id: u._id.toString(), 
@@ -89,6 +96,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error fetching user roles:', error);
-    return NextResponse.json({ error: 'Failed to fetch user roles' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch user roles', details: String(error) }, { status: 500 });
   }
 }
