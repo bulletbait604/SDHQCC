@@ -2281,14 +2281,10 @@ export default function HomePage() {
 
                     {/* Results Section */}
                     {clipAnalysisResult && (
-                      <div className="space-y-6">
+                      <div className="space-y-4">
                         {/* Score Card */}
                         <div>
-                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                            Overall Score
-                            <span className="flex-1 h-px bg-gradient-to-r from-sdhq-cyan-500/50 to-transparent"></span>
-                          </h4>
-                          <div className={`relative overflow-hidden rounded-2xl p-6 flex items-center gap-6 ${
+                          <div className={`relative overflow-hidden rounded-xl p-4 flex items-center gap-4 ${
                             darkMode 
                               ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
                               : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
@@ -2301,8 +2297,8 @@ export default function HomePage() {
                                   : 'from-red-500/10 to-pink-500/10'
                             }`}></div>
                             <div className="relative">
-                              <div className="relative w-24 h-24 flex-shrink-0">
-                                <svg width="96" height="96" viewBox="0 0 96 96" className="transform -rotate-90">
+                              <div className="relative w-16 h-16 flex-shrink-0">
+                                <svg width="64" height="64" viewBox="0 0 96 96" className="transform -rotate-90">
                                   <circle cx="48" cy="48" r="40" fill="none" stroke={darkMode ? '#222230' : '#e5e7eb'} strokeWidth="8"/>
                                   <circle
                                     cx="48" cy="48" r="40" fill="none"
@@ -2324,196 +2320,193 @@ export default function HomePage() {
                                   />
                                 </svg>
                                 <div className="absolute inset-0 flex flex-col items-center justify-center font-mono">
-                                  <span className={`text-3xl font-bold ${
+                                  <span className={`text-xl font-bold ${
                                     clipAnalysisResult.score >= 70 ? 'text-green-400' :
                                     clipAnalysisResult.score >= 45 ? 'text-yellow-400' : 'text-red-400'
                                   }`}>
                                     {clipAnalysisResult.score}
                                   </span>
-                                  <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>/100</span>
+                                  <span className={`text-[10px] ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>/100</span>
                                 </div>
                               </div>
                             </div>
                             <div className="relative flex-1">
-                              <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                              <h3 className={`text-base font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                                 {clipAnalysisResult.scoreTitle || 'Discoverability Score'}
                               </h3>
-                              <p className={`text-sm mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                              <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                 {clipAnalysisResult.scoreSummary || ''}
                               </p>
                             </div>
                           </div>
                         </div>
 
-                        {/* Content Insights */}
+                        {/* Content Insights - Horizontal Grid */}
                         <div>
-                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                            Content Insights
-                            <span className="flex-1 h-px bg-gradient-to-r from-sdhq-cyan-500/50 to-transparent"></span>
-                          </h4>
-                          <div className="grid grid-cols-1 gap-3">
-                            {(clipAnalysisResult.insights || []).map((insight: any, idx: number) => (
-                              <div key={idx} className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg flex items-center gap-4 ${
-                                darkMode 
-                                  ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
-                                  : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-300 shadow-sm'
-                              }`}>
-                                <div className={`absolute inset-0 bg-gradient-to-r from-sdhq-cyan-500/5 to-sdhq-green-500/5 opacity-0 hover:opacity-100 transition-opacity`}></div>
-                                <div className="relative flex-shrink-0">
-                                  <span className="text-3xl">{insight.icon || '📊'}</span>
-                                </div>
-                                <div className="relative flex-1">
-                                  <div className={`text-xs font-semibold tracking-wider uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                    {insight.label}
-                                  </div>
-                                  <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                    {insight.value}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Recommendations */}
-                        <div>
-                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                            Algorithm Recommendations
-                            <span className="flex-1 h-px bg-gradient-to-r from-sdhq-cyan-500/50 to-transparent"></span>
-                          </h4>
-                          <div className="space-y-2">
-                            {(clipAnalysisResult.recommendations || []).map((rec: any, idx: number) => (
-                              <div key={idx} className={`relative overflow-hidden rounded-xl p-4 flex gap-3 items-start transition-all duration-300 hover:scale-[1.01] hover:shadow-lg ${
-                                darkMode 
-                                  ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
-                                  : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-300 shadow-sm'
-                              }`}>
-                                <div className={`absolute inset-0 bg-gradient-to-r ${
-                                  rec.priority === 'high' 
-                                    ? 'from-red-500/10 to-pink-500/10' 
-                                    : rec.priority === 'med' 
-                                      ? 'from-yellow-500/10 to-orange-500/10' 
-                                      : 'from-green-500/10 to-sdhq-cyan-500/10'
-                                } opacity-0 hover:opacity-100 transition-opacity`}></div>
-                                <div className="relative">
-                                  <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                                    rec.priority === 'high' ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.5)]' :
-                                    rec.priority === 'med' ? 'bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.5)]' : 'bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)]'
-                                  }`}></div>
-                                </div>
-                                <div className="relative flex-1">
-                                  <div className={`text-xs font-semibold tracking-wider uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                    {rec.category}
-                                  </div>
-                                  <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                    {rec.text}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Overlays */}
-                        <div>
-                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                            Overlay & Edit Suggestions
-                            <span className="flex-1 h-px bg-gradient-to-r from-sdhq-cyan-500/50 to-transparent"></span>
-                          </h4>
-                          <div className="space-y-2">
-                            {(clipAnalysisResult.overlays || []).map((overlay: any, idx: number) => {
-                              const iconMap: Record<string, string> = {
-                                text: '✏️',
-                                sound: '🎵',
-                                visual: '🎬',
-                                cta: '👆'
-                              }
-                              const bgMap: Record<string, string> = {
-                                text: 'from-purple-500/20 to-pink-500/20',
-                                sound: 'from-yellow-500/20 to-orange-500/20',
-                                visual: 'from-green-500/20 to-sdhq-cyan-500/20',
-                                cta: 'from-red-500/20 to-pink-500/20'
-                              }
-                              return (
-                                <div key={idx} className={`relative overflow-hidden rounded-xl p-4 flex gap-3 items-center transition-all duration-300 hover:scale-[1.01] hover:shadow-lg ${
+                          <div className={`relative overflow-hidden rounded-xl p-3 ${
+                            darkMode 
+                              ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
+                              : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                          }`}>
+                            <h4 className={`text-[10px] font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                              Content Insights
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {(clipAnalysisResult.insights || []).map((insight: any, idx: number) => (
+                                <div key={idx} className={`rounded-lg p-3 transition-all duration-300 hover:scale-[1.02] ${
                                   darkMode 
-                                    ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
-                                    : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-300 shadow-sm'
+                                    ? 'bg-sdhq-dark-900 border border-sdhq-cyan-500/10' 
+                                    : 'bg-gray-50 border border-sdhq-cyan-200'
                                 }`}>
-                                  <div className={`absolute inset-0 bg-gradient-to-r ${bgMap[overlay.type] || 'from-gray-500/20 to-gray-600/20'} opacity-0 hover:opacity-100 transition-opacity`}></div>
-                                  <div className="relative">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 bg-gradient-to-br ${bgMap[overlay.type] || 'from-gray-500/20 to-gray-600/20'}`}>
+                                  <div className="relative flex items-start gap-2">
+                                    <span className="text-lg flex-shrink-0">{insight.icon || '📊'}</span>
+                                    <div className="flex-1 min-w-0">
+                                      <div className={`text-[10px] font-semibold uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                        {insight.label}
+                                      </div>
+                                      <div className={`text-xs font-medium mb-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                        {insight.value}
+                                      </div>
+                                      {insight.description && (
+                                        <div className={`text-[10px] ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                          {insight.description}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Recommendations - Horizontal Grid */}
+                        <div>
+                          <div className={`relative overflow-hidden rounded-xl p-3 ${
+                            darkMode 
+                              ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
+                              : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                          }`}>
+                            <h4 className={`text-[10px] font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                              Algorithm Recommendations
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {(clipAnalysisResult.recommendations || []).map((rec: any, idx: number) => (
+                                <div key={idx} className={`rounded-lg p-2 flex gap-2 items-start transition-all duration-300 hover:scale-[1.02] ${
+                                  darkMode 
+                                    ? 'bg-sdhq-dark-900 border border-sdhq-cyan-500/10' 
+                                    : 'bg-gray-50 border border-sdhq-cyan-200'
+                                }`}>
+                                  <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${
+                                    rec.priority === 'high' ? 'bg-red-400' :
+                                    rec.priority === 'med' ? 'bg-yellow-400' : 'bg-green-400'
+                                  }`}></div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className={`text-[10px] font-semibold uppercase mb-0.5 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                      {rec.category}
+                                    </div>
+                                    <div className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      {rec.text}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Overlays - Horizontal Grid */}
+                        <div>
+                          <div className={`relative overflow-hidden rounded-xl p-3 ${
+                            darkMode 
+                              ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
+                              : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                          }`}>
+                            <h4 className={`text-[10px] font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                              Overlay & Edit Suggestions
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {(clipAnalysisResult.overlays || []).map((overlay: any, idx: number) => {
+                                const iconMap: Record<string, string> = {
+                                  text: '✏️',
+                                  sound: '🎵',
+                                  visual: '🎬',
+                                  cta: '👆'
+                                }
+                                return (
+                                  <div key={idx} className={`rounded-lg p-2 flex gap-2 items-center transition-all duration-300 hover:scale-[1.02] ${
+                                    darkMode 
+                                      ? 'bg-sdhq-dark-900 border border-sdhq-cyan-500/10' 
+                                      : 'bg-gray-50 border border-sdhq-cyan-200'
+                                  }`}>
+                                    <div className="text-lg flex-shrink-0">
                                       {iconMap[overlay.type] || '✨'}
                                     </div>
-                                  </div>
-                                  <div className="relative flex-1">
-                                    <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                      {overlay.description}
+                                    <div className="flex-1 min-w-0">
+                                      <div className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        {overlay.description}
+                                      </div>
+                                      <div className={`text-[10px] font-mono mt-0.5 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                        {overlay.timing}
+                                      </div>
                                     </div>
-                                    <div className={`text-xs mt-1 font-mono ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                      {overlay.timing}
-                                    </div>
                                   </div>
-                                </div>
-                              )
-                            })}
+                                )
+                              })}
+                            </div>
                           </div>
                         </div>
 
-                        {/* Metadata */}
+                        {/* Metadata - Horizontal Grid */}
                         <div>
-                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                            Metadata Optimization
-                            <span className="flex-1 h-px bg-gradient-to-r from-sdhq-cyan-500/50 to-transparent"></span>
-                          </h4>
-                          <div className="space-y-3">
-                            <div className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg ${
-                              darkMode 
-                                ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
-                                : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-300 shadow-sm'
-                            }`}>
-                              <div className={`absolute inset-0 bg-gradient-to-r from-sdhq-cyan-500/5 to-sdhq-green-500/5 opacity-0 hover:opacity-100 transition-opacity`}></div>
-                              <div className="relative">
-                                <div className={`text-xs font-semibold tracking-wider uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                          <div className={`relative overflow-hidden rounded-xl p-3 ${
+                            darkMode 
+                              ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
+                              : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                          }`}>
+                            <h4 className={`text-[10px] font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                              Metadata Optimization
+                            </h4>
+                            <div className="space-y-2">
+                              <div className={`rounded-lg p-2 ${
+                                darkMode 
+                                  ? 'bg-sdhq-dark-900 border border-sdhq-cyan-500/10' 
+                                  : 'bg-gray-50 border border-sdhq-cyan-200'
+                              }`}>
+                                <div className={`text-[10px] font-semibold uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                   Optimized Title
                                 </div>
-                                <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                <div className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                   {clipAnalysisResult.title || '—'}
                                 </div>
                               </div>
-                            </div>
-                            <div className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg ${
-                              darkMode 
-                                ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
-                                : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-300 shadow-sm'
-                            }`}>
-                              <div className={`absolute inset-0 bg-gradient-to-r from-sdhq-cyan-500/5 to-sdhq-green-500/5 opacity-0 hover:opacity-100 transition-opacity`}></div>
-                              <div className="relative">
-                                <div className={`text-xs font-semibold tracking-wider uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                              <div className={`rounded-lg p-2 ${
+                                darkMode 
+                                  ? 'bg-sdhq-dark-900 border border-sdhq-cyan-500/10' 
+                                  : 'bg-gray-50 border border-sdhq-cyan-200'
+                              }`}>
+                                <div className={`text-[10px] font-semibold uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                   Optimized Description
                                 </div>
-                                <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                <div className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                   {clipAnalysisResult.description || '—'}
                                 </div>
                               </div>
-                            </div>
-                            <div className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg ${
-                              darkMode 
-                                ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
-                                : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-300 shadow-sm'
-                            }`}>
-                              <div className={`absolute inset-0 bg-gradient-to-r from-sdhq-cyan-500/5 to-sdhq-green-500/5 opacity-0 hover:opacity-100 transition-opacity`}></div>
-                              <div className="relative">
-                                <div className={`text-xs font-semibold tracking-wider uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                  Recommended Tags / Hashtags
+                              <div className={`rounded-lg p-2 ${
+                                darkMode 
+                                  ? 'bg-sdhq-dark-900 border border-sdhq-cyan-500/10' 
+                                  : 'bg-gray-50 border border-sdhq-cyan-200'
+                              }`}>
+                                <div className={`text-[10px] font-semibold uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                  Recommended Tags
                                 </div>
-                                <div className="flex flex-wrap gap-2 mt-2">
+                                <div className="flex flex-wrap gap-1.5 mt-1">
                                   {(clipAnalysisResult.tags || []).map((tag: string, idx: number) => (
-                                    <span key={idx} className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all duration-300 hover:scale-110 hover:shadow-md ${
+                                    <span key={idx} className={`px-2 py-0.5 rounded text-[10px] font-mono ${
                                       darkMode 
-                                        ? 'bg-gradient-to-br from-sdhq-dark-900 to-sdhq-dark-800 text-sdhq-cyan-400 border-sdhq-cyan-500/30' 
-                                        : 'bg-gradient-to-br from-gray-200 to-gray-100 text-sdhq-cyan-600 border-sdhq-cyan-300 shadow-sm'
-                                    } border`}>
+                                        ? 'bg-sdhq-dark-800 text-sdhq-cyan-400 border border-sdhq-cyan-500/20' 
+                                        : 'bg-gray-100 text-sdhq-cyan-600 border border-sdhq-cyan-300'
+                                    }`}>
                                       #{tag.replace(/^#/, '')}
                                     </span>
                                   ))}

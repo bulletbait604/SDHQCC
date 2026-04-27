@@ -146,10 +146,10 @@ Return this exact structure:
   "scoreTitle": "<short title for the score level>",
   "scoreSummary": "<2 sentence summary of discoverability strengths and gaps>",
   "insights": [
-    { "icon": "<emoji>", "label": "<category name>", "value": "<specific insight>" },
-    { "icon": "<emoji>", "label": "<category name>", "value": "<specific insight>" },
-    { "icon": "<emoji>", "label": "<category name>", "value": "<specific insight>" },
-    { "icon": "<emoji>", "label": "<category name>", "value": "<specific insight>" }
+    { "icon": "<emoji>", "label": "<category name>", "value": "<specific metric/value>", "description": "<detailed explanation of what this means for the video>" },
+    { "icon": "<emoji>", "label": "<category name>", "value": "<specific metric/value>", "description": "<detailed explanation of what this means for the video>" },
+    { "icon": "<emoji>", "label": "<category name>", "value": "<specific metric/value>", "description": "<detailed explanation of what this means for the video>" },
+    { "icon": "<emoji>", "label": "<category name>", "value": "<specific metric/value>", "description": "<detailed explanation of what this means for the video>" }
   ],
   "recommendations": [
     { "priority": "high", "category": "<category>", "text": "<actionable recommendation>" },
