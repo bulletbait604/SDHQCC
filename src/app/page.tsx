@@ -2496,15 +2496,15 @@ export default function HomePage() {
                     </div>
                   </div>
 
-{/* Lifetime Membership - Admin Only */}
+{/* Subscribers - Admin Only */}
 {isAdmin && (
   <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-300 shadow-md'}`}>
     <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-      <Crown className="w-5 h-5 mr-2 text-sdhq-green-500" />
-      Lifetime Membership
+      <CheckCircle className="w-5 h-5 mr-2 text-sdhq-green-500" />
+      {t.subscribers}
     </h4>
     
-    {/* Add Lifetime Member */}
+    {/* Add Subscriber */}
     <div className="flex space-x-2 mb-4">
       <input
         type="text"
@@ -2527,10 +2527,10 @@ export default function HomePage() {
       </Button>
     </div>
     
-    {/* Lifetime Members List */}
+    {/* Subscribers List */}
     <div className={`space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
       {subscribers.length === 0 ? (
-        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No lifetime members yet.</p>
+        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No subscribers yet.</p>
       ) : (
         subscribers.map((sub: Subscriber) => (
           <div 
@@ -2557,24 +2557,6 @@ export default function HomePage() {
     </div>
   </div>
 )}
-
-{/* Lifetime Membership Purchase - All Users */}
-<div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-300 shadow-md'}`}>
-  <div className="flex items-center mb-3">
-    <Crown className="w-6 h-6 text-sdhq-cyan-500 mr-2" />
-    <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Get Lifetime Access</h4>
-  </div>
-  <p className={`text-sm mb-4 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-    Want a lifetime membership? $54.99 CAD for lifetime use of all current and upcoming features.
-  </p>
-  <Button
-    onClick={() => setShowLifetimePopup(true)}
-    className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold"
-  >
-    <Crown className="w-4 h-4 mr-2" />
-    Get Lifetime Access
-  </Button>
-</div>
 
                   {/* Admin Management - Owner Only */}
                   {isOwner && (
