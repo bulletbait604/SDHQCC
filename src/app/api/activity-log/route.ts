@@ -1,8 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { kv } from '@vercel/kv'
+import { MongoClient, Db } from 'mongodb'
 
-// Activity log storage using Vercel KV (Redis) for persistence
-const LOGS_KEY = 'activity-logs'
+// MongoDB connection
+const MONGODB_URI = process.env.MONGODB_URI
+const DB_NAME = process.env.MONGODB_DB_NAME || 'sdhq-creator-corner'
+const COLLECTION_NAME = 'activity-logs'
+
+let client: MongoClient | null = null
+let db: Db | null = null
+
+async function getDb(): Promise<Db> {
+  if (!MONGODB_URI) {
+    throw new Error('MONGODB_URI environment variable is not set')
+  }
+
+  if (!client) {
+    client = new MongoClient(MONGODB_URI)
+    await client.connect()
+    db = client.db(DB_NAME)
+  }
+
+  return db!
+}
+
 const MAX_LOGS = 1000
 
 export async function GET(request: NextRequest) {
@@ -12,27 +32,26 @@ export async function GET(request: NextRequest) {
     const action = searchParams.get('action')
     const limit = parseInt(searchParams.get('limit') || '100')
 
-    // Fetch logs from Vercel KV
-    const logs = await kv.get(LOGS_KEY)
-    let activityLogs = Array.isArray(logs) ? logs : []
+    const database = await getDb()
+    const collection = database.collection(COLLECTION_NAME)
     
-    // Filter logs based on query parameters
-    let filteredLogs = [...activityLogs]
-    
+    // Build query
+    const query: any = {}
     if (username && username !== 'all') {
-      filteredLogs = filteredLogs.filter((log: any) => log.username === username)
+      query.username = username
     }
-    
     if (action && action !== 'all') {
-      filteredLogs = filteredLogs.filter((log: any) => log.action === action)
+      query.action = action
     }
     
-    // Return most recent logs first, limited by the limit parameter
-    filteredLogs = filteredLogs
-      .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, limit)
+    // Fetch logs, sorted by timestamp (newest first)
+    const logs = await collection
+      .find(query)
+      .sort({ timestamp: -1 })
+      .limit(limit)
+      .toArray()
 
-    return NextResponse.json({ logs: filteredLogs })
+    return NextResponse.json({ logs })
   } catch (error: any) {
     console.error('Error fetching activity logs:', error)
     return NextResponse.json({ error: error.message || 'Failed to fetch activity logs' }, { status: 500 })
@@ -58,22 +77,27 @@ export async function POST(request: NextRequest) {
       details: details || ''
     }
 
-    // Fetch existing logs
-    const logs = await kv.get(LOGS_KEY)
-    let activityLogs = Array.isArray(logs) ? logs : []
+    const database = await getDb()
+    const collection = database.collection(COLLECTION_NAME)
     
-    // Add new log
-    activityLogs.push(newLog)
-    console.log('Current activity logs count:', activityLogs.length)
+    // Insert new log
+    await collection.insertOne(newLog)
+    console.log('Successfully saved to MongoDB')
     
-    // Keep only last MAX_LOGS to prevent storage bloat
-    if (activityLogs.length > MAX_LOGS) {
-      activityLogs = activityLogs.slice(-MAX_LOGS)
+    // Get total count and trim if needed
+    const count = await collection.countDocuments()
+    if (count > MAX_LOGS) {
+      // Delete oldest logs to maintain MAX_LOGS limit
+      const logsToDelete = await collection
+        .find()
+        .sort({ timestamp: 1 })
+        .limit(count - MAX_LOGS)
+        .toArray()
+      
+      const idsToDelete = logsToDelete.map(log => log._id)
+      await collection.deleteMany({ _id: { $in: idsToDelete } })
+      console.log('Trimmed old logs, keeping only last', MAX_LOGS)
     }
-
-    // Save to Vercel KV
-    await kv.set(LOGS_KEY, activityLogs)
-    console.log('Successfully saved to Vercel KV')
 
     return NextResponse.json({ success: true, log: newLog })
   } catch (error: any) {
@@ -87,20 +111,16 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const username = searchParams.get('username')
 
-    // Fetch existing logs
-    const logs = await kv.get(LOGS_KEY)
-    let activityLogs = Array.isArray(logs) ? logs : []
+    const database = await getDb()
+    const collection = database.collection(COLLECTION_NAME)
 
     if (username) {
       // Delete logs for a specific user
-      activityLogs = activityLogs.filter((log: any) => log.username !== username)
+      await collection.deleteMany({ username })
     } else {
       // Clear all logs
-      activityLogs = []
+      await collection.deleteMany({})
     }
-
-    // Save to Vercel KV
-    await kv.set(LOGS_KEY, activityLogs)
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
