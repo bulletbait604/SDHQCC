@@ -261,6 +261,14 @@ export default function HomePage() {
   const [tagDatabaseStatus, setTagDatabaseStatus] = useState<{lastUpdated: string | null, totalTags: number}>({lastUpdated: null, totalTags: 0})
   const [tagRateLimit, setTagRateLimit] = useState<{remaining: number, resetTime: number | null}>({remaining: 5, resetTime: null})
   const [timeUntilReset, setTimeUntilReset] = useState<string>('')
+
+  // Clip Analyzer states
+  const [clipUrl, setClipUrl] = useState<string>('')
+  const [detectedPlatform, setDetectedPlatform] = useState<{name: string, color: string, emoji: string} | null>(null)
+  const [isAnalyzingClip, setIsAnalyzingClip] = useState<boolean>(false)
+  const [clipAnalysisResult, setClipAnalysisResult] = useState<any>(null)
+  const [clipError, setClipError] = useState<string>('')
+  const [loadingStep, setLoadingStep] = useState<string>('')
   const [platforms, setPlatforms] = useState<Platform[]>([
     {
       id: 'tiktok',
@@ -596,6 +604,91 @@ export default function HomePage() {
       setTimeUntilReset('')
     }
   }, [tagRateLimit.resetTime])
+
+  // Clip Analyzer functions
+  const detectPlatform = (url: string) => {
+    if (!url) return null
+    const lower = url.toLowerCase()
+    if (lower.includes('tiktok.com')) return { name: 'TikTok', color: '#ff4d8b', emoji: '🎵' }
+    if (lower.includes('instagram.com')) return { name: 'Instagram Reels', color: '#f7b733', emoji: '📸' }
+    if (lower.includes('facebook.com') || lower.includes('fb.watch')) return { name: 'Facebook Reels', color: '#4c8ef7', emoji: '👍' }
+    if (lower.includes('youtube.com') || lower.includes('youtu.be')) return { name: 'YouTube Shorts', color: '#ff6b6b', emoji: '▶️' }
+    return null
+  }
+
+  const handleClipUrlChange = (value: string) => {
+    setClipUrl(value)
+    const platform = detectPlatform(value)
+    setDetectedPlatform(platform)
+    setClipError('')
+  }
+
+  const handleAnalyzeClip = async () => {
+    if (!clipUrl.trim()) {
+      setClipError('Please enter a clip URL.')
+      return
+    }
+
+    const platform = detectPlatform(clipUrl)
+    if (!platform) {
+      setClipError('Unsupported platform. Paste a TikTok, Instagram Reels, Facebook Reels, or YouTube Shorts URL.')
+      return
+    }
+
+    setClipError('')
+    setIsAnalyzingClip(true)
+    setClipAnalysisResult(null)
+
+    const loadingSteps = [
+      'Fetching page metadata...',
+      'Detecting platform & content type...',
+      'Cross-referencing algorithm signals...',
+      'Analyzing engagement potential...',
+      'Generating optimization report...',
+    ]
+
+    let step = 0
+    const stepInterval = setInterval(() => {
+      if (step < loadingSteps.length) {
+        setLoadingStep(loadingSteps[step])
+        step++
+      }
+    }, 900)
+
+    try {
+      const res = await fetch('/api/clip-analyzer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: clipUrl,
+          platform: platform.name
+        })
+      })
+
+      clearInterval(stepInterval)
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || 'Analysis failed')
+      }
+
+      const data = await res.json()
+      setClipAnalysisResult(data)
+    } catch (error) {
+      clearInterval(stepInterval)
+      setClipError(error instanceof Error ? error.message : 'Analysis failed. Please try again.')
+    } finally {
+      setIsAnalyzingClip(false)
+      setLoadingStep('')
+    }
+  }
+
+  const handleResetClip = () => {
+    setClipUrl('')
+    setDetectedPlatform(null)
+    setClipAnalysisResult(null)
+    setClipError('')
+  }
 
   const handleLogin = async () => {
     try {
@@ -1767,7 +1860,270 @@ export default function HomePage() {
                   </div>
                   <p className={`${textClasses} text-sm`}>{t.clipAnalyzerDesc}</p>
                 </div>
-                <p className={`text-center ${subtitleClasses}`}>{t.premiumFeature} - {t.comingSoon}</p>
+
+                {/* Access Control */}
+                {!user ? (
+                  <div className="text-center py-12">
+                    <p className={`${subtitleClasses}`}>{t.premiumFeature} - Login required</p>
+                  </div>
+                ) : !(isOwner || isAdmin || isSubscribed || isLifetime) ? (
+                  <div className="text-center py-12">
+                    <p className={`${subtitleClasses}`}>{t.premiumFeature} - Subscribe to access</p>
+                    <Button onClick={handleVerifySubscription} className="sdhq-button mt-4">
+                      Subscribe Now
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Input Section */}
+                    <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-6`}>
+                      <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Clip URL
+                      </label>
+                      <div className="flex gap-3">
+                        <input
+                          type="text"
+                          value={clipUrl}
+                          onChange={(e) => handleClipUrlChange(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAnalyzeClip()}
+                          placeholder="https://www.tiktok.com/@user/video/..."
+                          className={`flex-1 px-4 py-3 rounded-lg text-sm font-mono outline-none transition-colors ${
+                            darkMode 
+                              ? 'bg-sdhq-dark-900 border-sdhq-dark-700 text-gray-300 placeholder-gray-600 focus:border-sdhq-cyan-500' 
+                              : 'bg-white border-gray-300 text-gray-800 placeholder-gray-400 focus:border-sdhq-cyan-300'
+                          } border`}
+                        />
+                        <Button
+                          onClick={handleAnalyzeClip}
+                          disabled={isAnalyzingClip}
+                          className="sdhq-button flex items-center gap-2"
+                        >
+                          <span>Analyze</span>
+                          <span>→</span>
+                        </Button>
+                      </div>
+                      {detectedPlatform && clipUrl.length > 10 && (
+                        <div className="flex items-center gap-2 mt-3 text-sm">
+                          <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Detected:</span>
+                          <span
+                            className="px-3 py-1 rounded-full text-xs font-semibold"
+                            style={{
+                              background: `${detectedPlatform.color}22`,
+                              color: detectedPlatform.color,
+                              border: `1px solid ${detectedPlatform.color}44`
+                            }}
+                          >
+                            {detectedPlatform.emoji} {detectedPlatform.name}
+                          </span>
+                        </div>
+                      )}
+                      {clipError && (
+                        <div className={`mt-3 px-4 py-3 rounded-lg text-sm ${
+                          darkMode ? 'bg-red-900/20 border-red-500/30 text-red-400' : 'bg-red-50 border-red-200 text-red-600'
+                        } border`}>
+                          {clipError}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Loading State */}
+                    {isAnalyzingClip && (
+                      <div className="text-center py-12">
+                        <div className="w-9 h-9 border-2 border-sdhq-dark-700 border-t-sdhq-cyan-500 rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className={`font-mono text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Analyzing your clip</p>
+                        <p className={`text-sm mt-2 min-h-5 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>{loadingStep}</p>
+                      </div>
+                    )}
+
+                    {/* Results Section */}
+                    {clipAnalysisResult && (
+                      <div className="space-y-6">
+                        {/* Score Card */}
+                        <div>
+                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Overall Score
+                            <span className="flex-1 h-px bg-gray-300"></span>
+                          </h4>
+                          <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-6 flex items-center gap-6`}>
+                            <div className="relative w-20 h-20 flex-shrink-0">
+                              <svg width="80" height="80" viewBox="0 0 80 80" className="transform -rotate-90">
+                                <circle cx="40" cy="40" r="32" fill="none" stroke={darkMode ? '#222230' : '#e5e7eb'} strokeWidth="6"/>
+                                <circle
+                                  cx="40" cy="40" r="32" fill="none"
+                                  stroke={
+                                    clipAnalysisResult.score >= 70 ? '#4af7a0' :
+                                    clipAnalysisResult.score >= 45 ? '#f7b733' : '#ff6b6b'
+                                  }
+                                  strokeWidth="6"
+                                  strokeDasharray="201"
+                                  strokeDashoffset={201 - (clipAnalysisResult.score / 100) * 201}
+                                  strokeLinecap="round"
+                                />
+                              </svg>
+                              <div className="absolute inset-0 flex flex-col items-center justify-center font-mono">
+                                <span className={`text-2xl font-bold ${
+                                  clipAnalysisResult.score >= 70 ? 'text-green-400' :
+                                  clipAnalysisResult.score >= 45 ? 'text-yellow-400' : 'text-red-400'
+                                }`}>
+                                  {clipAnalysisResult.score}
+                                </span>
+                                <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>/100</span>
+                              </div>
+                            </div>
+                            <div>
+                              <h3 className={`text-base font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                {clipAnalysisResult.scoreTitle || 'Discoverability Score'}
+                              </h3>
+                              <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                {clipAnalysisResult.scoreSummary || ''}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Content Insights */}
+                        <div>
+                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Content Insights
+                            <span className="flex-1 h-px bg-gray-300"></span>
+                          </h4>
+                          <div className="grid grid-cols-2 gap-3">
+                            {(clipAnalysisResult.insights || []).map((insight: any, idx: number) => (
+                              <div key={idx} className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-4`}>
+                                <span className="text-lg mb-2 block">{insight.icon || '📊'}</span>
+                                <div className={`text-xs font-semibold tracking-wider uppercase mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                  {insight.label}
+                                </div>
+                                <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                  {insight.value}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Recommendations */}
+                        <div>
+                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Algorithm Recommendations
+                            <span className="flex-1 h-px bg-gray-300"></span>
+                          </h4>
+                          <div className="space-y-2">
+                            {(clipAnalysisResult.recommendations || []).map((rec: any, idx: number) => (
+                              <div key={idx} className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-4 flex gap-3 items-start`}>
+                                <div className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 ${
+                                  rec.priority === 'high' ? 'bg-red-400' :
+                                  rec.priority === 'med' ? 'bg-yellow-400' : 'bg-green-400'
+                                }`}></div>
+                                <div>
+                                  <div className={`text-xs font-semibold tracking-wider uppercase mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                    {rec.category}
+                                  </div>
+                                  <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    {rec.text}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Overlays */}
+                        <div>
+                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Overlay & Edit Suggestions
+                            <span className="flex-1 h-px bg-gray-300"></span>
+                          </h4>
+                          <div className="space-y-2">
+                            {(clipAnalysisResult.overlays || []).map((overlay: any, idx: number) => {
+                              const iconMap: Record<string, string> = {
+                                text: '✏️',
+                                sound: '🎵',
+                                visual: '🎬',
+                                cta: '👆'
+                              }
+                              const bgMap: Record<string, string> = {
+                                text: 'bg-purple-500/20',
+                                sound: 'bg-yellow-500/20',
+                                visual: 'bg-green-500/20',
+                                cta: 'bg-red-500/20'
+                              }
+                              return (
+                                <div key={idx} className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-4 flex gap-3 items-center`}>
+                                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${bgMap[overlay.type] || 'bg-gray-500/20'}`}>
+                                    {iconMap[overlay.type] || '✨'}
+                                  </div>
+                                  <div>
+                                    <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      {overlay.description}
+                                    </div>
+                                    <div className={`text-xs mt-1 font-mono ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                      {overlay.timing}
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Metadata */}
+                        <div>
+                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Metadata Optimization
+                            <span className="flex-1 h-px bg-gray-300"></span>
+                          </h4>
+                          <div className="space-y-3">
+                            <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-4`}>
+                              <div className={`text-xs font-semibold tracking-wider uppercase mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                Optimized Title
+                              </div>
+                              <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                {clipAnalysisResult.title || '—'}
+                              </div>
+                            </div>
+                            <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-4`}>
+                              <div className={`text-xs font-semibold tracking-wider uppercase mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                Optimized Description
+                              </div>
+                              <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                {clipAnalysisResult.description || '—'}
+                              </div>
+                            </div>
+                            <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-4`}>
+                              <div className={`text-xs font-semibold tracking-wider uppercase mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                Recommended Tags / Hashtags
+                              </div>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {(clipAnalysisResult.tags || []).map((tag: string, idx: number) => (
+                                  <span key={idx} className={`px-3 py-1 rounded-md text-xs font-mono ${
+                                    darkMode 
+                                      ? 'bg-sdhq-dark-900 text-sdhq-cyan-400 border-sdhq-cyan-500/30' 
+                                      : 'bg-gray-200 text-sdhq-cyan-600 border-sdhq-cyan-300'
+                                  } border`}>
+                                    #{tag.replace(/^#/, '')}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Reset Button */}
+                        <button
+                          onClick={handleResetClip}
+                          className={`w-full py-3 px-4 rounded-lg text-sm font-medium transition-colors ${
+                            darkMode 
+                              ? 'border-sdhq-dark-700 text-gray-500 hover:border-sdhq-cyan-500 hover:text-sdhq-cyan-500' 
+                              : 'border-gray-300 text-gray-500 hover:border-sdhq-cyan-300 hover:text-sdhq-cyan-600'
+                          } border bg-transparent`}
+                        >
+                          ← Analyze another clip
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </TabsContent>
 
