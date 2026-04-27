@@ -317,6 +317,7 @@ export default function HomePage() {
   const isOwner = user ? OWNER_USERNAMES.includes(user.username) : false
   const isAdmin = user ? (isOwner || admins.some(admin => admin.username.toLowerCase() === user.username.toLowerCase())) : false
   const isSubscribed = user ? (isVerified || subscribers.some(sub => sub.username.toLowerCase() === user.username.toLowerCase())) : false
+  const isLifetimeMember = user ? (isLifetime || lifetimeMembers.some(member => member.username.toLowerCase() === user.username.toLowerCase())) : false
 
   useEffect(() => {
     setMounted(true)
@@ -733,7 +734,7 @@ export default function HomePage() {
     }, 900)
 
     try {
-      const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetime ? 'lifetime' : isSubscribed ? 'subscribed' : 'free'
+      const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetimeMember ? 'lifetime' : isSubscribed ? 'subscribed' : 'free'
       
       const res = await fetch('/api/clip-analyzer', {
         method: 'POST',
@@ -835,7 +836,7 @@ export default function HomePage() {
     }, 900)
 
     try {
-      const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetime ? 'lifetime' : isSubscribed ? 'subscribed' : 'free'
+      const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetimeMember ? 'lifetime' : isSubscribed ? 'subscribed' : 'free'
       
       const res = await fetch('/api/clip-analyzer/reanalyze', {
         method: 'POST',
@@ -1062,13 +1063,19 @@ export default function HomePage() {
         username: newSubscriberUsername.trim(),
         addedAt: new Date().toISOString()
       }
-      setSubscribers([...subscribers, newSubscriber])
+      const updatedSubscribers = [...subscribers, newSubscriber]
+      setSubscribers(updatedSubscribers)
       setNewSubscriberUsername('')
+      // Persist to localStorage
+      localStorage.setItem('sdhq-subscribers', JSON.stringify(updatedSubscribers))
     }
   }
 
   const handleRemoveSubscriber = (id: string) => {
-    setSubscribers(subscribers.filter(sub => sub.id !== id))
+    const updatedSubscribers = subscribers.filter(sub => sub.id !== id)
+    setSubscribers(updatedSubscribers)
+    // Persist to localStorage
+    localStorage.setItem('sdhq-subscribers', JSON.stringify(updatedSubscribers))
   }
 
   const handleAddLifetime = () => {
@@ -1078,13 +1085,19 @@ export default function HomePage() {
         username: newLifetimeUsername.trim(),
         addedAt: new Date().toISOString()
       }
-      setLifetimeMembers([...lifetimeMembers, newLifetimeMember])
+      const updatedLifetimeMembers = [...lifetimeMembers, newLifetimeMember]
+      setLifetimeMembers(updatedLifetimeMembers)
       setNewLifetimeUsername('')
+      // Persist to localStorage
+      localStorage.setItem('sdhq-lifetime-members', JSON.stringify(updatedLifetimeMembers))
     }
   }
 
   const handleRemoveLifetime = (id: string) => {
-    setLifetimeMembers(lifetimeMembers.filter(member => member.id !== id))
+    const updatedLifetimeMembers = lifetimeMembers.filter(member => member.id !== id)
+    setLifetimeMembers(updatedLifetimeMembers)
+    // Persist to localStorage
+    localStorage.setItem('sdhq-lifetime-members', JSON.stringify(updatedLifetimeMembers))
   }
 
   const handleAddAdmin = () => {
@@ -1094,13 +1107,19 @@ export default function HomePage() {
         username: newAdminUsername.trim(),
         addedAt: new Date().toISOString()
       }
-      setAdmins([...admins, newAdmin])
+      const updatedAdmins = [...admins, newAdmin]
+      setAdmins(updatedAdmins)
       setNewAdminUsername('')
+      // Persist to localStorage
+      localStorage.setItem('sdhq-admins', JSON.stringify(updatedAdmins))
     }
   }
 
   const handleRemoveAdmin = (id: string) => {
-    setAdmins(admins.filter(admin => admin.id !== id))
+    const updatedAdmins = admins.filter(admin => admin.id !== id)
+    setAdmins(updatedAdmins)
+    // Persist to localStorage
+    localStorage.setItem('sdhq-admins', JSON.stringify(updatedAdmins))
   }
 
   const handleResetTagUsages = async () => {
@@ -2152,7 +2171,7 @@ export default function HomePage() {
                   <div className="text-center py-12">
                     <p className={`${subtitleClasses}`}>{t.premiumFeature} - Login required</p>
                   </div>
-                ) : !(isOwner || isAdmin || isSubscribed || isLifetime) ? (
+                ) : !(isOwner || isAdmin || isSubscribed || isLifetimeMember) ? (
                   <div className="space-y-6">
                     {/* Blurred out content for free tier */}
                     <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-6 blur-sm select-none`}>
