@@ -1107,11 +1107,6 @@ export default function HomePage() {
         })
         
         if (response.ok) {
-          // Wait for MongoDB to complete the write
-          await new Promise(resolve => setTimeout(resolve, 2000))
-          // Refresh lists from backend to confirm
-          await fetchUserLists()
-          
           // Log to activity
           const logEntry: ActivityLogEntry = {
             id: Date.now().toString(),
@@ -1151,11 +1146,6 @@ export default function HomePage() {
       })
       
       if (response.ok) {
-        // Wait for MongoDB to complete the write
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        // Refresh lists from backend to confirm
-        await fetchUserLists()
-        
         // Log to activity
         const logEntry: ActivityLogEntry = {
           id: Date.now().toString(),
@@ -1201,11 +1191,6 @@ export default function HomePage() {
         })
         
         if (response.ok) {
-          // Wait for MongoDB to complete the write
-          await new Promise(resolve => setTimeout(resolve, 2000))
-          // Refresh lists from backend to confirm
-          await fetchUserLists()
-          
           // Log to activity
           const logEntry: ActivityLogEntry = {
             id: Date.now().toString(),
@@ -1245,11 +1230,6 @@ export default function HomePage() {
       })
       
       if (response.ok) {
-        // Wait for MongoDB to complete the write
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        // Refresh lists from backend to confirm
-        await fetchUserLists()
-        
         // Log to activity
         const logEntry: ActivityLogEntry = {
           id: Date.now().toString(),
@@ -1295,11 +1275,6 @@ export default function HomePage() {
         })
         
         if (response.ok) {
-          // Wait for MongoDB to complete the write
-          await new Promise(resolve => setTimeout(resolve, 2000))
-          // Refresh lists from backend to confirm
-          await fetchUserLists()
-          
           // Log to activity
           const logEntry: ActivityLogEntry = {
             id: Date.now().toString(),
@@ -1339,11 +1314,6 @@ export default function HomePage() {
       })
       
       if (response.ok) {
-        // Wait for MongoDB to complete the write
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        // Refresh lists from backend to confirm
-        await fetchUserLists()
-        
         // Log to activity
         const logEntry: ActivityLogEntry = {
           id: Date.now().toString(),
