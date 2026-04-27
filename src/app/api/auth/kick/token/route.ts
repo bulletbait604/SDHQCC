@@ -69,6 +69,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Log the login
+    if (user) {
+      console.log(`User login: ${user.username} (ID: ${user.id}) at ${new Date().toISOString()}`)
+    }
+
     return NextResponse.json({
       accessToken: accessToken,
       refreshToken: tokenData.refresh_token,

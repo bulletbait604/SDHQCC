@@ -542,11 +542,13 @@ export default function HomePage() {
   // Track user login
   useEffect(() => {
     if (user && typeof window !== 'undefined') {
+      const ip = 'IP-hidden' // In production, you'd get this from the backend
       const newEntry: ActivityLogEntry = {
         id: Date.now().toString(),
         username: user.username,
         timestamp: new Date().toISOString(),
-        action: 'login'
+        action: 'login',
+        details: `User logged in [${ip}]`
       }
       setActivityLog(prev => [newEntry, ...prev].slice(0, 100)) // Keep last 100 entries
     }
@@ -2475,16 +2477,34 @@ export default function HomePage() {
                   {/* Dark Mode Setting */}
                   <div className={`p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-dark-600' : 'bg-gray-50 border-sdhq-cyan-200 shadow-sm'}`}>
                     <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <Moon className="w-5 h-5 text-sdhq-cyan-500" />
+                        <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{darkMode ? t.darkMode : t.lightMode}</span>
+                      </div>
+                      <button
+                        onClick={() => setDarkMode(!darkMode)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          darkMode ? 'bg-sdhq-cyan-500' : 'bg-gray-300'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            darkMode ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
 
-{/* Subscribers Management - Admin Only */}
+{/* Lifetime Membership - Admin Only */}
 {isAdmin && (
   <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-300 shadow-md'}`}>
     <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
       <Crown className="w-5 h-5 mr-2 text-sdhq-green-500" />
-      {t.subscribers}
+      Lifetime Membership
     </h4>
     
-    {/* Add Subscriber */}
+    {/* Add Lifetime Member */}
     <div className="flex space-x-2 mb-4">
       <input
         type="text"
@@ -2494,7 +2514,7 @@ export default function HomePage() {
         className={`flex-1 px-3 py-2 rounded-md border ${
           darkMode 
             ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
-            : 'bg-white border-gray-300'
+            : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
         }`}
         onKeyPress={(e) => e.key === 'Enter' && handleAddSubscriber()}
       />
@@ -2507,10 +2527,10 @@ export default function HomePage() {
       </Button>
     </div>
     
-    {/* Subscribers List */}
+    {/* Lifetime Members List */}
     <div className={`space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
       {subscribers.length === 0 ? (
-        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No subscribers yet.</p>
+        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No lifetime members yet.</p>
       ) : (
         subscribers.map((sub: Subscriber) => (
           <div 
@@ -2537,20 +2557,24 @@ export default function HomePage() {
     </div>
   </div>
 )}
-                      <Crown className="w-6 h-6 text-sdhq-cyan-500" />
-                      <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Lifetime Membership</h4>
-                    </div>
-                    <p className={`text-sm mb-4 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Want a lifetime membership? $54.99 CAD for lifetime use of all current and upcoming features.
-                    </p>
-                    <Button
-                      onClick={() => setShowLifetimePopup(true)}
-                      className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold"
-                    >
-                      <Crown className="w-4 h-4 mr-2" />
-                      Get Lifetime Access
-                    </Button>
-                  </div>
+
+{/* Lifetime Membership Purchase - All Users */}
+<div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-300 shadow-md'}`}>
+  <div className="flex items-center mb-3">
+    <Crown className="w-6 h-6 text-sdhq-cyan-500 mr-2" />
+    <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Get Lifetime Access</h4>
+  </div>
+  <p className={`text-sm mb-4 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+    Want a lifetime membership? $54.99 CAD for lifetime use of all current and upcoming features.
+  </p>
+  <Button
+    onClick={() => setShowLifetimePopup(true)}
+    className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold"
+  >
+    <Crown className="w-4 h-4 mr-2" />
+    Get Lifetime Access
+  </Button>
+</div>
 
                   {/* Admin Management - Owner Only */}
                   {isOwner && (
