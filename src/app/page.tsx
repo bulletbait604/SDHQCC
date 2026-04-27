@@ -3080,7 +3080,7 @@ export default function HomePage() {
                             className={`w-full px-2 py-1.5 rounded text-base border ${
                               darkMode 
                                 ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
-                                : 'bg-white border-gray-300'
+                                : 'bg-white border-gray-300 text-gray-900'
                             }`}
                           >
                             <option value="all">All Events</option>
@@ -3102,7 +3102,7 @@ export default function HomePage() {
                             className={`w-full px-2 py-1.5 rounded text-base border ${
                               darkMode 
                                 ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
-                                : 'bg-white border-gray-300'
+                                : 'bg-white border-gray-300 text-gray-900'
                             }`}
                           >
                             <option value="all">All Users</option>
@@ -3119,7 +3119,7 @@ export default function HomePage() {
                             className={`w-full px-2 py-1.5 rounded text-base border ${
                               darkMode 
                                 ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
-                                : 'bg-white border-gray-300'
+                                : 'bg-white border-gray-300 text-gray-900'
                             }`}
                           >
                             <option value="all">All Time</option>
