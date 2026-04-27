@@ -269,6 +269,7 @@ export default function HomePage() {
   const [clipAnalysisResult, setClipAnalysisResult] = useState<any>(null)
   const [clipError, setClipError] = useState<string>('')
   const [loadingStep, setLoadingStep] = useState<string>('')
+  const [clipRateLimit, setClipRateLimit] = useState<{remaining: number, resetTime: number | null}>({remaining: 5, resetTime: null})
   const [platforms, setPlatforms] = useState<Platform[]>([
     {
       id: 'tiktok',
@@ -568,6 +569,22 @@ export default function HomePage() {
     }
   }, [isVerified, isLifetime, user, isOwner, admins])
 
+  // Update clip analyzer rate limit when verification status changes
+  useEffect(() => {
+    const hasUnlimited = isOwner || isLifetime || isAdmin
+    if (hasUnlimited) {
+      setClipRateLimit({ remaining: -1, resetTime: null })
+    } else if (isSubscribed) {
+      // Subscribers get 5 uses
+      if (clipRateLimit.remaining !== 5 && clipRateLimit.remaining !== -1) {
+        setClipRateLimit({ remaining: 5, resetTime: null })
+      }
+    } else {
+      // Free users get 0 uses
+      setClipRateLimit({ remaining: 0, resetTime: null })
+    }
+  }, [isOwner, isLifetime, isAdmin, isSubscribed])
+
   // Update countdown timer for rate limit reset
   useEffect(() => {
     if (tagRateLimit.resetTime) {
@@ -656,12 +673,15 @@ export default function HomePage() {
     }, 900)
 
     try {
+      const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetime ? 'lifetime' : isSubscribed ? 'subscribed' : 'free'
       const res = await fetch('/api/clip-analyzer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           url: clipUrl,
-          platform: platform.name
+          platform: platform.name,
+          userId: user?.id,
+          userType: userType
         })
       })
 
@@ -669,11 +689,26 @@ export default function HomePage() {
 
       if (!res.ok) {
         const errorData = await res.json()
+        if (res.status === 429) {
+          const resetDate = new Date(errorData.resetTime)
+          const maxUses = isSubscribed ? 5 : 0
+          const diff = resetDate.getTime() - Date.now()
+          const hours = Math.floor(diff / (1000 * 60 * 60))
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+          const timeString = hours > 0 
+            ? `${hours} hour${hours > 1 ? 's' : ''} and ${minutes} minute${minutes > 1 ? 's' : ''}`
+            : `${minutes} minute${minutes > 1 ? 's' : ''}`
+          setClipRateLimit({ remaining: 0, resetTime: errorData.resetTime })
+          throw new Error(`Rate limit exceeded. You have used your ${maxUses} clip analyses for the day.\n\nYou can analyze more clips in ${timeString}.\n\nResets at: ${resetDate.toLocaleString()}`)
+        }
         throw new Error(errorData.error || 'Analysis failed')
       }
 
       const data = await res.json()
       setClipAnalysisResult(data)
+      if (userType === 'subscribed') {
+        setClipRateLimit(prev => ({ ...prev, remaining: Math.max(0, prev.remaining - 1) }))
+      }
     } catch (error) {
       clearInterval(stepInterval)
       setClipError(error instanceof Error ? error.message : 'Analysis failed. Please try again.')
@@ -1867,11 +1902,37 @@ export default function HomePage() {
                     <p className={`${subtitleClasses}`}>{t.premiumFeature} - Login required</p>
                   </div>
                 ) : !(isOwner || isAdmin || isSubscribed || isLifetime) ? (
-                  <div className="text-center py-12">
-                    <p className={`${subtitleClasses}`}>{t.premiumFeature} - Subscribe to access</p>
-                    <Button onClick={handleVerifySubscription} className="sdhq-button mt-4">
-                      Subscribe Now
-                    </Button>
+                  <div className="space-y-6">
+                    {/* Blurred out content for free tier */}
+                    <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-6 blur-sm select-none`}>
+                      <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Clip URL
+                      </label>
+                      <div className="flex gap-3">
+                        <input
+                          type="text"
+                          value=""
+                          disabled
+                          placeholder="https://www.tiktok.com/@user/video/..."
+                          className={`flex-1 px-4 py-3 rounded-lg text-sm font-mono outline-none ${
+                            darkMode 
+                              ? 'bg-sdhq-dark-900 border-sdhq-dark-700 text-gray-300' 
+                              : 'bg-white border-gray-300 text-gray-800'
+                          } border`}
+                        />
+                        <Button disabled className="sdhq-button flex items-center gap-2 opacity-50">
+                          <span>Analyze</span>
+                          <span>→</span>
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="text-center py-12">
+                      <p className={`${subtitleClasses}`}>{t.premiumFeature} - Subscribe to access</p>
+                      <Button onClick={handleVerifySubscription} className="sdhq-button mt-4">
+                        Subscribe Now
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-6">
