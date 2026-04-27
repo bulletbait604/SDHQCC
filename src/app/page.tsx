@@ -232,11 +232,11 @@ const ROLE_HIERARCHY = {
 type Role = keyof typeof ROLE_HIERARCHY;
 
 const ROLE_CONFIG = {
-  owner: { badge: '👑 Owner', rank: 5, label: 'Owner' },
-  admin: { badge: '🛡 Admin', rank: 4, label: 'Admin' },
-  subscriber_lifetime: { badge: '💎 Lifetime', rank: 3, label: 'Lifetime Subscriber' },
-  subscriber: { badge: '⭐ Subscriber', rank: 2, label: 'Subscriber' },
-  free: { badge: '🙂 Free User', rank: 1, label: 'Free User' }
+  owner: { badge: '👑 Owner', rank: 5, label: 'Owner', badgeClass: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' },
+  admin: { badge: '🛡 Admin', rank: 4, label: 'Admin', badgeClass: 'bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black' },
+  subscriber_lifetime: { badge: '💎 Lifetime', rank: 3, label: 'Lifetime Subscriber', badgeClass: 'bg-gradient-to-r from-yellow-500 to-orange-500 text-black' },
+  subscriber: { badge: '⭐ Subscriber', rank: 2, label: 'Subscriber', badgeClass: 'bg-gradient-to-r from-sdhq-green-500 to-sdhq-cyan-500 text-black' },
+  free: { badge: '🙂 Free User', rank: 1, label: 'Free User', badgeClass: 'bg-gray-500 text-white' }
 } as const;
 
 export default function HomePage() {
@@ -1744,31 +1744,9 @@ export default function HomePage() {
                       <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                         {user.display_name}
                       </p>
-                      {isOwner && (
-                        <span className="px-2 py-0.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-bold rounded-full">
-                          Owner
-                        </span>
-                      )}
-                      {!isOwner && isLifetime && (
-                        <span className="px-2 py-0.5 bg-gradient-to-r from-yellow-500 to-orange-500 text-black text-sm font-bold rounded-full">
-                          Lifetime
-                        </span>
-                      )}
-                      {!isOwner && !isLifetime && isAdmin && (
-                        <span className="px-2 py-0.5 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black text-sm font-bold rounded-full">
-                          Admin
-                        </span>
-                      )}
-                      {!isOwner && !isLifetime && !isAdmin && isSubscribed && (
-                        <span className="px-2 py-0.5 bg-gradient-to-r from-sdhq-green-500 to-sdhq-cyan-500 text-black text-sm font-bold rounded-full">
-                          Subscribed
-                        </span>
-                      )}
-                      {!isOwner && !isLifetime && !isAdmin && !isSubscribed && (
-                        <span className="px-2 py-0.5 bg-gray-500 text-white text-sm font-bold rounded-full">
-                          Free User
-                        </span>
-                      )}
+                      <span className={`px-2 py-0.5 text-sm font-bold rounded-full ${ROLE_CONFIG[userRole]?.badgeClass || 'bg-gray-500 text-white'}`}>
+                        {ROLE_CONFIG[userRole]?.badge || '❓'} {ROLE_CONFIG[userRole]?.label || 'Free User'}
+                      </span>
                     </div>
                     <p className={`text-base ${subtitleClasses}`}>@{user.username}</p>
                   </div>
