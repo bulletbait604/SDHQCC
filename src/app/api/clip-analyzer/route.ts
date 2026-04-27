@@ -24,29 +24,15 @@ function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData()
-    const file = formData.get('file') as File
-    const thumbnail = formData.get('thumbnail') as string
-    const platform = formData.get('platform') as string
-    const userId = formData.get('userId') as string
-    const userType = formData.get('userType') as string
+    const body = await request.json()
+    const { url, platform, userId, userType } = body
 
-    if (!file) {
-      return NextResponse.json({ error: 'File is required' }, { status: 400 })
-    }
-
-    if (!thumbnail) {
-      return NextResponse.json({ error: 'Thumbnail is required' }, { status: 400 })
+    if (!url) {
+      return NextResponse.json({ error: 'URL is required' }, { status: 400 })
     }
 
     if (!platform) {
       return NextResponse.json({ error: 'Platform is required' }, { status: 400 })
-    }
-
-    // Check file size (limit to 150MB)
-    const maxSize = 150 * 1024 * 1024 // 150MB
-    if (file.size > maxSize) {
-      return NextResponse.json({ error: `File size exceeds ${maxSize / (1024 * 1024)}MB limit. Please upload a smaller video.` }, { status: 400 })
     }
 
     // Rate limiting
@@ -70,25 +56,87 @@ export async function POST(request: Request) {
       )
     }
 
-    const apiKey = process.env.RAPID_API_UNLIMITED_GPT
-    if (!apiKey) {
-      return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
+    const supadataApiKey = process.env.SUPADATA_API_KEY
+    if (!supadataApiKey) {
+      return NextResponse.json({ error: 'Supadata API key not configured' }, { status: 500 })
     }
 
-    const apiUrl = 'https://gemini-ai-all-models.p.rapidapi.com/v1/chat/completions'
+    const groqApiKey = process.env.GROQ_API_KEY
+    if (!groqApiKey) {
+      return NextResponse.json({ error: 'GROQ API key not configured' }, { status: 500 })
+    }
 
-    console.log('Using multi-frame grid for analysis, thumbnail length:', thumbnail.length, 'characters')
+    // Step 1: Extract video information using Supadata
+    console.log('Starting Supadata extraction for URL:', url)
+    const supadataResponse = await fetch('https://api.supadata.ai/v1/extract', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supadataApiKey}`
+      },
+      body: JSON.stringify({
+        url: url,
+        prompt: 'Extract comprehensive information about this video including: main topics, key points, visual elements, audio content, captions, engagement indicators, and any other relevant metadata. Provide a detailed summary of the content.'
+      })
+    })
 
-    const systemPrompt = `You are a social media algorithm expert and video content strategist. Analyze the provided video frame grid for ${platform} and return a comprehensive optimization report.
+    if (!supadataResponse.ok) {
+      const errorText = await supadataResponse.text()
+      console.error('Supadata error:', errorText)
+      throw new Error(`Supadata API error: ${supadataResponse.status} - ${errorText}`)
+    }
 
-The image contains 5 frames from different points in the video (0.1s, 0.25s, 0.5s, 0.75s, 1.0s). Examine all frames to understand:
-- Visual quality and appeal across the video
-- Hook strength in the opening frames
-- Text overlays and captions visible
-- Pacing and visual changes between frames
-- Overall production value
-- Engagement potential based on visual elements
-- How the content aligns with ${platform}'s specific algorithm priorities
+    const supadataJob = await supadataResponse.json()
+    console.log('Supadata job created:', supadataJob.jobId)
+
+    // Poll for Supadata results
+    let supadataResult = null
+    let attempts = 0
+    const maxAttempts = 30 // 30 attempts with 2 second delay = 60 seconds max
+
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2 seconds
+      
+      const resultResponse = await fetch(`https://api.supadata.ai/v1/extract/${supadataJob.jobId}`, {
+        headers: {
+          'Authorization': `Bearer ${supadataApiKey}`
+        }
+      })
+
+      if (resultResponse.ok) {
+        const resultData = await resultResponse.json()
+        if (resultData.status === 'completed') {
+          supadataResult = resultData.data
+          break
+        } else if (resultData.status === 'failed') {
+          throw new Error('Supadata extraction failed')
+        }
+      }
+      
+      attempts++
+    }
+
+    if (!supadataResult) {
+      throw new Error('Supadata extraction timed out')
+    }
+
+    console.log('Supadata extraction completed')
+
+    // Step 2: Use GROQ to analyze the extracted information and research algorithms
+    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${groqApiKey}`
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a social media algorithm expert and video content strategist. Analyze the provided video information and return a comprehensive optimization report for ${platform}.
+
+Research and apply deep knowledge of ${platform}'s current (2026) algorithm to give specific, actionable insights.
 
 IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside the JSON.
 
@@ -120,38 +168,22 @@ Return this exact structure:
   "description": "<optimized description with keywords and CTAs>",
   "tags": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8"]
 }`
+          },
+          {
+            role: 'user',
+            content: `Analyze this video information for maximum discoverability and engagement optimization on ${platform}.
 
-    const userPrompt = `Analyze this video frame grid (5 frames from different timestamps) for maximum discoverability and engagement optimization on ${platform}.
+Video Information from Supadata:
+${JSON.stringify(supadataResult, null, 2)}
 
 Focus on:
-1. Visual analysis across all frames - what elements are visible, colors, composition, text overlays, pacing, and visual changes
+1. Content analysis - topics, key points, visual elements, audio, captions
 2. ${platform}'s current (2026) algorithm priorities: completion rate, shares, comments, saves/bookmarks, early engagement signals, trending audio usage, hook strength in first 2 seconds, caption keyword density, hashtag strategy, optimal posting signals, and watch time patterns
-3. How the visual content and pacing aligns with ${platform}'s algorithm best practices
+3. How the content aligns with ${platform}'s algorithm best practices
 4. Specific recommendations for overlays, text overlays, audio choices, visual edits, and CTAs that work well on ${platform}
 5. Optimized title, description, and hashtag suggestions tailored for ${platform}
 
-Provide a realistic score based on the visual content across frames and ${platform}'s algorithm alignment.`
-
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 120000) // 120 second timeout for video processing
-
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-rapidapi-host': 'gemini-ai-all-models.p.rapidapi.com',
-        'x-rapidapi-key': apiKey
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: 'gemini-1.5-pro',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: `${systemPrompt}\n\n${userPrompt}` },
-              { type: 'image_url', image_url: { url: thumbnail } }
-            ]
+Provide a realistic score based on the content and ${platform}'s algorithm alignment.`
           }
         ],
         max_tokens: 2000,
@@ -159,40 +191,18 @@ Provide a realistic score based on the visual content across frames and ${platfo
       })
     })
 
-    clearTimeout(timeout)
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('API Error Response:', errorText)
-      throw new Error(`API error: ${response.status} - ${errorText}`)
+    if (!groqResponse.ok) {
+      const errorText = await groqResponse.text()
+      console.error('GROQ error:', errorText)
+      throw new Error(`GROQ API error: ${groqResponse.status} - ${errorText}`)
     }
 
-    const data = await response.json()
-    console.log('API Response:', JSON.stringify(data, null, 2))
+    const groqData = await groqResponse.json()
+    console.log('GROQ Response:', JSON.stringify(groqData, null, 2))
 
-    // Try different response structures (Gemini uses OpenAI-compatible format)
-    let content = data.choices?.[0]?.message?.content
+    const content = groqData.choices?.[0]?.message?.content
     if (!content) {
-      content = data.result
-    }
-    if (!content) {
-      content = data.content
-    }
-    if (!content) {
-      content = data.message
-    }
-    if (!content) {
-      content = data.text
-    }
-    if (!content) {
-      content = data.data?.content
-    }
-    if (!content) {
-      content = data.data?.message
-    }
-
-    if (!content) {
-      throw new Error('No content in API response. Response structure: ' + JSON.stringify(data))
+      throw new Error('No content in GROQ response')
     }
 
     // Parse JSON from response (handle markdown code blocks if present)

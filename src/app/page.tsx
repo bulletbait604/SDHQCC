@@ -263,14 +263,13 @@ export default function HomePage() {
   const [timeUntilReset, setTimeUntilReset] = useState<string>('')
 
   // Clip Analyzer states
-  const [clipFile, setClipFile] = useState<File | null>(null)
+  const [clipUrl, setClipUrl] = useState<string>('')
   const [clipPlatform, setClipPlatform] = useState<string>('tiktok')
   const [isAnalyzingClip, setIsAnalyzingClip] = useState<boolean>(false)
   const [clipAnalysisResult, setClipAnalysisResult] = useState<any>(null)
   const [clipError, setClipError] = useState<string>('')
   const [loadingStep, setLoadingStep] = useState<string>('')
   const [clipRateLimit, setClipRateLimit] = useState<{remaining: number, resetTime: number | null}>({remaining: 5, resetTime: null})
-  const [clipThumbnail, setClipThumbnail] = useState<string>('')
   const [platforms, setPlatforms] = useState<Platform[]>([
     {
       id: 'tiktok',
@@ -624,82 +623,9 @@ export default function HomePage() {
   }, [tagRateLimit.resetTime])
 
   // Clip Analyzer functions
-  const handleClipFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      if (file.size > 150 * 1024 * 1024) {
-        setClipError('File size exceeds 150MB limit.')
-        setClipFile(null)
-        setClipThumbnail('')
-        return
-      }
-      setClipFile(file)
-      setClipError('')
-      
-      // Generate multiple frames from video for better analysis
-      const video = document.createElement('video')
-      video.src = URL.createObjectURL(file)
-      video.muted = true
-      
-      const frames: string[] = []
-      const durations = [0.1, 0.25, 0.5, 0.75, 1.0] // Extract frames at different points
-      let currentIndex = 0
-      
-      const extractFrame = () => {
-        if (currentIndex >= durations.length) {
-          // Combine all frames into a single image (grid layout)
-          const canvas = document.createElement('canvas')
-          const cols = 3
-          const rows = 2
-          const frameWidth = 320
-          const frameHeight = 180
-          canvas.width = frameWidth * cols
-          canvas.height = frameHeight * rows
-          const ctx = canvas.getContext('2d')
-          
-          if (ctx) {
-            frames.forEach((frame, i) => {
-              const img = new Image()
-              img.onload = () => {
-                const col = i % cols
-                const row = Math.floor(i / cols)
-                ctx.drawImage(img, col * frameWidth, row * frameHeight, frameWidth, frameHeight)
-                
-                if (i === frames.length - 1) {
-                  setClipThumbnail(canvas.toDataURL('image/jpeg', 0.8))
-                }
-              }
-              img.src = frame
-            })
-          }
-          return
-        }
-        
-        video.currentTime = durations[currentIndex]
-      }
-      
-      video.onseeked = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = video.videoWidth
-        canvas.height = video.videoHeight
-        const ctx = canvas.getContext('2d')
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-          frames.push(canvas.toDataURL('image/jpeg', 0.7))
-          currentIndex++
-          extractFrame()
-        }
-      }
-      
-      video.onloadeddata = () => {
-        extractFrame()
-      }
-    }
-  }
-
   const handleAnalyzeClip = async () => {
-    if (!clipFile) {
-      setClipError('Please select a video file to analyze.')
+    if (!clipUrl) {
+      setClipError('Please enter a video URL to analyze.')
       return
     }
 
@@ -708,10 +634,10 @@ export default function HomePage() {
     setClipAnalysisResult(null)
 
     const loadingSteps = [
-      'Uploading video file...',
-      'Analyzing visual content...',
-      'Detecting platform algorithm patterns...',
-      'Cross-referencing algorithm signals...',
+      'Extracting video information...',
+      'Analyzing content with Supadata...',
+      'Researching platform algorithm...',
+      'Cross-referencing with algorithm...',
       'Generating optimization report...',
     ]
 
@@ -726,16 +652,17 @@ export default function HomePage() {
     try {
       const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetime ? 'lifetime' : isSubscribed ? 'subscribed' : 'free'
       
-      const formData = new FormData()
-      formData.append('file', clipFile)
-      formData.append('thumbnail', clipThumbnail)
-      formData.append('platform', clipPlatform)
-      formData.append('userId', user?.id || '')
-      formData.append('userType', userType)
-
       const res = await fetch('/api/clip-analyzer', {
         method: 'POST',
-        body: formData
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url: clipUrl,
+          platform: clipPlatform,
+          userId: user?.id || '',
+          userType: userType
+        })
       })
 
       clearInterval(stepInterval)
@@ -772,11 +699,10 @@ export default function HomePage() {
   }
 
   const handleResetClip = () => {
-    setClipFile(null)
+    setClipUrl('')
     setClipPlatform('tiktok')
     setClipAnalysisResult(null)
     setClipError('')
-    setClipThumbnail('')
   }
 
   const handleLogin = async () => {
@@ -1981,14 +1907,14 @@ export default function HomePage() {
                       </div>
 
                       <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Upload Video Clip (Max 150MB)
+                        Video URL
                       </label>
                       <div className="flex gap-3">
                         <input
-                          type="file"
-                          accept="video/*"
+                          type="text"
                           disabled
-                          className={`flex-1 px-4 py-3 rounded-lg text-sm outline-none ${
+                          placeholder="https://www.tiktok.com/@user/video/..."
+                          className={`flex-1 px-4 py-3 rounded-lg text-sm font-mono outline-none ${
                             darkMode 
                               ? 'bg-sdhq-dark-900 border-sdhq-dark-700 text-gray-300' 
                               : 'bg-white border-gray-300 text-gray-800'
@@ -2044,45 +1970,34 @@ export default function HomePage() {
                       </div>
 
                       <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Upload Video Clip (Max 150MB)
+                        Video URL
                       </label>
                       <div className="flex gap-3">
                         <input
-                          type="file"
-                          accept="video/*"
-                          onChange={handleClipFileChange}
-                          className={`flex-1 px-4 py-3 rounded-lg text-sm outline-none transition-colors ${
+                          type="text"
+                          value={clipUrl}
+                          onChange={(e) => setClipUrl(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAnalyzeClip()}
+                          placeholder="https://www.tiktok.com/@user/video/..."
+                          className={`flex-1 px-4 py-3 rounded-lg text-sm font-mono outline-none transition-colors ${
                             darkMode 
-                              ? 'bg-sdhq-dark-900 border-sdhq-dark-700 text-gray-300 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-sdhq-cyan-500 file:text-white hover:file:bg-sdhq-cyan-600' 
-                              : 'bg-white border-gray-300 text-gray-800 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-sdhq-cyan-500 file:text-white hover:file:bg-sdhq-cyan-600'
+                              ? 'bg-sdhq-dark-900 border-sdhq-dark-700 text-gray-300 placeholder-gray-600 focus:border-sdhq-cyan-500' 
+                              : 'bg-white border-gray-300 text-gray-800 placeholder-gray-400 focus:border-sdhq-cyan-300'
                           } border`}
                         />
                         <Button
                           onClick={handleAnalyzeClip}
-                          disabled={isAnalyzingClip || !clipFile}
+                          disabled={isAnalyzingClip || !clipUrl}
                           className="sdhq-button flex items-center gap-2"
                         >
                           <span>Analyze</span>
                           <span>→</span>
                         </Button>
                       </div>
-                      {clipFile && (
-                        <div className="mt-4 flex items-center gap-4">
-                          {clipThumbnail && (
-                            <img
-                              src={clipThumbnail}
-                              alt="Thumbnail"
-                              className="w-24 h-16 object-cover rounded-lg border-2 border-sdhq-cyan-500"
-                            />
-                          )}
-                          <div className="flex flex-col gap-1">
-                            <span className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              {clipFile.name}
-                            </span>
-                            <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                              {(clipFile.size / (1024 * 1024)).toFixed(2)} MB
-                            </span>
-                          </div>
+                      {clipUrl && (
+                        <div className="mt-3 text-sm">
+                          <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>URL:</span>
+                          <span className={`ml-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{clipUrl}</span>
                         </div>
                       )}
                       {clipError && (
