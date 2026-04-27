@@ -353,16 +353,28 @@ export default function HomePage() {
         console.log('User role response:', data)
         if (data.user && data.user.role) {
           setUserRole(data.user.role)
+          console.log('Set user role to:', data.user.role)
         } else {
-          // Default to 'free' if no role found
-          setUserRole('free')
-          console.log('No role found, defaulting to free')
+          // Default to 'free' if no role found, unless owner
+          if (isOwner) {
+            console.log('Owner detected, setting role to owner')
+            setUserRole('owner')
+            // Auto-create owner in database
+            handleUpdateRole(user.username, 'owner')
+          } else {
+            setUserRole('free')
+            console.log('No role found, defaulting to free')
+          }
         }
       }
     } catch (error) {
       console.error('Error fetching user role:', error)
-      // Default to 'free' on error
-      setUserRole('free')
+      // Default to 'free' on error, unless owner
+      if (isOwner) {
+        setUserRole('owner')
+      } else {
+        setUserRole('free')
+      }
     }
   }
 
@@ -404,6 +416,7 @@ export default function HomePage() {
       console.log('API response status:', response.status)
       const data = await response.json()
       console.log('API response data:', data)
+      console.log('Verified user role in DB:', data.verified?.role)
 
       if (response.ok) {
         // Refresh users list
