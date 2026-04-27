@@ -76,7 +76,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         url: url,
-        prompt: 'Extract comprehensive information about this video including: main topics, key points, visual elements, audio content, captions, engagement indicators, and any other relevant metadata. Provide a detailed summary of the content.'
+        prompt: 'Extract comprehensive information about this video including: main topics and themes, key points discussed, visual elements (people, objects, scenes, colors, text overlays, graphics), audio content (speech/transcript, music, sound effects, background audio), captions/subtitles, engagement indicators, pacing, editing style, hook strength, production quality, and any other relevant metadata. Provide a detailed summary of both visual and audio content to give full context for algorithm analysis.'
       })
     })
 
@@ -171,19 +171,19 @@ Return this exact structure:
           },
           {
             role: 'user',
-            content: `Analyze this video information for maximum discoverability and engagement optimization on ${platform}.
+            content: `Analyze this comprehensive video information for maximum discoverability and engagement optimization on ${platform}.
 
-Video Information from Supadata:
+Video Information from Supadata (includes both visual and audio analysis):
 ${JSON.stringify(supadataResult, null, 2)}
 
 Focus on:
-1. Content analysis - topics, key points, visual elements, audio, captions
+1. Content analysis - topics, key points, visual elements (people, objects, scenes, colors, text overlays), audio content (speech/transcript, music, sound effects), captions, pacing, editing style, hook strength, production quality
 2. ${platform}'s current (2026) algorithm priorities: completion rate, shares, comments, saves/bookmarks, early engagement signals, trending audio usage, hook strength in first 2 seconds, caption keyword density, hashtag strategy, optimal posting signals, and watch time patterns
-3. How the content aligns with ${platform}'s algorithm best practices
+3. How both the visual and audio content aligns with ${platform}'s algorithm best practices
 4. Specific recommendations for overlays, text overlays, audio choices, visual edits, and CTAs that work well on ${platform}
 5. Optimized title, description, and hashtag suggestions tailored for ${platform}
 
-Provide a realistic score based on the content and ${platform}'s algorithm alignment.`
+Provide a realistic score based on the comprehensive content analysis (visual + audio) and ${platform}'s algorithm alignment.`
           }
         ],
         max_tokens: 2000,
