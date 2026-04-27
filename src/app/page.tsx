@@ -65,7 +65,7 @@ interface ActivityLogEntry {
   id: string
   username: string
   timestamp: string
-  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh' | 'tag_generation' | 'clip_analysis' | 'clip_reanalysis'
+  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh' | 'tag_generation' | 'clip_analysis' | 'clip_reanalysis' | 'subscriber_added' | 'subscriber_removed' | 'lifetime_added' | 'lifetime_removed' | 'admin_added' | 'admin_removed'
   details?: string
 }
 
@@ -315,9 +315,16 @@ export default function HomePage() {
 
   const t = translations[language]
   const isOwner = user ? OWNER_USERNAMES.includes(user.username) : false
-  const isAdmin = user ? (isOwner || admins.some(admin => admin.username.toLowerCase() === user.username.toLowerCase())) : false
-  const isSubscribed = user ? (isVerified || subscribers.some(sub => sub.username.toLowerCase() === user.username.toLowerCase())) : false
-  const isLifetimeMember = user ? (isLifetime || lifetimeMembers.some(member => member.username.toLowerCase() === user.username.toLowerCase())) : false
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [isSubscribed, setIsSubscribed] = useState(false)
+  const [isLifetimeMember, setIsLifetimeMember] = useState(false)
+
+  // Recalculate roles when user or lists change
+  useEffect(() => {
+    setIsAdmin(user ? (isOwner || admins.some(admin => admin.username.toLowerCase() === user.username.toLowerCase())) : false)
+    setIsSubscribed(user ? (isVerified || subscribers.some(sub => sub.username.toLowerCase() === user.username.toLowerCase())) : false)
+    setIsLifetimeMember(user ? (isLifetime || lifetimeMembers.some(member => member.username.toLowerCase() === user.username.toLowerCase())) : false)
+  }, [user, isOwner, admins, subscribers, lifetimeMembers, isVerified, isLifetime])
 
   useEffect(() => {
     setMounted(true)
@@ -609,8 +616,7 @@ export default function HomePage() {
 
   // Update tag rate limit when verification status changes
   useEffect(() => {
-    const isAdmin = user && (isOwner || admins.some(admin => admin.username.toLowerCase() === user.username.toLowerCase()))
-    const hasUnlimited = isOwner || isLifetime
+    const hasUnlimited = isOwner || isLifetimeMember
     if (hasUnlimited) {
       setTagRateLimit({ remaining: -1, resetTime: null })
     } else if (isAdmin || isVerified) {
@@ -624,15 +630,14 @@ export default function HomePage() {
         setTagRateLimit({ remaining: 5, resetTime: null })
       }
     }
-  }, [isVerified, isLifetime, user, isOwner, admins])
+  }, [isVerified, isLifetimeMember, isAdmin, user, isOwner])
 
   // Update clip analyzer rate limit when verification status changes
   useEffect(() => {
-    const isAdmin = user && (isOwner || admins.some(admin => admin.username.toLowerCase() === user.username.toLowerCase()))
     const hasUnlimited = isOwner || isAdmin
     if (hasUnlimited) {
       setClipRateLimit({ remaining: -1, resetTime: null })
-    } else if (isLifetime) {
+    } else if (isLifetimeMember) {
       // Lifetime members get 7 uses
       if (clipRateLimit.remaining !== 7 && clipRateLimit.remaining !== -1) {
         setClipRateLimit({ remaining: 7, resetTime: null })
@@ -648,7 +653,7 @@ export default function HomePage() {
         setClipRateLimit({ remaining: 2, resetTime: null })
       }
     }
-  }, [isOwner, isLifetime, isAdmin, isSubscribed, user, admins])
+  }, [isOwner, isLifetimeMember, isAdmin, isSubscribed, user])
 
   // Update countdown timer for rate limit reset
   useEffect(() => {
@@ -1073,14 +1078,55 @@ export default function HomePage() {
       setNewSubscriberUsername('')
       // Persist to localStorage
       localStorage.setItem('sdhq-subscribers', JSON.stringify(updatedSubscribers))
+      
+      // Log to activity
+      const logEntry: ActivityLogEntry = {
+        id: Date.now().toString(),
+        username: user?.username || 'Unknown',
+        timestamp: new Date().toISOString(),
+        action: 'subscriber_added',
+        details: `Added ${newSubscriberUsername.trim()} to subscribers list`
+      }
+      setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
+      fetch('/api/activity-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: user?.username || 'Unknown',
+          action: 'subscriber_added',
+          details: `Added ${newSubscriberUsername.trim()} to subscribers list`
+        })
+      }).catch(error => console.error('Failed to log to backend:', error))
     }
   }
 
   const handleRemoveSubscriber = (id: string) => {
+    const subscriber = subscribers.find(sub => sub.id === id)
     const updatedSubscribers = subscribers.filter(sub => sub.id !== id)
     setSubscribers(updatedSubscribers)
     // Persist to localStorage
     localStorage.setItem('sdhq-subscribers', JSON.stringify(updatedSubscribers))
+    
+    // Log to activity
+    if (subscriber) {
+      const logEntry: ActivityLogEntry = {
+        id: Date.now().toString(),
+        username: user?.username || 'Unknown',
+        timestamp: new Date().toISOString(),
+        action: 'subscriber_removed',
+        details: `Removed ${subscriber.username} from subscribers list`
+      }
+      setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
+      fetch('/api/activity-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: user?.username || 'Unknown',
+          action: 'subscriber_removed',
+          details: `Removed ${subscriber.username} from subscribers list`
+        })
+      }).catch(error => console.error('Failed to log to backend:', error))
+    }
   }
 
   const handleAddLifetime = () => {
@@ -1095,14 +1141,55 @@ export default function HomePage() {
       setNewLifetimeUsername('')
       // Persist to localStorage
       localStorage.setItem('sdhq-lifetime-members', JSON.stringify(updatedLifetimeMembers))
+      
+      // Log to activity
+      const logEntry: ActivityLogEntry = {
+        id: Date.now().toString(),
+        username: user?.username || 'Unknown',
+        timestamp: new Date().toISOString(),
+        action: 'lifetime_added',
+        details: `Added ${newLifetimeUsername.trim()} to lifetime members list`
+      }
+      setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
+      fetch('/api/activity-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: user?.username || 'Unknown',
+          action: 'lifetime_added',
+          details: `Added ${newLifetimeUsername.trim()} to lifetime members list`
+        })
+      }).catch(error => console.error('Failed to log to backend:', error))
     }
   }
 
   const handleRemoveLifetime = (id: string) => {
+    const member = lifetimeMembers.find(m => m.id === id)
     const updatedLifetimeMembers = lifetimeMembers.filter(member => member.id !== id)
     setLifetimeMembers(updatedLifetimeMembers)
     // Persist to localStorage
     localStorage.setItem('sdhq-lifetime-members', JSON.stringify(updatedLifetimeMembers))
+    
+    // Log to activity
+    if (member) {
+      const logEntry: ActivityLogEntry = {
+        id: Date.now().toString(),
+        username: user?.username || 'Unknown',
+        timestamp: new Date().toISOString(),
+        action: 'lifetime_removed',
+        details: `Removed ${member.username} from lifetime members list`
+      }
+      setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
+      fetch('/api/activity-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: user?.username || 'Unknown',
+          action: 'lifetime_removed',
+          details: `Removed ${member.username} from lifetime members list`
+        })
+      }).catch(error => console.error('Failed to log to backend:', error))
+    }
   }
 
   const handleAddAdmin = () => {
@@ -1117,14 +1204,55 @@ export default function HomePage() {
       setNewAdminUsername('')
       // Persist to localStorage
       localStorage.setItem('sdhq-admins', JSON.stringify(updatedAdmins))
+      
+      // Log to activity
+      const logEntry: ActivityLogEntry = {
+        id: Date.now().toString(),
+        username: user?.username || 'Unknown',
+        timestamp: new Date().toISOString(),
+        action: 'admin_added',
+        details: `Added ${newAdminUsername.trim()} to admins list`
+      }
+      setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
+      fetch('/api/activity-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: user?.username || 'Unknown',
+          action: 'admin_added',
+          details: `Added ${newAdminUsername.trim()} to admins list`
+        })
+      }).catch(error => console.error('Failed to log to backend:', error))
     }
   }
 
   const handleRemoveAdmin = (id: string) => {
+    const admin = admins.find(a => a.id === id)
     const updatedAdmins = admins.filter(admin => admin.id !== id)
     setAdmins(updatedAdmins)
     // Persist to localStorage
     localStorage.setItem('sdhq-admins', JSON.stringify(updatedAdmins))
+    
+    // Log to activity
+    if (admin) {
+      const logEntry: ActivityLogEntry = {
+        id: Date.now().toString(),
+        username: user?.username || 'Unknown',
+        timestamp: new Date().toISOString(),
+        action: 'admin_removed',
+        details: `Removed ${admin.username} from admins list`
+      }
+      setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
+      fetch('/api/activity-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: user?.username || 'Unknown',
+          action: 'admin_removed',
+          details: `Removed ${admin.username} from admins list`
+        })
+      }).catch(error => console.error('Failed to log to backend:', error))
+    }
   }
 
   const handleResetTagUsages = async () => {
@@ -1433,7 +1561,7 @@ export default function HomePage() {
                         className="ml-2"
                       >
                         <Crown className="w-4 h-4 mr-1" />
-                        Lifetime ($54.99)
+                        Lifetime Pass
                       </Button>
                     </>
                   )}
@@ -2811,6 +2939,28 @@ export default function HomePage() {
                     </div>
                   </div>
 
+                  {/* Lifetime Pass - Non-admin, non-subscribed, non-lifetime users only */}
+                  {!isOwner && !isAdmin && !isSubscribed && !isLifetimeMember && (
+                    <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-200 shadow-sm'}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <Crown className="w-5 h-5 text-sdhq-cyan-500" />
+                          <div>
+                            <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>Lifetime Pass</span>
+                            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>One-time payment for lifetime access</p>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={handleLifetimeSubscription}
+                          className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
+                        >
+                          <Crown className="w-4 h-4 mr-1" />
+                          Get Lifetime Pass
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Activity Feed - Admin Only */}
                   {isAdmin && (
                     <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
@@ -3389,7 +3539,7 @@ export default function HomePage() {
                 <div className={`p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-dark-600' : 'bg-white border-gray-200'}`}>
                   <h4 className={`font-semibold mb-3 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                     <Crown className="w-4 h-4 mr-2 text-sdhq-cyan-500" />
-                    Upgrade to Lifetime
+                    Lifetime Pass
                   </h4>
                   <p className={`text-sm mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                     Get lifetime access to all premium features for a one-time payment of $54.99 CAD.
@@ -3399,7 +3549,7 @@ export default function HomePage() {
                     className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
                   >
                     <Crown className="w-4 h-4 mr-2" />
-                    Get Lifetime ($54.99)
+                    Get Lifetime Pass
                   </Button>
                 </div>
               )}
