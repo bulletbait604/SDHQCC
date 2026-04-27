@@ -134,62 +134,84 @@ export async function POST(request: Request) {
         messages: [
           {
             role: 'system',
-            content: `You are a social media algorithm expert and video content strategist. Analyze the provided video information and return a comprehensive optimization report for ${platform}.
+            content: `You are an expert social media algorithm analyst and content optimization specialist. Your task is to analyze video content and provide specific, actionable recommendations for ${platform}.
 
-Research and apply deep knowledge of ${platform}'s current (2026) algorithm to give specific, actionable insights.
+PLATFORM-SPECIFIC ALGORITHM PRIORITIES (2026):
+- TikTok: Hook in first 1-2 seconds, completion rate (watch to end), shares, saves, comments, trending audio usage, caption keywords, posting consistency, niche authority
+- Instagram Reels: First 3 seconds engagement, watch time, saves, shares, carousel swipe-through, music trending, hashtags, Reels tab exploration, consistency
+- YouTube Shorts: First 1 second hook, watch time, click-through rate, retention, comments, likes, shares, title optimization, posting schedule
+- Twitch Clips: Highlight moments, community engagement, game/category relevance, editing pace, audio clarity, discoverability through recommendations
+- Kick Clips: Early engagement, community interaction, category relevance, trending topics, audio quality, visual appeal, shareability
+
+SCORING CRITERIA (0-100):
+- Hook strength (first 1-3 seconds): 25 points
+- Content engagement potential: 20 points
+- Visual/audio quality: 15 points
+- Platform-specific optimization: 20 points
+- Metadata quality (title/description/tags): 20 points
 
 IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside the JSON.
 
 Return this exact structure:
 {
   "score": <integer 0-100>,
-  "scoreTitle": "<short title for the score level>",
-  "scoreSummary": "<2 sentence summary of discoverability strengths and gaps>",
+  "scoreTitle": "<short title: Excellent/Good/Fair/Needs Improvement>",
+  "scoreSummary": "<2 sentences: main strength + 1 key improvement needed>",
   "insights": [
-    { "icon": "<emoji>", "label": "<category name>", "value": "<specific metric/value>", "description": "<detailed explanation of what this means for the video>" },
-    { "icon": "<emoji>", "label": "<category name>", "value": "<specific metric/value>", "description": "<detailed explanation of what this means for the video>" },
-    { "icon": "<emoji>", "label": "<category name>", "value": "<specific metric/value>", "description": "<detailed explanation of what this means for the video>" },
-    { "icon": "<emoji>", "label": "<category name>", "value": "<specific metric/value>", "description": "<detailed explanation of what this means for the video>" }
+    { "icon": "<emoji>", "label": "Hook Strength", "value": "<rating: Strong/Moderate/Weak>", "description": "<why this rating + specific improvement>" },
+    { "icon": "<emoji>", "label": "Engagement Potential", "value": "<rating: High/Medium/Low>", "description": "<factors affecting engagement + specific boost>" },
+    { "icon": "<emoji>", "label": "Visual Quality", "value": "<rating: Professional/Good/Fair>", "description": "<production assessment + specific fix>" },
+    { "icon": "<emoji>", "label": "Audio Quality", "value": "<rating: Clear/Muffled/Unbalanced>", "description": "<sound assessment + specific fix>" }
   ],
   "recommendations": [
-    { "priority": "high", "category": "<category>", "text": "<actionable recommendation>" },
-    { "priority": "high", "category": "<category>", "text": "<actionable recommendation>" },
-    { "priority": "med",  "category": "<category>", "text": "<actionable recommendation>" },
-    { "priority": "med",  "category": "<category>", "text": "<actionable recommendation>" },
-    { "priority": "low",  "category": "<category>", "text": "<actionable recommendation>" }
+    { "priority": "high", "category": "Hook", "text": "<specific, actionable hook improvement>" },
+    { "priority": "high", "category": "Pacing", "text": "<specific pacing adjustment>" },
+    { "priority": "med",  "category": "Visual", "text": "<specific visual enhancement>" },
+    { "priority": "med",  "category": "Audio", "text": "<specific audio improvement>" },
+    { "priority": "low",  "category": "Metadata", "text": "<specific metadata optimization>" }
   ],
   "overlays": [
-    { "type": "text",   "description": "<text overlay to add>",           "timing": "<when in video, e.g. '0–2s hook'>"},
-    { "type": "sound",  "description": "<audio/music suggestion>",        "timing": "<when>" },
-    { "type": "visual", "description": "<visual effect or edit cut>",     "timing": "<when>" },
-    { "type": "cta",    "description": "<call-to-action overlay>",        "timing": "<when>" }
+    { "type": "text",   "description": "<specific text overlay suggestion>", "timing": "<exact timestamp>" },
+    { "type": "sound",  "description": "<specific audio/music suggestion>", "timing": "<exact timestamp>" },
+    { "type": "visual", "description": "<specific visual effect or edit>", "timing": "<exact timestamp>" },
+    { "type": "cta",    "description": "<specific call-to-action>", "timing": "<exact timestamp>" }
   ],
-  "title": "<optimized title with strong hook>",
-  "description": "<optimized description with keywords and CTAs>",
-  "tags": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8"]
-}`
+  "title": "<optimized title: 50-60 chars max, strong hook + keywords>",
+  "description": "<optimized description: 150-200 chars, keywords + CTA, platform-optimized>",
+  "tags": ["<8-10 specific, relevant hashtags for platform>"]
+}
+
+GUIDELINES:
+- Be specific and actionable in all recommendations
+- Use concrete examples (e.g., "Add text overlay at 0:02" not "Add text overlay")
+- Focus on platform-specific best practices
+- Ensure suggestions are practical and implementable
+- Keep descriptions concise but informative
+- Score realistically based on actual content quality`
           },
           {
             role: 'user',
-            content: `Analyze this comprehensive video information for maximum discoverability and engagement optimization on ${platform}.
+            content: `Analyze this video content for ${platform} optimization.
 
-Video Information from Supadata (includes both visual and audio analysis):
+Video Information:
 ${JSON.stringify(supadataResult, null, 2)}
 
-Focus on:
-1. Content analysis - topics, key points, visual elements (people, objects, scenes, colors, text overlays), audio content (speech/transcript, music, sound effects), captions, pacing, editing style, hook strength, production quality
-2. ${platform}'s current (2026) algorithm priorities: completion rate, shares, comments, saves/bookmarks, early engagement signals, trending audio usage, hook strength in first 2 seconds, caption keyword density, hashtag strategy, optimal posting signals, and watch time patterns
-3. How both the visual and audio content aligns with ${platform}'s algorithm best practices
-4. Specific recommendations for overlays, text overlays, audio choices, visual edits, and CTAs that work well on ${platform}
-5. Optimized title, description, and hashtag suggestions tailored for ${platform}
+ANALYSIS TASK:
+1. Evaluate the video against ${platform}'s specific algorithm priorities listed above
+2. Score each category (hook, engagement, quality, optimization, metadata) based on the criteria
+3. Provide specific, actionable improvements for each recommendation
+4. Suggest concrete overlay/edit ideas with exact timestamps
+5. Create platform-optimized metadata (title, description, tags)
 
-For the "insights" section, provide specific, measurable metrics and detailed explanations:
-- Hook Strength: Rate the first 3 seconds (e.g., "Strong - immediate visual hook with motion")
-- Engagement Potential: Based on content type and pacing (e.g., "High - fast-paced with dynamic cuts")
-- Visual Quality: Production quality assessment (e.g., "Professional - good lighting and framing")
-- Audio Quality: Sound and music assessment (e.g., "Clear - balanced levels with trending audio")
+REQUIREMENTS:
+- Score honestly based on actual content quality
+- Recommendations must be specific (e.g., "Add text 'Follow for more' at 0:03" not "Add text")
+- Focus on the most impactful improvements first (high priority)
+- Ensure metadata follows platform best practices (character limits, keyword placement)
+- Tags should be relevant, specific, and trending for the platform
+- All suggestions should be practical and immediately implementable
 
-Provide a realistic score based on the comprehensive content analysis (visual + audio) and ${platform}'s algorithm alignment.`
+Generate the analysis following the exact JSON structure provided.`
           }
         ],
         max_tokens: 2000,
