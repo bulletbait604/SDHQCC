@@ -61,7 +61,7 @@ export async function POST(request: Request) {
 
     const systemPrompt = `You are a social media algorithm expert and video content strategist. Analyze the video content at the provided URL on the specified platform and return a comprehensive optimization report.
 
-Fetch and analyze the actual video content, metadata, caption, engagement metrics, and visual/audio elements. Apply deep knowledge of ${platform}'s current (2024–2025) algorithm to give specific, actionable insights.
+Fetch and analyze the actual video content, metadata, caption, engagement metrics, and visual/audio elements. Apply deep knowledge of ${platform}'s current (2026) algorithm to give specific, actionable insights.
 
 IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside the JSON.
 
