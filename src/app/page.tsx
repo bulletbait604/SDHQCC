@@ -2358,6 +2358,113 @@ export default function HomePage() {
                           </div>
                         </div>
 
+                        {/* Metadata & Thumbnail - Under Score */}
+                        <div>
+                          <div className={`relative overflow-hidden rounded-xl p-3 ${
+                            darkMode 
+                              ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
+                              : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                          }`}>
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className={`text-[10px] font-semibold tracking-wider uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                Metadata & Thumbnail
+                              </h4>
+                              <div className={`text-lg font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                {Math.round((clipAnalysisResult.score || 0) * 0.2)}
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 justify-center">
+                              {/* Thumbnail */}
+                              <div className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
+                                darkMode 
+                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
+                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
+                              }`}>
+                                <div className="flex flex-col items-center text-center">
+                                  <span className="text-3xl mb-2">🖼️</span>
+                                  <div className={`text-sm font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                    Video Thumbnail
+                                  </div>
+                                  <div className={`w-full aspect-video rounded-lg overflow-hidden ${
+                                    darkMode ? 'bg-sdhq-dark-800' : 'bg-gray-200'
+                                  } flex items-center justify-center`}>
+                                    {clipUrl && (
+                                      <img 
+                                        src={clipUrl} 
+                                        alt="Video thumbnail" 
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          e.currentTarget.style.display = 'none'
+                                        }}
+                                      />
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              {/* Title Options */}
+                              <div className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
+                                darkMode 
+                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
+                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
+                              }`}>
+                                <div className="flex flex-col items-center text-center">
+                                  <span className="text-3xl mb-2">📝</span>
+                                  <div className={`text-sm font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                    Title Options
+                                  </div>
+                                  <div className={`text-sm leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    {(clipAnalysisResult.titles || [clipAnalysisResult.title]).map((title: string, idx: number) => (
+                                      <div key={idx} className="mb-1 last:mb-0">
+                                        {idx + 1}. {title}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                              {/* Description */}
+                              <div className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
+                                darkMode 
+                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
+                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
+                              }`}>
+                                <div className="flex flex-col items-center text-center">
+                                  <span className="text-3xl mb-2">📄</span>
+                                  <div className={`text-sm font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                    Description
+                                  </div>
+                                  <div className={`text-sm leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    {clipAnalysisResult.description || '—'}
+                                  </div>
+                                </div>
+                              </div>
+                              {/* Recommended Tags */}
+                              <div className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
+                                darkMode 
+                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
+                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
+                              }`}>
+                                <div className="flex flex-col items-center text-center">
+                                  <span className="text-3xl mb-2">#️⃣</span>
+                                  <div className={`text-sm font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                    Recommended Tags
+                                  </div>
+                                  <div className="flex flex-wrap justify-center gap-1">
+                                    {(clipAnalysisResult.tags || []).map((tag: string, idx: number) => (
+                                      <span key={idx} className={`px-2 py-1 rounded text-[10px] font-mono ${
+                                        darkMode 
+                                          ? 'bg-sdhq-dark-800 text-sdhq-cyan-400 border border-sdhq-cyan-500/20' 
+                                          : 'bg-gray-100 text-sdhq-cyan-600 border border-sdhq-cyan-300'
+                                      }`}>
+                                        #{tag.replace(/^#/, '')}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
                         {/* Content Insights - Tall Cards */}
                         <div>
                           <div className={`relative overflow-hidden rounded-xl p-3 ${
@@ -2373,7 +2480,7 @@ export default function HomePage() {
                                 {Math.round((clipAnalysisResult.score || 0) * 0.25)}
                               </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 justify-center">
                               {(clipAnalysisResult.insights || []).map((insight: any, idx: number) => (
                                 <div key={idx} className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
                                   darkMode 
@@ -2415,7 +2522,7 @@ export default function HomePage() {
                                 {Math.round((clipAnalysisResult.score || 0) * 0.2)}
                               </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 justify-center">
                               {(clipAnalysisResult.recommendations || []).map((rec: any, idx: number) => (
                                 <div key={idx} className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
                                   darkMode 
@@ -2455,7 +2562,7 @@ export default function HomePage() {
                                 {Math.round((clipAnalysisResult.score || 0) * 0.15)}
                               </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 justify-center">
                               {(clipAnalysisResult.overlays || []).map((overlay: any, idx: number) => {
                                 const iconMap: Record<string, string> = {
                                   text: '✏️',
@@ -2483,87 +2590,6 @@ export default function HomePage() {
                                   </div>
                                 )
                               })}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Metadata - Tall Cards */}
-                        <div>
-                          <div className={`relative overflow-hidden rounded-xl p-3 ${
-                            darkMode 
-                              ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
-                              : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
-                          }`}>
-                            <div className="flex items-center justify-between mb-3">
-                              <h4 className={`text-[10px] font-semibold tracking-wider uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                Metadata Optimization
-                              </h4>
-                              <div className={`text-lg font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                {Math.round((clipAnalysisResult.score || 0) * 0.2)}
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                              <div className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
-
-                                darkMode 
-                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
-                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
-                              }`}>
-                                <div className="flex flex-col items-center text-center">
-                                  <span className="text-3xl mb-2">📝</span>
-                                  <div className={`text-sm font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                    Title Options
-                                  </div>
-                                  <div className={`text-sm leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                    {(clipAnalysisResult.titles || [clipAnalysisResult.title]).map((title: string, idx: number) => (
-                                      <div key={idx} className="mb-1 last:mb-0">
-                                        {idx + 1}. {title}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
-
-                                darkMode 
-                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
-                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
-                              }`}>
-                                <div className="flex flex-col items-center text-center">
-                                  <span className="text-3xl mb-2">📄</span>
-                                  <div className={`text-sm font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                    Description
-                                  </div>
-                                  <div className={`text-sm leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                    {clipAnalysisResult.description || '—'}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
-
-                                darkMode 
-                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
-                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
-                              }`}>
-                                <div className="flex flex-col items-center text-center">
-                                  <span className="text-3xl mb-2">#️⃣</span>
-                                  <div className={`text-sm font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                    Recommended Tags
-                                  </div>
-                                  <div className="flex flex-wrap justify-center gap-1">
-                                    {(clipAnalysisResult.tags || []).map((tag: string, idx: number) => (
-                                      <span key={idx} className={`px-2 py-1 rounded text-[10px] font-mono ${
-
-                                        darkMode 
-                                          ? 'bg-sdhq-dark-800 text-sdhq-cyan-400 border border-sdhq-cyan-500/20' 
-                                          : 'bg-gray-100 text-sdhq-cyan-600 border border-sdhq-cyan-300'
-                                      }`}>
-                                        #{tag.replace(/^#/, '')}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
                             </div>
                           </div>
                         </div>
