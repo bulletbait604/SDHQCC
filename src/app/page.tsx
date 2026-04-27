@@ -351,25 +351,21 @@ export default function HomePage() {
       if (response.ok) {
         const data = await response.json()
         console.log('Fetched user lists from backend:', data)
-        // Update state with backend data (even if empty)
+        // Update state with backend data (even if empty) - MongoDB only
         if (data.subscribers !== undefined) {
           setSubscribers(data.subscribers || [])
-          localStorage.setItem('sdhq-subscribers', JSON.stringify(data.subscribers || []))
         }
         if (data.admins !== undefined) {
           setAdmins(data.admins || [])
-          localStorage.setItem('sdhq-admins', JSON.stringify(data.admins || []))
         }
         if (data.lifetimeMembers !== undefined) {
           setLifetimeMembers(data.lifetimeMembers || [])
-          localStorage.setItem('sdhq-lifetime-members', JSON.stringify(data.lifetimeMembers || []))
         }
       } else {
         console.error('Failed to fetch user lists:', response.status)
       }
     } catch (error) {
-      console.error('Error fetching user lists from backend:', error)
-      // If backend fails, continue with localStorage data
+      console.error('Error fetching user lists:', error)
     }
   }
 
@@ -381,8 +377,6 @@ export default function HomePage() {
       const storedUser = localStorage.getItem('kickUser')
       const storedLanguage = localStorage.getItem('sdhq-language') as Language
       const storedDarkMode = localStorage.getItem('sdhq-darkmode')
-      const storedSubscribers = localStorage.getItem('sdhq-subscribers')
-      const storedAdmins = localStorage.getItem('sdhq-admins')
       const storedVerified = localStorage.getItem('isVerified')
       const storedLifetime = localStorage.getItem('isLifetime')
       
@@ -411,33 +405,8 @@ export default function HomePage() {
         setDarkMode(storedDarkMode === 'true')
       }
       
-      if (storedSubscribers) {
-        try {
-          setSubscribers(JSON.parse(storedSubscribers))
-        } catch (error) {
-          console.error('Error loading subscribers:', error)
-        }
-      }
-
-      const storedLifetimeMembers = localStorage.getItem('sdhq-lifetime-members')
-      if (storedLifetimeMembers) {
-        try {
-          setLifetimeMembers(JSON.parse(storedLifetimeMembers))
-        } catch (error) {
-          console.error('Error loading lifetime members:', error)
-        }
-      }
-
-      if (storedAdmins) {
-        try {
-          setAdmins(JSON.parse(storedAdmins))
-        } catch (error) {
-          console.error('Error loading admins:', error)
-        }
-      }
+      // Role lists are now stored in MongoDB only, not localStorage
       
-      // Activity logs are now persisted server-side via backend API, no localStorage loading needed
-
       // Sync with backend (MongoDB) to get latest data
       fetchUserLists()
 
@@ -1116,207 +1085,198 @@ export default function HomePage() {
     }
   }
 
-  const handleAddSubscriber = () => {
+  const handleAddSubscriber = async () => {
     if (newSubscriberUsername.trim()) {
       // Strip @ prefix if present
       const username = newSubscriberUsername.trim().replace(/^@/, '')
-      const newSubscriber: Subscriber = {
-        id: Date.now().toString(),
-        username: username,
-        addedAt: new Date().toISOString()
-      }
-      const updatedSubscribers = [...subscribers, newSubscriber]
-      setSubscribers(updatedSubscribers)
-      setNewSubscriberUsername('')
-      // Persist to localStorage only - sync manually via button
-      localStorage.setItem('sdhq-subscribers', JSON.stringify(updatedSubscribers))
       
-      // Log to activity
-      const logEntry: ActivityLogEntry = {
-        id: Date.now().toString(),
-        username: user?.username || 'Unknown',
-        timestamp: new Date().toISOString(),
-        action: 'subscriber_added',
-        details: `Added ${username} to subscribers list (pending sync)`
+      try {
+        const response = await fetch('/api/subscribers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, action: 'add' })
+        })
+        
+        if (response.ok) {
+          setNewSubscriberUsername('')
+          // Refresh lists from backend
+          await fetchUserLists()
+          
+          // Log to activity
+          const logEntry: ActivityLogEntry = {
+            id: Date.now().toString(),
+            username: user?.username || 'Unknown',
+            timestamp: new Date().toISOString(),
+            action: 'subscriber_added',
+            details: `Added ${username} to subscribers list`
+          }
+          setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
+        }
+      } catch (error) {
+        console.error('Failed to add subscriber:', error)
+        alert('Failed to add subscriber. Please try again.')
       }
-      setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
     }
   }
 
-  const handleRemoveSubscriber = (id: string) => {
+  const handleRemoveSubscriber = async (id: string) => {
     const subscriber = subscribers.find(sub => sub.id === id)
-    const updatedSubscribers = subscribers.filter(sub => sub.id !== id)
-    setSubscribers(updatedSubscribers)
-    // Persist to localStorage only - sync manually via button
-    localStorage.setItem('sdhq-subscribers', JSON.stringify(updatedSubscribers))
+    if (!subscriber) return
     
-    // Log to activity
-    if (subscriber) {
-      const logEntry: ActivityLogEntry = {
-        id: Date.now().toString(),
-        username: user?.username || 'Unknown',
-        timestamp: new Date().toISOString(),
-        action: 'subscriber_removed',
-        details: `Removed ${subscriber.username} from subscribers list (pending sync)`
+    try {
+      const response = await fetch('/api/subscribers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: subscriber.username, action: 'remove' })
+      })
+      
+      if (response.ok) {
+        // Refresh lists from backend
+        await fetchUserLists()
+        
+        // Log to activity
+        const logEntry: ActivityLogEntry = {
+          id: Date.now().toString(),
+          username: user?.username || 'Unknown',
+          timestamp: new Date().toISOString(),
+          action: 'subscriber_removed',
+          details: `Removed ${subscriber.username} from subscribers list`
+        }
+        setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
       }
-      setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
+    } catch (error) {
+      console.error('Failed to remove subscriber:', error)
+      alert('Failed to remove subscriber. Please try again.')
     }
   }
 
-  const handleAddLifetime = () => {
+  const handleAddLifetime = async () => {
     if (newLifetimeUsername.trim()) {
       // Strip @ prefix if present
       const username = newLifetimeUsername.trim().replace(/^@/, '')
-      const newLifetimeMember: LifetimeMember = {
-        id: Date.now().toString(),
-        username: username,
-        addedAt: new Date().toISOString()
-      }
-      const updatedLifetimeMembers = [...lifetimeMembers, newLifetimeMember]
-      setLifetimeMembers(updatedLifetimeMembers)
-      setNewLifetimeUsername('')
-      // Persist to localStorage only - sync manually via button
-      localStorage.setItem('sdhq-lifetime-members', JSON.stringify(updatedLifetimeMembers))
       
-      // Log to activity
-      const logEntry: ActivityLogEntry = {
-        id: Date.now().toString(),
-        username: user?.username || 'Unknown',
-        timestamp: new Date().toISOString(),
-        action: 'lifetime_added',
-        details: `Added ${username} to lifetime members list (pending sync)`
+      try {
+        const response = await fetch('/api/lifetime', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, action: 'add' })
+        })
+        
+        if (response.ok) {
+          setNewLifetimeUsername('')
+          // Refresh lists from backend
+          await fetchUserLists()
+          
+          // Log to activity
+          const logEntry: ActivityLogEntry = {
+            id: Date.now().toString(),
+            username: user?.username || 'Unknown',
+            timestamp: new Date().toISOString(),
+            action: 'lifetime_added',
+            details: `Added ${username} to lifetime members list`
+          }
+          setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
+        }
+      } catch (error) {
+        console.error('Failed to add lifetime member:', error)
+        alert('Failed to add lifetime member. Please try again.')
       }
-      setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
     }
   }
 
-  const handleRemoveLifetime = (id: string) => {
+  const handleRemoveLifetime = async (id: string) => {
     const member = lifetimeMembers.find(m => m.id === id)
-    const updatedLifetimeMembers = lifetimeMembers.filter(member => member.id !== id)
-    setLifetimeMembers(updatedLifetimeMembers)
-    // Persist to localStorage only - sync manually via button
-    localStorage.setItem('sdhq-lifetime-members', JSON.stringify(updatedLifetimeMembers))
+    if (!member) return
     
-    // Log to activity
-    if (member) {
-      const logEntry: ActivityLogEntry = {
-        id: Date.now().toString(),
-        username: user?.username || 'Unknown',
-        timestamp: new Date().toISOString(),
-        action: 'lifetime_removed',
-        details: `Removed ${member.username} from lifetime members list (pending sync)`
+    try {
+      const response = await fetch('/api/lifetime', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: member.username, action: 'remove' })
+      })
+      
+      if (response.ok) {
+        // Refresh lists from backend
+        await fetchUserLists()
+        
+        // Log to activity
+        const logEntry: ActivityLogEntry = {
+          id: Date.now().toString(),
+          username: user?.username || 'Unknown',
+          timestamp: new Date().toISOString(),
+          action: 'lifetime_removed',
+          details: `Removed ${member.username} from lifetime members list`
+        }
+        setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
       }
-      setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
+    } catch (error) {
+      console.error('Failed to remove lifetime member:', error)
+      alert('Failed to remove lifetime member. Please try again.')
     }
   }
 
-  const handleAddAdmin = () => {
+  const handleAddAdmin = async () => {
     if (newAdminUsername.trim()) {
       // Strip @ prefix if present
       const username = newAdminUsername.trim().replace(/^@/, '')
-      const newAdmin: Admin = {
-        id: Date.now().toString(),
-        username: username,
-        addedAt: new Date().toISOString()
-      }
-      const updatedAdmins = [...admins, newAdmin]
-      setAdmins(updatedAdmins)
-      setNewAdminUsername('')
-      // Persist to localStorage only - sync manually via button
-      localStorage.setItem('sdhq-admins', JSON.stringify(updatedAdmins))
       
-      // Log to activity
-      const logEntry: ActivityLogEntry = {
-        id: Date.now().toString(),
-        username: user?.username || 'Unknown',
-        timestamp: new Date().toISOString(),
-        action: 'admin_added',
-        details: `Added ${username} to admins list (pending sync)`
+      try {
+        const response = await fetch('/api/admins', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, action: 'add' })
+        })
+        
+        if (response.ok) {
+          setNewAdminUsername('')
+          // Refresh lists from backend
+          await fetchUserLists()
+          
+          // Log to activity
+          const logEntry: ActivityLogEntry = {
+            id: Date.now().toString(),
+            username: user?.username || 'Unknown',
+            timestamp: new Date().toISOString(),
+            action: 'admin_added',
+            details: `Added ${username} to admins list`
+          }
+          setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
+        }
+      } catch (error) {
+        console.error('Failed to add admin:', error)
+        alert('Failed to add admin. Please try again.')
       }
-      setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
     }
   }
 
-  const handleRemoveAdmin = (id: string) => {
+  const handleRemoveAdmin = async (id: string) => {
     const admin = admins.find(a => a.id === id)
-    const updatedAdmins = admins.filter(admin => admin.id !== id)
-    setAdmins(updatedAdmins)
-    // Persist to localStorage only - sync manually via button
-    localStorage.setItem('sdhq-admins', JSON.stringify(updatedAdmins))
+    if (!admin) return
     
-    // Log to activity
-    if (admin) {
-      const logEntry: ActivityLogEntry = {
-        id: Date.now().toString(),
-        username: user?.username || 'Unknown',
-        timestamp: new Date().toISOString(),
-        action: 'admin_removed',
-        details: `Removed ${admin.username} from admins list (pending sync)`
-      }
-      setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
-    }
-  }
-
-  const handleSyncToBackend = async () => {
     try {
-      // First, clear all collections in MongoDB
-      await fetch('/api/subscribers', {
+      const response = await fetch('/api/admins', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'clear' })
+        body: JSON.stringify({ username: admin.username, action: 'remove' })
       })
       
-      await fetch('/api/admins', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'clear' })
-      })
-      
-      await fetch('/api/lifetime', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'clear' })
-      })
-      
-      // Then sync all current users from localStorage
-      for (const subscriber of subscribers) {
-        await fetch('/api/subscribers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: subscriber.username, action: 'add' })
-        })
+      if (response.ok) {
+        // Refresh lists from backend
+        await fetchUserLists()
+        
+        // Log to activity
+        const logEntry: ActivityLogEntry = {
+          id: Date.now().toString(),
+          username: user?.username || 'Unknown',
+          timestamp: new Date().toISOString(),
+          action: 'admin_removed',
+          details: `Removed ${admin.username} from admins list`
+        }
+        setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
       }
-      
-      for (const admin of admins) {
-        await fetch('/api/admins', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: admin.username, action: 'add' })
-        })
-      }
-      
-      for (const member of lifetimeMembers) {
-        await fetch('/api/lifetime', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: member.username, action: 'add' })
-        })
-      }
-      
-      // Log sync to activity
-      const logEntry: ActivityLogEntry = {
-        id: Date.now().toString(),
-        username: user?.username || 'Unknown',
-        timestamp: new Date().toISOString(),
-        action: 'sync_completed',
-        details: `Synced ${subscribers.length} subscribers, ${admins.length} admins, ${lifetimeMembers.length} lifetime members to backend`
-      }
-      setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
-      
-      alert('Sync completed successfully! Roles and badges will update for all users on their next refresh.')
     } catch (error) {
-      console.error('Sync failed:', error)
-      alert('Sync failed. Please try again.')
+      console.error('Failed to remove admin:', error)
+      alert('Failed to remove admin. Please try again.')
     }
   }
 
@@ -3190,21 +3150,10 @@ export default function HomePage() {
                   {/* Subscribers - Admin Only */}
                   {isAdmin && (
                     <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className={`font-semibold flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                          <Crown className="w-5 h-5 mr-2 text-sdhq-green-500" />
-                          {t.subscribers}
-                        </h4>
-                        <Button 
-                          onClick={handleSyncToBackend}
-                          variant="outline"
-                          size="sm"
-                          className="bg-gradient-to-r from-sdhq-cyan-500/10 to-sdhq-green-500/10 border-sdhq-cyan-500/50 hover:border-sdhq-cyan-500"
-                        >
-                          <RefreshCw className="w-4 h-4 mr-1" />
-                          Sync to Backend
-                        </Button>
-                      </div>
+                      <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <Crown className="w-5 h-5 mr-2 text-sdhq-green-500" />
+                        {t.subscribers}
+                      </h4>
                       
                       {/* Add Subscriber */}
                       <div className="flex space-x-2 mb-4">
