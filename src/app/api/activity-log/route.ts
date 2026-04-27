@@ -1,47 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readFile, writeFile, mkdir } from 'fs/promises'
-import { existsSync } from 'fs'
-import path from 'path'
 
-// File path for persistent storage
-const LOGS_FILE_PATH = path.join(process.cwd(), 'data', 'activity-logs.json')
-
-// Load logs from file on startup
+// In-memory storage for activity logs
 let activityLogs: any[] = []
 
-async function loadLogsFromFile() {
-  try {
-    if (existsSync(LOGS_FILE_PATH)) {
-      const data = await readFile(LOGS_FILE_PATH, 'utf-8')
-      activityLogs = JSON.parse(data)
-      console.log('Loaded activity logs from file:', activityLogs.length)
-    } else {
-      activityLogs = []
-      console.log('No existing logs file found, starting fresh')
-    }
-  } catch (error) {
-    console.error('Error loading logs from file:', error)
-    activityLogs = []
-  }
-}
+// File system operations (will fail gracefully in serverless environments)
+let saveLogsToFile: (() => Promise<void>) | null = null
 
-// Save logs to file
-async function saveLogsToFile() {
-  try {
-    // Ensure data directory exists
-    const dataDir = path.dirname(LOGS_FILE_PATH)
-    if (!existsSync(dataDir)) {
-      await mkdir(dataDir, { recursive: true })
-    }
-    await writeFile(LOGS_FILE_PATH, JSON.stringify(activityLogs, null, 2), 'utf-8')
-    console.log('Saved activity logs to file:', activityLogs.length)
-  } catch (error) {
-    console.error('Error saving logs to file:', error)
+try {
+  const fs = require('fs/promises')
+  const fsSync = require('fs')
+  const path = require('path')
+  
+  const LOGS_FILE_PATH = path.join(process.cwd(), 'data', 'activity-logs.json')
+  
+  // Load logs from file on startup
+  if (fsSync.existsSync(LOGS_FILE_PATH)) {
+    fs.readFile(LOGS_FILE_PATH, 'utf-8')
+      .then((data: string) => {
+        activityLogs = JSON.parse(data)
+        console.log('Loaded activity logs from file:', activityLogs.length)
+      })
+      .catch((error: Error) => {
+        console.error('Error loading logs from file:', error)
+      })
   }
+  
+  // Save logs to file function
+  saveLogsToFile = async () => {
+    try {
+      const dataDir = path.dirname(LOGS_FILE_PATH)
+      if (!fsSync.existsSync(dataDir)) {
+        await fs.mkdir(dataDir, { recursive: true })
+      }
+      await fs.writeFile(LOGS_FILE_PATH, JSON.stringify(activityLogs, null, 2), 'utf-8')
+      console.log('Saved activity logs to file:', activityLogs.length)
+    } catch (error) {
+      console.error('Error saving logs to file:', error)
+    }
+  }
+  
+  console.log('File system persistence enabled for activity logs')
+} catch (error) {
+  console.log('File system not available, using in-memory storage only')
 }
-
-// Load logs on startup
-loadLogsFromFile()
 
 export async function GET(request: NextRequest) {
   try {
@@ -78,6 +79,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { username, action, details } = body
 
+    console.log('Activity log received:', { username, action, details })
+
     if (!username || !action) {
       return NextResponse.json({ error: 'Username and action are required' }, { status: 400 })
     }
@@ -91,14 +94,24 @@ export async function POST(request: NextRequest) {
     }
 
     activityLogs.push(newLog)
+    console.log('Current activity logs count:', activityLogs.length)
     
     // Keep only last 1000 logs to prevent memory/file size issues
     if (activityLogs.length > 1000) {
       activityLogs = activityLogs.slice(-1000)
     }
 
-    // Save to file for persistence
-    await saveLogsToFile()
+    // Save to file for persistence if available
+    if (saveLogsToFile) {
+      try {
+        await saveLogsToFile()
+        console.log('Successfully saved to file')
+      } catch (error) {
+        console.error('Failed to save to file:', error)
+      }
+    } else {
+      console.log('File system not available, using in-memory storage only')
+    }
 
     return NextResponse.json({ success: true, log: newLog })
   } catch (error: any) {
@@ -120,8 +133,10 @@ export async function DELETE(request: NextRequest) {
       activityLogs = []
     }
 
-    // Save to file for persistence
-    await saveLogsToFile()
+    // Save to file for persistence if available
+    if (saveLogsToFile) {
+      await saveLogsToFile()
+    }
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
