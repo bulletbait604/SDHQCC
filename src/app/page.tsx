@@ -59,7 +59,7 @@ interface ActivityLogEntry {
   id: string
   username: string
   timestamp: string
-  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh' | 'tag_generation'
+  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh' | 'tag_generation' | 'clip_analysis' | 'clip_reanalysis'
   details?: string
 }
 
@@ -710,6 +710,19 @@ export default function HomePage() {
       setClipPlatform(detectedPlatform)
       setExtractedData(data.extractedData || null)
       setShowReanalysis(true)
+      
+      // Log clip analysis activity
+      if (user) {
+        const clipEntry: ActivityLogEntry = {
+          id: Date.now().toString(),
+          username: user.username,
+          timestamp: new Date().toISOString(),
+          action: 'clip_analysis',
+          details: `Analyzed video for ${platforms.find(p => p.id === detectedPlatform)?.name} (score: ${data.score})`
+        }
+        setActivityLog(prev => [clipEntry, ...prev].slice(0, 100))
+      }
+      
       if (userType === 'subscribed') {
         setClipRateLimit(prev => ({ ...prev, remaining: Math.max(0, prev.remaining - 1) }))
       }
@@ -774,6 +787,18 @@ export default function HomePage() {
       const data = await res.json()
       setClipAnalysisResult(data)
       setClipPlatform(newPlatform)
+      
+      // Log re-analysis activity
+      if (user) {
+        const reanalysisEntry: ActivityLogEntry = {
+          id: Date.now().toString(),
+          username: user.username,
+          timestamp: new Date().toISOString(),
+          action: 'clip_reanalysis',
+          details: `Re-analyzed video for ${platforms.find(p => p.id === newPlatform)?.name} (score: ${data.score})`
+        }
+        setActivityLog(prev => [reanalysisEntry, ...prev].slice(0, 100))
+      }
     } catch (error) {
       clearInterval(stepInterval)
       setClipError(error instanceof Error ? error.message : 'Re-analysis failed. Please try again.')
@@ -2024,53 +2049,75 @@ export default function HomePage() {
                 ) : (
                   <div className="space-y-6">
                     {/* Input Section */}
-                    <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-6`}>
-                      <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Video URL
-                      </label>
-                      <div className="flex gap-3">
-                        <input
-                          type="text"
-                          value={clipUrl}
-                          onChange={(e) => setClipUrl(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleAnalyzeClip()}
-                          placeholder="https://www.tiktok.com/@user/video/..."
-                          className={`flex-1 px-4 py-3 rounded-lg text-sm font-mono outline-none transition-colors ${
-                            darkMode 
-                              ? 'bg-sdhq-dark-900 border-sdhq-dark-700 text-gray-300 placeholder-gray-600 focus:border-sdhq-cyan-500' 
-                              : 'bg-white border-gray-300 text-gray-800 placeholder-gray-400 focus:border-sdhq-cyan-300'
-                          } border`}
-                        />
-                        <Button
-                          onClick={handleAnalyzeClip}
-                          disabled={isAnalyzingClip || !clipUrl}
-                          className="sdhq-button flex items-center gap-2"
-                        >
-                          <span>Analyze</span>
-                          <span>→</span>
-                        </Button>
+                    <div className={`relative overflow-hidden rounded-2xl p-6 ${
+                      darkMode 
+                        ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
+                        : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                    }`}>
+                      <div className={`absolute inset-0 bg-gradient-to-r from-sdhq-cyan-500/5 to-sdhq-green-500/5 animate-pulse`}></div>
+                      <div className="relative">
+                        <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                          Video URL
+                        </label>
+                        <div className="flex gap-3">
+                          <input
+                            type="text"
+                            value={clipUrl}
+                            onChange={(e) => setClipUrl(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAnalyzeClip()}
+                            placeholder="https://www.tiktok.com/@user/video/..."
+                            className={`flex-1 px-4 py-3 rounded-xl text-sm font-mono outline-none transition-all duration-300 ${
+                              darkMode 
+                                ? 'bg-sdhq-dark-900/80 border-sdhq-cyan-500/30 text-gray-300 placeholder-gray-600 focus:border-sdhq-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)]' 
+                                : 'bg-white/80 border-sdhq-cyan-300 text-gray-800 placeholder-gray-400 focus:border-sdhq-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.2)]'
+                            } border backdrop-blur-sm`}
+                          />
+                          <Button
+                            onClick={handleAnalyzeClip}
+                            disabled={isAnalyzingClip || !clipUrl}
+                            className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold px-6 rounded-xl hover:shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all duration-300 flex items-center gap-2"
+                          >
+                            <span>Analyze</span>
+                            <span>→</span>
+                          </Button>
+                        </div>
+                        {clipUrl && (
+                          <div className="mt-3 text-sm">
+                            <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>URL:</span>
+                            <span className={`ml-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>{clipUrl}</span>
+                          </div>
+                        )}
+                        {clipError && (
+                          <div className={`mt-3 px-4 py-3 rounded-xl text-sm animate-shake ${
+                            darkMode ? 'bg-red-900/30 border-red-500/50 text-red-400' : 'bg-red-50 border-red-300 text-red-600'
+                          } border`}>
+                            {clipError}
+                          </div>
+                        )}
                       </div>
-                      {clipUrl && (
-                        <div className="mt-3 text-sm">
-                          <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>URL:</span>
-                          <span className={`ml-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{clipUrl}</span>
-                        </div>
-                      )}
-                      {clipError && (
-                        <div className={`mt-3 px-4 py-3 rounded-lg text-sm ${
-                          darkMode ? 'bg-red-900/20 border-red-500/30 text-red-400' : 'bg-red-50 border-red-200 text-red-600'
-                        } border`}>
-                          {clipError}
-                        </div>
-                      )}
                     </div>
 
                     {/* Loading State */}
                     {isAnalyzingClip && (
-                      <div className="text-center py-12">
-                        <div className="w-9 h-9 border-2 border-sdhq-dark-700 border-t-sdhq-cyan-500 rounded-full animate-spin mx-auto mb-4"></div>
-                        <p className={`font-mono text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Analyzing your clip</p>
-                        <p className={`text-sm mt-2 min-h-5 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>{loadingStep}</p>
+                      <div className={`relative overflow-hidden rounded-2xl p-12 text-center ${
+                        darkMode 
+                          ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
+                          : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                      }`}>
+                        <div className={`absolute inset-0 bg-gradient-to-r from-sdhq-cyan-500/5 to-sdhq-green-500/5 animate-pulse`}></div>
+                        <div className="relative">
+                          <div className="relative w-16 h-16 mx-auto mb-6">
+                            <div className="absolute inset-0 rounded-full border-4 border-sdhq-cyan-500/20"></div>
+                            <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-sdhq-cyan-500 animate-spin"></div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <Video className="w-6 h-6 text-sdhq-cyan-500" />
+                            </div>
+                          </div>
+                          <p className={`font-mono text-xs uppercase tracking-widest mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                            Analyzing your clip
+                          </p>
+                          <p className={`text-sm min-h-5 font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{loadingStep}</p>
+                        </div>
                       </div>
                     )}
 
@@ -2079,41 +2126,61 @@ export default function HomePage() {
                       <div className="space-y-6">
                         {/* Score Card */}
                         <div>
-                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                             Overall Score
-                            <span className="flex-1 h-px bg-gray-300"></span>
+                            <span className="flex-1 h-px bg-gradient-to-r from-sdhq-cyan-500/50 to-transparent"></span>
                           </h4>
-                          <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-6 flex items-center gap-6`}>
-                            <div className="relative w-20 h-20 flex-shrink-0">
-                              <svg width="80" height="80" viewBox="0 0 80 80" className="transform -rotate-90">
-                                <circle cx="40" cy="40" r="32" fill="none" stroke={darkMode ? '#222230' : '#e5e7eb'} strokeWidth="6"/>
-                                <circle
-                                  cx="40" cy="40" r="32" fill="none"
-                                  stroke={
-                                    clipAnalysisResult.score >= 70 ? '#4af7a0' :
-                                    clipAnalysisResult.score >= 45 ? '#f7b733' : '#ff6b6b'
-                                  }
-                                  strokeWidth="6"
-                                  strokeDasharray="201"
-                                  strokeDashoffset={201 - (clipAnalysisResult.score / 100) * 201}
-                                  strokeLinecap="round"
-                                />
-                              </svg>
-                              <div className="absolute inset-0 flex flex-col items-center justify-center font-mono">
-                                <span className={`text-2xl font-bold ${
-                                  clipAnalysisResult.score >= 70 ? 'text-green-400' :
-                                  clipAnalysisResult.score >= 45 ? 'text-yellow-400' : 'text-red-400'
-                                }`}>
-                                  {clipAnalysisResult.score}
-                                </span>
-                                <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>/100</span>
+                          <div className={`relative overflow-hidden rounded-2xl p-6 flex items-center gap-6 ${
+                            darkMode 
+                              ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
+                              : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                          }`}>
+                            <div className={`absolute inset-0 bg-gradient-to-r ${
+                              clipAnalysisResult.score >= 70 
+                                ? 'from-green-500/10 to-sdhq-cyan-500/10' 
+                                : clipAnalysisResult.score >= 45 
+                                  ? 'from-yellow-500/10 to-orange-500/10' 
+                                  : 'from-red-500/10 to-pink-500/10'
+                            }`}></div>
+                            <div className="relative">
+                              <div className="relative w-24 h-24 flex-shrink-0">
+                                <svg width="96" height="96" viewBox="0 0 96 96" className="transform -rotate-90">
+                                  <circle cx="48" cy="48" r="40" fill="none" stroke={darkMode ? '#222230' : '#e5e7eb'} strokeWidth="8"/>
+                                  <circle
+                                    cx="48" cy="48" r="40" fill="none"
+                                    stroke={
+                                      clipAnalysisResult.score >= 70 ? '#4af7a0' :
+                                      clipAnalysisResult.score >= 45 ? '#f7b733' : '#ff6b6b'
+                                    }
+                                    strokeWidth="8"
+                                    strokeDasharray="251"
+                                    strokeDashoffset={251 - (clipAnalysisResult.score / 100) * 251}
+                                    strokeLinecap="round"
+                                    className={`filter drop-shadow-[0_0_10px_${
+                                      clipAnalysisResult.score >= 70 
+                                        ? 'rgba(74,247,160,0.5)' 
+                                        : clipAnalysisResult.score >= 45 
+                                          ? 'rgba(247,183,51,0.5)' 
+                                          : 'rgba(255,107,107,0.5)'
+                                    }]`}
+                                  />
+                                </svg>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center font-mono">
+                                  <span className={`text-3xl font-bold ${
+                                    clipAnalysisResult.score >= 70 ? 'text-green-400' :
+                                    clipAnalysisResult.score >= 45 ? 'text-yellow-400' : 'text-red-400'
+                                  }`}>
+                                    {clipAnalysisResult.score}
+                                  </span>
+                                  <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>/100</span>
+                                </div>
                               </div>
                             </div>
-                            <div>
-                              <h3 className={`text-base font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                            <div className="relative flex-1">
+                              <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                                 {clipAnalysisResult.scoreTitle || 'Discoverability Score'}
                               </h3>
-                              <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                              <p className={`text-sm mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                 {clipAnalysisResult.scoreSummary || ''}
                               </p>
                             </div>
@@ -2122,19 +2189,26 @@ export default function HomePage() {
 
                         {/* Content Insights */}
                         <div>
-                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                             Content Insights
-                            <span className="flex-1 h-px bg-gray-300"></span>
+                            <span className="flex-1 h-px bg-gradient-to-r from-sdhq-cyan-500/50 to-transparent"></span>
                           </h4>
                           <div className="grid grid-cols-2 gap-3">
                             {(clipAnalysisResult.insights || []).map((insight: any, idx: number) => (
-                              <div key={idx} className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-4`}>
-                                <span className="text-lg mb-2 block">{insight.icon || '📊'}</span>
-                                <div className={`text-xs font-semibold tracking-wider uppercase mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                  {insight.label}
-                                </div>
-                                <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                  {insight.value}
+                              <div key={idx} className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover:scale-105 hover:shadow-lg ${
+                                darkMode 
+                                  ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
+                                  : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                              }`}>
+                                <div className={`absolute inset-0 bg-gradient-to-r from-sdhq-cyan-500/5 to-sdhq-green-500/5 opacity-0 hover:opacity-100 transition-opacity`}></div>
+                                <div className="relative">
+                                  <span className="text-2xl mb-2 block">{insight.icon || '📊'}</span>
+                                  <div className={`text-xs font-semibold tracking-wider uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                    {insight.label}
+                                  </div>
+                                  <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    {insight.value}
+                                  </div>
                                 </div>
                               </div>
                             ))}
@@ -2143,19 +2217,32 @@ export default function HomePage() {
 
                         {/* Recommendations */}
                         <div>
-                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                             Algorithm Recommendations
-                            <span className="flex-1 h-px bg-gray-300"></span>
+                            <span className="flex-1 h-px bg-gradient-to-r from-sdhq-cyan-500/50 to-transparent"></span>
                           </h4>
                           <div className="space-y-2">
                             {(clipAnalysisResult.recommendations || []).map((rec: any, idx: number) => (
-                              <div key={idx} className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-4 flex gap-3 items-start`}>
-                                <div className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 ${
-                                  rec.priority === 'high' ? 'bg-red-400' :
-                                  rec.priority === 'med' ? 'bg-yellow-400' : 'bg-green-400'
-                                }`}></div>
-                                <div>
-                                  <div className={`text-xs font-semibold tracking-wider uppercase mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                              <div key={idx} className={`relative overflow-hidden rounded-xl p-4 flex gap-3 items-start transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
+                                darkMode 
+                                  ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
+                                  : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                              }`}>
+                                <div className={`absolute inset-0 bg-gradient-to-r ${
+                                  rec.priority === 'high' 
+                                    ? 'from-red-500/10 to-pink-500/10' 
+                                    : rec.priority === 'med' 
+                                      ? 'from-yellow-500/10 to-orange-500/10' 
+                                      : 'from-green-500/10 to-sdhq-cyan-500/10'
+                                } opacity-0 hover:opacity-100 transition-opacity`}></div>
+                                <div className="relative">
+                                  <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
+                                    rec.priority === 'high' ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.5)]' :
+                                    rec.priority === 'med' ? 'bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.5)]' : 'bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)]'
+                                  }`}></div>
+                                </div>
+                                <div className="relative flex-1">
+                                  <div className={`text-xs font-semibold tracking-wider uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                     {rec.category}
                                   </div>
                                   <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -2169,9 +2256,9 @@ export default function HomePage() {
 
                         {/* Overlays */}
                         <div>
-                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                             Overlay & Edit Suggestions
-                            <span className="flex-1 h-px bg-gray-300"></span>
+                            <span className="flex-1 h-px bg-gradient-to-r from-sdhq-cyan-500/50 to-transparent"></span>
                           </h4>
                           <div className="space-y-2">
                             {(clipAnalysisResult.overlays || []).map((overlay: any, idx: number) => {
@@ -2182,21 +2269,28 @@ export default function HomePage() {
                                 cta: '👆'
                               }
                               const bgMap: Record<string, string> = {
-                                text: 'bg-purple-500/20',
-                                sound: 'bg-yellow-500/20',
-                                visual: 'bg-green-500/20',
-                                cta: 'bg-red-500/20'
+                                text: 'from-purple-500/20 to-pink-500/20',
+                                sound: 'from-yellow-500/20 to-orange-500/20',
+                                visual: 'from-green-500/20 to-sdhq-cyan-500/20',
+                                cta: 'from-red-500/20 to-pink-500/20'
                               }
                               return (
-                                <div key={idx} className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-4 flex gap-3 items-center`}>
-                                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${bgMap[overlay.type] || 'bg-gray-500/20'}`}>
-                                    {iconMap[overlay.type] || '✨'}
+                                <div key={idx} className={`relative overflow-hidden rounded-xl p-4 flex gap-3 items-center transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
+                                  darkMode 
+                                    ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
+                                    : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                                }`}>
+                                  <div className={`absolute inset-0 bg-gradient-to-r ${bgMap[overlay.type] || 'from-gray-500/20 to-gray-600/20'} opacity-0 hover:opacity-100 transition-opacity`}></div>
+                                  <div className="relative">
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 bg-gradient-to-br ${bgMap[overlay.type] || 'from-gray-500/20 to-gray-600/20'}`}>
+                                      {iconMap[overlay.type] || '✨'}
+                                    </div>
                                   </div>
-                                  <div>
+                                  <div className="relative flex-1">
                                     <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                       {overlay.description}
                                     </div>
-                                    <div className={`text-xs mt-1 font-mono ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                    <div className={`text-xs mt-1 font-mono ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                       {overlay.timing}
                                     </div>
                                   </div>
@@ -2208,41 +2302,62 @@ export default function HomePage() {
 
                         {/* Metadata */}
                         <div>
-                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                             Metadata Optimization
-                            <span className="flex-1 h-px bg-gray-300"></span>
+                            <span className="flex-1 h-px bg-gradient-to-r from-sdhq-cyan-500/50 to-transparent"></span>
                           </h4>
                           <div className="space-y-3">
-                            <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-4`}>
-                              <div className={`text-xs font-semibold tracking-wider uppercase mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                Optimized Title
-                              </div>
-                              <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                {clipAnalysisResult.title || '—'}
+                            <div className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
+                              darkMode 
+                                ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
+                                : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                            }`}>
+                              <div className={`absolute inset-0 bg-gradient-to-r from-sdhq-cyan-500/5 to-sdhq-green-500/5 opacity-0 hover:opacity-100 transition-opacity`}></div>
+                              <div className="relative">
+                                <div className={`text-xs font-semibold tracking-wider uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                  Optimized Title
+                                </div>
+                                <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                  {clipAnalysisResult.title || '—'}
+                                </div>
                               </div>
                             </div>
-                            <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-4`}>
-                              <div className={`text-xs font-semibold tracking-wider uppercase mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                Optimized Description
-                              </div>
-                              <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                {clipAnalysisResult.description || '—'}
+                            <div className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
+                              darkMode 
+                                ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
+                                : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                            }`}>
+                              <div className={`absolute inset-0 bg-gradient-to-r from-sdhq-cyan-500/5 to-sdhq-green-500/5 opacity-0 hover:opacity-100 transition-opacity`}></div>
+                              <div className="relative">
+                                <div className={`text-xs font-semibold tracking-wider uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                  Optimized Description
+                                </div>
+                                <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                  {clipAnalysisResult.description || '—'}
+                                </div>
                               </div>
                             </div>
-                            <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-4`}>
-                              <div className={`text-xs font-semibold tracking-wider uppercase mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                Recommended Tags / Hashtags
-                              </div>
-                              <div className="flex flex-wrap gap-2 mt-2">
-                                {(clipAnalysisResult.tags || []).map((tag: string, idx: number) => (
-                                  <span key={idx} className={`px-3 py-1 rounded-md text-xs font-mono ${
-                                    darkMode 
-                                      ? 'bg-sdhq-dark-900 text-sdhq-cyan-400 border-sdhq-cyan-500/30' 
-                                      : 'bg-gray-200 text-sdhq-cyan-600 border-sdhq-cyan-300'
-                                  } border`}>
-                                    #{tag.replace(/^#/, '')}
-                                  </span>
-                                ))}
+                            <div className={`relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
+                              darkMode 
+                                ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
+                                : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                            }`}>
+                              <div className={`absolute inset-0 bg-gradient-to-r from-sdhq-cyan-500/5 to-sdhq-green-500/5 opacity-0 hover:opacity-100 transition-opacity`}></div>
+                              <div className="relative">
+                                <div className={`text-xs font-semibold tracking-wider uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                  Recommended Tags / Hashtags
+                                </div>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  {(clipAnalysisResult.tags || []).map((tag: string, idx: number) => (
+                                    <span key={idx} className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all duration-300 hover:scale-110 hover:shadow-md ${
+                                      darkMode 
+                                        ? 'bg-gradient-to-br from-sdhq-dark-900 to-sdhq-dark-800 text-sdhq-cyan-400 border-sdhq-cyan-500/30' 
+                                        : 'bg-gradient-to-br from-gray-200 to-gray-100 text-sdhq-cyan-600 border-sdhq-cyan-300'
+                                    } border`}>
+                                      #{tag.replace(/^#/, '')}
+                                    </span>
+                                  ))}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -2250,31 +2365,38 @@ export default function HomePage() {
 
                         {/* Re-analysis Section */}
                         {showReanalysis && (
-                          <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-6`}>
-                            <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                              Analyze for Different Platform
-                              <span className="flex-1 h-px bg-gray-300"></span>
-                            </h4>
-                            <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                              Currently optimized for: <span className="font-semibold">{platforms.find(p => p.id === clipPlatform)?.name}</span>
-                            </p>
-                            <div className="flex gap-3">
-                              <select
-                                onChange={(e) => e.target.value && handleReanalyzeClip(e.target.value)}
-                                disabled={isAnalyzingClip}
-                                className={`flex-1 px-4 py-3 rounded-lg text-sm outline-none transition-colors ${
-                                  darkMode 
-                                    ? 'bg-sdhq-dark-900 border-sdhq-dark-700 text-gray-300 focus:border-sdhq-cyan-500' 
-                                    : 'bg-white border-gray-300 text-gray-800 focus:border-sdhq-cyan-300'
-                                } border`}
-                              >
-                                <option value="">Select a platform to re-analyze...</option>
-                                {platforms.filter(p => p.id !== clipPlatform).map((platform) => (
-                                  <option key={platform.id} value={platform.id}>
-                                    {platform.name}
-                                  </option>
-                                ))}
-                              </select>
+                          <div className={`relative overflow-hidden rounded-2xl p-6 ${
+                            darkMode 
+                              ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
+                              : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                          }`}>
+                            <div className={`absolute inset-0 bg-gradient-to-r from-sdhq-cyan-500/5 to-sdhq-green-500/5 animate-pulse`}></div>
+                            <div className="relative">
+                              <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                Analyze for Different Platform
+                                <span className="flex-1 h-px bg-gradient-to-r from-sdhq-cyan-500/50 to-transparent"></span>
+                              </h4>
+                              <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                Currently optimized for: <span className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>{platforms.find(p => p.id === clipPlatform)?.name}</span>
+                              </p>
+                              <div className="flex gap-3">
+                                <select
+                                  onChange={(e) => e.target.value && handleReanalyzeClip(e.target.value)}
+                                  disabled={isAnalyzingClip}
+                                  className={`flex-1 px-4 py-3 rounded-xl text-sm outline-none transition-all duration-300 ${
+                                    darkMode 
+                                      ? 'bg-sdhq-dark-900/80 border-sdhq-cyan-500/30 text-gray-300 focus:border-sdhq-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)]' 
+                                      : 'bg-white/80 border-sdhq-cyan-300 text-gray-800 focus:border-sdhq-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.2)]'
+                                  } border backdrop-blur-sm`}
+                                >
+                                  <option value="">Select a platform to re-analyze...</option>
+                                  {platforms.filter(p => p.id !== clipPlatform).map((platform) => (
+                                    <option key={platform.id} value={platform.id}>
+                                      {platform.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
                             </div>
                           </div>
                         )}
@@ -2282,10 +2404,10 @@ export default function HomePage() {
                         {/* Reset Button */}
                         <button
                           onClick={handleResetClip}
-                          className={`w-full py-3 px-4 rounded-lg text-sm font-medium transition-colors ${
+                          className={`w-full py-4 px-6 rounded-2xl text-sm font-semibold transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
                             darkMode 
-                              ? 'border-sdhq-dark-700 text-gray-500 hover:border-sdhq-cyan-500 hover:text-sdhq-cyan-500' 
-                              : 'border-gray-300 text-gray-500 hover:border-sdhq-cyan-300 hover:text-sdhq-cyan-600'
+                              ? 'border-sdhq-cyan-500/30 text-sdhq-cyan-400 hover:bg-sdhq-cyan-500/10 hover:border-sdhq-cyan-500 hover:shadow-[0_0_30px_rgba(6,182,212,0.3)]' 
+                              : 'border-sdhq-cyan-300 text-sdhq-cyan-600 hover:bg-sdhq-cyan-50 hover:border-sdhq-cyan-500 hover:shadow-[0_0_30px_rgba(6,182,212,0.2)]'
                           } border bg-transparent`}
                         >
                           ← Analyze another clip
@@ -2333,7 +2455,7 @@ export default function HomePage() {
                         className={`px-3 py-2 rounded-md border ${
                           darkMode 
                             ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white' 
-                            : 'bg-white border-gray-300'
+                            : 'bg-white border-gray-300 text-gray-900'
                         }`}
                       >
                         <option value="en">English</option>
