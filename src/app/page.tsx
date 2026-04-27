@@ -264,12 +264,14 @@ export default function HomePage() {
 
   // Clip Analyzer states
   const [clipUrl, setClipUrl] = useState<string>('')
-  const [clipPlatform, setClipPlatform] = useState<string>('tiktok')
+  const [clipPlatform, setClipPlatform] = useState<string>('')
   const [isAnalyzingClip, setIsAnalyzingClip] = useState<boolean>(false)
   const [clipAnalysisResult, setClipAnalysisResult] = useState<any>(null)
   const [clipError, setClipError] = useState<string>('')
   const [loadingStep, setLoadingStep] = useState<string>('')
   const [clipRateLimit, setClipRateLimit] = useState<{remaining: number, resetTime: number | null}>({remaining: 5, resetTime: null})
+  const [extractedData, setExtractedData] = useState<any>(null)
+  const [showReanalysis, setShowReanalysis] = useState<boolean>(false)
   const [platforms, setPlatforms] = useState<Platform[]>([
     {
       id: 'tiktok',
@@ -623,15 +625,34 @@ export default function HomePage() {
   }, [tagRateLimit.resetTime])
 
   // Clip Analyzer functions
+  const detectPlatform = (url: string): string => {
+    if (url.includes('tiktok.com')) return 'tiktok'
+    if (url.includes('instagram.com')) return 'instagram'
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      return url.includes('/shorts/') ? 'youtube-shorts' : 'youtube-long'
+    }
+    if (url.includes('facebook.com') || url.includes('fb.watch')) return 'facebook-reels'
+    if (url.includes('twitter.com') || url.includes('x.com')) return 'twitter'
+    return 'unknown'
+  }
+
   const handleAnalyzeClip = async () => {
     if (!clipUrl) {
       setClipError('Please enter a video URL to analyze.')
       return
     }
 
+    const detectedPlatform = detectPlatform(clipUrl)
+    if (detectedPlatform === 'unknown') {
+      setClipError('Could not detect platform. Please enter a valid video URL from TikTok, Instagram, YouTube, Facebook, or Twitter.')
+      return
+    }
+
     setClipError('')
     setIsAnalyzingClip(true)
     setClipAnalysisResult(null)
+    setExtractedData(null)
+    setShowReanalysis(false)
 
     const loadingSteps = [
       'Extracting video information...',
@@ -659,7 +680,7 @@ export default function HomePage() {
         },
         body: JSON.stringify({
           url: clipUrl,
-          platform: clipPlatform,
+          platform: detectedPlatform,
           userId: user?.id || '',
           userType: userType
         })
@@ -686,6 +707,9 @@ export default function HomePage() {
 
       const data = await res.json()
       setClipAnalysisResult(data)
+      setClipPlatform(detectedPlatform)
+      setExtractedData(data.extractedData || null)
+      setShowReanalysis(true)
       if (userType === 'subscribed') {
         setClipRateLimit(prev => ({ ...prev, remaining: Math.max(0, prev.remaining - 1) }))
       }
@@ -698,11 +722,74 @@ export default function HomePage() {
     }
   }
 
+  const handleReanalyzeClip = async (newPlatform: string) => {
+    if (!extractedData) {
+      setClipError('No extracted data available for re-analysis.')
+      return
+    }
+
+    setClipError('')
+    setIsAnalyzingClip(true)
+    setClipAnalysisResult(null)
+
+    const loadingSteps = [
+      'Loading extracted data...',
+      'Researching new platform algorithm...',
+      'Cross-referencing with algorithm...',
+      'Generating optimization report...',
+    ]
+
+    let step = 0
+    const stepInterval = setInterval(() => {
+      if (step < loadingSteps.length) {
+        setLoadingStep(loadingSteps[step])
+        step++
+      }
+    }, 900)
+
+    try {
+      const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetime ? 'lifetime' : isSubscribed ? 'subscribed' : 'free'
+      
+      const res = await fetch('/api/clip-analyzer/reanalyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          extractedData: extractedData,
+          originalPlatform: clipPlatform,
+          newPlatform: newPlatform,
+          userId: user?.id || '',
+          userType: userType
+        })
+      })
+
+      clearInterval(stepInterval)
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || 'Re-analysis failed')
+      }
+
+      const data = await res.json()
+      setClipAnalysisResult(data)
+      setClipPlatform(newPlatform)
+    } catch (error) {
+      clearInterval(stepInterval)
+      setClipError(error instanceof Error ? error.message : 'Re-analysis failed. Please try again.')
+    } finally {
+      setIsAnalyzingClip(false)
+      setLoadingStep('')
+    }
+  }
+
   const handleResetClip = () => {
     setClipUrl('')
-    setClipPlatform('tiktok')
+    setClipPlatform('')
     setClipAnalysisResult(null)
     setClipError('')
+    setExtractedData(null)
+    setShowReanalysis(false)
   }
 
   const handleLogin = async () => {
@@ -1939,37 +2026,6 @@ export default function HomePage() {
                     {/* Input Section */}
                     <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-6`}>
                       <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Target Platform
-                      </label>
-                      <div className="grid grid-cols-5 gap-3 mb-6">
-                        {platforms.map((platform) => (
-                          <button
-                            key={platform.id}
-                            onClick={() => setClipPlatform(platform.id)}
-                            className={`relative rounded-xl p-4 transition-all ${
-                              clipPlatform === platform.id
-                                ? 'ring-2 ring-sdhq-cyan-500'
-                                : 'opacity-70 hover:opacity-100'
-                            } ${darkMode ? 'bg-sdhq-dark-900' : 'bg-white'}`}
-                          >
-                            <img
-                              src={platform.image}
-                              alt={platform.name}
-                              className="w-12 h-12 mx-auto mb-2 rounded-lg object-cover"
-                            />
-                            <span className={`text-xs font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              {platform.name}
-                            </span>
-                            {clipPlatform === platform.id && (
-                              <div className="absolute top-2 right-2 w-4 h-4 bg-sdhq-cyan-500 rounded-full flex items-center justify-center">
-                                <span className="text-white text-xs">✓</span>
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-
-                      <label className={`block text-xs font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Video URL
                       </label>
                       <div className="flex gap-3">
@@ -2192,6 +2248,37 @@ export default function HomePage() {
                           </div>
                         </div>
 
+                        {/* Re-analysis Section */}
+                        {showReanalysis && (
+                          <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-6`}>
+                            <h4 className={`text-xs font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                              Analyze for Different Platform
+                              <span className="flex-1 h-px bg-gray-300"></span>
+                            </h4>
+                            <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                              Currently optimized for: <span className="font-semibold">{platforms.find(p => p.id === clipPlatform)?.name}</span>
+                            </p>
+                            <div className="flex gap-3">
+                              <select
+                                onChange={(e) => e.target.value && handleReanalyzeClip(e.target.value)}
+                                disabled={isAnalyzingClip}
+                                className={`flex-1 px-4 py-3 rounded-lg text-sm outline-none transition-colors ${
+                                  darkMode 
+                                    ? 'bg-sdhq-dark-900 border-sdhq-dark-700 text-gray-300 focus:border-sdhq-cyan-500' 
+                                    : 'bg-white border-gray-300 text-gray-800 focus:border-sdhq-cyan-300'
+                                } border`}
+                              >
+                                <option value="">Select a platform to re-analyze...</option>
+                                {platforms.filter(p => p.id !== clipPlatform).map((platform) => (
+                                  <option key={platform.id} value={platform.id}>
+                                    {platform.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Reset Button */}
                         <button
                           onClick={handleResetClip}
@@ -2260,26 +2347,68 @@ export default function HomePage() {
                   {/* Dark Mode Setting */}
                   <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-50'}`}>
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        {darkMode ? <Sun className="w-5 h-5 text-sdhq-green-400" /> : <Moon className="w-5 h-5 text-sdhq-cyan-500" />}
-                        <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                          {darkMode ? t.darkMode : t.lightMode}
-                        </span>
-                      </div>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={toggleDarkMode}
-                        className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
-                      >
-                        {darkMode ? t.lightMode : t.darkMode}
-                      </Button>
-                    </div>
-                  </div>
 
-                  {/* Lifetime Membership - All Users */}
-                  <div className={`p-6 rounded-lg border-2 ${darkMode ? 'bg-gradient-to-br from-sdhq-dark-700 to-sdhq-dark-800 border-sdhq-cyan-500/30' : 'bg-gradient-to-br from-cyan-50 to-green-50 border-sdhq-cyan-300'}`}>
-                    <div className="flex items-center space-x-3 mb-4">
+{/* Subscribers Management - Admin Only */}
+{isAdmin && (
+  <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
+    <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+      <Crown className="w-5 h-5 mr-2 text-sdhq-green-500" />
+      {t.subscribers}
+    </h4>
+    
+    {/* Add Subscriber */}
+    <div className="flex space-x-2 mb-4">
+      <input
+        type="text"
+        value={newSubscriberUsername}
+        onChange={(e) => setNewSubscriberUsername(e.target.value)}
+        placeholder="Username"
+        className={`flex-1 px-3 py-2 rounded-md border ${
+          darkMode 
+            ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
+            : 'bg-white border-gray-300'
+        }`}
+        onKeyPress={(e) => e.key === 'Enter' && handleAddSubscriber()}
+      />
+      <Button 
+        onClick={handleAddSubscriber}
+        className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
+      >
+        <Plus className="w-4 h-4 mr-1" />
+        {t.addSubscriber}
+      </Button>
+    </div>
+    
+    {/* Subscribers List */}
+    <div className={`space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+      {subscribers.length === 0 ? (
+        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No subscribers yet.</p>
+      ) : (
+        subscribers.map((sub: Subscriber) => (
+          <div 
+            key={sub.id}
+            className={`flex items-center justify-between p-2 rounded border ${
+              darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-200'
+            }`}
+          >
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="w-4 h-4 text-sdhq-green-500 flex-shrink-0" />
+              <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{sub.username}</span>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => handleRemoveSubscriber(sub.id)}
+              className="text-red-500 hover:text-red-700"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+)}
                       <Crown className="w-6 h-6 text-sdhq-cyan-500" />
                       <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Lifetime Membership</h4>
                     </div>

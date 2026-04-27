@@ -213,7 +213,11 @@ Provide a realistic score based on the comprehensive content analysis (visual + 
 
     const result = JSON.parse(cleanContent)
 
-    return NextResponse.json(result)
+    // Include extracted data in response for re-analysis
+    return NextResponse.json({
+      ...result,
+      extractedData: supadataResult
+    })
   } catch (error) {
     console.error('Clip analyzer error:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
