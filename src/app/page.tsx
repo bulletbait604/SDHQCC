@@ -1131,7 +1131,7 @@ export default function HomePage() {
       // Persist to localStorage
       localStorage.setItem('sdhq-subscribers', JSON.stringify(updatedSubscribers))
       
-      // Sync to backend (MongoDB)
+      // Sync to backend (MongoDB) - don't wait for it, local state is already updated
       fetch('/api/subscribers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1156,9 +1156,6 @@ export default function HomePage() {
           details: `Added ${username} to subscribers list`
         })
       }).catch(error => console.error('Failed to log to backend:', error))
-      
-      // Refresh lists from backend to ensure consistency
-      fetchUserLists()
     }
   }
 
@@ -1218,7 +1215,7 @@ export default function HomePage() {
       // Persist to localStorage
       localStorage.setItem('sdhq-lifetime-members', JSON.stringify(updatedLifetimeMembers))
       
-      // Sync to backend (MongoDB)
+      // Sync to backend (MongoDB) - don't wait for it, local state is already updated
       fetch('/api/lifetime', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1243,9 +1240,6 @@ export default function HomePage() {
           details: `Added ${username} to lifetime members list`
         })
       }).catch(error => console.error('Failed to log to backend:', error))
-      
-      // Refresh lists from backend to ensure consistency
-      fetchUserLists()
     }
   }
 
@@ -1305,7 +1299,7 @@ export default function HomePage() {
       // Persist to localStorage
       localStorage.setItem('sdhq-admins', JSON.stringify(updatedAdmins))
       
-      // Sync to backend (MongoDB)
+      // Sync to backend (MongoDB) - don't wait for it, local state is already updated
       fetch('/api/admins', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1330,9 +1324,6 @@ export default function HomePage() {
           details: `Added ${username} to admins list`
         })
       }).catch(error => console.error('Failed to log to backend:', error))
-      
-      // Refresh lists from backend to ensure consistency
-      fetchUserLists()
     }
   }
 
