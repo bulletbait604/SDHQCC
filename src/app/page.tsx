@@ -2097,7 +2097,7 @@ export default function HomePage() {
                       className="ml-2"
                     >
                       <Shield className="w-4 h-4 mr-1" />
-                      {t.verifySubscription}
+                      Upgrade
                     </Button>
                   )}
                 </div>
