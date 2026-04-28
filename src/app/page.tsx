@@ -4867,6 +4867,23 @@ export default function HomePage() {
               
               <div id="paypal-button-container" className="w-full"></div>
               
+              <div className={`text-center pt-2 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Want to pay once and never worry about subscriptions again?
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowSubscribePopup(false)
+                    setShowLifetimePopup(true)
+                  }}
+                  className={`w-full ${darkMode ? 'border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10' : 'border-yellow-500 text-yellow-600 hover:bg-yellow-50'}`}
+                >
+                  <Crown className="w-4 h-4 mr-2" />
+                  Want Lifetime Access? ($54.99)
+                </Button>
+              </div>
+              
               <Button
                 variant="outline"
                 onClick={() => setShowSubscribePopup(false)}
