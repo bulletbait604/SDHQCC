@@ -1605,13 +1605,21 @@ export default function HomePage() {
             },
             onApprove: function(data: any, actions: any) {
               console.log('Lifetime payment approved:', data.orderID)
-              setSubscriptionId(data.orderID)
               
-              // Close our popup
-              setShowLifetimePopup(false)
-              
-              // Start auto-verification for lifetime
-              pollVerificationStatus(data.orderID)
+              // CAPTURE the order (required for one-time payments)
+              return actions.order.capture().then(function(details: any) {
+                console.log('Lifetime payment captured:', details)
+                setSubscriptionId(data.orderID)
+                
+                // Close our popup
+                setShowLifetimePopup(false)
+                
+                // Start auto-verification for lifetime
+                pollVerificationStatus(data.orderID)
+              }).catch(function(err: any) {
+                console.error('Lifetime payment capture failed:', err)
+                alert('Payment capture failed. Please try again.')
+              })
             }
           }).render('#paypal-lifetime-button-container')
           setPaypalLoaded(true)
