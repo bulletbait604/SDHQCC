@@ -370,8 +370,16 @@ export default function HomePage() {
           if (isOwner) {
             console.log('Owner detected, setting role to owner')
             setUserRole('owner')
-            // Auto-create owner in database
-            handleUpdateRole(user.username, 'owner')
+            // Auto-create owner in database - use 'owner' directly since state hasn't updated yet
+            fetch('/api/roles', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                username: user.username, 
+                role: 'owner', 
+                currentAdminRole: 'owner'
+              })
+            }).then(() => fetchUsersWithRoles())
           } else {
             setUserRole('free')
             console.log('No role found, defaulting to free')
