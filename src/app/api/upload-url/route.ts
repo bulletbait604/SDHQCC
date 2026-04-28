@@ -36,9 +36,43 @@ export async function POST(request: NextRequest) {
     console.log('Upload URL API: R2_ACCOUNT_ID present:', !!process.env.R2_ACCOUNT_ID)
     console.log('Upload URL API: R2_ACCESS_KEY_ID present:', !!process.env.R2_ACCESS_KEY_ID)
     console.log('Upload URL API: R2_SECRET_ACCESS_KEY present:', !!process.env.R2_SECRET_ACCESS_KEY)
+    console.log('Upload URL API: R2_BUCKET_NAME:', process.env.R2_BUCKET_NAME || 'sdhq-uploads (default)')
+
+    // Check credentials before calling generateUploadUrl
+    if (!process.env.R2_ACCOUNT_ID || !process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
+      console.error('Upload URL API: MISSING R2 CREDENTIALS!')
+      console.error('Upload URL API: R2_ACCOUNT_ID:', process.env.R2_ACCOUNT_ID ? 'Set' : 'MISSING')
+      console.error('Upload URL API: R2_ACCESS_KEY_ID:', process.env.R2_ACCESS_KEY_ID ? 'Set' : 'MISSING')
+      console.error('Upload URL API: R2_SECRET_ACCESS_KEY:', process.env.R2_SECRET_ACCESS_KEY ? 'Set' : 'MISSING')
+      return NextResponse.json(
+        { 
+          error: 'R2 credentials not configured',
+          missing: {
+            R2_ACCOUNT_ID: !process.env.R2_ACCOUNT_ID,
+            R2_ACCESS_KEY_ID: !process.env.R2_ACCESS_KEY_ID,
+            R2_SECRET_ACCESS_KEY: !process.env.R2_SECRET_ACCESS_KEY
+          }
+        },
+        { status: 500 }
+      )
+    }
 
     // Generate presigned URL for R2 upload
-    const result = await generateUploadUrl(filename, contentType)
+    let result
+    try {
+      result = await generateUploadUrl(filename, contentType)
+    } catch (generateError) {
+      console.error('Upload URL API: Error in generateUploadUrl:', generateError)
+      const genErrorMessage = generateError instanceof Error ? generateError.message : 'Unknown generate error'
+      const genErrorStack = generateError instanceof Error ? generateError.stack : ''
+      return NextResponse.json(
+        { 
+          error: `generateUploadUrl failed: ${genErrorMessage}`,
+          stack: genErrorStack
+        },
+        { status: 500 }
+      )
+    }
 
     if (!result) {
       console.error('Upload URL API: Failed to generate upload URL - R2 credentials may be missing')
@@ -57,12 +91,23 @@ export async function POST(request: NextRequest) {
       expiresIn: 300, // 5 minutes
     })
   } catch (error) {
-    console.error('Upload URL API: Unhandled error:', error)
+    console.error('Upload URL API: CRITICAL ERROR:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     const errorStack = error instanceof Error ? error.stack : ''
-    console.error('Upload URL API: Error details:', errorMessage, errorStack)
+    const errorName = error instanceof Error ? error.name : 'Unknown'
+    
+    console.error('Upload URL API: Error name:', errorName)
+    console.error('Upload URL API: Error message:', errorMessage)
+    console.error('Upload URL API: Error stack:', errorStack)
+    
+    // Return full error details for debugging
     return NextResponse.json(
-      { error: `Failed to generate upload URL: ${errorMessage}` },
+      { 
+        error: `Upload URL generation failed: ${errorMessage}`,
+        errorName: errorName,
+        errorStack: errorStack,
+        hint: 'Check if R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY are set in Vercel environment variables'
+      },
       { status: 500 }
     )
   }
