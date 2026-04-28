@@ -1469,37 +1469,74 @@ export default function HomePage() {
       script.src = `https://www.${isSandbox ? 'sandbox.' : ''}paypal.com/sdk/js?client-id=${paypalClientId}&vault=true&intent=subscription`
       script.setAttribute('data-sdk-integration-source', 'button-factory')
       script.onload = () => {
+        console.log('PayPal SDK loaded successfully')
         // Render PayPal button after SDK loads
         if (window.paypal && user) {
-          window.paypal.Buttons({
-            style: {
-              shape: 'pill',
-              color: 'blue',
-              layout: 'horizontal',
-              label: 'subscribe'
-            },
-            createSubscription: function(data: any, actions: any) {
-              const planId = process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID
-              if (!planId) {
-                console.error('PayPal Plan ID not configured')
-                return
+          console.log('PayPal: Rendering subscription button...')
+          const planId = process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID
+          console.log('PayPal: Plan ID present:', !!planId)
+          
+          if (!planId) {
+            console.error('PayPal: Plan ID not configured!')
+            alert('PayPal configuration error: Plan ID not set. Please contact support.')
+            return
+          }
+          
+          try {
+            const buttons = window.paypal.Buttons({
+              style: {
+                shape: 'pill',
+                color: 'blue',
+                layout: 'horizontal',
+                label: 'subscribe'
+              },
+              createSubscription: function(data: any, actions: any) {
+                console.log('PayPal: Creating subscription with plan:', planId)
+                return actions.subscription.create({
+                  plan_id: planId,
+                  custom_id: `${user.username}|${paypalEmail}`
+                }).catch((err: any) => {
+                  console.error('PayPal: Subscription creation failed:', err)
+                  alert('Failed to create subscription. Please try again.')
+                  throw err
+                })
+              },
+              onApprove: function(data: any, actions: any) {
+                console.log('Subscription approved:', data.subscriptionID)
+                setSubscriptionId(data.subscriptionID)
+                alert(`Subscription successful! Subscription ID: ${data.subscriptionID}\n\nVerifying your subscription automatically...`)
+                
+                // Start polling for verification status
+                pollVerificationStatus(data.subscriptionID)
+              },
+              onError: function(err: any) {
+                console.error('PayPal button error:', err)
+                alert('PayPal button error: ' + (err.message || 'Unknown error'))
+              },
+              onCancel: function() {
+                console.log('PayPal subscription cancelled by user')
               }
-              return actions.subscription.create({
-                plan_id: planId,
-                custom_id: `${user.username}|${paypalEmail}`
-              })
-            },
-            onApprove: function(data: any, actions: any) {
-              console.log('Subscription approved:', data.subscriptionID)
-              setSubscriptionId(data.subscriptionID)
-              alert(`Subscription successful! Subscription ID: ${data.subscriptionID}\n\nVerifying your subscription automatically...`)
-              
-              // Start polling for verification status
-              pollVerificationStatus(data.subscriptionID)
+            })
+            
+            if (buttons.isEligible()) {
+              buttons.render('#paypal-button-container')
+              console.log('PayPal: Button rendered successfully')
+              setPaypalLoaded(true)
+            } else {
+              console.error('PayPal: Button not eligible for rendering')
+              alert('PayPal button is not eligible. Please check your PayPal configuration.')
             }
-          }).render('#paypal-button-container')
-          setPaypalLoaded(true)
+          } catch (err) {
+            console.error('PayPal: Error creating buttons:', err)
+            alert('Failed to initialize PayPal. Please try again.')
+          }
+        } else {
+          console.error('PayPal: window.paypal or user not available')
         }
+      }
+      script.onerror = (err) => {
+        console.error('PayPal: Failed to load SDK:', err)
+        alert('Failed to load PayPal. Please check your internet connection and try again.')
       }
       document.body.appendChild(script)
 
