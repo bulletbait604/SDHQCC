@@ -336,9 +336,9 @@ export async function POST(req: NextRequest) {
               
               global.verifiedUsers.set(username.toLowerCase(), verifiedUser)
               
-              // Persist subscription to MongoDB
+              // Persist subscription to MongoDB with LOWERCASE username
               const subscription = {
-                username,
+                username: username.toLowerCase(),
                 paypalEmail,
                 subscriptionId,
                 status,
@@ -353,7 +353,7 @@ export async function POST(req: NextRequest) {
               await storeSubscription(subscription)
               
               // Automatically upgrade user role to subscriber
-              await updateUserRole(username, 'subscriber')
+              await updateUserRole(username.toLowerCase(), 'subscriber')
               
               console.log(`✅ Subscription ${subscriptionId} VERIFIED and activated for ${username}, role upgraded to subscriber`)
               
