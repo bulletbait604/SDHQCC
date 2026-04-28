@@ -2438,17 +2438,17 @@ export default function HomePage() {
                 {/* Tag Database Status */}
                 <div className={`mt-6 p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-sdhq-cyan-200 shadow-sm'}`}>
                   <div className="flex items-center justify-between">
-                    <div>
+                    <div className="flex items-center space-x-3">
                       <p className={`text-base font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                         Tag Generator Status
                       </p>
-                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Powered by Groq API
+                      <p className={`text-3xl font-bold text-green-500`}>
+                        ACTIVE
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className={`text-3xl font-bold text-green-500`}>
-                        ACTIVE
+                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Powered by Groq API
                       </p>
                     </div>
                   </div>
