@@ -95,8 +95,6 @@ export async function POST(request: Request) {
       keyPoints: []
     }
 
-    console.log('Starting content analysis for platform:', platform, 'with file:', file.name)
-
     // Use GROQ to analyze the video file and provide algorithm recommendations
     let analysisResult = null
     let analysisSource = 'none'
@@ -104,7 +102,6 @@ export async function POST(request: Request) {
     // Try GROQ first
     if (groqApiKey) {
       try {
-        console.log('Starting GROQ analysis for platform:', platform)
         const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -208,8 +205,6 @@ Focus on actionable advice that applies to most video content on ${platform}.`
         if (groqResponse.ok) {
           const groqData = await groqResponse.json()
           const content = groqData.choices[0]?.message?.content || ''
-          
-          console.log('GROQ response content length:', content.length)
 
           // Parse JSON from response (handle markdown code blocks if present)
           let cleanContent = content
@@ -219,7 +214,6 @@ Focus on actionable advice that applies to most video content on ${platform}.`
 
           analysisResult = JSON.parse(cleanContent)
           analysisSource = 'groq'
-          console.log('GROQ analysis completed')
         } else {
           const errorText = await groqResponse.text()
           console.error('GROQ error:', errorText)
@@ -232,7 +226,6 @@ Focus on actionable advice that applies to most video content on ${platform}.`
     // Fallback to RapidAPI if GROQ failed or is not available
     if (!analysisResult && rapidApiKey) {
       try {
-        console.log('Falling back to RapidAPI for content analysis')
         const rapidResponse = await fetch(`https://deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com/v1/chat/completions`, {
           method: 'POST',
           headers: {
@@ -337,8 +330,6 @@ Focus on actionable advice that applies to most video content on ${platform}.`
         if (rapidResponse.ok) {
           const rapidData = await rapidResponse.json()
           const content = rapidData.choices?.[0]?.message?.content || ''
-          
-          console.log('RapidAPI response content length:', content.length)
 
           // Parse JSON from response (handle markdown code blocks if present)
           let cleanContent = content
@@ -348,7 +339,6 @@ Focus on actionable advice that applies to most video content on ${platform}.`
 
           analysisResult = JSON.parse(cleanContent)
           analysisSource = 'rapidapi'
-          console.log('RapidAPI analysis completed')
         } else {
           const errorText = await rapidResponse.text()
           console.error('RapidAPI error:', errorText)
@@ -361,8 +351,6 @@ Focus on actionable advice that applies to most video content on ${platform}.`
     if (!analysisResult) {
       return NextResponse.json({ error: 'Failed to analyze content from both GROQ and RapidAPI' }, { status: 500 })
     }
-
-    console.log(`Content analysis completed using: ${analysisSource}`)
 
     // Include extracted data in response for re-analysis
     const response = NextResponse.json({

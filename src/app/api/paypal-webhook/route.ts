@@ -21,20 +21,11 @@ export async function POST(req: NextRequest) {
     const body = await req.text()
     const params = new URLSearchParams(body)
     
-    // Log the IPN data for debugging
+    // Parse IPN data
     const ipnData: Record<string, string> = {}
     params.forEach((value, key) => {
       ipnData[key] = value
     })
-    
-    console.log('========================================')
-    console.log('WEBHOOK RECEIVED at', new Date().toISOString())
-    console.log('========================================')
-    console.log('PayPal IPN Data:', JSON.stringify(ipnData, null, 2))
-    console.log('Payment Status:', ipnData.payment_status)
-    console.log('Transaction ID:', ipnData.txn_id)
-    console.log('Custom/Memo:', ipnData.custom || ipnData.memo)
-    console.log('Amount:', ipnData.mc_gross, ipnData.mc_currency)
     
     // Check if this is a subscription webhook (JSON format)
     const contentType = req.headers.get('content-type')
@@ -42,18 +33,12 @@ export async function POST(req: NextRequest) {
       // Handle PayPal subscription webhook events
       try {
         const eventData = JSON.parse(body)
-        console.log('PayPal Webhook Event:', JSON.stringify(eventData, null, 2))
-        
         const eventType = eventData.event_type
-        console.log('Event Type:', eventType)
         
         // Handle subscription activation
         if (eventType === 'BILLING.SUBSCRIPTION.ACTIVATED' || eventType === 'BILLING.SUBSCRIPTION.CREATED') {
           const subscriptionId = eventData.resource?.id
           const customId = eventData.resource?.custom_id
-          
-          console.log('Subscription Activated:', subscriptionId)
-          console.log('Custom ID:', customId)
           
           if (customId) {
             const [username, paypalEmail] = customId.split('|')
@@ -69,9 +54,6 @@ export async function POST(req: NextRequest) {
               }
               
               global.verifiedUsers.set(username.toLowerCase(), verifiedUser)
-              
-              console.log('✅ User automatically verified:', username)
-              console.log('Total verified users:', global.verifiedUsers.size)
               
               return NextResponse.json({ status: 'success', username, autoVerified: true })
             }
@@ -107,10 +89,7 @@ export async function POST(req: NextRequest) {
     
     const verificationStatus = await verificationResponse.text()
     
-    console.log('PayPal Verification Status:', verificationStatus)
-    
     if (verificationStatus === 'VERIFIED') {
-      console.log('✅ PAYMENT VERIFIED BY PAYPAL')
       // Payment is verified
       const paymentStatus = ipnData.payment_status
       const txnType = ipnData.txn_type
@@ -142,9 +121,6 @@ export async function POST(req: NextRequest) {
           
           // Store by verification code for lookup
           global.verifiedPayments.set(verificationCode, verifiedPayment)
-          
-          console.log('Payment verified and stored for user:', username, verifiedPayment)
-          console.log('Total stored payments:', global.verifiedPayments.size)
           
           // Return success to PayPal
           return NextResponse.json({ status: 'success', username, amount })

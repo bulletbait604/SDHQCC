@@ -11,7 +11,6 @@ async function getPayPalAccessToken(): Promise<string | null> {
   const clientSecret = process.env.PAYPAL_CLIENT_SECRET
   
   if (!clientId || !clientSecret) {
-    console.error('PayPal credentials not configured')
     return null
   }
   
@@ -32,7 +31,6 @@ async function getPayPalAccessToken(): Promise<string | null> {
     })
     
     if (!response.ok) {
-      console.error('PayPal token request failed:', response.status)
       return null
     }
     
@@ -60,15 +58,12 @@ async function getPayPalSubscription(accessToken: string, subscriptionId: string
     })
     
     if (!response.ok) {
-      console.error('PayPal subscription fetch failed:', response.status)
       return null
     }
     
     const data = await response.json()
-    console.log('PayPal subscription retrieved:', data.id, data.status)
     return data
   } catch (error) {
-    console.error('Error fetching PayPal subscription:', error)
     return null
   }
 }
@@ -89,14 +84,12 @@ async function listPayPalSubscriptions(accessToken: string): Promise<any[]> {
     })
     
     if (!response.ok) {
-      console.error('PayPal subscriptions list failed:', response.status)
       return []
     }
     
     const data = await response.json()
     return data.subscriptions || []
   } catch (error) {
-    console.error('Error listing PayPal subscriptions:', error)
     return []
   }
 }
@@ -112,7 +105,6 @@ export async function POST(req: NextRequest) {
       )
     }
     
-    console.log('Checking subscription for email:', paypalEmail, 'username:', username, 'subscriptionId:', subscriptionId)
     
     // First, check webhook storage (for backwards compatibility)
     if (!global.verifiedPayments) {
@@ -125,7 +117,6 @@ export async function POST(req: NextRequest) {
     )
     
     if (webhookPayment) {
-      console.log('Payment found in webhook storage:', webhookPayment)
       
       return NextResponse.json({
         verified: true,
@@ -159,7 +150,6 @@ export async function POST(req: NextRequest) {
           
           // Match username and email
           if (subUsername?.toLowerCase() === username.toLowerCase() && storedEmail?.toLowerCase() === paypalEmail.toLowerCase()) {
-            console.log('Subscription verified:', subscription.id)
             
             // Store in webhook storage for future reference
             const storageKey = `${username}-${subscription.id}`
@@ -194,7 +184,6 @@ export async function POST(req: NextRequest) {
         
         // Match username and email
         if (subUsername?.toLowerCase() === username.toLowerCase() && storedEmail?.toLowerCase() === paypalEmail.toLowerCase()) {
-          console.log('Found matching subscription:', sub.id)
           
           // Store in webhook storage for future reference
           const storageKey = `${username}-${sub.id}`
@@ -217,8 +206,7 @@ export async function POST(req: NextRequest) {
         }
       }
     }
-    
-    console.log('No matching subscription found')
+
     
     return NextResponse.json({
       verified: false,

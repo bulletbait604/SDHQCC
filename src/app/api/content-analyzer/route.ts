@@ -24,14 +24,22 @@ function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean
 
 export async function POST(request: Request) {
   try {
+    console.log('Content Analyzer: Request received')
     const body = await request.json()
     const { url, platform, userId, userType } = body
 
+    console.log('Content Analyzer: URL:', url)
+    console.log('Content Analyzer: Platform:', platform)
+    console.log('Content Analyzer: User ID:', userId)
+    console.log('Content Analyzer: User Type:', userType)
+
     if (!url) {
+      console.error('Content Analyzer: URL is required')
       return NextResponse.json({ error: 'URL is required' }, { status: 400 })
     }
 
     if (!platform) {
+      console.error('Content Analyzer: Platform is required')
       return NextResponse.json({ error: 'Platform is required' }, { status: 400 })
     }
 
@@ -44,12 +52,15 @@ export async function POST(request: Request) {
     } else if (userType === 'subscribed') {
       maxUses = 5
     } else {
+      console.error('Content Analyzer: Access denied - subscription required')
       return NextResponse.json({ error: 'Access denied. Subscription required.' }, { status: 403 })
     }
 
+    console.log('Content Analyzer: Rate limit check for:', identifier, 'maxUses:', maxUses)
     const rateLimit = checkRateLimit(`content-analyzer-${identifier}`, maxUses)
 
     if (!rateLimit.allowed) {
+      console.error('Content Analyzer: Rate limit exceeded')
       return NextResponse.json(
         { error: 'Rate limit exceeded. You have used your daily limit.', resetTime: rateLimit.resetTime },
         { status: 429 }
@@ -58,15 +69,23 @@ export async function POST(request: Request) {
 
     const supadataApiKey = process.env.SUPADATA_API_KEY
     const pollinationsApiKey = process.env.POLLINATIONS_API_KEY
-    
+
+    console.log('Content Analyzer: Supadata key present:', !!supadataApiKey)
+    console.log('Content Analyzer: Pollinations key present:', !!pollinationsApiKey)
+
     if (!supadataApiKey && !pollinationsApiKey) {
+      console.error('Content Analyzer: No video extraction API key configured')
       return NextResponse.json({ error: 'No video extraction API key configured' }, { status: 500 })
     }
 
     const groqApiKey = process.env.GROQ_API_KEY
     const rapidApiKey = process.env.RAPID_API_KEY
-    
+
+    console.log('Content Analyzer: Groq key present:', !!groqApiKey)
+    console.log('Content Analyzer: RapidAPI key present:', !!rapidApiKey)
+
     if (!groqApiKey && !rapidApiKey) {
+      console.error('Content Analyzer: No content analysis API key configured')
       return NextResponse.json({ error: 'No content analysis API key configured' }, { status: 500 })
     }
 
@@ -209,10 +228,11 @@ export async function POST(request: Request) {
     }
 
     if (!supadataResult) {
+      console.error('Content Analyzer: Failed to extract video information - both Supadata and Pollinations failed')
       return NextResponse.json({ error: 'Failed to extract video information from Supadata and Pollinations' }, { status: 500 })
     }
 
-    console.log(`Video extraction completed using: ${extractionSource}`)
+    console.log(`Content Analyzer: Video extraction completed using: ${extractionSource}`)
 
     // Step 2: Use GROQ to analyze the extracted information and research algorithms (with RapidAPI fallback)
     let analysisResult = null
@@ -221,7 +241,7 @@ export async function POST(request: Request) {
     // Try GROQ first
     if (groqApiKey) {
       try {
-        console.log('Starting GROQ analysis for platform:', platform)
+        console.log('Content Analyzer: Starting GROQ analysis for platform:', platform)
         const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -328,9 +348,9 @@ Generate the analysis following the exact JSON structure provided.`
         if (groqResponse.ok) {
           const groqData = await groqResponse.json()
           const content = groqData.choices[0]?.message?.content || ''
-          
-          console.log('GROQ response content length:', content.length)
-          console.log('GROQ response content preview:', content.substring(0, 200))
+
+          console.log('Content Analyzer: GROQ response content length:', content.length)
+          console.log('Content Analyzer: GROQ response content preview:', content.substring(0, 200))
 
           // Parse JSON from response (handle markdown code blocks if present)
           let cleanContent = content
@@ -338,24 +358,24 @@ Generate the analysis following the exact JSON structure provided.`
             cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
           }
 
-          console.log('Cleaned content preview:', cleanContent.substring(0, 200))
+          console.log('Content Analyzer: Cleaned content preview:', cleanContent.substring(0, 200))
 
           analysisResult = JSON.parse(cleanContent)
           analysisSource = 'groq'
-          console.log('GROQ analysis completed')
+          console.log('Content Analyzer: GROQ analysis completed')
         } else {
           const errorText = await groqResponse.text()
-          console.error('GROQ error:', errorText)
+          console.error('Content Analyzer: GROQ error response:', errorText)
         }
       } catch (groqError) {
-        console.error('GROQ analysis error:', groqError)
+        console.error('Content Analyzer: GROQ analysis error:', groqError)
       }
     }
 
     // Fallback to RapidAPI if GROQ failed or is not available
     if (!analysisResult && rapidApiKey) {
       try {
-        console.log('Falling back to RapidAPI for content analysis')
+        console.log('Content Analyzer: Falling back to RapidAPI for content analysis')
         const rapidResponse = await fetch(`https://deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com/v1/chat/completions`, {
           method: 'POST',
           headers: {
@@ -463,9 +483,9 @@ Generate the analysis following the exact JSON structure provided.`
         if (rapidResponse.ok) {
           const rapidData = await rapidResponse.json()
           const content = rapidData.choices?.[0]?.message?.content || ''
-          
-          console.log('RapidAPI response content length:', content.length)
-          console.log('RapidAPI response content preview:', content.substring(0, 200))
+
+          console.log('Content Analyzer: RapidAPI response content length:', content.length)
+          console.log('Content Analyzer: RapidAPI response content preview:', content.substring(0, 200))
 
           // Parse JSON from response (handle markdown code blocks if present)
           let cleanContent = content
@@ -473,25 +493,26 @@ Generate the analysis following the exact JSON structure provided.`
             cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
           }
 
-          console.log('Cleaned content preview:', cleanContent.substring(0, 200))
+          console.log('Content Analyzer: Cleaned content preview:', cleanContent.substring(0, 200))
 
           analysisResult = JSON.parse(cleanContent)
           analysisSource = 'rapidapi'
-          console.log('RapidAPI analysis completed')
+          console.log('Content Analyzer: RapidAPI analysis completed')
         } else {
           const errorText = await rapidResponse.text()
-          console.error('RapidAPI error:', errorText)
+          console.error('Content Analyzer: RapidAPI error response:', errorText)
         }
       } catch (rapidError) {
-        console.error('RapidAPI analysis error:', rapidError)
+        console.error('Content Analyzer: RapidAPI analysis error:', rapidError)
       }
     }
 
     if (!analysisResult) {
+      console.error('Content Analyzer: Failed to analyze content - both GROQ and RapidAPI failed')
       return NextResponse.json({ error: 'Failed to analyze content from both GROQ and RapidAPI' }, { status: 500 })
     }
 
-    console.log(`Content analysis completed using: ${analysisSource}`)
+    console.log(`Content Analyzer: Content analysis completed using: ${analysisSource}`)
 
     // Include extracted data in response for re-analysis
     const response = NextResponse.json({
@@ -501,7 +522,7 @@ Generate the analysis following the exact JSON structure provided.`
 
     return response
   } catch (error) {
-    console.error('Content analyzer error:', error)
+    console.error('Content Analyzer: Unhandled error:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }

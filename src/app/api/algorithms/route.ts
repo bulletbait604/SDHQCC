@@ -111,13 +111,9 @@ async function writeData(data: any) {
 async function researchAlgorithm(platform: string, apiKey: string, retries: number = 3, maxTokens: number = 1000): Promise<any> {
   const modelName = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
   const apiUrl = 'https://api.groq.com/openai/v1/chat/completions'
-  
-  console.log(`researchAlgorithm called for ${platform} with model ${modelName}, maxTokens: ${maxTokens}`)
-  
+
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      console.log(`Calling Groq API for ${platform} (attempt ${attempt + 1}/${retries})`)
-  
       const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
 {
   "keyChanges": "Summary of key changes in how the algorithm works",
@@ -134,11 +130,10 @@ async function researchAlgorithm(platform: string, apiKey: string, retries: numb
 }
 
 Focus on recent changes and best practices as of 2026. Be specific and actionable. The summaries should be punchy, platform-specific takeaways that make users want to click Read More.`
-      
+
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 90000) // 90 second timeout for Groq
-      
-      console.log(`Making fetch request to ${apiUrl}`)
+
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -156,55 +151,45 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
           max_tokens: maxTokens
         })
       })
-      
+
       clearTimeout(timeout)
-      console.log(`Response status: ${response.status}`)
 
       if (!response.ok) {
         const errorText = await response.text()
         console.error(`Groq error response: ${errorText}`)
-        
+
         // Handle rate limit error specifically
         if (response.status === 429) {
           const match = errorText.match(/Please try again in ([\d.]+)s/)
           const waitTime = match ? parseFloat(match[1]) * 1000 : 30000
-          console.log(`Rate limited, waiting ${waitTime}ms before retry...`)
           await new Promise(resolve => setTimeout(resolve, waitTime))
           throw new Error(`Rate limit exceeded, waited ${waitTime}ms`)
         }
-        
+
         throw new Error(`Groq error: ${response.status} - ${errorText}`)
       }
 
       const data = await response.json()
-      console.log(`Groq response data keys:`, Object.keys(data))
       const content = data.choices?.[0]?.message?.content
-      
-      console.log(`Content length: ${content?.length || 0}`)
-      console.log(`Content preview: ${content?.substring(0, 200)}...`)
-      
+
       if (!content) {
         throw new Error('No content in Groq response')
       }
-      
+
       // Strip markdown code blocks if present
       let cleanContent = content
       if (content.includes('```')) {
         cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-        console.log('Stripped markdown code blocks')
       }
-      
+
       const parsed = JSON.parse(cleanContent || '{}')
-      console.log(`Successfully parsed JSON for ${platform}`)
-      console.log(`Parsed keys:`, Object.keys(parsed))
       return parsed
     } catch (error) {
       console.error(`Groq API failed for ${platform} (attempt ${attempt + 1}/${retries}):`, error)
-      
+
       if (attempt < retries - 1) {
         // Wait before retrying (exponential backoff)
         const delay = Math.pow(2, attempt) * 2000
-        console.log(`Retrying ${platform} in ${delay}ms...`)
         await new Promise(resolve => setTimeout(resolve, delay))
       } else {
         throw new Error(`Failed to research ${platform} after ${retries} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -301,18 +286,12 @@ export async function GET() {
 export async function POST(request: Request) {
   const apiKey = process.env.GROQ_API_KEY || process.env.HUGGINGFACE_TOKEN || process.env.RAPID_API_UNLIMITED_GPT || process.env.RAPIDAPI || process.env.RAPID_API_KEY
 
-  console.log('API Key check:', !!apiKey)
-  console.log('API Key source:', process.env.GROQ_API_KEY ? 'GROQ_API_KEY' : process.env.HUGGINGFACE_TOKEN ? 'HUGGINGFACE_TOKEN' : 'fallback')
-
   if (!apiKey) {
     return NextResponse.json({ error: 'No API key configured. Please set GROQ_API_KEY' }, { status: 500 })
   }
-  
+
   const body = await request.json()
   const platformId = body.platformId // Optional: specific platform to refresh
-  
-  console.log('Using Groq for algorithm research')
-  console.log('Platform to refresh:', platformId || 'all platforms')
   
   // Read existing data first
   const existingData = await readData()
@@ -328,41 +307,31 @@ export async function POST(request: Request) {
 
   for (const platform of platformsToRefresh) {
     try {
-      console.log(`Starting research for ${platform.name}...`)
       const result = await researchAlgorithm(platform.name, apiKey, 3, maxTokens)
-      console.log(`Result for ${platform.name}:`, result ? 'Success' : 'Null')
-      
+
       if (result) {
         data.data[platform.id] = result
-        console.log(`Added data for ${platform.name}`)
       } else {
         errors.push(`${platform.name}: No data returned`)
-        console.error(`No data returned for ${platform.name}`)
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error'
       errors.push(`${platform.name}: ${errorMsg}`)
-      console.error(`Failed to research ${platform.name}:`, error)
     }
   }
 
-  console.log('Research complete. Platforms with data:', Object.keys(data.data).length)
-  console.log('Errors:', errors)
-
   if (Object.keys(data.data).length === 0) {
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: 'Failed to research any platforms',
-      details: errors 
+      details: errors
     }, { status: 500 })
   }
 
   data.lastUpdated = new Date().toISOString()
   data.provider = 'groq'
   data.errors = errors.length > 0 ? errors : undefined
-  
-  console.log('Attempting to save data...')
+
   await writeData(data)
-  console.log('Data saved successfully')
 
   return NextResponse.json(data)
 }
