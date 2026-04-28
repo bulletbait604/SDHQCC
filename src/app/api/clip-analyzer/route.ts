@@ -131,7 +131,11 @@ export async function POST(request: Request) {
     let analysisSource = 'none'
 
     // Try Gemini 2.5 Pro via RapidAPI first (best for video analysis with audio)
-    if (rapidApiKey && fileData.buffer) {
+    // NOTE: Only use Gemini for videos under 50MB to avoid memory issues with base64 conversion
+    const GEMINI_SIZE_LIMIT = 50 * 1024 * 1024 // 50MB
+    
+    if (rapidApiKey && fileData.buffer && fileData.size <= GEMINI_SIZE_LIMIT) {
+      console.log(`File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB is within Gemini limit (${GEMINI_SIZE_LIMIT / (1024 * 1024)}MB)`)
       try {
         console.log('Starting Gemini 2.5 Pro video analysis via RapidAPI...')
         
@@ -233,6 +237,8 @@ Respond ONLY with valid JSON in this exact structure:
       } catch (geminiError) {
         console.error('Gemini 2.5 Pro analysis error:', geminiError)
       }
+    } else if (rapidApiKey && fileData.size > GEMINI_SIZE_LIMIT) {
+      console.log(`File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB exceeds Gemini limit (${GEMINI_SIZE_LIMIT / (1024 * 1024)}MB), using fallback`)
     }
 
     // Fallback to GROQ if Gemini failed or no video buffer
