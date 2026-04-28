@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getFileFromR2, deleteFileFromR2 } from '@/lib/r2'
 
 // In-memory rate limit storage for clip analyzer
 const clipAnalyzerRateLimitStore = new Map<string, { count: number; resetTime: number }>()
@@ -25,29 +26,62 @@ function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean
 export async function POST(request: Request) {
   try {
     const formData = await request.formData()
-    const file = formData.get('file') as File
+    const file = formData.get('file') as File | null
     const platform = formData.get('platform') as string
     const userId = formData.get('userId') as string
     const userType = formData.get('userType') as string
+    const fileKey = formData.get('fileKey') as string | null
+    const uploadMode = (formData.get('uploadMode') as string) || 'direct' // 'direct' or 'r2'
 
-    if (!file) {
-      return NextResponse.json({ error: 'File is required' }, { status: 400 })
+    let fileData: { name: string; size: number; type: string; buffer?: Buffer } | null = null
+
+    if (uploadMode === 'r2' && fileKey) {
+      // R2 mode: fetch file from R2 storage
+      console.log(`Fetching file from R2: ${fileKey}`)
+      const r2Buffer = await getFileFromR2(fileKey)
+      
+      if (!r2Buffer) {
+        return NextResponse.json({ error: 'Failed to retrieve file from storage' }, { status: 500 })
+      }
+
+      // Extract filename from fileKey (format: uploads/timestamp-filename)
+      const filename = fileKey.split('-').slice(1).join('-') || 'video.mp4'
+      
+      fileData = {
+        name: filename,
+        size: r2Buffer.length,
+        type: 'video/mp4', // Assume MP4, could be improved
+        buffer: r2Buffer
+      }
+
+      console.log(`Retrieved file from R2: ${filename} (${(r2Buffer.length / (1024 * 1024)).toFixed(2)} MB)`)
+    } else if (file) {
+      // Direct upload mode
+      // Validate file type
+      const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo']
+      if (!validTypes.includes(file.type)) {
+        return NextResponse.json({ error: 'Invalid file type. Please upload MP4, WebM, MOV, or AVI.' }, { status: 400 })
+      }
+
+      // Validate file size (max 100MB)
+      const maxSize = 100 * 1024 * 1024
+      if (file.size > maxSize) {
+        return NextResponse.json({ error: 'File size must be less than 100MB. Use R2 upload for larger files.' }, { status: 400 })
+      }
+
+      const arrayBuffer = await file.arrayBuffer()
+      fileData = {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        buffer: Buffer.from(arrayBuffer)
+      }
+    } else {
+      return NextResponse.json({ error: 'File or fileKey is required' }, { status: 400 })
     }
 
     if (!platform) {
       return NextResponse.json({ error: 'Platform is required' }, { status: 400 })
-    }
-
-    // Validate file type
-    const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo']
-    if (!validTypes.includes(file.type)) {
-      return NextResponse.json({ error: 'Invalid file type. Please upload MP4, WebM, MOV, or AVI.' }, { status: 400 })
-    }
-
-    // Validate file size (max 100MB)
-    const maxSize = 100 * 1024 * 1024
-    if (file.size > maxSize) {
-      return NextResponse.json({ error: 'File size must be less than 100MB.' }, { status: 400 })
     }
 
     // Rate limiting
@@ -78,21 +112,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No content analysis API key configured' }, { status: 500 })
     }
 
-    // Convert file to base64 for analysis
-    const arrayBuffer = await file.arrayBuffer()
-    const base64Video = Buffer.from(arrayBuffer).toString('base64')
-
     // Create basic extracted data from file metadata
     const extractedData = {
-      fileName: file.name,
-      fileSize: file.size,
-      fileType: file.type,
+      fileName: fileData.name,
+      fileSize: fileData.size,
+      fileType: fileData.type,
       duration: 'Unknown (requires video processing)',
-      summary: `Uploaded video file: ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`,
+      summary: `Uploaded video file: ${fileData.name} (${(fileData.size / (1024 * 1024)).toFixed(2)} MB)`,
       visualAnalysis: 'Video file uploaded for analysis',
       audioAnalysis: 'Video file uploaded for analysis',
       topics: [],
-      keyPoints: []
+      keyPoints: [],
+      source: uploadMode === 'r2' ? 'r2-storage' : 'direct-upload'
     }
 
     // Use GROQ to analyze the video file and provide algorithm recommendations
@@ -180,9 +211,9 @@ GUIDELINES:
                 content: `Analyze this video file for ${platform} optimization.
 
 Video File Information:
-- File Name: ${file.name}
-- File Size: ${(file.size / (1024 * 1024)).toFixed(2)} MB
-- File Type: ${file.type}
+- File Name: ${fileData.name}
+- File Size: ${(fileData.size / (1024 * 1024)).toFixed(2)} MB
+- File Type: ${fileData.type}
 - Target Platform: ${platform}
 
 ANALYSIS TASK:
@@ -305,9 +336,9 @@ GUIDELINES:
                 content: `Analyze this video file for ${platform} optimization.
 
 Video File Information:
-- File Name: ${file.name}
-- File Size: ${(file.size / (1024 * 1024)).toFixed(2)} MB
-- File Type: ${file.type}
+- File Name: ${fileData.name}
+- File Size: ${(fileData.size / (1024 * 1024)).toFixed(2)} MB
+- File Type: ${fileData.type}
 - Target Platform: ${platform}
 
 ANALYSIS TASK:
@@ -352,10 +383,17 @@ Focus on actionable advice that applies to most video content on ${platform}.`
       return NextResponse.json({ error: 'Failed to analyze content from both GROQ and RapidAPI' }, { status: 500 })
     }
 
+    // Auto-delete file from R2 after analysis (if using R2 mode)
+    if (uploadMode === 'r2' && fileKey) {
+      console.log(`Auto-deleting file from R2 after analysis: ${fileKey}`)
+      await deleteFileFromR2(fileKey)
+    }
+
     // Include extracted data in response for re-analysis
     const response = NextResponse.json({
       ...analysisResult,
-      extractedData: extractedData
+      extractedData: extractedData,
+      uploadMode: uploadMode
     })
 
     return response

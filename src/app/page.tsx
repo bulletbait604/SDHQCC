@@ -920,10 +920,10 @@ export default function HomePage() {
       return
     }
 
-    // Validate file size (max 100MB)
-    const maxSize = 100 * 1024 * 1024
+    // Validate file size (max 500MB for R2 uploads)
+    const maxSize = 500 * 1024 * 1024
     if (clipFile.size > maxSize) {
-      setClipError('File size must be less than 100MB.')
+      setClipError('File size must be less than 500MB.')
       return
     }
 
@@ -934,7 +934,8 @@ export default function HomePage() {
     setShowReanalysis(false)
 
     const loadingSteps = [
-      'Uploading video file...',
+      'Requesting upload URL...',
+      'Uploading video to cloud storage...',
       'Extracting video information...',
       'Analyzing content with AI...',
       'Researching platform algorithm...',
@@ -948,13 +949,45 @@ export default function HomePage() {
         setLoadingStep(loadingSteps[step])
         step++
       }
-    }, 900)
+    }, 800)
 
     try {
       const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetimeMember ? 'lifetime' : isSubscribed ? 'subscribed' : 'free'
       
+      // Step 1: Get presigned upload URL from our API
+      const urlRes = await fetch('/api/upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: clipFile.name,
+          contentType: clipFile.type
+        })
+      })
+
+      if (!urlRes.ok) {
+        const errorData = await urlRes.json()
+        throw new Error(errorData.error || 'Failed to get upload URL')
+      }
+
+      const { uploadUrl, fileKey } = await urlRes.json()
+
+      // Step 2: Upload file directly to R2 (bypasses Vercel limits)
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: clipFile,
+        headers: {
+          'Content-Type': clipFile.type
+        }
+      })
+
+      if (!uploadRes.ok) {
+        throw new Error('Failed to upload file to cloud storage')
+      }
+
+      // Step 3: Call clip-analyzer with fileKey (R2 mode)
       const formData = new FormData()
-      formData.append('file', clipFile)
+      formData.append('fileKey', fileKey)
+      formData.append('uploadMode', 'r2')
       formData.append('platform', clipPlatform)
       formData.append('userId', user?.id || '')
       formData.append('userType', userType)
