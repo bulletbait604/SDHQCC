@@ -284,6 +284,7 @@ export default function HomePage() {
   const [isVerified, setIsVerified] = useState<boolean>(false)
   const [isLifetime, setIsLifetime] = useState<boolean>(false)
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(false)
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<string>('Loading...')
   const [isLoadingAlgorithms, setIsLoadingAlgorithms] = useState<boolean>(false)
@@ -1913,6 +1914,9 @@ export default function HomePage() {
   const pollVerificationStatus = (subscriptionId: string) => {
     if (!user) return
     
+    // Show "Please Wait" loading state
+    setIsVerifying(true)
+    
     let pollCount = 0
     const maxPolls = 60 // Poll for up to 2 minutes (60 * 2 seconds)
     
@@ -1925,6 +1929,7 @@ export default function HomePage() {
         
         if (data.verified) {
           clearInterval(poll)
+          setIsVerifying(false)
           
           // Check if this is a lifetime purchase
           const isLifetimePurchase = data.isLifetime
@@ -1974,7 +1979,8 @@ export default function HomePage() {
         
         if (pollCount >= maxPolls) {
           clearInterval(poll)
-          alert('Verification is taking longer than expected. Please click "Verify Subscription" to manually check your status.')
+          setIsVerifying(false)
+          alert('Verification is taking longer than expected. Please refresh the page to check your status.')
         }
       } catch (error) {
         console.error('Polling error:', error)
@@ -4907,6 +4913,19 @@ export default function HomePage() {
                 Cancel
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Please Wait - Verification Loading Modal */}
+      {isVerifying && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-sm w-full p-8 shadow-2xl text-center`}>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sdhq-cyan-500 mx-auto mb-4"></div>
+            <h3 className={`text-xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Please Wait...</h3>
+            <p className={`text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              Verifying your payment and activating your account. This may take a few moments.
+            </p>
           </div>
         </div>
       )}
