@@ -65,7 +65,7 @@ interface ActivityLogEntry {
   id: string
   username: string
   timestamp: string
-  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh' | 'tag_generation' | 'clip_analysis' | 'clip_reanalysis' | 'subscriber_added' | 'subscriber_removed' | 'lifetime_added' | 'lifetime_removed' | 'admin_added' | 'admin_removed' | 'sync_completed'
+  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh' | 'tag_generation' | 'clip_analysis' | 'clip_reanalysis' | 'subscriber_added' | 'subscriber_removed' | 'lifetime_added' | 'lifetime_removed' | 'admin_added' | 'admin_removed' | 'sync_completed' | 'role_updated'
   details?: string
 }
 
@@ -426,6 +426,28 @@ export default function HomePage() {
           console.log('Updating self, refreshing own role')
           await fetchUserRole()
         }
+        
+        // Log role change to activity
+        const roleEntry: ActivityLogEntry = {
+          id: Date.now().toString(),
+          username: user?.username || 'Unknown',
+          timestamp: new Date().toISOString(),
+          action: 'role_updated',
+          details: `Changed ${username}'s role to ${ROLE_CONFIG[newRole].label}`
+        }
+        setActivityLog(prev => [roleEntry, ...prev].slice(0, 100))
+        
+        // Log to backend
+        fetch('/api/activity-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: user?.username,
+            action: 'role_updated',
+            details: `Changed ${username}'s role to ${ROLE_CONFIG[newRole].label}`
+          })
+        }).catch(error => console.error('Failed to log to backend:', error))
+        
         alert(`Role updated to ${ROLE_CONFIG[newRole].label}`)
       } else {
         const error = data
@@ -793,9 +815,9 @@ export default function HomePage() {
         setTagRateLimit({ remaining: 20, resetTime: null })
       }
     } else {
-      // Free users get 5 uses
-      if (tagRateLimit.remaining !== 5 && tagRateLimit.remaining !== -1) {
-        setTagRateLimit({ remaining: 5, resetTime: null })
+      // Free users get 3 uses
+      if (tagRateLimit.remaining !== 3 && tagRateLimit.remaining !== -1) {
+        setTagRateLimit({ remaining: 3, resetTime: null })
       }
     }
   }, [userRole])
@@ -2423,27 +2445,10 @@ export default function HomePage() {
                       <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Powered by Groq API
                       </p>
-                      <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        {tagRateLimit.resetTime 
-                          ? timeUntilReset 
-                            ? `Resets in: ${timeUntilReset}`
-                            : `Resets at: ${new Date(tagRateLimit.resetTime).toLocaleString()}`
-                          : tagRateLimit.remaining === -1
-                            ? 'Unlimited uses'
-                            : (() => {
-                                const maxUses = isVerified || isAdmin ? 20 : 5
-                                const usesMade = maxUses - tagRateLimit.remaining
-                                return `${usesMade} / ${maxUses} uses / 24 hours`
-                              })()
-                        }
-                      </p>
                     </div>
                     <div className="text-right">
-                      <p className={`text-3xl font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                        {tagRateLimit.remaining === -1 ? 'Unlimited' : tagRateLimit.remaining}
-                      </p>
-                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        daily uses remaining
+                      <p className={`text-3xl font-bold text-green-500`}>
+                        ACTIVE
                       </p>
                     </div>
                   </div>
