@@ -1566,13 +1566,20 @@ export default function HomePage() {
   // Load PayPal SDK for lifetime membership
   useEffect(() => {
     if (showLifetimePopup && !paypalLoaded && user) {
-      const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+      const isSandbox = process.env.NEXT_PUBLIC_PAYPAL_MODE === 'sandbox'
+      const paypalClientId = isSandbox 
+        ? process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID_SANDBOX 
+        : process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+      
       if (!paypalClientId) {
-        console.error('PayPal Client ID not configured')
+        console.error('PayPal Client ID not configured', { isSandbox })
         return
       }
+      
+      console.log(`PayPal Lifetime: Loading SDK in ${isSandbox ? 'SANDBOX' : 'LIVE'} mode`)
+      
       const script = document.createElement('script')
-      script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=CAD`
+      script.src = `https://www.${isSandbox ? 'sandbox.' : ''}paypal.com/sdk/js?client-id=${paypalClientId}&currency=CAD`
       script.setAttribute('data-sdk-integration-source', 'button-factory')
       script.onload = () => {
         // Render PayPal button after SDK loads
@@ -1597,9 +1604,14 @@ export default function HomePage() {
               })
             },
             onApprove: function(data: any, actions: any) {
-              console.log('Payment approved:', data.orderID)
+              console.log('Lifetime payment approved:', data.orderID)
               setSubscriptionId(data.orderID)
-              alert(`Payment successful! Order ID: ${data.orderID}\n\nPlease verify your purchase below.`)
+              
+              // Close our popup
+              setShowLifetimePopup(false)
+              
+              // Start auto-verification for lifetime
+              pollVerificationStatus(data.orderID)
             }
           }).render('#paypal-lifetime-button-container')
           setPaypalLoaded(true)
