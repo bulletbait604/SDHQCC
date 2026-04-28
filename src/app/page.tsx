@@ -276,6 +276,7 @@ export default function HomePage() {
   
   // Payment states
   const [paypalLoaded, setPaypalLoaded] = useState(false)
+  const [paypalLifetimeLoaded, setPaypalLifetimeLoaded] = useState(false)
   const [subscriptionId, setSubscriptionId] = useState('')
   const [paypalEmail, setPaypalEmail] = useState('')
   const [showLifetimePopup, setShowLifetimePopup] = useState(false)
@@ -1602,7 +1603,7 @@ export default function HomePage() {
 
   // Load PayPal SDK for lifetime membership - WORKS LIKE SUBSCRIPTION BUTTON
   useEffect(() => {
-    if (showLifetimePopup && !paypalLoaded && user) {
+    if (showLifetimePopup && !paypalLifetimeLoaded && user) {
       const isSandbox = process.env.NEXT_PUBLIC_PAYPAL_MODE === 'sandbox'
       const paypalClientId = isSandbox 
         ? process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID_SANDBOX 
@@ -1647,7 +1648,7 @@ export default function HomePage() {
               pollVerificationStatus(data.orderID)
             }
           }).render('#paypal-lifetime-button-container')
-          setPaypalLoaded(true)
+          setPaypalLifetimeLoaded(true)
         }
       }
       document.body.appendChild(script)
@@ -1656,7 +1657,7 @@ export default function HomePage() {
         document.body.removeChild(script)
       }
     }
-  }, [showLifetimePopup, user, paypalLoaded])
+  }, [showLifetimePopup, user, paypalLifetimeLoaded])
 
   const handleClearActivityLog = async () => {
     setActivityLog([])
