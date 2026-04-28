@@ -103,20 +103,23 @@ async function cancelSubscription(subscriptionId: string) {
 
 // Helper function to get PayPal access token
 async function getPayPalAccessToken(): Promise<string | null> {
-  const clientId = process.env.PAYPAL_CLIENT_ID
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET
+  const isSandbox = process.env.PAYPAL_MODE === 'sandbox'
+  const clientId = isSandbox ? process.env.PAYPAL_CLIENT_ID_SANDBOX : process.env.PAYPAL_CLIENT_ID
+  const clientSecret = isSandbox ? process.env.PAYPAL_CLIENT_SECRET_SANDBOX : process.env.PAYPAL_CLIENT_SECRET
   
   if (!clientId || !clientSecret) {
-    console.error('PayPal credentials not configured')
+    console.error('PayPal credentials not configured', { isSandbox, hasClientId: !!clientId, hasClientSecret: !!clientSecret })
     return null
   }
   
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
   
   try {
-    const paypalUrl = process.env.NODE_ENV === 'production'
-      ? 'https://api-m.paypal.com/v1/oauth2/token'
-      : 'https://api-m.sandbox.paypal.com/v1/oauth2/token'
+    const paypalUrl = isSandbox
+      ? 'https://api-m.sandbox.paypal.com/v1/oauth2/token'
+      : 'https://api-m.paypal.com/v1/oauth2/token'
+    
+    console.log(`PayPal: Using ${isSandbox ? 'SANDBOX' : 'LIVE'} mode`)
     
     const response = await fetch(paypalUrl, {
       method: 'POST',
@@ -150,9 +153,10 @@ async function verifySubscriptionWithPayPal(subscriptionId: string): Promise<any
       return null
     }
     
-    const paypalUrl = process.env.NODE_ENV === 'production'
-      ? `https://api-m.paypal.com/v1/billing/subscriptions/${subscriptionId}`
-      : `https://api-m.sandbox.paypal.com/v1/billing/subscriptions/${subscriptionId}`
+    const isSandbox = process.env.PAYPAL_MODE === 'sandbox'
+    const paypalUrl = isSandbox
+      ? `https://api-m.sandbox.paypal.com/v1/billing/subscriptions/${subscriptionId}`
+      : `https://api-m.paypal.com/v1/billing/subscriptions/${subscriptionId}`
     
     const response = await fetch(paypalUrl, {
       method: 'GET',
@@ -427,9 +431,10 @@ export async function POST(req: NextRequest) {
     })
     
     // Use PayPal's sandbox or live verification URL
-    const paypalUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://ipnpb.paypal.com/cgi-bin/webscr'
-      : 'https://ipnpb.sandbox.paypal.com/cgi-bin/webscr'
+    const isSandbox = process.env.PAYPAL_MODE === 'sandbox'
+    const paypalUrl = isSandbox
+      ? 'https://ipnpb.sandbox.paypal.com/cgi-bin/webscr'
+      : 'https://ipnpb.paypal.com/cgi-bin/webscr'
     
     const verificationResponse = await fetch(paypalUrl, {
       method: 'POST',
