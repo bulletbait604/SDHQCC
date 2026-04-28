@@ -131,7 +131,14 @@ async function getPayPalAccessToken(): Promise<string | null> {
     })
     
     if (!response.ok) {
-      console.error('PayPal token request failed:', response.status)
+      const errorText = await response.text()
+      console.error('PayPal token request failed:', response.status, errorText)
+      console.error('PayPal credentials check:', { 
+        isSandbox, 
+        clientIdPrefix: clientId?.substring(0, 10) + '...',
+        secretLength: clientSecret?.length,
+        url: paypalUrl 
+      })
       return null
     }
     
