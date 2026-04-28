@@ -8,6 +8,8 @@ declare global {
     paypal?: any
   }
 }
+
+// Deployment trigger for owner role fix
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
