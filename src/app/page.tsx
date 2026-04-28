@@ -3319,11 +3319,11 @@ export default function HomePage() {
                                       rec.priority === 'high' ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.5)]' :
                                       rec.priority === 'med' ? 'bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.5)]' : 'bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)]'
                                     }`}></div>
-                                    <div className={`text-sm font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                    <div className={`text-base font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                       {rec.category}
                                     </div>
-                                    <div className={`text-base leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                      {rec.text}
+                                    <div className={`text-lg leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      {rec.text?.replace(/<[^>]*>/g, '')}
                                     </div>
                                   </div>
                                 </div>
@@ -3365,10 +3365,10 @@ export default function HomePage() {
                                       <div className="text-3xl mb-2">
                                         {iconMap[overlay.type] || '✨'}
                                       </div>
-                                      <div className={`text-base mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                        {overlay.description}
+                                      <div className={`text-lg mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        {overlay.description?.replace(/<[^>]*>/g, '')}
                                       </div>
-                                      <div className={`text-sm font-mono ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                      <div className={`text-base font-mono ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                         {overlay.timing}
                                       </div>
                                     </div>
@@ -3901,7 +3901,7 @@ export default function HomePage() {
                               : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
                           }`}>
                             <div className="flex items-center justify-between mb-3">
-                              <h4 className={`text-[10px] font-semibold tracking-wider uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                              <h4 className={`text-sm font-semibold tracking-wider uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                 Algorithm Recommendations
                               </h4>
                               <div className={`text-lg font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
@@ -3920,11 +3920,11 @@ export default function HomePage() {
                                       rec.priority === 'high' ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.5)]' :
                                       rec.priority === 'med' ? 'bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.5)]' : 'bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)]'
                                     }`}></div>
-                                    <div className={`text-sm font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                    <div className={`text-base font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                       {rec.category}
                                     </div>
-                                    <div className={`text-base leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                      {rec.text}
+                                    <div className={`text-lg leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      {rec.text?.replace(/<[^>]*>/g, '')}
                                     </div>
                                   </div>
                                 </div>
@@ -3941,7 +3941,7 @@ export default function HomePage() {
                               : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
                           }`}>
                             <div className="flex items-center justify-between mb-3">
-                              <h4 className={`text-[10px] font-semibold tracking-wider uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                              <h4 className={`text-sm font-semibold tracking-wider uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                 Overlay & Edit Suggestions
                               </h4>
                               <div className={`text-lg font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
@@ -3966,10 +3966,10 @@ export default function HomePage() {
                                       <div className="text-3xl mb-2">
                                         {iconMap[overlay.type] || '✨'}
                                       </div>
-                                      <div className={`text-base mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                        {overlay.description}
+                                      <div className={`text-lg mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        {overlay.description?.replace(/<[^>]*>/g, '')}
                                       </div>
-                                      <div className={`text-sm font-mono ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                      <div className={`text-base font-mono ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                         {overlay.timing}
                                       </div>
                                     </div>
