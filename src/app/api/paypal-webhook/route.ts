@@ -150,6 +150,86 @@ async function getPayPalAccessToken(): Promise<string | null> {
   }
 }
 
+// Helper function to capture order server-side
+async function captureOrder(orderId: string): Promise<any | null> {
+  try {
+    const accessToken = await getPayPalAccessToken()
+    
+    if (!accessToken) {
+      console.error('Cannot capture order - no access token')
+      return null
+    }
+    
+    const isSandbox = process.env.PAYPAL_MODE === 'sandbox'
+    const paypalUrl = isSandbox
+      ? `https://api-m.sandbox.paypal.com/v2/checkout/orders/${orderId}/capture`
+      : `https://api-m.paypal.com/v2/checkout/orders/${orderId}/capture`
+    
+    console.log(`PayPal: Capturing order ${orderId} in ${isSandbox ? 'SANDBOX' : 'LIVE'} mode`)
+    
+    const response = await fetch(paypalUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'PayPal-Request-Id': `capture-${orderId}-${Date.now()}`
+      },
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('PayPal order capture failed:', response.status, errorText)
+      return null
+    }
+    
+    const captureData = await response.json()
+    console.log(`✅ Order ${orderId} captured successfully:`, captureData.status)
+    return captureData
+  } catch (error) {
+    console.error('Error capturing order:', error)
+    return null
+  }
+}
+
+// Helper function to get order details
+async function getOrderDetails(orderId: string): Promise<any | null> {
+  try {
+    const accessToken = await getPayPalAccessToken()
+    
+    if (!accessToken) {
+      console.error('Cannot get order details - no access token')
+      return null
+    }
+    
+    const isSandbox = process.env.PAYPAL_MODE === 'sandbox'
+    const paypalUrl = isSandbox
+      ? `https://api-m.sandbox.paypal.com/v2/checkout/orders/${orderId}`
+      : `https://api-m.paypal.com/v2/checkout/orders/${orderId}`
+    
+    console.log(`PayPal: Getting order ${orderId} details in ${isSandbox ? 'SANDBOX' : 'LIVE'} mode`)
+    
+    const response = await fetch(paypalUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    })
+    
+    if (!response.ok) {
+      console.error('PayPal get order failed:', response.status)
+      return null
+    }
+    
+    const order = await response.json()
+    console.log(`✅ Order ${orderId} retrieved:`, order.status)
+    return order
+  } catch (error) {
+    console.error('Error getting order details:', error)
+    return null
+  }
+}
+
 // Helper function to verify subscription with PayPal API
 async function verifySubscriptionWithPayPal(subscriptionId: string): Promise<any | null> {
   try {
@@ -406,6 +486,19 @@ export async function POST(req: NextRequest) {
             const [username, paypalEmail] = customId.split('|')
             
             if (username) {
+              // If order is APPROVED, capture it first
+              let finalStatus = status
+              if (status === 'APPROVED') {
+                console.log(`🔒 Order ${orderId} is APPROVED, capturing payment...`)
+                const captureResult = await captureOrder(orderId)
+                if (!captureResult) {
+                  console.error(`❌ Failed to capture order ${orderId}`)
+                  return NextResponse.json({ status: 'error', message: 'Order capture failed' }, { status: 400 })
+                }
+                finalStatus = captureResult.status || 'COMPLETED'
+                console.log(`✅ Order ${orderId} captured successfully`)
+              }
+              
               // Store as a lifetime subscription
               const subscription = {
                 username,
