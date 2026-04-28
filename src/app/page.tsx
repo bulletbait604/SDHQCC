@@ -594,31 +594,29 @@ export default function HomePage() {
             urlParams.delete('verified')
             window.history.replaceState({}, '', `${window.location.pathname}?${urlParams}`)
             
-            // Poll for role update (webhook might still be processing)
+            // Poll for role update faster (webhook might still be processing)
             let rolePollCount = 0
             const rolePoll = setInterval(async () => {
               rolePollCount++
-              console.log(`Role poll attempt ${rolePollCount}...`)
               
               const response = await fetch(`/api/roles?username=${parsedUser.username}`)
               if (response.ok) {
                 const data = await response.json()
-                console.log('Role poll response:', data)
                 
                 if (data.user && data.user.role && data.user.role !== 'free') {
                   // Role updated!
                   clearInterval(rolePoll)
                   setUserRole(data.user.role)
-                  console.log('✅ Role updated to:', data.user.role)
+                  console.log(`✅ Role updated to ${data.user.role} after ${rolePollCount} polls`)
                 }
               }
               
-              // Stop after 10 attempts (10 seconds)
-              if (rolePollCount >= 10) {
+              // Stop after 30 attempts (6 seconds total at 200ms each)
+              if (rolePollCount >= 30) {
                 clearInterval(rolePoll)
-                console.log('Role poll timeout, keeping free role')
+                console.log('Role poll timeout, final role will be shown')
               }
-            }, 1000)
+            }, 200)
           }
         } catch (error) {
           console.error('Error loading stored user:', error)
@@ -1952,23 +1950,21 @@ export default function HomePage() {
   const pollVerificationStatus = (subscriptionId: string) => {
     if (!user) return
     
-    console.log('Starting verification polling for:', subscriptionId)
+    console.log('🔍 Starting verification polling for:', subscriptionId, 'user:', user.username)
     setIsVerifying(true)
     
     let pollCount = 0
-    const maxPolls = 60
+    const maxPolls = 60 // 60 seconds total
     
     const poll = setInterval(async () => {
       pollCount++
-      console.log(`Polling attempt ${pollCount}...`)
       
       try {
         const response = await fetch(`/api/paypal-webhook?username=${user.username.toLowerCase()}`)
         const data = await response.json()
-        console.log('Poll response:', data)
         
         if (data.verified) {
-          console.log('✅ VERIFIED! Stopping poll and reloading...')
+          console.log('✅ VERIFIED on poll', pollCount, '- reloading...')
           clearInterval(poll)
           
           // Store data in localStorage
@@ -1981,21 +1977,23 @@ export default function HomePage() {
           localStorage.setItem('verifiedUsername', user.username)
           localStorage.setItem('subscriptionId', data.subscriptionId)
           
-          // Close modal and force fresh reload
+          // Close modal and reload
           setIsVerifying(false)
-          console.log('Reloading page now...')
-          
-          // Clear any cached user data
-          sessionStorage.removeItem('userData')
           
           // Force reload with cache-busting parameter
           const url = new URL(window.location.href)
           url.searchParams.set('verified', Date.now().toString())
           window.location.replace(url.toString())
+          return
+        }
+        
+        // Log every 5th poll to avoid spam
+        if (pollCount % 5 === 0) {
+          console.log(`⏳ Poll ${pollCount}: not verified yet...`)
         }
         
         if (pollCount >= maxPolls) {
-          console.log('Max polls reached, stopping')
+          console.log('❌ Max polls reached, verification timeout')
           clearInterval(poll)
           setIsVerifying(false)
           alert('Verification is taking longer than expected. Please refresh the page to check your status.')
@@ -2003,7 +2001,7 @@ export default function HomePage() {
       } catch (error) {
         console.error('Polling error:', error)
       }
-    }, 2000)
+    }, 1000) // Poll every 1 second
   }
   
   const checkPaymentStatus = async () => {
