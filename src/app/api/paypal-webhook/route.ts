@@ -393,6 +393,47 @@ export async function POST(req: NextRequest) {
           }
         }
         
+        // Handle one-time payment orders (lifetime membership)
+        if (eventType === 'CHECKOUT.ORDER.APPROVED' || eventType === 'CHECKOUT.ORDER.COMPLETED') {
+          const orderId = eventData.resource?.id
+          const customId = eventData.resource?.purchase_units?.[0]?.custom_id
+          const amount = eventData.resource?.purchase_units?.[0]?.amount?.value
+          const status = eventData.resource?.status
+          
+          console.log(`💰 One-time payment received: ${orderId}, status: ${status}, custom_id: ${customId}`)
+          
+          if (customId && customId.includes('lifetime')) {
+            const [username, paypalEmail] = customId.split('|')
+            
+            if (username) {
+              // Store as a lifetime subscription
+              const subscription = {
+                username,
+                paypalEmail,
+                subscriptionId: orderId,
+                status: 'ACTIVE',
+                planId: 'lifetime',
+                startTime: new Date().toISOString(),
+                amount,
+                isLifetime: true,
+                verifiedWithPayPal: true,
+                verifiedAt: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              }
+              
+              await storeSubscription(subscription)
+              
+              // Upgrade user role to lifetime subscriber
+              await updateUserRole(username, 'subscriber_lifetime')
+              
+              console.log(`✅ Lifetime membership ${orderId} ACTIVATED for ${username}, role upgraded to subscriber_lifetime`)
+              
+              return NextResponse.json({ status: 'success', username, orderId, autoVerified: true, roleUpdated: true, isLifetime: true })
+            }
+          }
+        }
+        
         // Handle subscription update (e.g., payment failure)
         if (eventType === 'BILLING.SUBSCRIPTION.UPDATED') {
           const subscriptionId = eventData.resource?.id
@@ -524,7 +565,8 @@ export async function GET(req: NextRequest) {
           username: subscription.username,
           subscriptionId: subscription.subscriptionId,
           verifiedAt: subscription.createdAt,
-          status: subscription.status
+          status: subscription.status,
+          isLifetime: subscription.isLifetime || subscription.planId === 'lifetime'
         })
       }
       

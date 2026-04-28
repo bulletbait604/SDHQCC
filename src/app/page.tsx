@@ -1931,7 +1931,7 @@ export default function HomePage() {
           clearInterval(poll)
           
           // Check if this is a lifetime purchase
-          const isLifetimePurchase = data.customId && data.customId.includes('lifetime')
+          const isLifetimePurchase = data.isLifetime
           
           if (isLifetimePurchase) {
             // Lifetime membership - no expiry
