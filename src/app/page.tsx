@@ -587,16 +587,38 @@ export default function HomePage() {
           const parsedUser = JSON.parse(storedUser)
           setUser(parsedUser)
           
-          // If post-verification, refresh user data to get updated role
+          // If post-verification, poll for role update (webhook may still be processing)
           if (isPostVerification) {
-            console.log('Post-verification reload detected, refreshing user data...')
+            console.log('Post-verification reload detected, polling for role update...')
             // Clear URL param
             urlParams.delete('verified')
             window.history.replaceState({}, '', `${window.location.pathname}?${urlParams}`)
-            // Fetch fresh user data
-            setTimeout(() => {
-              fetchUserRole()
-            }, 100)
+            
+            // Poll for role update (webhook might still be processing)
+            let rolePollCount = 0
+            const rolePoll = setInterval(async () => {
+              rolePollCount++
+              console.log(`Role poll attempt ${rolePollCount}...`)
+              
+              const response = await fetch(`/api/roles?username=${parsedUser.username}`)
+              if (response.ok) {
+                const data = await response.json()
+                console.log('Role poll response:', data)
+                
+                if (data.user && data.user.role && data.user.role !== 'free') {
+                  // Role updated!
+                  clearInterval(rolePoll)
+                  setUserRole(data.user.role)
+                  console.log('✅ Role updated to:', data.user.role)
+                }
+              }
+              
+              // Stop after 10 attempts (10 seconds)
+              if (rolePollCount >= 10) {
+                clearInterval(rolePoll)
+                console.log('Role poll timeout, keeping free role')
+              }
+            }, 1000)
           }
         } catch (error) {
           console.error('Error loading stored user:', error)
