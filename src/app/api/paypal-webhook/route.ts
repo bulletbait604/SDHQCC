@@ -15,6 +15,24 @@ if (!global.verifiedUsers) {
   global.verifiedUsers = new Map()
 }
 
+// Helper function to log activity to activity-log API
+async function logActivity(username: string, action: string, details?: string) {
+  try {
+    await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/activity-log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username,
+        action,
+        details,
+        timestamp: new Date().toISOString()
+      })
+    })
+  } catch (error) {
+    console.error('Failed to log activity:', error)
+  }
+}
+
 // Helper function to update user role in MongoDB
 async function updateUserRole(username: string, role: string) {
   try {
@@ -91,6 +109,10 @@ async function cancelSubscription(subscriptionId: string) {
       
       // Downgrade user role to free
       await updateUserRole(subscription.username, 'free')
+      
+      // Log cancellation from helper
+      await logActivity(subscription.username, 'subscription_cancelled', `Subscription cancelled (ID: ${subscriptionId})`)
+      
       console.log(`Subscription ${subscriptionId} cancelled, user ${subscription.username} downgraded to free`)
     }
     
@@ -357,6 +379,9 @@ export async function POST(req: NextRequest) {
               
               console.log(`✅ Subscription ${subscriptionId} VERIFIED and activated for ${username}, role upgraded to subscriber`)
               
+              // Log subscription payment
+              await logActivity(username.toLowerCase(), 'subscription_payment', `Subscribed - $6.99/month (ID: ${subscriptionId})`)
+              
               return NextResponse.json({ status: 'success', username, autoVerified: true, roleUpdated: true, verifiedWithPayPal: true })
             }
           }
@@ -377,7 +402,18 @@ export async function POST(req: NextRequest) {
               return NextResponse.json({ status: 'error', message: 'Verification failed' }, { status: 400 })
             }
             
+            // Get subscription details before cancelling for logging
+            const client = await clientPromise
+            const db = client.db('sdhq')
+            const subToCancel = await db.collection('subscriptions').findOne({ subscriptionId })
+            
             await cancelSubscription(subscriptionId)
+            
+            // Log cancellation
+            if (subToCancel) {
+              await logActivity(subToCancel.username, 'subscription_cancelled', `Subscription cancelled (ID: ${subscriptionId})`)
+            }
+            
             console.log(`✅ Cancellation verified and processed for ${subscriptionId}`)
             return NextResponse.json({ status: 'success', subscriptionId, action: 'cancelled', verifiedWithPayPal: true })
           }
@@ -421,6 +457,10 @@ export async function POST(req: NextRequest) {
               
               // Suspend user access by downgrading role
               await updateUserRole(subscription.username, 'free')
+              
+              // Log suspension
+              await logActivity(subscription.username, 'subscription_suspended', `Subscription suspended (ID: ${subscriptionId})`)
+              
               console.log(`✅ Suspension verified and processed for ${subscriptionId}, user ${subscription.username} downgraded`)
             }
             
@@ -466,6 +506,10 @@ export async function POST(req: NextRequest) {
               
               // Downgrade user role
               await updateUserRole(subscription.username, 'free')
+              
+              // Log expiry
+              await logActivity(subscription.username, 'subscription_expired', `Subscription expired (ID: ${subscriptionId})`)
+              
               console.log(`✅ Expiry verified and processed for ${subscriptionId}, user ${subscription.username} downgraded`)
             }
             
@@ -503,6 +547,9 @@ export async function POST(req: NextRequest) {
               
               await storeSubscription(subscription)
               await updateUserRole(username.toLowerCase(), 'subscriber_lifetime')
+              
+              // Log lifetime payment
+              await logActivity(username.toLowerCase(), 'lifetime_payment', `Lifetime membership purchased - $${amount} CAD (ID: ${orderId})`)
               
               console.log(`✅ Lifetime membership ACTIVATED for ${username}`)
               return NextResponse.json({ status: 'success', username, autoVerified: true, isLifetime: true })
