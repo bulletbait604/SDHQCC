@@ -2186,15 +2186,26 @@ export default function HomePage() {
                     <p className={`text-base ${subtitleClasses}`}>@{user.username}</p>
                   </div>
                   {userRole === 'free' && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={handleVerifySubscription}
-                      className="ml-2"
-                    >
-                      <Shield className="w-4 h-4 mr-1" />
-                      Upgrade
-                    </Button>
+                    <>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleVerifySubscription}
+                        className="ml-2"
+                      >
+                        <Shield className="w-4 h-4 mr-1" />
+                        Upgrade
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => window.location.reload()}
+                        className="ml-1"
+                        title="Refresh to check subscription status"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </Button>
+                    </>
                   )}
                 </div>
               ) : (
