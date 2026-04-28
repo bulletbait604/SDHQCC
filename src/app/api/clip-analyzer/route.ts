@@ -25,6 +25,7 @@ function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean
 
 export async function POST(request: Request) {
   try {
+    console.log('Clip Analyzer API: Request received')
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const platform = formData.get('platform') as string
@@ -33,15 +34,25 @@ export async function POST(request: Request) {
     const fileKey = formData.get('fileKey') as string | null
     const uploadMode = (formData.get('uploadMode') as string) || 'direct' // 'direct' or 'r2'
 
+    console.log('Clip Analyzer API: Form data received:', { 
+      hasFile: !!file, 
+      platform, 
+      userId, 
+      userType, 
+      fileKey, 
+      uploadMode 
+    })
+
     let fileData: { name: string; size: number; type: string; buffer?: Buffer } | null = null
 
     if (uploadMode === 'r2' && fileKey) {
       // R2 mode: fetch file from R2 storage
-      console.log(`Fetching file from R2: ${fileKey}`)
+      console.log(`Clip Analyzer API: R2 mode - fetching file from R2: ${fileKey}`)
       const r2Buffer = await getFileFromR2(fileKey)
       
       if (!r2Buffer) {
-        return NextResponse.json({ error: 'Failed to retrieve file from storage' }, { status: 500 })
+        console.error(`Clip Analyzer API: Failed to retrieve file from R2: ${fileKey}`)
+        return NextResponse.json({ error: `Failed to retrieve file from R2 storage: ${fileKey}` }, { status: 500 })
       }
 
       // Extract filename from fileKey (format: uploads/timestamp-filename)
@@ -510,8 +521,14 @@ Focus on actionable advice that applies to most video content on ${platform}.`
 
     return response
   } catch (error) {
-    console.error('Clip analyzer error:', error)
+    console.error('Clip Analyzer API: Unhandled error:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    return NextResponse.json({ error: errorMessage }, { status: 500 })
+    const errorStack = error instanceof Error ? error.stack : ''
+    console.error('Clip Analyzer API: Error details:', errorMessage)
+    console.error('Clip Analyzer API: Error stack:', errorStack)
+    return NextResponse.json({ 
+      error: `Clip analysis failed: ${errorMessage}`,
+      details: errorStack || 'No stack trace available'
+    }, { status: 500 })
   }
 }

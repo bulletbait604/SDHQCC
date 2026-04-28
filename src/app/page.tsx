@@ -954,6 +954,9 @@ export default function HomePage() {
       const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetimeMember ? 'lifetime' : isSubscribed ? 'subscribed' : 'free'
       
       // Step 1: Get presigned upload URL from our API
+      console.log('Clip Upload: Step 1 - Requesting presigned URL...')
+      console.log('Clip Upload: File details:', { name: clipFile.name, type: clipFile.type, size: clipFile.size })
+      
       const urlRes = await fetch('/api/upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -963,14 +966,27 @@ export default function HomePage() {
         })
       })
 
+      console.log('Clip Upload: URL response status:', urlRes.status, urlRes.statusText)
+      
       if (!urlRes.ok) {
-        const errorData = await urlRes.json()
-        throw new Error(errorData.error || 'Failed to get upload URL')
+        const errorText = await urlRes.text()
+        console.error('Clip Upload: Failed to get upload URL. Status:', urlRes.status, 'Response:', errorText)
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch {
+          errorData = { error: errorText || 'Failed to get upload URL' }
+        }
+        throw new Error(`Upload URL Error (${urlRes.status}): ${errorData.error || errorText || 'Unknown error'}`)
       }
 
       const { uploadUrl, fileKey } = await urlRes.json()
+      console.log('Clip Upload: Got presigned URL and fileKey:', fileKey)
 
       // Step 2: Upload file directly to R2 (bypasses Vercel limits)
+      console.log('Clip Upload: Step 2 - Uploading to R2...')
+      console.log('Clip Upload: Upload URL:', uploadUrl.substring(0, 50) + '...')
+      
       const uploadRes = await fetch(uploadUrl, {
         method: 'PUT',
         body: clipFile,
@@ -979,11 +995,20 @@ export default function HomePage() {
         }
       })
 
+      console.log('Clip Upload: R2 upload response status:', uploadRes.status, uploadRes.statusText)
+      
       if (!uploadRes.ok) {
-        throw new Error('Failed to upload file to cloud storage')
+        const errorText = await uploadRes.text()
+        console.error('Clip Upload: R2 upload failed. Status:', uploadRes.status, 'Response:', errorText)
+        throw new Error(`R2 Upload Error (${uploadRes.status}): ${errorText || uploadRes.statusText || 'Failed to upload file to cloud storage'}`)
       }
+      
+      console.log('Clip Upload: File uploaded to R2 successfully')
 
       // Step 3: Call clip-analyzer with fileKey (R2 mode)
+      console.log('Clip Upload: Step 3 - Calling clip-analyzer...')
+      console.log('Clip Upload: Sending fileKey:', fileKey, 'Platform:', clipPlatform, 'UserType:', userType)
+      
       const formData = new FormData()
       formData.append('fileKey', fileKey)
       formData.append('uploadMode', 'r2')
@@ -995,6 +1020,8 @@ export default function HomePage() {
         method: 'POST',
         body: formData
       })
+      
+      console.log('Clip Upload: Analyzer response status:', res.status, res.statusText)
 
       clearInterval(stepInterval)
 

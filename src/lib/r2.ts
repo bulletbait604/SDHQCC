@@ -53,26 +53,41 @@ export async function generateUploadUrl(filename: string, contentType: string): 
 // Get file from R2 for processing
 export async function getFileFromR2(fileKey: string): Promise<Buffer | null> {
   try {
+    console.log(`R2: Getting file from bucket ${R2_BUCKET_NAME}, key: ${fileKey}`)
+    console.log(`R2: R2_ACCOUNT_ID present: ${!!R2_ACCOUNT_ID}`)
+    console.log(`R2: R2_ACCESS_KEY_ID present: ${!!R2_ACCESS_KEY_ID}`)
+    console.log(`R2: R2_SECRET_ACCESS_KEY present: ${!!R2_SECRET_ACCESS_KEY}`)
+    
     const command = new GetObjectCommand({
       Bucket: R2_BUCKET_NAME,
       Key: fileKey,
     })
 
+    console.log(`R2: Sending GetObjectCommand...`)
     const response = await r2Client.send(command)
     
     if (!response.Body) {
+      console.error('R2: Response body is empty')
       return null
     }
 
+    console.log(`R2: Response received, streaming body...`)
     // Convert stream to buffer
     const chunks: Buffer[] = []
     for await (const chunk of response.Body as any) {
       chunks.push(chunk)
     }
     
-    return Buffer.concat(chunks)
+    const buffer = Buffer.concat(chunks)
+    console.log(`R2: File retrieved successfully, size: ${buffer.length} bytes`)
+    return buffer
   } catch (error) {
-    console.error('Error getting file from R2:', error)
+    console.error('R2: Error getting file from R2:', error)
+    if (error instanceof Error) {
+      console.error('R2: Error name:', error.name)
+      console.error('R2: Error message:', error.message)
+      console.error('R2: Error stack:', error.stack)
+    }
     return null
   }
 }
