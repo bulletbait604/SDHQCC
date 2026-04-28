@@ -313,7 +313,9 @@ GUIDELINES:
 - Score realistically based on actual content quality
 - NEVER use abbreviations (write "description" not "desc", "information" not "info", "second" not "sec")
 - Provide 15-20 relevant, specific hashtags
-- Provide 3 distinct title options with different hooks`
+- Include 1-2 relevant emojis in each title suggestion
+- NEVER use HTML tags like <b> or <i> - use plain text only
+- Provide 3 distinct title options with different hooks and emojis`
               },
               {
                 role: 'user',
@@ -448,7 +450,9 @@ GUIDELINES:
 - Score realistically based on actual content quality
 - NEVER use abbreviations (write "description" not "desc", "information" not "info", "second" not "sec")
 - Provide 15-20 relevant, specific hashtags
-- Provide 3 distinct title options with different hooks`
+- Include 1-2 relevant emojis in each title suggestion
+- NEVER use HTML tags like <b> or <i> - use plain text only
+- Provide 3 distinct title options with different hooks and emojis`
               },
               {
                 role: 'user',

@@ -3772,7 +3772,7 @@ export default function HomePage() {
                               : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
                           }`}>
                             <div className="flex items-center justify-between mb-3">
-                              <h4 className={`text-[10px] font-semibold tracking-wider uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                              <h4 className={`text-sm font-semibold tracking-wider uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                 Content Metadata
                               </h4>
                             </div>
@@ -4022,11 +4022,11 @@ export default function HomePage() {
                               }`}>
                                 <div className="flex flex-col items-center text-center">
                                   <span className="text-3xl mb-2">📄</span>
-                                  <div className={`text-sm font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                  <div className={`text-base font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                     Description
                                   </div>
-                                  <div className={`text-sm leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                    {contentAnalysisResult.description || '—'}
+                                  <div className={`text-lg leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    {contentAnalysisResult.description?.replace(/<[^>]*>/g, '') || '—'}
                                   </div>
                                 </div>
                               </div>
