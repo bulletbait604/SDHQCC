@@ -1526,9 +1526,7 @@ export default function HomePage() {
                   console.log('Could not auto-close PayPal window:', e)
                 }
                 
-                alert(`Subscription successful! Subscription ID: ${data.subscriptionID}\n\nVerifying your subscription automatically...`)
-                
-                // Start polling for verification status (faster - 2 second intervals)
+                // Start polling for verification status immediately (silently in background)
                 pollVerificationStatus(data.subscriptionID)
               },
               onError: function(err: any) {
