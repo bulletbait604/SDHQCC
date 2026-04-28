@@ -486,9 +486,9 @@ export async function POST(req: NextRequest) {
             const username = customId.split('|')[0]
             
             if (username) {
-              // Store lifetime membership immediately (webhook = payment confirmed by PayPal)
+              // Store with LOWERCASE username to match GET endpoint search
               const subscription = {
-                username,
+                username: username.toLowerCase(),
                 subscriptionId: orderId,
                 status: 'ACTIVE',
                 planId: 'lifetime',
@@ -502,7 +502,7 @@ export async function POST(req: NextRequest) {
               }
               
               await storeSubscription(subscription)
-              await updateUserRole(username, 'subscriber_lifetime')
+              await updateUserRole(username.toLowerCase(), 'subscriber_lifetime')
               
               console.log(`✅ Lifetime membership ACTIVATED for ${username}`)
               return NextResponse.json({ status: 'success', username, autoVerified: true, isLifetime: true })

@@ -1925,7 +1925,7 @@ export default function HomePage() {
       console.log(`Polling attempt ${pollCount}...`)
       
       try {
-        const response = await fetch(`/api/paypal-webhook?username=${user.username}`)
+        const response = await fetch(`/api/paypal-webhook?username=${user.username.toLowerCase()}`)
         const data = await response.json()
         console.log('Poll response:', data)
         
