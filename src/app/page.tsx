@@ -1508,6 +1508,24 @@ export default function HomePage() {
                 // Close our subscribe popup
                 setShowSubscribePopup(false)
                 
+                // Force close any PayPal popup windows
+                try {
+                  // Close any child windows that might be open (PayPal popup)
+                  if (window.openedWindows && window.openedWindows.length > 0) {
+                    window.openedWindows.forEach((win: any) => {
+                      if (win && !win.closed) win.close()
+                    })
+                  }
+                  
+                  // Alternative: try to find and close PayPal windows
+                  const paypalWindows = window.open('', 'paypal') || window.open('', '__paypalSDK__')
+                  if (paypalWindows && !paypalWindows.closed) {
+                    paypalWindows.close()
+                  }
+                } catch (e) {
+                  console.log('Could not auto-close PayPal window:', e)
+                }
+                
                 alert(`Subscription successful! Subscription ID: ${data.subscriptionID}\n\nVerifying your subscription automatically...`)
                 
                 // Start polling for verification status (faster - 2 second intervals)
