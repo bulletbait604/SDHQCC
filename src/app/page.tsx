@@ -1959,6 +1959,9 @@ export default function HomePage() {
           
           alert(`✅ Subscription verified automatically!\n\nPremium features unlocked for 30 days!`)
           setShowSubscribePopup(false)
+          
+          // Refresh the page to show updated role
+          window.location.reload()
         }
         
         if (pollCount >= maxPolls) {
@@ -2044,6 +2047,9 @@ export default function HomePage() {
         
         alert(`Subscription verified! Subscription ID: ${data.subscriptionId}\nStatus: ${data.status}\n\nPremium features unlocked for 30 days!`)
         setShowSubscribePopup(false)
+        
+        // Refresh the page to show updated role
+        window.location.reload()
       } else {
         // Log failed verification
         const failedEntry: ActivityLogEntry = {
