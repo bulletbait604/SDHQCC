@@ -1598,9 +1598,9 @@ export default function HomePage() {
                     value: '54.99',
                     currency_code: 'CAD'
                   },
-                  description: 'SDHQ Creator Corner Lifetime Membership'
-                }],
-                custom_id: `${user.username}|lifetime`
+                  description: 'SDHQ Creator Corner Lifetime Membership',
+                  custom_id: `${user.username}|lifetime`
+                }]
               })
             },
             onApprove: function(data: any, actions: any) {
