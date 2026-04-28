@@ -1996,7 +1996,7 @@ export default function HomePage() {
           console.log('❌ Max polls reached, verification timeout')
           clearInterval(poll)
           setIsVerifying(false)
-          // Don't alert, let the modal show the refresh button
+          alert('Your payment was successful! It may take a minute to process your subscription. Please refresh the browser if you do not see your new badge.')
         }
       } catch (error) {
         console.error('Polling error:', error)
@@ -2186,26 +2186,15 @@ export default function HomePage() {
                     <p className={`text-base ${subtitleClasses}`}>@{user.username}</p>
                   </div>
                   {userRole === 'free' && (
-                    <>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={handleVerifySubscription}
-                        className="ml-2"
-                      >
-                        <Shield className="w-4 h-4 mr-1" />
-                        Upgrade
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => window.location.reload()}
-                        className="ml-1"
-                        title="Refresh to check subscription status"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                      </Button>
-                    </>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleVerifySubscription}
+                      className="ml-2"
+                    >
+                      <Shield className="w-4 h-4 mr-1" />
+                      Upgrade
+                    </Button>
                   )}
                 </div>
               ) : (
