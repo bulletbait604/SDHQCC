@@ -1416,8 +1416,13 @@ export default function HomePage() {
       }
 
       // Load PayPal SDK
+      const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+      if (!paypalClientId) {
+        console.error('PayPal Client ID not configured')
+        return
+      }
       const script = document.createElement('script')
-      script.src = 'https://www.paypal.com/sdk/js?client-id=AcreigdRauOMN5Md7nV3SIJbF3ykTEMBLUTMSLEzCiaEgNIIsW45ETtIP6JBeRzPigk6IIHkTkDWuMhR&vault=true&intent=subscription'
+      script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&vault=true&intent=subscription`
       script.setAttribute('data-sdk-integration-source', 'button-factory')
       script.onload = () => {
         // Render PayPal button after SDK loads
@@ -1430,8 +1435,13 @@ export default function HomePage() {
               label: 'subscribe'
             },
             createSubscription: function(data: any, actions: any) {
+              const planId = process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID
+              if (!planId) {
+                console.error('PayPal Plan ID not configured')
+                return
+              }
               return actions.subscription.create({
-                plan_id: 'P-85G51774HA849662NNHWRF5I',
+                plan_id: planId,
                 custom_id: `${user.username}|${paypalEmail}`
               })
             },
@@ -1458,8 +1468,13 @@ export default function HomePage() {
   // Load PayPal SDK for lifetime membership
   useEffect(() => {
     if (showLifetimePopup && !paypalLoaded && user) {
+      const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+      if (!paypalClientId) {
+        console.error('PayPal Client ID not configured')
+        return
+      }
       const script = document.createElement('script')
-      script.src = 'https://www.paypal.com/sdk/js?client-id=AcreigdRauOMN5Md7nV3SIJbF3ykTEMBLUTMSLEzCiaEgNIIsW45ETtIP6JBeRzPigk6IIHkTkDWuMhR&currency=CAD'
+      script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=CAD`
       script.setAttribute('data-sdk-integration-source', 'button-factory')
       script.onload = () => {
         // Render PayPal button after SDK loads
