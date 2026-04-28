@@ -1453,13 +1453,20 @@ export default function HomePage() {
       }
 
       // Load PayPal SDK
-      const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+      const isSandbox = process.env.NEXT_PUBLIC_PAYPAL_MODE === 'sandbox'
+      const paypalClientId = isSandbox 
+        ? process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID_SANDBOX 
+        : process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+      
       if (!paypalClientId) {
-        console.error('PayPal Client ID not configured')
+        console.error('PayPal Client ID not configured', { isSandbox })
         return
       }
+      
+      console.log(`PayPal: Loading SDK in ${isSandbox ? 'SANDBOX' : 'LIVE'} mode`)
+      
       const script = document.createElement('script')
-      script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&vault=true&intent=subscription`
+      script.src = `https://www.${isSandbox ? 'sandbox.' : ''}paypal.com/sdk/js?client-id=${paypalClientId}&vault=true&intent=subscription`
       script.setAttribute('data-sdk-integration-source', 'button-factory')
       script.onload = () => {
         console.log('PayPal SDK loaded successfully')
