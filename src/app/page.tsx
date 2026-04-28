@@ -4813,26 +4813,6 @@ export default function HomePage() {
                 Subscribe to unlock all premium features for $6.99 CAD/month.
               </p>
               
-              <div className={`p-4 rounded-lg border-2 border-dashed ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
-                <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  <strong>Step 1:</strong> Enter your PayPal email address (the email you used to create your PayPal account):
-                </p>
-                <input
-                  type="email"
-                  value={paypalEmail}
-                  onChange={(e) => setPaypalEmail(e.target.value)}
-                  placeholder="your-email@paypal.com"
-                  className={`w-full px-3 py-2 rounded border text-base ${
-                    darkMode 
-                      ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
-                      : 'bg-white border-gray-300'
-                  }`}
-                />
-                <p className={`text-sm mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  This will be used to verify your subscription ownership.
-                </p>
-              </div>
-              
               <div className={`p-4 rounded-lg border ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
                 <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PayPal Subscription:</p>
                 <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -4842,34 +4822,13 @@ export default function HomePage() {
               
               <div id="paypal-button-container" className="w-full"></div>
               
-              {subscriptionId && (
-                <div className={`p-3 rounded-lg border ${darkMode ? 'border-sdhq-green-500 bg-sdhq-green-500/10' : 'border-sdhq-green-500 bg-sdhq-green-50'}`}>
-                  <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                    <strong className={darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}>Subscription created!</strong> Subscription ID: {subscriptionId}
-                  </p>
-                  <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    Click below to verify your subscription.
-                  </p>
-                </div>
-              )}
-              
-              <div className="flex space-x-2">
-                <Button
-                  onClick={() => setShowPaymentConfirm(true)}
-                  className="flex-1 bg-sdhq-green-600 hover:bg-sdhq-green-700 text-white"
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  I&apos;ve Paid - Unlock Now
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowSubscribePopup(false)}
-                  className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
-                >
-                  Close
-                </Button>
-              </div>
-              
+              <Button
+                variant="outline"
+                onClick={() => setShowSubscribePopup(false)}
+                className={`w-full ${darkMode ? 'border-sdhq-dark-600 text-white' : ''}`}
+              >
+                Close
+              </Button>
             </div>
           </div>
         </div>
@@ -4894,26 +4853,6 @@ export default function HomePage() {
                 Get lifetime access to all current and upcoming features for a one-time payment of $54.99 CAD.
               </p>
               
-              <div className={`p-4 rounded-lg border-2 border-dashed ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
-                <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  <strong>Step 1:</strong> Enter your PayPal email address (the email you used to create your PayPal account):
-                </p>
-                <input
-                  type="email"
-                  value={paypalEmail}
-                  onChange={(e) => setPaypalEmail(e.target.value)}
-                  placeholder="your-email@paypal.com"
-                  className={`w-full px-3 py-2 rounded border text-base ${
-                    darkMode 
-                      ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500' 
-                      : 'bg-white border-gray-300'
-                  }`}
-                />
-                <p className={`text-sm mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  This will be used to verify your lifetime purchase.
-                </p>
-              </div>
-              
               <div className={`p-4 rounded-lg border ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
                 <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PayPal One-Time Payment:</p>
                 <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -4923,37 +4862,13 @@ export default function HomePage() {
               
               <div id="paypal-lifetime-button-container" className="w-full"></div>
               
-              {subscriptionId && (
-                <div className={`p-3 rounded-lg border ${darkMode ? 'border-sdhq-green-500 bg-sdhq-green-500/10' : 'border-sdhq-green-500 bg-sdhq-green-50'}`}>
-                  <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                    <strong className={darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}>Payment completed!</strong> Transaction ID: {subscriptionId}
-                  </p>
-                  <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    Click below to verify your lifetime purchase.
-                  </p>
-                </div>
-              )}
-              
-              <div className="flex space-x-2">
-                <Button
-                  onClick={() => {
-                    setShowLifetimePopup(false)
-                    checkPaymentStatus()
-                  }}
-                  className="flex-1 bg-sdhq-green-600 hover:bg-sdhq-green-700 text-white"
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  I&apos;ve Paid - Verify
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowLifetimePopup(false)}
-                  className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
-                >
-                  Close
-                </Button>
-              </div>
-              
+              <Button
+                variant="outline"
+                onClick={() => setShowLifetimePopup(false)}
+                className={`w-full ${darkMode ? 'border-sdhq-dark-600 text-white' : ''}`}
+              >
+                Close
+              </Button>
             </div>
           </div>
         </div>
@@ -4983,57 +4898,6 @@ export default function HomePage() {
               >
                 Cancel
               </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Payment Confirmation Popup */}
-      {showPaymentConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-sm w-full p-6 shadow-2xl`}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Confirm Payment</h3>
-              <button 
-                onClick={() => setShowPaymentConfirm(false)}
-                className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-700 text-white' : 'text-gray-600'}`}
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div className={`p-4 rounded-lg border-2 border-yellow-500 ${darkMode ? 'bg-yellow-500/10' : 'bg-yellow-50'}`}>
-                <p className={`text-base font-semibold mb-2 ${darkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
-                  Verify your subscription
-                </p>
-                <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                  PayPal Email: <strong className={darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}>{paypalEmail}</strong>
-                </p>
-                <p className={`text-sm mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  We will verify your subscription by matching your KICK username and PayPal email.
-                </p>
-              </div>
-              
-              <div className="flex space-x-2">
-                <Button
-                  onClick={() => {
-                    setShowPaymentConfirm(false)
-                    checkPaymentStatus()
-                  }}
-                  className="flex-1 bg-sdhq-green-600 hover:bg-sdhq-green-700 text-white"
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Verify Now
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowPaymentConfirm(false)}
-                  className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
-                >
-                  Go Back
-                </Button>
-              </div>
             </div>
           </div>
         </div>
