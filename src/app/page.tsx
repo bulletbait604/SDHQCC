@@ -1579,7 +1579,7 @@ export default function HomePage() {
       console.log(`PayPal Lifetime: Loading SDK in ${isSandbox ? 'SANDBOX' : 'LIVE'} mode`)
       
       const script = document.createElement('script')
-      script.src = `https://www.${isSandbox ? 'sandbox.' : ''}paypal.com/sdk/js?client-id=${paypalClientId}&currency=CAD`
+      script.src = `https://www.${isSandbox ? 'sandbox.' : ''}paypal.com/sdk/js?client-id=${paypalClientId}&currency=CAD&intent=capture`
       script.setAttribute('data-sdk-integration-source', 'button-factory')
       script.onload = () => {
         // Render PayPal button after SDK loads
