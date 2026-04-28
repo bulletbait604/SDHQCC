@@ -101,6 +101,81 @@ async function cancelSubscription(subscriptionId: string) {
   }
 }
 
+// Helper function to get PayPal access token
+async function getPayPalAccessToken(): Promise<string | null> {
+  const clientId = process.env.PAYPAL_CLIENT_ID
+  const clientSecret = process.env.PAYPAL_CLIENT_SECRET
+  
+  if (!clientId || !clientSecret) {
+    console.error('PayPal credentials not configured')
+    return null
+  }
+  
+  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+  
+  try {
+    const paypalUrl = process.env.NODE_ENV === 'production'
+      ? 'https://api-m.paypal.com/v1/oauth2/token'
+      : 'https://api-m.sandbox.paypal.com/v1/oauth2/token'
+    
+    const response = await fetch(paypalUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: 'grant_type=client_credentials',
+    })
+    
+    if (!response.ok) {
+      console.error('PayPal token request failed:', response.status)
+      return null
+    }
+    
+    const data = await response.json()
+    return data.access_token
+  } catch (error) {
+    console.error('Error getting PayPal access token:', error)
+    return null
+  }
+}
+
+// Helper function to verify subscription with PayPal API
+async function verifySubscriptionWithPayPal(subscriptionId: string): Promise<any | null> {
+  try {
+    const accessToken = await getPayPalAccessToken()
+    
+    if (!accessToken) {
+      console.error('Cannot verify subscription - no access token')
+      return null
+    }
+    
+    const paypalUrl = process.env.NODE_ENV === 'production'
+      ? `https://api-m.paypal.com/v1/billing/subscriptions/${subscriptionId}`
+      : `https://api-m.sandbox.paypal.com/v1/billing/subscriptions/${subscriptionId}`
+    
+    const response = await fetch(paypalUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    })
+    
+    if (!response.ok) {
+      console.error('PayPal subscription verification failed:', response.status)
+      return null
+    }
+    
+    const subscription = await response.json()
+    console.log(`✅ Subscription verified with PayPal:`, subscription.id, 'Status:', subscription.status)
+    return subscription
+  } catch (error) {
+    console.error('Error verifying subscription with PayPal:', error)
+    return null
+  }
+}
+
 // PayPal IPN verification endpoint (for one-time payments, backward compatibility)
 export async function POST(req: NextRequest) {
   try {
@@ -125,12 +200,36 @@ export async function POST(req: NextRequest) {
         if (eventType === 'BILLING.SUBSCRIPTION.ACTIVATED' || eventType === 'BILLING.SUBSCRIPTION.CREATED') {
           const subscriptionId = eventData.resource?.id
           const customId = eventData.resource?.custom_id
-          const status = eventData.resource?.status || 'ACTIVE'
-          const planId = eventData.resource?.plan_id
-          const startTime = eventData.resource?.start_time || new Date().toISOString()
+          const webhookStatus = eventData.resource?.status || 'ACTIVE'
           
-          if (customId) {
-            const [username, paypalEmail] = customId.split('|')
+          if (!subscriptionId) {
+            console.error('❌ Webhook received without subscription ID')
+            return NextResponse.json({ status: 'error', message: 'Missing subscription ID' }, { status: 400 })
+          }
+          
+          // 🔒 VERIFY with PayPal API before trusting the webhook
+          console.log(`🔍 Verifying subscription ${subscriptionId} with PayPal API...`)
+          const verifiedSubscription = await verifySubscriptionWithPayPal(subscriptionId)
+          
+          if (!verifiedSubscription) {
+            console.error(`❌ Subscription ${subscriptionId} verification FAILED - webhook rejected`)
+            return NextResponse.json({ status: 'error', message: 'Subscription verification failed' }, { status: 400 })
+          }
+          
+          // Only proceed if PayPal confirms the subscription is ACTIVE
+          if (verifiedSubscription.status !== 'ACTIVE') {
+            console.error(`❌ Subscription ${subscriptionId} status is ${verifiedSubscription.status}, not ACTIVE - webhook rejected`)
+            return NextResponse.json({ status: 'error', message: 'Subscription not active' }, { status: 400 })
+          }
+          
+          // Use verified data from PayPal, not just webhook data
+          const verifiedCustomId = verifiedSubscription.custom_id || customId
+          const planId = verifiedSubscription.plan_id
+          const startTime = verifiedSubscription.start_time || new Date().toISOString()
+          const status = verifiedSubscription.status
+          
+          if (verifiedCustomId) {
+            const [username, paypalEmail] = verifiedCustomId.split('|')
             
             if (username) {
               // Store verified user (legacy)
@@ -152,6 +251,8 @@ export async function POST(req: NextRequest) {
                 status,
                 planId,
                 startTime,
+                verifiedWithPayPal: true,
+                verifiedAt: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
               }
@@ -161,9 +262,9 @@ export async function POST(req: NextRequest) {
               // Automatically upgrade user role to subscriber
               await updateUserRole(username, 'subscriber')
               
-              console.log(`✅ Subscription activated for ${username}, role upgraded to subscriber`)
+              console.log(`✅ Subscription ${subscriptionId} VERIFIED and activated for ${username}, role upgraded to subscriber`)
               
-              return NextResponse.json({ status: 'success', username, autoVerified: true, roleUpdated: true })
+              return NextResponse.json({ status: 'success', username, autoVerified: true, roleUpdated: true, verifiedWithPayPal: true })
             }
           }
         }
@@ -173,8 +274,19 @@ export async function POST(req: NextRequest) {
           const subscriptionId = eventData.resource?.id
           
           if (subscriptionId) {
+            // Verify with PayPal before processing cancellation
+            const verifiedSubscription = await verifySubscriptionWithPayPal(subscriptionId)
+            
+            if (!verifiedSubscription || verifiedSubscription.status === 'ACTIVE') {
+              // If we can't verify OR PayPal says it's still active, don't cancel
+              // (could be a fake webhook or timing issue)
+              console.error(`❌ Cancellation webhook for ${subscriptionId} rejected - PayPal verification failed or still active`)
+              return NextResponse.json({ status: 'error', message: 'Verification failed' }, { status: 400 })
+            }
+            
             await cancelSubscription(subscriptionId)
-            return NextResponse.json({ status: 'success', subscriptionId, action: 'cancelled' })
+            console.log(`✅ Cancellation verified and processed for ${subscriptionId}`)
+            return NextResponse.json({ status: 'success', subscriptionId, action: 'cancelled', verifiedWithPayPal: true })
           }
         }
         
@@ -183,6 +295,20 @@ export async function POST(req: NextRequest) {
           const subscriptionId = eventData.resource?.id
           
           if (subscriptionId) {
+            // Verify with PayPal before processing suspension
+            const verifiedSubscription = await verifySubscriptionWithPayPal(subscriptionId)
+            
+            if (!verifiedSubscription) {
+              console.error(`❌ Suspension webhook for ${subscriptionId} rejected - PayPal verification failed`)
+              return NextResponse.json({ status: 'error', message: 'Verification failed' }, { status: 400 })
+            }
+            
+            // Only suspend if PayPal confirms it's not active
+            if (verifiedSubscription.status === 'ACTIVE') {
+              console.error(`❌ Suspension webhook for ${subscriptionId} rejected - PayPal shows as ACTIVE`)
+              return NextResponse.json({ status: 'error', message: 'Subscription still active' }, { status: 400 })
+            }
+            
             const client = await clientPromise
             const db = client.db('sdhq')
             
@@ -194,6 +320,7 @@ export async function POST(req: NextRequest) {
                 {
                   $set: {
                     status: 'SUSPENDED',
+                    verifiedWithPayPal: true,
                     updatedAt: new Date().toISOString()
                   }
                 }
@@ -201,10 +328,10 @@ export async function POST(req: NextRequest) {
               
               // Suspend user access by downgrading role
               await updateUserRole(subscription.username, 'free')
-              console.log(`Subscription ${subscriptionId} suspended, user ${subscription.username} downgraded`)
+              console.log(`✅ Suspension verified and processed for ${subscriptionId}, user ${subscription.username} downgraded`)
             }
             
-            return NextResponse.json({ status: 'success', subscriptionId, action: 'suspended' })
+            return NextResponse.json({ status: 'success', subscriptionId, action: 'suspended', verifiedWithPayPal: true })
           }
         }
         
@@ -213,6 +340,20 @@ export async function POST(req: NextRequest) {
           const subscriptionId = eventData.resource?.id
           
           if (subscriptionId) {
+            // Verify with PayPal before processing expiry
+            const verifiedSubscription = await verifySubscriptionWithPayPal(subscriptionId)
+            
+            if (!verifiedSubscription) {
+              console.error(`❌ Expiry webhook for ${subscriptionId} rejected - PayPal verification failed`)
+              return NextResponse.json({ status: 'error', message: 'Verification failed' }, { status: 400 })
+            }
+            
+            // Only expire if PayPal confirms it's expired
+            if (verifiedSubscription.status === 'ACTIVE') {
+              console.error(`❌ Expiry webhook for ${subscriptionId} rejected - PayPal shows as ACTIVE`)
+              return NextResponse.json({ status: 'error', message: 'Subscription still active' }, { status: 400 })
+            }
+            
             const client = await clientPromise
             const db = client.db('sdhq')
             
@@ -224,6 +365,7 @@ export async function POST(req: NextRequest) {
                 {
                   $set: {
                     status: 'EXPIRED',
+                    verifiedWithPayPal: true,
                     updatedAt: new Date().toISOString()
                   }
                 }
@@ -231,10 +373,10 @@ export async function POST(req: NextRequest) {
               
               // Downgrade user role
               await updateUserRole(subscription.username, 'free')
-              console.log(`Subscription ${subscriptionId} expired, user ${subscription.username} downgraded`)
+              console.log(`✅ Expiry verified and processed for ${subscriptionId}, user ${subscription.username} downgraded`)
             }
             
-            return NextResponse.json({ status: 'success', subscriptionId, action: 'expired' })
+            return NextResponse.json({ status: 'success', subscriptionId, action: 'expired', verifiedWithPayPal: true })
           }
         }
         
