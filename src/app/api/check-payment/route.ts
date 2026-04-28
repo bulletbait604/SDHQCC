@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import clientPromise from '@/lib/mongodb'
 
-// Reference to global verified payments from webhook
+// Reference to global verified payments from webhook (legacy)
 declare global {
   var verifiedPayments: Map<string, any>
 }
@@ -97,27 +98,44 @@ async function listPayPalSubscriptions(accessToken: string): Promise<any[]> {
 export async function POST(req: NextRequest) {
   try {
     const { paypalEmail, username, subscriptionId } = await req.json()
-    
+
     if (!paypalEmail || !username) {
       return NextResponse.json(
         { error: 'Missing PayPal email or username' },
         { status: 400 }
       )
     }
-    
-    
-    // First, check webhook storage (for backwards compatibility)
+
+    // First, check MongoDB for active subscription
+    const client = await clientPromise
+    const db = client.db('sdhq')
+
+    const dbSubscription = await db.collection('subscriptions').findOne({
+      username: username.toLowerCase(),
+      paypalEmail: paypalEmail.toLowerCase(),
+      status: 'ACTIVE'
+    })
+
+    if (dbSubscription) {
+      return NextResponse.json({
+        verified: true,
+        subscriptionId: dbSubscription.subscriptionId,
+        status: dbSubscription.status,
+        timestamp: dbSubscription.createdAt,
+        source: 'mongodb',
+      })
+    }
+
+    // Fallback: check webhook storage (for backwards compatibility)
     if (!global.verifiedPayments) {
       global.verifiedPayments = new Map()
     }
-    
-    // Check if we have a verified payment for this user
+
     const webhookPayment = Array.from(global.verifiedPayments.values()).find(
       (payment: any) => payment.username === username
     )
-    
+
     if (webhookPayment) {
-      
       return NextResponse.json({
         verified: true,
         transactionId: webhookPayment.transactionId,
@@ -147,11 +165,28 @@ export async function POST(req: NextRequest) {
           // Extract custom_id to verify it matches our username
           const customId = subscription.custom_id || ''
           const [subUsername, storedEmail] = customId.split('|')
-          
           // Match username and email
           if (subUsername?.toLowerCase() === username.toLowerCase() && storedEmail?.toLowerCase() === paypalEmail.toLowerCase()) {
-            
-            // Store in webhook storage for future reference
+
+            // Persist to MongoDB
+            await db.collection('subscriptions').updateOne(
+              { subscriptionId: subscription.id },
+              {
+                $set: {
+                  username,
+                  paypalEmail,
+                  subscriptionId: subscription.id,
+                  status: subscription.status,
+                  planId: subscription.plan_id,
+                  startTime: subscription.start_time,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString()
+                }
+              },
+              { upsert: true }
+            )
+
+            // Store in webhook storage for future reference (legacy)
             const storageKey = `${username}-${subscription.id}`
             global.verifiedPayments.set(storageKey, {
               username,
@@ -160,7 +195,7 @@ export async function POST(req: NextRequest) {
               paymentStatus: subscription.status,
               paypalEmail,
             })
-            
+
             return NextResponse.json({
               verified: true,
               transactionId: subscription.id,
@@ -184,8 +219,26 @@ export async function POST(req: NextRequest) {
         
         // Match username and email
         if (subUsername?.toLowerCase() === username.toLowerCase() && storedEmail?.toLowerCase() === paypalEmail.toLowerCase()) {
-          
-          // Store in webhook storage for future reference
+
+          // Persist to MongoDB
+          await db.collection('subscriptions').updateOne(
+            { subscriptionId: sub.id },
+            {
+              $set: {
+                username,
+                paypalEmail,
+                subscriptionId: sub.id,
+                status: sub.status,
+                planId: sub.plan_id,
+                startTime: sub.start_time,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              }
+            },
+            { upsert: true }
+          )
+
+          // Store in webhook storage for future reference (legacy)
           const storageKey = `${username}-${sub.id}`
           global.verifiedPayments.set(storageKey, {
             username,
@@ -194,7 +247,7 @@ export async function POST(req: NextRequest) {
             paymentStatus: sub.status,
             paypalEmail,
           })
-          
+
           return NextResponse.json({
             verified: true,
             transactionId: sub.id,
@@ -223,25 +276,48 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET endpoint for debugging - shows stored payments
+// GET endpoint for debugging - shows stored subscriptions from MongoDB
 export async function GET() {
-  // Initialize if not exists
-  if (!global.verifiedPayments) {
-    global.verifiedPayments = new Map()
+  try {
+    // Initialize if not exists
+    if (!global.verifiedPayments) {
+      global.verifiedPayments = new Map()
+    }
+
+    // Get subscriptions from MongoDB
+    const client = await clientPromise
+    const db = client.db('sdhq')
+    const dbSubscriptions = await db.collection('subscriptions').find({}).toArray()
+
+    // Convert Map to array for JSON response
+    const payments = Array.from(global.verifiedPayments.entries()).map(([code, payment]) => ({
+      code,
+      ...payment
+    }))
+
+    return NextResponse.json({
+      system: 'MongoDB + Webhook hybrid',
+      database: {
+        totalSubscriptions: dbSubscriptions.length,
+        subscriptions: dbSubscriptions.map(s => ({
+          username: s.username,
+          subscriptionId: s.subscriptionId,
+          status: s.status,
+          paypalEmail: s.paypalEmail,
+          createdAt: s.createdAt,
+          updatedAt: s.updatedAt
+        }))
+      },
+      legacy: {
+        totalPayments: global.verifiedPayments.size,
+        storedPayments: payments
+      },
+      message: 'Subscriptions are now persisted to MongoDB',
+      setup: 'Configure webhook at https://developer.paypal.com/dashboard/applications',
+      webhookUrl: 'https://sdhqcc.vercel.app/api/paypal-webhook'
+    })
+  } catch (error) {
+    console.error('Check-payment GET error:', error)
+    return NextResponse.json({ error: 'Failed to fetch subscriptions' }, { status: 500 })
   }
-  
-  // Convert Map to array for JSON response
-  const payments = Array.from(global.verifiedPayments.entries()).map(([code, payment]) => ({
-    code,
-    ...payment
-  }))
-  
-  return NextResponse.json({
-    system: 'Webhook-based verification only',
-    totalPayments: global.verifiedPayments.size,
-    storedPayments: payments,
-    message: 'Payments are stored when PayPal webhook is received',
-    setup: 'Configure webhook at https://developer.paypal.com/dashboard/applications',
-    webhookUrl: 'https://sdhqcc.vercel.app/api/paypal-webhook'
-  })
 }
