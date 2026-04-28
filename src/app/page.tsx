@@ -1505,17 +1505,12 @@ export default function HomePage() {
                 console.log('Subscription approved:', data.subscriptionID)
                 setSubscriptionId(data.subscriptionID)
                 
-                // Close the PayPal popup immediately
-                if (actions && actions.close) {
-                  actions.close()
-                }
-                
                 // Close our subscribe popup
                 setShowSubscribePopup(false)
                 
                 alert(`Subscription successful! Subscription ID: ${data.subscriptionID}\n\nVerifying your subscription automatically...`)
                 
-                // Start polling for verification status
+                // Start polling for verification status (faster - 2 second intervals)
                 pollVerificationStatus(data.subscriptionID)
               },
               onError: function(err: any) {
@@ -1898,7 +1893,7 @@ export default function HomePage() {
     if (!user) return
     
     let pollCount = 0
-    const maxPolls = 30 // Poll for up to 2.5 minutes (30 * 5 seconds)
+    const maxPolls = 60 // Poll for up to 2 minutes (60 * 2 seconds)
     
     const poll = setInterval(async () => {
       pollCount++
@@ -1960,7 +1955,7 @@ export default function HomePage() {
       } catch (error) {
         console.error('Polling error:', error)
       }
-    }, 5000) // Poll every 5 seconds
+    }, 2000) // Poll every 2 seconds for faster verification
   }
   
   const checkPaymentStatus = async () => {
