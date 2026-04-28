@@ -4365,10 +4365,25 @@ export default function HomePage() {
                   {/* Role Management - Owner Only (NEW SYSTEM) */}
                   {isOwner && (
                     <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-yellow-500/30' : 'bg-gray-50 border-yellow-300'}`}>
-                      <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                        <Crown className="w-5 h-5 mr-2 text-yellow-500" />
-                        Role Management (New System)
-                      </h4>
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className={`font-semibold flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                          <Crown className="w-5 h-5 mr-2 text-yellow-500" />
+                          Role Management (New System)
+                        </h4>
+                        <Button
+                          onClick={() => {
+                            fetchUsersWithRoles()
+                            fetchUserRole()
+                            fetchUserLists()
+                          }}
+                          size="sm"
+                          variant="outline"
+                          className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
+                        >
+                          <RefreshCw className="w-4 h-4 mr-1" />
+                          Refresh
+                        </Button>
+                      </div>
                       
                       {/* Search and Assign Role */}
                       <div className="space-y-3 mb-4">
