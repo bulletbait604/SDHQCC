@@ -1914,73 +1914,44 @@ export default function HomePage() {
   const pollVerificationStatus = (subscriptionId: string) => {
     if (!user) return
     
-    // Show "Please Wait" loading state
+    console.log('Starting verification polling for:', subscriptionId)
     setIsVerifying(true)
     
     let pollCount = 0
-    const maxPolls = 60 // Poll for up to 2 minutes (60 * 2 seconds)
+    const maxPolls = 60
     
     const poll = setInterval(async () => {
       pollCount++
+      console.log(`Polling attempt ${pollCount}...`)
       
       try {
         const response = await fetch(`/api/paypal-webhook?username=${user.username}`)
         const data = await response.json()
+        console.log('Poll response:', data)
         
         if (data.verified) {
+          console.log('✅ VERIFIED! Stopping poll and reloading...')
           clearInterval(poll)
-          setIsVerifying(false)
           
-          // Check if this is a lifetime purchase
-          const isLifetimePurchase = data.isLifetime
-          
-          if (isLifetimePurchase) {
-            // Lifetime membership - no expiry
-            setIsLifetime(true)
+          // Store data in localStorage
+          if (data.isLifetime) {
             localStorage.setItem('isLifetime', 'true')
-            localStorage.setItem('verifiedUsername', user.username)
-            localStorage.setItem('subscriptionId', data.subscriptionId)
           } else {
-            // Regular subscription - 30 day expiry
-            setIsVerified(true)
             localStorage.setItem('isVerified', 'true')
-            localStorage.setItem('verifiedUsername', user.username)
-            localStorage.setItem('verificationExpiry', (Date.now() + 30 * 24 * 60 * 60 * 1000).toString()) // 30 days
-            localStorage.setItem('subscriptionId', data.subscriptionId)
+            localStorage.setItem('verificationExpiry', (Date.now() + 30 * 24 * 60 * 60 * 1000).toString())
           }
+          localStorage.setItem('verifiedUsername', user.username)
+          localStorage.setItem('subscriptionId', data.subscriptionId)
           
-          // Add to subscribers list for admin visibility
-          const verifiedUser: Subscriber = {
-            id: Date.now().toString(),
-            username: user.username,
-            addedAt: new Date().toISOString()
-          }
-          setSubscribers(prev => [...prev, verifiedUser])
-          
-          // Refresh users with roles for owner settings view
-          await fetchUsersWithRoles()
-          
-          // Log successful automatic verification
-          const successEntry: ActivityLogEntry = {
-            id: Date.now().toString(),
-            username: user.username,
-            timestamp: new Date().toISOString(),
-            action: 'payment_success',
-            details: `Auto-verified via webhook - Subscription ID: ${data.subscriptionId}`
-          }
-          setActivityLog(prev => [successEntry, ...prev].slice(0, 100))
-          
-          // Close modal immediately
+          // Close modal and reload immediately
           setIsVerifying(false)
-          
-          // Reload page after short delay to show updated role
-          setTimeout(() => {
-            setShowSubscribePopup(false)
-            window.location.reload()
-          }, 500)
+          console.log('Reloading page now...')
+          window.location.reload()
+          return
         }
         
         if (pollCount >= maxPolls) {
+          console.log('Max polls reached, stopping')
           clearInterval(poll)
           setIsVerifying(false)
           alert('Verification is taking longer than expected. Please refresh the page to check your status.')
@@ -1988,7 +1959,7 @@ export default function HomePage() {
       } catch (error) {
         console.error('Polling error:', error)
       }
-    }, 2000) // Poll every 2 seconds for faster verification
+    }, 2000)
   }
   
   const checkPaymentStatus = async () => {
