@@ -24,14 +24,11 @@ function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData()
-    const file = formData.get('file') as File
-    const platform = formData.get('platform') as string
-    const userId = formData.get('userId') as string
-    const userType = formData.get('userType') as string
+    const body = await request.json()
+    const { url, platform, userId, userType } = body
 
-    if (!file) {
-      return NextResponse.json({ error: 'File is required' }, { status: 400 })
+    if (!url) {
+      return NextResponse.json({ error: 'URL is required' }, { status: 400 })
     }
 
     if (!platform) {
@@ -40,12 +37,12 @@ export async function POST(request: Request) {
 
     // Rate limiting
     const identifier = userId || 'anonymous'
-    let maxUses = 3 // Default for subscribers
+    let maxUses = 5 // Default for subscribers
 
-    if (userType === 'owner' || userType === 'admin') {
+    if (userType === 'owner' || userType === 'admin' || userType === 'lifetime') {
       maxUses = 999999 // Unlimited
-    } else if (userType === 'lifetime' || userType === 'subscribed') {
-      maxUses = 3
+    } else if (userType === 'subscribed') {
+      maxUses = 5
     } else {
       return NextResponse.json({ error: 'Access denied. Subscription required.' }, { status: 403 })
     }
@@ -59,37 +56,172 @@ export async function POST(request: Request) {
       )
     }
 
-    const groqApiKey = process.env.GROQ_API_KEY
-    const geminiApiKey = process.env.GEMINI_API_KEY
-    const deepseekApiKey = process.env.DEEPSEEK_API_KEY
+    const supadataApiKey = process.env.SUPADATA_API_KEY
+    const pollinationsApiKey = process.env.POLLINATIONS_API_KEY
     
-    if (!groqApiKey && !geminiApiKey && !deepseekApiKey) {
-      return NextResponse.json({ error: 'No AI analysis API key configured' }, { status: 500 })
+    if (!supadataApiKey && !pollinationsApiKey) {
+      return NextResponse.json({ error: 'No video extraction API key configured' }, { status: 500 })
     }
 
-    // Convert file to base64 for analysis
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-    const base64Video = buffer.toString('base64')
-
-    // Platform algorithm data
-    const platformAlgorithms: Record<string, string> = {
-      'tiktok': 'TikTok prioritizes: strong hooks in first 1-2 seconds, fast pacing, trending sounds, high engagement early, vertical format 9:16, consistent posting, relevant hashtags, and duet/stitch potential. Algorithm favors completion rate, rewatch value, and shareability.',
-      'instagram': 'Instagram Reels prioritizes: visually stunning first frame, trending audio, high-quality production, cross-platform sharing, engaging captions, location tags, and consistent posting. Algorithm favors watch time, engagement rate, and discoverability.',
-      'youtube-shorts': 'YouTube Shorts prioritizes: clear title/thumbnail, fast-paced editing, trending topics, strong call-to-action, loopable content, consistent uploads, and community engagement. Algorithm favors retention, click-through rate, and viewer interaction.',
-      'youtube-long': 'YouTube Long-form prioritizes: compelling thumbnail, clear title, strong intro, structured content, engagement throughout, consistent upload schedule, and community building. Algorithm favors watch time, click-through rate, and subscriber growth.',
-      'facebook-reels': 'Facebook Reels prioritizes: shareable content, trending topics, high engagement, clear messaging, consistent posting, and cross-platform potential. Algorithm favors completion rate, shares, and comments.'
+    const groqApiKey = process.env.GROQ_API_KEY
+    const rapidApiKey = process.env.RAPID_API_KEY
+    
+    if (!groqApiKey && !rapidApiKey) {
+      return NextResponse.json({ error: 'No content analysis API key configured' }, { status: 500 })
     }
 
-    const algorithmInfo = platformAlgorithms[platform] || platformAlgorithms['tiktok']
+    // Step 1: Extract video information using Supadata (with Pollinations fallback)
+    let supadataResult = null
+    let extractionSource = 'none'
 
-    // Analyze video using AI
+    // Try Supadata first
+    if (supadataApiKey) {
+      try {
+        console.log('Starting Supadata extraction for URL:', url)
+        const supadataResponse = await fetch('https://api.supadata.ai/v1/extract', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': supadataApiKey
+          },
+          body: JSON.stringify({
+            url: url,
+            prompt: 'Extract comprehensive information about this video including: main topics and themes, key points discussed, visual elements (people, objects, scenes, colors, text overlays, graphics), audio content (speech/transcript, music, sound effects, background audio), captions/subtitles, engagement indicators, pacing, editing style, hook strength, production quality, and any other relevant metadata. Provide a detailed summary of both visual and audio content to give full context for algorithm analysis.'
+          })
+        })
+
+        if (supadataResponse.ok) {
+          const supadataJob = await supadataResponse.json()
+          console.log('Supadata job created:', supadataJob.jobId)
+
+          // Poll for Supadata results
+          let attempts = 0
+          const maxAttempts = 30 // 30 attempts with 2 second delay = 60 seconds max
+
+          while (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2 seconds
+            
+            const resultResponse = await fetch(`https://api.supadata.ai/v1/extract/${supadataJob.jobId}`, {
+              headers: {
+                'x-api-key': supadataApiKey
+              }
+            })
+
+            if (resultResponse.ok) {
+              const resultData = await resultResponse.json()
+              if (resultData.status === 'completed') {
+                supadataResult = resultData.data
+                extractionSource = 'supadata'
+                break
+              } else if (resultData.status === 'failed') {
+                console.log('Supadata extraction failed, trying fallback')
+                break
+              }
+            }
+            
+            attempts++
+          }
+
+          if (supadataResult) {
+            console.log('Supadata extraction completed')
+          } else {
+            console.log('Supadata extraction timed out, trying fallback')
+          }
+        } else {
+          const errorText = await supadataResponse.text()
+          console.error('Supadata error:', errorText)
+        }
+      } catch (supadataError) {
+        console.error('Supadata extraction error:', supadataError)
+      }
+    }
+
+    // Fallback to Pollinations if Supadata failed or is not available
+    if (!supadataResult && pollinationsApiKey) {
+      try {
+        console.log('Falling back to Pollinations for video extraction')
+        const pollinationsResponse = await fetch('https://text.pollinations.ai/openai', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${pollinationsApiKey}`
+          },
+          body: JSON.stringify({
+            model: 'openai',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a video content analyzer. Extract comprehensive information about the video at the given URL including: main topics and themes, key points discussed, visual elements (people, objects, scenes, colors, text overlays, graphics), audio content (speech/transcript, music, sound effects, background audio), captions/subtitles, engagement indicators, pacing, editing style, hook strength, production quality. Return the analysis as a structured JSON object with fields: topics, keyPoints, visualElements, audioContent, captions, pacing, editingStyle, hookStrength, productionQuality, summary.'
+              },
+              {
+                role: 'user',
+                content: `Analyze this video URL: ${url}. Provide a comprehensive analysis of the content including visual and audio elements, topics discussed, pacing, and production quality.`
+              }
+            ],
+            max_tokens: 2000,
+            temperature: 0.7,
+            reasoning_effort: 'medium'
+          })
+        })
+
+        if (pollinationsResponse.ok) {
+          const pollinationsData = await pollinationsResponse.json()
+          const content = pollinationsData.choices?.[0]?.message?.content || ''
+          
+          // Parse the response to extract structured data
+          let cleanContent = content
+          if (content.includes('```')) {
+            cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+          }
+
+          try {
+            const parsedData = JSON.parse(cleanContent)
+            // Format the Pollinations response to match Supadata structure
+            supadataResult = {
+              ...parsedData,
+              summary: parsedData.summary || 'Video analysis completed via Pollinations',
+              transcript: parsedData.audioContent?.transcript || '',
+              visualAnalysis: parsedData.visualElements || '',
+              audioAnalysis: parsedData.audioContent || ''
+            }
+            extractionSource = 'pollinations'
+            console.log('Pollinations extraction completed')
+          } catch (parseError) {
+            // If JSON parsing fails, create a basic structure from the text
+            supadataResult = {
+              summary: cleanContent,
+              transcript: '',
+              visualAnalysis: cleanContent,
+              audioAnalysis: cleanContent,
+              topics: [],
+              keyPoints: []
+            }
+            extractionSource = 'pollinations'
+            console.log('Pollinations extraction completed (text fallback)')
+          }
+        } else {
+          const errorText = await pollinationsResponse.text()
+          console.error('Pollinations error:', errorText)
+        }
+      } catch (pollinationsError) {
+        console.error('Pollinations extraction error:', pollinationsError)
+      }
+    }
+
+    if (!supadataResult) {
+      return NextResponse.json({ error: 'Failed to extract video information from Supadata and Pollinations' }, { status: 500 })
+    }
+
+    console.log(`Video extraction completed using: ${extractionSource}`)
+
+    // Step 2: Use GROQ to analyze the extracted information and research algorithms (with RapidAPI fallback)
     let analysisResult = null
+    let analysisSource = 'none'
 
-    // Try Groq first
+    // Try GROQ first
     if (groqApiKey) {
       try {
-        console.log('Analyzing video with Groq API')
+        console.log('Starting GROQ analysis for platform:', platform)
         const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -97,33 +229,99 @@ export async function POST(request: Request) {
             'Authorization': `Bearer ${groqApiKey}`
           },
           body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
+            model: 'llama-3.1-8b-instant',
             messages: [
               {
                 role: 'system',
-                content: `You are an expert video content analyst specializing in social media algorithms. Analyze video content and provide detailed insights for optimization. Focus on: hook strength, pacing, visual quality, audio quality, engagement potential, and algorithm alignment.`
+                content: `You are an expert social media algorithm analyst and content optimization specialist. Your task is to analyze video content and provide specific, actionable recommendations for ${platform}.
+
+PLATFORM-SPECIFIC ALGORITHM PRIORITIES (2026):
+- TikTok: Hook in first 1-2 seconds, completion rate (watch to end), shares, saves, comments, trending audio usage, caption keywords, posting consistency, niche authority
+- Instagram Reels: First 3 seconds engagement, watch time, saves, shares, carousel swipe-through, music trending, hashtags, Reels tab exploration, consistency
+- YouTube Shorts: First 1 second hook, watch time, click-through rate, retention, comments, likes, shares, title optimization, posting schedule
+- Twitch Clips: Highlight moments, community engagement, game/category relevance, editing pace, audio clarity, discoverability through recommendations
+- Kick Clips: Early engagement, community interaction, category relevance, trending topics, audio quality, visual appeal, shareability
+
+SCORING CRITERIA (0-100):
+- Hook strength (first 1-3 seconds): 25 points
+- Content engagement potential: 20 points
+- Visual/audio quality: 15 points
+- Platform-specific optimization: 20 points
+- Metadata quality (title/description/tags): 20 points
+
+IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside the JSON.
+
+Return this exact structure:
+{
+  "score": <integer 0-100>,
+  "scoreTitle": "<short title: Excellent/Good/Fair/Needs Improvement>",
+  "scoreSummary": "<2 sentences: main strength + 1 key improvement needed>",
+  "insights": [
+    { "icon": "<emoji>", "label": "Hook Strength", "value": "<rating: Strong/Moderate/Weak>", "description": "<why this rating + specific improvement - NO abbreviations>" },
+    { "icon": "<emoji>", "label": "Engagement Potential", "value": "<rating: High/Medium/Low>", "description": "<factors affecting engagement + specific boost - NO abbreviations>" },
+    { "icon": "<emoji>", "label": "Visual Quality", "value": "<rating: Professional/Good/Fair>", "description": "<production assessment + specific fix - NO abbreviations>" },
+    { "icon": "<emoji>", "label": "Audio Quality", "value": "<rating: Clear/Muffled/Unbalanced>", "description": "<sound assessment + specific fix - NO abbreviations>" }
+  ],
+  "recommendations": [
+    { "priority": "high", "category": "Hook", "text": "<specific, actionable hook improvement - NO abbreviations>" },
+    { "priority": "high", "category": "Pacing", "text": "<specific pacing adjustment - NO abbreviations>" },
+    { "priority": "med",  "category": "Visual", "text": "<specific visual enhancement - NO abbreviations>" },
+    { "priority": "med",  "category": "Audio", "text": "<specific audio improvement - NO abbreviations>" },
+    { "priority": "low",  "category": "Metadata", "text": "<specific metadata optimization - NO abbreviations>" }
+  ],
+  "overlays": [
+    { "type": "text",   "description": "<specific text overlay suggestion - NO abbreviations>", "timing": "<exact timestamp>" },
+    { "type": "sound",  "description": "<specific audio/music suggestion - NO abbreviations>", "timing": "<exact timestamp>" },
+    { "type": "visual", "description": "<specific visual effect or edit - NO abbreviations>", "timing": "<exact timestamp>" },
+    { "type": "cta",    "description": "<specific call-to-action - NO abbreviations>", "timing": "<exact timestamp>" }
+  ],
+  "titles": [
+    "<optimized title option 1: 50-60 chars max, strong hook + keywords>",
+    "<optimized title option 2: 50-60 chars max, strong hook + keywords>",
+    "<optimized title option 3: 50-60 chars max, strong hook + keywords>"
+  ],
+  "description": "<optimized description: 150-200 characters, keywords + call to action, platform-optimized - NO abbreviations>",
+  "tags": ["<15-20 specific, relevant hashtags for platform>"]
+}
+
+GUIDELINES:
+- Be specific and actionable in all recommendations
+- Use concrete examples (e.g., "Add text overlay at 0:02" not "Add text overlay")
+- Focus on platform-specific best practices
+- Ensure suggestions are practical and implementable
+- Keep descriptions concise but informative
+- Score realistically based on actual content quality
+- NEVER use abbreviations (write "description" not "desc", "information" not "info", "second" not "sec")
+- Provide 15-20 relevant, specific hashtags
+- Provide 3 distinct title options with different hooks`
               },
               {
                 role: 'user',
-                content: `Analyze this video file for the ${platform} platform. The platform's algorithm prioritizes: ${algorithmInfo}
+                content: `Analyze this video content for ${platform} optimization.
 
-Provide a comprehensive analysis including:
-1. Overall discoverability score (0-100)
-2. Score title and summary
-3. Visual elements analysis (people, objects, scenes, colors, text overlays, graphics)
-4. Audio content analysis (speech, music, sound effects, background audio)
-5. Hook strength (first 3 seconds impact)
-6. Pacing and editing style
-7. Production quality assessment
-8. Recommended metadata (title options, description, tags)
-9. Specific editing tips for this platform
-10. Algorithm alignment score (how well it matches ${platform}'s preferences)
+Video Information:
+${JSON.stringify(supadataResult, null, 2)}
 
-Return the analysis as a structured JSON object with these fields: score, scoreTitle, scoreSummary, visualElements, audioContent, hookStrength, pacing, productionQuality, recommendedTitle, recommendedDescription, recommendedTags, editingTips, algorithmAlignment.`
+ANALYSIS TASK:
+1. Evaluate the video against ${platform}'s specific algorithm priorities listed above
+2. Score each category (hook, engagement, quality, optimization, metadata) based on the criteria
+3. Provide specific, actionable improvements for each recommendation
+4. Suggest concrete overlay/edit ideas with exact timestamps
+5. Create platform-optimized metadata (title, description, tags)
+
+REQUIREMENTS:
+- Score honestly based on actual content quality
+- Recommendations must be specific (e.g., "Add text 'Follow for more' at 0:03" not "Add text")
+- Focus on the most impactful improvements first (high priority)
+- Ensure metadata follows platform best practices (character limits, keyword placement)
+- Tags should be relevant, specific, and trending for the platform
+- All suggestions should be practical and immediately implementable
+
+Generate the analysis following the exact JSON structure provided.`
               }
             ],
-            temperature: 0.7,
-            max_tokens: 4000
+            max_tokens: 2000,
+            temperature: 0.7
           })
         })
 
@@ -131,107 +329,180 @@ Return the analysis as a structured JSON object with these fields: score, scoreT
           const groqData = await groqResponse.json()
           const content = groqData.choices[0]?.message?.content || ''
           
-          // Parse the AI response
-          try {
-            analysisResult = JSON.parse(content)
-          } catch (e) {
-            // If JSON parsing fails, create a basic structure
-            analysisResult = {
-              score: 75,
-              scoreTitle: 'Good Content',
-              scoreSummary: content.substring(0, 200),
-              visualElements: 'Well-composed visuals',
-              audioContent: 'Clear audio',
-              hookStrength: 'Moderate hook',
-              pacing: 'Good pacing',
-              productionQuality: 'Standard quality',
-              recommendedTitle: ['Engaging Title Option'],
-              recommendedDescription: 'Optimized description for engagement',
-              recommendedTags: ['viral', 'trending', platform],
-              editingTips: content,
-              algorithmAlignment: 'Good alignment with platform preferences'
-            }
+          console.log('GROQ response content length:', content.length)
+          console.log('GROQ response content preview:', content.substring(0, 200))
+
+          // Parse JSON from response (handle markdown code blocks if present)
+          let cleanContent = content
+          if (content.includes('```')) {
+            cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
           }
+
+          console.log('Cleaned content preview:', cleanContent.substring(0, 200))
+
+          analysisResult = JSON.parse(cleanContent)
+          analysisSource = 'groq'
+          console.log('GROQ analysis completed')
+        } else {
+          const errorText = await groqResponse.text()
+          console.error('GROQ error:', errorText)
         }
-      } catch (error) {
-        console.error('Groq API error:', error)
+      } catch (groqError) {
+        console.error('GROQ analysis error:', groqError)
       }
     }
 
-    // Fallback to Gemini if Groq fails
-    if (!analysisResult && geminiApiKey) {
+    // Fallback to RapidAPI if GROQ failed or is not available
+    if (!analysisResult && rapidApiKey) {
       try {
-        console.log('Analyzing video with Gemini API')
-        const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
+        console.log('Falling back to RapidAPI for content analysis')
+        const rapidResponse = await fetch(`https://deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com/v1/chat/completions`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-RapidAPI-Key': rapidApiKey,
+            'X-RapidAPI-Host': 'deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com'
           },
           body: JSON.stringify({
-            contents: [{
-              parts: [{
-                text: `Analyze this video for ${platform} platform. Algorithm priorities: ${algorithmInfo}. Provide score (0-100), recommendations, and editing tips. Return as JSON.`
-              }]
-            }]
+            model: 'deepseek-r1-zero',
+            messages: [
+              {
+                role: 'system',
+                content: `You are an expert social media algorithm analyst and content optimization specialist. Your task is to analyze video content and provide specific, actionable recommendations for ${platform}.
+
+PLATFORM-SPECIFIC ALGORITHM PRIORITIES (2026):
+- TikTok: Hook in first 1-2 seconds, completion rate (watch to end), shares, saves, comments, trending audio usage, caption keywords, posting consistency, niche authority
+- Instagram Reels: First 3 seconds engagement, watch time, saves, shares, carousel swipe-through, music trending, hashtags, Reels tab exploration, consistency
+- YouTube Shorts: First 1 second hook, watch time, click-through rate, retention, comments, likes, shares, title optimization, posting schedule
+- Twitch Clips: Highlight moments, community engagement, game/category relevance, editing pace, audio clarity, discoverability through recommendations
+- Kick Clips: Early engagement, community interaction, category relevance, trending topics, audio quality, visual appeal, shareability
+
+SCORING CRITERIA (0-100):
+- Hook strength (first 1-3 seconds): 25 points
+- Content engagement potential: 20 points
+- Visual/audio quality: 15 points
+- Platform-specific optimization: 20 points
+- Metadata quality (title/description/tags): 20 points
+
+IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside the JSON.
+
+Return this exact structure:
+{
+  "score": <integer 0-100>,
+  "scoreTitle": "<short title: Excellent/Good/Fair/Needs Improvement>",
+  "scoreSummary": "<2 sentences: main strength + 1 key improvement needed>",
+  "insights": [
+    { "icon": "<emoji>", "label": "Hook Strength", "value": "<rating: Strong/Moderate/Weak>", "description": "<why this rating + specific improvement - NO abbreviations>" },
+    { "icon": "<emoji>", "label": "Engagement Potential", "value": "<rating: High/Medium/Low>", "description": "<factors affecting engagement + specific boost - NO abbreviations>" },
+    { "icon": "<emoji>", "label": "Visual Quality", "value": "<rating: Professional/Good/Fair>", "description": "<production assessment + specific fix - NO abbreviations>" },
+    { "icon": "<emoji>", "label": "Audio Quality", "value": "<rating: Clear/Muffled/Unbalanced>", "description": "<sound assessment + specific fix - NO abbreviations>" }
+  ],
+  "recommendations": [
+    { "priority": "high", "category": "Hook", "text": "<specific, actionable hook improvement - NO abbreviations>" },
+    { "priority": "high", "category": "Pacing", "text": "<specific pacing adjustment - NO abbreviations>" },
+    { "priority": "med",  "category": "Visual", "text": "<specific visual enhancement - NO abbreviations>" },
+    { "priority": "med",  "category": "Audio", "text": "<specific audio improvement - NO abbreviations>" },
+    { "priority": "low",  "category": "Metadata", "text": "<specific metadata optimization - NO abbreviations>" }
+  ],
+  "overlays": [
+    { "type": "text",   "description": "<specific text overlay suggestion - NO abbreviations>", "timing": "<exact timestamp>" },
+    { "type": "sound",  "description": "<specific audio/music suggestion - NO abbreviations>", "timing": "<exact timestamp>" },
+    { "type": "visual", "description": "<specific visual effect or edit - NO abbreviations>", "timing": "<exact timestamp>" },
+    { "type": "cta",    "description": "<specific call-to-action - NO abbreviations>", "timing": "<exact timestamp>" }
+  ],
+  "titles": [
+    "<optimized title option 1: 50-60 chars max, strong hook + keywords>",
+    "<optimized title option 2: 50-60 chars max, strong hook + keywords>",
+    "<optimized title option 3: 50-60 chars max, strong hook + keywords>"
+  ],
+  "description": "<optimized description: 150-200 characters, keywords + call to action, platform-optimized - NO abbreviations>",
+  "tags": ["<15-20 specific, relevant hashtags for platform>"]
+}
+
+GUIDELINES:
+- Be specific and actionable in all recommendations
+- Use concrete examples (e.g., "Add text overlay at 0:02" not "Add text overlay")
+- Focus on platform-specific best practices
+- Ensure suggestions are practical and implementable
+- Keep descriptions concise but informative
+- Score realistically based on actual content quality
+- NEVER use abbreviations (write "description" not "desc", "information" not "info", "second" not "sec")
+- Provide 15-20 relevant, specific hashtags
+- Provide 3 distinct title options with different hooks`
+              },
+              {
+                role: 'user',
+                content: `Analyze this video content for ${platform} optimization.
+
+Video Information:
+${JSON.stringify(supadataResult, null, 2)}
+
+ANALYSIS TASK:
+1. Evaluate the video against ${platform}'s specific algorithm priorities listed above
+2. Score each category (hook, engagement, quality, optimization, metadata) based on the criteria
+3. Provide specific, actionable improvements for each recommendation
+4. Suggest concrete overlay/edit ideas with exact timestamps
+5. Create platform-optimized metadata (title, description, tags)
+
+REQUIREMENTS:
+- Score honestly based on actual content quality
+- Recommendations must be specific (e.g., "Add text 'Follow for more' at 0:03" not "Add text")
+- Focus on the most impactful improvements first (high priority)
+- Ensure metadata follows platform best practices (character limits, keyword placement)
+- Tags should be relevant, specific, and trending for the platform
+- All suggestions should be practical and immediately implementable
+
+Generate the analysis following the exact JSON structure provided.`
+              }
+            ],
+            max_tokens: 2000,
+            temperature: 0.7
           })
         })
 
-        if (geminiResponse.ok) {
-          const geminiData = await geminiResponse.json()
-          const content = geminiData.candidates[0]?.content?.parts[0]?.text || ''
+        if (rapidResponse.ok) {
+          const rapidData = await rapidResponse.json()
+          const content = rapidData.choices?.[0]?.message?.content || ''
           
-          analysisResult = {
-            score: 70,
-            scoreTitle: 'Content Analyzed',
-            scoreSummary: 'Analysis completed via Gemini',
-            visualElements: 'Visual assessment complete',
-            audioContent: 'Audio assessment complete',
-            hookStrength: 'Hook evaluated',
-            pacing: 'Pacing assessed',
-            productionQuality: 'Quality evaluated',
-            recommendedTitle: ['Gemini Suggested Title'],
-            recommendedDescription: content.substring(0, 200),
-            recommendedTags: ['ai', 'analyzed', platform],
-            editingTips: content,
-            algorithmAlignment: 'Platform alignment assessed'
+          console.log('RapidAPI response content length:', content.length)
+          console.log('RapidAPI response content preview:', content.substring(0, 200))
+
+          // Parse JSON from response (handle markdown code blocks if present)
+          let cleanContent = content
+          if (content.includes('```')) {
+            cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
           }
+
+          console.log('Cleaned content preview:', cleanContent.substring(0, 200))
+
+          analysisResult = JSON.parse(cleanContent)
+          analysisSource = 'rapidapi'
+          console.log('RapidAPI analysis completed')
+        } else {
+          const errorText = await rapidResponse.text()
+          console.error('RapidAPI error:', errorText)
         }
-      } catch (error) {
-        console.error('Gemini API error:', error)
+      } catch (rapidError) {
+        console.error('RapidAPI analysis error:', rapidError)
       }
     }
 
-    // Final fallback
     if (!analysisResult) {
-      analysisResult = {
-        score: 65,
-        scoreTitle: 'Analysis Complete',
-        scoreSummary: 'Video analysis completed',
-        visualElements: 'Video content processed',
-        audioContent: 'Audio content processed',
-        hookStrength: 'Hook strength evaluated',
-        pacing: 'Pacing analyzed',
-        productionQuality: 'Production quality assessed',
-        recommendedTitle: ['Optimized Title Suggestion'],
-        recommendedDescription: 'Description optimized for engagement',
-        recommendedTags: ['video', platform, 'content'],
-        editingTips: 'Review pacing and hook strength for better engagement',
-        algorithmAlignment: 'Content aligned with platform requirements'
-      }
+      return NextResponse.json({ error: 'Failed to analyze content from both GROQ and RapidAPI' }, { status: 500 })
     }
 
-    return NextResponse.json({
+    console.log(`Content analysis completed using: ${analysisSource}`)
+
+    // Include extracted data in response for re-analysis
+    const response = NextResponse.json({
       ...analysisResult,
-      platform,
-      extractedData: {
-        title: analysisResult.recommendedTitle?.[0] || 'Video Title',
-        summary: analysisResult.scoreSummary || 'Video summary',
-        tags: analysisResult.recommendedTags || []
-      }
+      extractedData: supadataResult
     })
 
-  } catch (error: any) {
+    return response
+  } catch (error) {
     console.error('Clip analyzer error:', error)
-    return NextResponse.json({ error: error.message || 'Analysis failed' }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
