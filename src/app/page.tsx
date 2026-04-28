@@ -1504,6 +1504,15 @@ export default function HomePage() {
               onApprove: function(data: any, actions: any) {
                 console.log('Subscription approved:', data.subscriptionID)
                 setSubscriptionId(data.subscriptionID)
+                
+                // Close the PayPal popup immediately
+                if (actions && actions.close) {
+                  actions.close()
+                }
+                
+                // Close our subscribe popup
+                setShowSubscribePopup(false)
+                
                 alert(`Subscription successful! Subscription ID: ${data.subscriptionID}\n\nVerifying your subscription automatically...`)
                 
                 // Start polling for verification status
