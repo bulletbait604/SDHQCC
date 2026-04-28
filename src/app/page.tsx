@@ -1954,7 +1954,7 @@ export default function HomePage() {
     setIsVerifying(true)
     
     let pollCount = 0
-    const maxPolls = 60 // 60 seconds total
+    const maxPolls = 120 // 120 seconds total (2 minutes) - PayPal webhooks can be slow
     
     const poll = setInterval(async () => {
       pollCount++
@@ -1987,16 +1987,26 @@ export default function HomePage() {
           return
         }
         
-        // Log every 5th poll to avoid spam
-        if (pollCount % 5 === 0) {
-          console.log(`⏳ Poll ${pollCount}: not verified yet...`)
+        // Log every 10th poll to avoid spam
+        if (pollCount % 10 === 0) {
+          console.log(`⏳ Poll ${pollCount}: not verified yet, checking role...`)
+          // Also check role directly as fallback
+          const roleResponse = await fetch(`/api/roles?username=${user.username}`)
+          const roleData = await roleResponse.json()
+          if (roleData.user && roleData.user.role !== 'free') {
+            console.log('✅ Role already updated to', roleData.user.role, '- reloading...')
+            clearInterval(poll)
+            setIsVerifying(false)
+            window.location.reload()
+            return
+          }
         }
         
         if (pollCount >= maxPolls) {
           console.log('❌ Max polls reached, verification timeout')
           clearInterval(poll)
           setIsVerifying(false)
-          alert('Verification is taking longer than expected. Please refresh the page to check your status.')
+          // Don't alert, let the modal show the refresh button
         }
       } catch (error) {
         console.error('Polling error:', error)
@@ -4954,9 +4964,17 @@ export default function HomePage() {
           <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-sm w-full p-8 shadow-2xl text-center`}>
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sdhq-cyan-500 mx-auto mb-4"></div>
             <h3 className={`text-xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Please Wait...</h3>
-            <p className={`text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              Verifying your payment and activating your account. This may take a few moments.
+            <p className={`text-base mb-4 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              Verifying your payment and activating your account. This may take up to 2 minutes.
             </p>
+            <Button
+              variant="outline"
+              onClick={() => window.location.reload()}
+              className={`w-full ${darkMode ? 'border-sdhq-dark-600 text-white' : ''}`}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh Page to Check Status
+            </Button>
           </div>
         </div>
       )}
