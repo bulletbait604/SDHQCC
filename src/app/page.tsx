@@ -936,11 +936,10 @@ export default function HomePage() {
     const loadingSteps = [
       'Requesting upload URL...',
       'Uploading video to cloud storage...',
-      'Extracting video information...',
-      'Analyzing content with AI...',
-      'Researching platform algorithm...',
-      'Cross-referencing with algorithm...',
-      'Generating optimization report...',
+      'Analyzing video content with Gemini 2.5 Pro...',
+      'Processing visual and audio elements...',
+      'Generating platform-specific recommendations...',
+      'Creating optimization report...',
     ]
 
     let step = 0

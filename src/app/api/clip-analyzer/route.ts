@@ -126,12 +126,117 @@ export async function POST(request: Request) {
       source: uploadMode === 'r2' ? 'r2-storage' : 'direct-upload'
     }
 
-    // Use GROQ to analyze the video file and provide algorithm recommendations
+    // Use AI to analyze the video file and provide algorithm recommendations
     let analysisResult = null
     let analysisSource = 'none'
 
-    // Try GROQ first
-    if (groqApiKey) {
+    // Try Gemini 2.5 Pro via RapidAPI first (best for video analysis with audio)
+    if (rapidApiKey && fileData.buffer) {
+      try {
+        console.log('Starting Gemini 2.5 Pro video analysis via RapidAPI...')
+        
+        // Convert video buffer to base64
+        const base64Video = fileData.buffer.toString('base64')
+        
+        const geminiResponse = await fetch('https://gemini-2-5-pro-by-google-ai-for-reasoning-coding-science.p.rapidapi.com/v1beta/models/gemini-1.5-pro:generateContent', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-RapidAPI-Key': rapidApiKey,
+            'X-RapidAPI-Host': 'gemini-2-5-pro-by-google-ai-for-reasoning-coding-science.p.rapidapi.com'
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: `You are an expert social media algorithm analyst. Analyze this video file for ${platform} optimization.
+
+PLATFORM-SPECIFIC ALGORITHM PRIORITIES (2026):
+- TikTok: Hook in first 1-2 seconds, completion rate, shares, saves, comments, trending audio, caption keywords
+- Instagram Reels: First 3 seconds engagement, watch time, saves, shares, carousel swipe-through, music trending
+- YouTube Shorts: First 1 second hook, watch time, click-through rate, retention, comments
+- Facebook Reels: Early engagement, watch time, shares, comments, trending audio
+- YouTube Long: First 5 seconds hook, retention, click-through rate
+
+Analyze the video content including:
+1. Visual elements, motion, transitions, pacing
+2. Audio content, speech, music, sound effects
+3. Hook strength and engagement potential
+4. Production quality
+5. Platform-specific optimization opportunities
+
+Respond ONLY with valid JSON in this exact structure:
+{
+  "score": <integer 0-100>,
+  "scoreTitle": "<rating title>",
+  "scoreSummary": "<2 sentences about main strength + improvement>",
+  "insights": [
+    { "icon": "🎬", "label": "Hook Strength", "value": "<rating>", "description": "<specific analysis>" },
+    { "icon": "📈", "label": "Engagement Potential", "value": "<rating>", "description": "<specific analysis>" },
+    { "icon": "🎥", "label": "Visual Quality", "value": "<rating>", "description": "<specific analysis>" },
+    { "icon": "🔊", "label": "Audio Quality", "value": "<rating>", "description": "<specific analysis>" }
+  ],
+  "recommendations": [
+    { "priority": "high", "category": "Hook", "text": "<specific recommendation>" },
+    { "priority": "high", "category": "Pacing", "text": "<specific recommendation>" },
+    { "priority": "med", "category": "Visual", "text": "<specific recommendation>" },
+    { "priority": "med", "category": "Audio", "text": "<specific recommendation>" },
+    { "priority": "low", "category": "Metadata", "text": "<specific recommendation>" }
+  ],
+  "overlays": [
+    { "type": "text", "description": "<text overlay suggestion>", "timing": "<timestamp>" },
+    { "type": "sound", "description": "<audio suggestion>", "timing": "<timestamp>" },
+    { "type": "visual", "description": "<effect suggestion>", "timing": "<timestamp>" },
+    { "type": "cta", "description": "<CTA suggestion>", "timing": "<timestamp>" }
+  ],
+  "titles": ["<title option 1>", "<title option 2>", "<title option 3>"],
+  "description": "<optimized description 150-200 chars>",
+  "tags": ["<hashtag1>", "<hashtag2>", "... 15-20 hashtags"]
+}`
+                  },
+                  {
+                    inlineData: {
+                      mimeType: fileData.type,
+                      data: base64Video
+                    }
+                  }
+                ]
+              }
+            ],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 2048
+            }
+          })
+        })
+
+        if (geminiResponse.ok) {
+          const geminiData = await geminiResponse.json()
+          const content = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || ''
+          
+          if (content) {
+            // Parse JSON from response (handle markdown code blocks if present)
+            let cleanContent = content
+            if (content.includes('```')) {
+              cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+            }
+            
+            analysisResult = JSON.parse(cleanContent)
+            analysisSource = 'gemini-2.5-pro'
+            console.log('✅ Gemini 2.5 Pro video analysis successful')
+          }
+        } else {
+          const errorText = await geminiResponse.text()
+          console.error('Gemini 2.5 Pro error:', errorText)
+        }
+      } catch (geminiError) {
+        console.error('Gemini 2.5 Pro analysis error:', geminiError)
+      }
+    }
+
+    // Fallback to GROQ if Gemini failed or no video buffer
+    if (!analysisResult && groqApiKey) {
       try {
         const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
@@ -380,7 +485,7 @@ Focus on actionable advice that applies to most video content on ${platform}.`
     }
 
     if (!analysisResult) {
-      return NextResponse.json({ error: 'Failed to analyze content from both GROQ and RapidAPI' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to analyze content from Gemini 2.5 Pro, GROQ, and RapidAPI' }, { status: 500 })
     }
 
     // Auto-delete file from R2 after analysis (if using R2 mode)
@@ -389,11 +494,12 @@ Focus on actionable advice that applies to most video content on ${platform}.`
       await deleteFileFromR2(fileKey)
     }
 
-    // Include extracted data in response for re-analysis
+    // Include extracted data and analysis source in response
     const response = NextResponse.json({
       ...analysisResult,
       extractedData: extractedData,
-      uploadMode: uploadMode
+      uploadMode: uploadMode,
+      analysisSource: analysisSource
     })
 
     return response
