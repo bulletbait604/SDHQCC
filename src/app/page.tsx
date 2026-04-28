@@ -1970,14 +1970,14 @@ export default function HomePage() {
           }
           setActivityLog(prev => [successEntry, ...prev].slice(0, 100))
           
-          // Small delay to let modal close before alert
+          // Close modal immediately
+          setIsVerifying(false)
+          
+          // Reload page after short delay to show updated role
           setTimeout(() => {
-            alert(`✅ Subscription verified automatically!\n\nPremium features unlocked for 30 days!`)
             setShowSubscribePopup(false)
-            
-            // Refresh the page to show updated role
             window.location.reload()
-          }, 100)
+          }, 500)
         }
         
         if (pollCount >= maxPolls) {
