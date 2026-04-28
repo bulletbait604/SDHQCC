@@ -1943,11 +1943,12 @@ export default function HomePage() {
           localStorage.setItem('verifiedUsername', user.username)
           localStorage.setItem('subscriptionId', data.subscriptionId)
           
-          // Close modal and reload immediately
+          // Close modal and reload
           setIsVerifying(false)
           console.log('Reloading page now...')
-          window.location.reload()
-          return
+          
+          // Force reload with cache bypass
+          window.location.href = window.location.href
         }
         
         if (pollCount >= maxPolls) {

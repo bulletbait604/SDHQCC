@@ -654,7 +654,8 @@ export async function GET(req: NextRequest) {
           username: verifiedUser.username,
           subscriptionId: verifiedUser.subscriptionId,
           verifiedAt: verifiedUser.verifiedAt,
-          status: verifiedUser.status
+          status: verifiedUser.status,
+          isLifetime: false
         })
       }
       
