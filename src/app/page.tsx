@@ -1563,7 +1563,7 @@ export default function HomePage() {
     }
   }, [showSubscribePopup, user, paypalLoaded, paypalEmail])
 
-  // Load PayPal SDK for lifetime membership
+  // Load PayPal SDK for lifetime membership - WORKS LIKE SUBSCRIPTION BUTTON
   useEffect(() => {
     if (showLifetimePopup && !paypalLoaded && user) {
       const isSandbox = process.env.NEXT_PUBLIC_PAYPAL_MODE === 'sandbox'
@@ -1579,10 +1579,9 @@ export default function HomePage() {
       console.log(`PayPal Lifetime: Loading SDK in ${isSandbox ? 'SANDBOX' : 'LIVE'} mode`)
       
       const script = document.createElement('script')
-      script.src = `https://www.${isSandbox ? 'sandbox.' : ''}paypal.com/sdk/js?client-id=${paypalClientId}&currency=CAD&intent=capture`
+      script.src = `https://www.${isSandbox ? 'sandbox.' : ''}paypal.com/sdk/js?client-id=${paypalClientId}&currency=CAD`
       script.setAttribute('data-sdk-integration-source', 'button-factory')
       script.onload = () => {
-        // Render PayPal button after SDK loads
         if (window.paypal && user) {
           window.paypal.Buttons({
             style: {
@@ -1600,17 +1599,14 @@ export default function HomePage() {
                   },
                   description: 'SDHQ Creator Corner Lifetime Membership'
                 }],
-                custom_id: `${user.username}|${paypalEmail}|lifetime`
+                custom_id: `${user.username}|lifetime`
               })
             },
             onApprove: function(data: any, actions: any) {
               console.log('Lifetime payment approved:', data.orderID)
-              setSubscriptionId(data.orderID)
               
-              // Close our popup
+              // Close popup and start polling - webhook will handle verification
               setShowLifetimePopup(false)
-              
-              // Start auto-verification (webhook will handle server-side capture)
               pollVerificationStatus(data.orderID)
             }
           }).render('#paypal-lifetime-button-container')
@@ -1623,7 +1619,7 @@ export default function HomePage() {
         document.body.removeChild(script)
       }
     }
-  }, [showLifetimePopup, user, paypalLoaded, paypalEmail])
+  }, [showLifetimePopup, user, paypalLoaded])
 
   const handleClearActivityLog = async () => {
     setActivityLog([])

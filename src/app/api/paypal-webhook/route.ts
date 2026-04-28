@@ -473,36 +473,22 @@ export async function POST(req: NextRequest) {
           }
         }
         
-        // Handle one-time payment orders (lifetime membership)
+        // Handle one-time payment orders (lifetime membership) - SIMPLE LIKE SUBSCRIPTION
         if (eventType === 'CHECKOUT.ORDER.APPROVED' || eventType === 'CHECKOUT.ORDER.COMPLETED') {
           const orderId = eventData.resource?.id
           const customId = eventData.resource?.purchase_units?.[0]?.custom_id
           const amount = eventData.resource?.purchase_units?.[0]?.amount?.value
-          const status = eventData.resource?.status
           
-          console.log(`💰 One-time payment received: ${orderId}, status: ${status}, custom_id: ${customId}`)
+          console.log(`💰 Lifetime payment webhook: ${orderId}, custom_id: ${customId}`)
           
+          // Extract username from custom_id (format: username|lifetime)
           if (customId && customId.includes('lifetime')) {
-            const [username, paypalEmail] = customId.split('|')
+            const username = customId.split('|')[0]
             
             if (username) {
-              // If order is APPROVED, capture it first
-              let finalStatus = status
-              if (status === 'APPROVED') {
-                console.log(`🔒 Order ${orderId} is APPROVED, capturing payment...`)
-                const captureResult = await captureOrder(orderId)
-                if (!captureResult) {
-                  console.error(`❌ Failed to capture order ${orderId}`)
-                  return NextResponse.json({ status: 'error', message: 'Order capture failed' }, { status: 400 })
-                }
-                finalStatus = captureResult.status || 'COMPLETED'
-                console.log(`✅ Order ${orderId} captured successfully`)
-              }
-              
-              // Store as a lifetime subscription
+              // Store lifetime membership immediately (webhook = payment confirmed by PayPal)
               const subscription = {
                 username,
-                paypalEmail,
                 subscriptionId: orderId,
                 status: 'ACTIVE',
                 planId: 'lifetime',
@@ -516,13 +502,10 @@ export async function POST(req: NextRequest) {
               }
               
               await storeSubscription(subscription)
-              
-              // Upgrade user role to lifetime subscriber
               await updateUserRole(username, 'subscriber_lifetime')
               
-              console.log(`✅ Lifetime membership ${orderId} ACTIVATED for ${username}, role upgraded to subscriber_lifetime`)
-              
-              return NextResponse.json({ status: 'success', username, orderId, autoVerified: true, roleUpdated: true, isLifetime: true })
+              console.log(`✅ Lifetime membership ACTIVATED for ${username}`)
+              return NextResponse.json({ status: 'success', username, autoVerified: true, isLifetime: true })
             }
           }
         }
