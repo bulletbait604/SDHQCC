@@ -564,6 +564,10 @@ export default function HomePage() {
     
     // Check for existing user session
     if (typeof window !== 'undefined') {
+      // Check if this is a post-verification reload
+      const urlParams = new URLSearchParams(window.location.search)
+      const isPostVerification = urlParams.has('verified')
+      
       const storedUser = localStorage.getItem('kickUser')
       const storedLanguage = localStorage.getItem('sdhq-language') as Language
       const storedDarkMode = localStorage.getItem('sdhq-darkmode')
@@ -582,6 +586,18 @@ export default function HomePage() {
         try {
           const parsedUser = JSON.parse(storedUser)
           setUser(parsedUser)
+          
+          // If post-verification, refresh user data to get updated role
+          if (isPostVerification) {
+            console.log('Post-verification reload detected, refreshing user data...')
+            // Clear URL param
+            urlParams.delete('verified')
+            window.history.replaceState({}, '', `${window.location.pathname}?${urlParams}`)
+            // Fetch fresh user data
+            setTimeout(() => {
+              fetchUserRole()
+            }, 100)
+          }
         } catch (error) {
           console.error('Error loading stored user:', error)
         }
@@ -1943,12 +1959,17 @@ export default function HomePage() {
           localStorage.setItem('verifiedUsername', user.username)
           localStorage.setItem('subscriptionId', data.subscriptionId)
           
-          // Close modal and reload
+          // Close modal and force fresh reload
           setIsVerifying(false)
           console.log('Reloading page now...')
           
-          // Force reload with cache bypass
-          window.location.href = window.location.href
+          // Clear any cached user data
+          sessionStorage.removeItem('userData')
+          
+          // Force reload with cache-busting parameter
+          const url = new URL(window.location.href)
+          url.searchParams.set('verified', Date.now().toString())
+          window.location.replace(url.toString())
         }
         
         if (pollCount >= maxPolls) {
