@@ -1936,6 +1936,9 @@ export default function HomePage() {
           }
           setSubscribers(prev => [...prev, verifiedUser])
           
+          // Refresh users with roles for owner settings view
+          await fetchUsersWithRoles()
+          
           // Log successful automatic verification
           const successEntry: ActivityLogEntry = {
             id: Date.now().toString(),
@@ -2017,6 +2020,9 @@ export default function HomePage() {
           addedAt: new Date().toISOString()
         }
         setSubscribers(prev => [...prev, verifiedUser])
+        
+        // Refresh users with roles for owner settings view
+        await fetchUsersWithRoles()
         
         // Log successful subscription
         const successEntry: ActivityLogEntry = {
