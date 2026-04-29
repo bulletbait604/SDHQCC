@@ -165,7 +165,31 @@ export async function POST(request: Request) {
               {
                 parts: [
                   {
-                    text: `You are an expert social media algorithm analyst. Analyze this video file for ${platform} optimization.
+                    text: `You are an expert social media algorithm analyst and content strategist. Analyze this video file IN-DEPTH for ${platform} optimization.
+
+CRITICAL ANALYSIS REQUIREMENTS:
+1. **SUBJECT MATTER IDENTIFICATION**: What is the video about? Identify the main topic, theme, niche, and target audience.
+2. **VISUAL ANALYSIS**: 
+   - Scene-by-scene breakdown (first 3 seconds, middle, ending)
+   - Camera angles, lighting, color grading
+   - Visual effects, transitions, text overlays
+   - Motion, energy, pacing throughout
+   - Thumbnail-worthy moments
+3. **AUDIO ANALYSIS**:
+   - Speech/dialogue content (what is being said)
+   - Background music genre, mood, energy level
+   - Sound effects and their purpose
+   - Audio quality (clarity, mixing, volume levels)
+   - Voice tone and delivery style
+4. **HOOK ANALYSIS**:
+   - What grabs attention in first 1-3 seconds?
+   - Is the hook visual, audio, or conceptual?
+   - How effective is it for ${platform}?
+5. **ENGAGEMENT MECHANICS**:
+   - What keeps viewers watching?
+   - Call-to-action opportunities
+   - Shareable moments
+   - Comment-worthy elements
 
 PLATFORM-SPECIFIC ALGORITHM PRIORITIES (2026):
 - TikTok: Hook in first 1-2 seconds, completion rate, shares, saves, comments, trending audio, caption keywords
@@ -174,12 +198,11 @@ PLATFORM-SPECIFIC ALGORITHM PRIORITIES (2026):
 - Facebook Reels: Early engagement, watch time, shares, comments, trending audio
 - YouTube Long: First 5 seconds hook, retention, click-through rate
 
-Analyze the video content including:
-1. Visual elements, motion, transitions, pacing
-2. Audio content, speech, music, sound effects
-3. Hook strength and engagement potential
-4. Production quality
-5. Platform-specific optimization opportunities
+CONTENT-SPECIFIC REQUIREMENTS:
+- All insights MUST reference actual content from the video (not generic advice)
+- Recommendations must be tailored to the specific subject matter
+- Title suggestions must include relevant keywords for the video's topic
+- Tags must be specific to the content niche and subject
 
 Respond ONLY with valid JSON in this exact structure:
 {
