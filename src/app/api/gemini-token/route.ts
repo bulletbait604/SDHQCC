@@ -38,17 +38,31 @@ export async function POST(request: Request) {
       // Parse the service account key
       const serviceAccount = JSON.parse(serviceAccountKey)
       
+      console.log('[DEBUG] Gemini Token: Service account parsed:', { 
+        project_id: serviceAccount.project_id,
+        client_email: serviceAccount.client_email 
+      })
+      
       // Create GoogleAuth client
       const auth = new GoogleAuth({
         credentials: serviceAccount,
         scopes: ['https://www.googleapis.com/auth/generative-language']
       })
 
+      console.log('[DEBUG] Gemini Token: Requesting access token with scope: https://www.googleapis.com/auth/generative-language')
+
       // Get access token
       const client = await auth.getClient()
       const accessToken = await client.getAccessToken()
 
-      console.log('[DEBUG] Gemini Token: Access token generated successfully')
+      if (!accessToken || !accessToken.token) {
+        throw new Error('Failed to generate access token')
+      }
+
+      console.log('[DEBUG] Gemini Token: Access token generated successfully', { 
+        tokenLength: accessToken.token.length,
+        expiresIn: 3600 
+      })
       
       // Return token with expiry info (tokens typically expire in 1 hour)
       return NextResponse.json({
@@ -64,6 +78,8 @@ export async function POST(request: Request) {
         console.log('[ACTIVITY_LOG] Gemini Token: Invalid service account credentials')
       } else if (authError.message?.includes('permission')) {
         console.log('[ACTIVITY_LOG] Gemini Token: Insufficient permissions on service account')
+      } else {
+        console.log(`[ACTIVITY_LOG] Gemini Token: Gemini API error - ${authError.message || 'Unknown error'}`)
       }
       
       return NextResponse.json({ 
