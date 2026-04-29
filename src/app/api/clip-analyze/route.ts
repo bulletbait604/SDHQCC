@@ -24,8 +24,10 @@ function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean
 }
 
 export async function POST(request: Request) {
+  console.log('[DEBUG] Clip Analyze API: Request received')
+  
   try {
-    console.log('[DEBUG] Clip Analyze API: Request received')
+    console.log('[DEBUG] Clip Analyze API: Parsing request body...')
     const body = await request.json()
     const { fileUri, mimeType, fileName, fileSize, platform, userId, userType } = body
 
@@ -305,6 +307,7 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
 
   } catch (error) {
     console.error('[DEBUG] Clip Analyze API: Unhandled error:', error)
+    console.error('[DEBUG] Clip Analyze API: Error stack:', error instanceof Error ? error.stack : 'No stack available')
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
