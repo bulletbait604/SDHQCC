@@ -189,6 +189,9 @@ export async function POST(request: Request) {
           console.log(`[Clip Analyzer] Video processing... attempt ${attempts + 1}/${maxAttempts}`)
           await new Promise(resolve => setTimeout(resolve, 5000)) // Wait 5 seconds
           
+          if (!uploadedFile.name) {
+            throw new Error('Uploaded file name is undefined')
+          }
           const fileStatus = await ai.files.get({ name: uploadedFile.name })
           fileState = fileStatus.state
           attempts++
