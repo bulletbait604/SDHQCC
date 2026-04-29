@@ -68,9 +68,10 @@ export async function POST(request: Request) {
         expiresIn: 3600 
       })
       
-      // Return token with expiry info (tokens typically expire in 1 hour)
+      // Return token with service account email for direct auth
       return NextResponse.json({
         accessToken: accessToken.token,
+        serviceAccountEmail: serviceAccount.client_email,
         expiresIn: 3600, // 1 hour in seconds
         tokenType: 'Bearer'
       })
