@@ -2912,7 +2912,7 @@ export default function HomePage() {
                     </li>
                     <li className="flex items-start gap-2">
                       <span className={`font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>2.</span>
-                      <span>Upload your video file (MP4, WebM, MOV, AVI - max 100MB)</span>
+                      <span>Upload your video file (MP4, WebM, MOV, AVI - max 500MB)</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className={`font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>3.</span>
@@ -2923,6 +2923,9 @@ export default function HomePage() {
                       <span>Use the analysis to improve your clips</span>
                     </li>
                   </ol>
+                  <div className={`mt-3 p-2 rounded text-sm ${darkMode ? 'bg-sdhq-dark-900/50 text-sdhq-cyan-300' : 'bg-sdhq-cyan-50 text-sdhq-cyan-700'}`}>
+                    <span className="font-semibold">💡 AI Analysis:</span> Videos under 100MB get AI-powered content analysis. Larger videos receive general platform recommendations.
+                  </div>
                 </div>
 
                 {/* Access Control */}
@@ -3100,6 +3103,28 @@ export default function HomePage() {
                     {/* Results Section */}
                     {clipAnalysisResult && (
                       <div className="space-y-4">
+                        {/* Analysis Source Warning */}
+                        {clipAnalysisResult.analysisSource !== 'gemini-2.5-pro' && (
+                          <div className={`rounded-lg p-3 border ${
+                            darkMode 
+                              ? 'bg-yellow-900/30 border-yellow-600/50' 
+                              : 'bg-yellow-50 border-yellow-400'
+                          }`}>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xl">⚠️</span>
+                              <div>
+                                <p className={`font-semibold ${darkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                                  Generic Analysis Only
+                                </p>
+                                <p className={`text-sm ${darkMode ? 'text-yellow-300/80' : 'text-yellow-600'}`}>
+                                  Video was too large for AI analysis. These are general {platforms.find(p => p.id === clipPlatform)?.name} best practices, not specific to your content.
+                                  <span className="block mt-1">💡 Compress video under 100MB for AI-powered analysis.</span>
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Score Card */}
                         <div>
                           <div className={`relative overflow-hidden rounded-xl p-4 flex items-center gap-4 ${

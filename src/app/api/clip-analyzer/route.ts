@@ -142,8 +142,8 @@ export async function POST(request: Request) {
     let analysisSource = 'none'
 
     // Try Gemini 2.5 Pro via RapidAPI first (best for video analysis with audio)
-    // NOTE: Only use Gemini for videos under 50MB to avoid memory issues with base64 conversion
-    const GEMINI_SIZE_LIMIT = 50 * 1024 * 1024 // 50MB
+    // Increased to 100MB for better video analysis coverage
+    const GEMINI_SIZE_LIMIT = 100 * 1024 * 1024 // 100MB
     
     if (rapidApiKey && fileData.buffer && fileData.size <= GEMINI_SIZE_LIMIT) {
       console.log(`File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB is within Gemini limit (${GEMINI_SIZE_LIMIT / (1024 * 1024)}MB)`)
@@ -272,7 +272,9 @@ Respond ONLY with valid JSON in this exact structure:
         console.error('Gemini 2.5 Pro analysis error:', geminiError)
       }
     } else if (rapidApiKey && fileData.size > GEMINI_SIZE_LIMIT) {
-      console.log(`File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB exceeds Gemini limit (${GEMINI_SIZE_LIMIT / (1024 * 1024)}MB), using fallback`)
+      console.log(`⚠️ WARNING: File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB exceeds Gemini limit (${GEMINI_SIZE_LIMIT / (1024 * 1024)}MB)`)
+      console.log(`⚠️ Video will NOT be analyzed - only generic platform recommendations will be provided`)
+      console.log(`💡 Tip: Compress video under 100MB for AI-powered content analysis`)
     }
 
     // Fallback to GROQ if Gemini failed or no video buffer
@@ -355,23 +357,22 @@ GUIDELINES:
               },
               {
                 role: 'user',
-                content: `Analyze this video file for ${platform} optimization.
-
-IMPORTANT: Do NOT use the filename to infer content. Since video content analysis is not available in this fallback mode, provide general optimization recommendations for ${platform} based on current best practices for video content.
+                content: `IMPORTANT LIMITATION: You CANNOT see this video file. It was too large to process. You must provide GENERAL platform optimization advice for ${platform} based on best practices only.
 
 Target Platform: ${platform}
-File Type: ${fileData.type}
 
-ANALYSIS TASK:
-Provide platform-specific optimization advice for ${platform} videos. Focus on:
+ANALYSIS TASK - GENERIC RECOMMENDATIONS ONLY:
+Since you cannot analyze the actual video content, provide:
 
-1. A balanced score (around 60-75 for average content)
-2. Platform-specific insights about what makes content perform well on ${platform}
-3. Specific recommendations for improving hook, pacing, visual quality, and audio
-4. Concrete overlay/edit suggestions with example timestamps
-5. Platform-optimized metadata (3 title options with emojis, description, 15-20 tags)
+1. A balanced score (65-75 for typical content)
+2. Platform-specific best practices for ${platform} (generic insights)
+3. General recommendations for hook, pacing, visual, audio (typical advice)
+4. Example overlay suggestions (not specific to any content)
+5. Platform-optimized metadata templates (generic titles, description, tags for ${platform})
 
-Provide actionable advice that applies to most video content on ${platform}. Do NOT reference the filename in your analysis.`
+LABEL ALL RECOMMENDATIONS AS "General Best Practice" so users know these are not AI-analyzed from their video.
+
+Do NOT pretend to analyze video content you cannot see.`
               }
             ],
             max_tokens: 2000,
