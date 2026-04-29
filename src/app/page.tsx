@@ -1490,21 +1490,19 @@ export default function HomePage() {
         container.innerHTML = ''
       }
 
-      // Load PayPal SDK
-      const isSandbox = process.env.NEXT_PUBLIC_PAYPAL_MODE === 'sandbox'
-      const paypalClientId = isSandbox 
-        ? process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID_SANDBOX 
-        : process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+      // Load PayPal SDK - PRODUCTION MODE
+      const isSandbox = false
+      const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
       
       if (!paypalClientId) {
-        console.error('PayPal Client ID not configured', { isSandbox })
+        console.error('PayPal Client ID not configured')
         return
       }
       
-      console.log(`PayPal: Loading SDK in ${isSandbox ? 'SANDBOX' : 'LIVE'} mode`)
+      console.log(`PayPal: Loading SDK in LIVE mode`)
       
       const script = document.createElement('script')
-      script.src = `https://www.${isSandbox ? 'sandbox.' : ''}paypal.com/sdk/js?client-id=${paypalClientId}&vault=true&intent=subscription`
+      script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&vault=true&intent=subscription`
       script.setAttribute('data-sdk-integration-source', 'button-factory')
       script.onload = () => {
         console.log('PayPal SDK loaded successfully')
@@ -1604,20 +1602,18 @@ export default function HomePage() {
   // Load PayPal SDK for lifetime membership - WORKS LIKE SUBSCRIPTION BUTTON
   useEffect(() => {
     if (showLifetimePopup && !paypalLifetimeLoaded && user) {
-      const isSandbox = process.env.NEXT_PUBLIC_PAYPAL_MODE === 'sandbox'
-      const paypalClientId = isSandbox 
-        ? process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID_SANDBOX 
-        : process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+      const isSandbox = false
+      const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
       
       if (!paypalClientId) {
-        console.error('PayPal Client ID not configured', { isSandbox })
+        console.error('PayPal Client ID not configured')
         return
       }
       
-      console.log(`PayPal Lifetime: Loading SDK in ${isSandbox ? 'SANDBOX' : 'LIVE'} mode`)
+      console.log(`PayPal Lifetime: Loading SDK in LIVE mode`)
       
       const script = document.createElement('script')
-      script.src = `https://www.${isSandbox ? 'sandbox.' : ''}paypal.com/sdk/js?client-id=${paypalClientId}&currency=CAD`
+      script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=CAD`
       script.setAttribute('data-sdk-integration-source', 'button-factory')
       script.onload = () => {
         if (window.paypal && user) {

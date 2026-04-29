@@ -8,23 +8,21 @@ declare global {
 
 // Get PayPal access token
 async function getPayPalAccessToken(): Promise<string | null> {
-  const isSandbox = process.env.PAYPAL_MODE === 'sandbox'
-  const clientId = isSandbox ? process.env.PAYPAL_CLIENT_ID_SANDBOX : process.env.PAYPAL_CLIENT_ID
-  const clientSecret = isSandbox ? process.env.PAYPAL_CLIENT_SECRET_SANDBOX : process.env.PAYPAL_CLIENT_SECRET
+  // PRODUCTION MODE - Live PayPal APIs
+  const clientId = process.env.PAYPAL_CLIENT_ID
+  const clientSecret = process.env.PAYPAL_CLIENT_SECRET
   
   if (!clientId || !clientSecret) {
-    console.error('PayPal credentials not configured', { isSandbox, hasClientId: !!clientId, hasSecret: !!clientSecret })
+    console.error('PayPal credentials not configured', { hasClientId: !!clientId, hasSecret: !!clientSecret })
     return null
   }
   
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
   
   try {
-    const paypalUrl = isSandbox
-      ? 'https://api-m.sandbox.paypal.com/v1/oauth2/token'
-      : 'https://api-m.paypal.com/v1/oauth2/token'
+    const paypalUrl = 'https://api-m.paypal.com/v1/oauth2/token'
     
-    console.log(`PayPal: Getting token in ${isSandbox ? 'SANDBOX' : 'LIVE'} mode`)
+    console.log(`PayPal: Getting token in LIVE mode`)
     
     const response = await fetch(paypalUrl, {
       method: 'POST',
@@ -50,10 +48,7 @@ async function getPayPalAccessToken(): Promise<string | null> {
 // Get subscription details from PayPal
 async function getPayPalSubscription(accessToken: string, subscriptionId: string): Promise<any | null> {
   try {
-    const isSandbox = process.env.PAYPAL_MODE === 'sandbox'
-    const paypalUrl = isSandbox
-      ? `https://api-m.sandbox.paypal.com/v1/billing/subscriptions/${subscriptionId}`
-      : `https://api-m.paypal.com/v1/billing/subscriptions/${subscriptionId}`
+    const paypalUrl = `https://api-m.paypal.com/v1/billing/subscriptions/${subscriptionId}`
     
     const response = await fetch(paypalUrl, {
       method: 'GET',
@@ -77,10 +72,7 @@ async function getPayPalSubscription(accessToken: string, subscriptionId: string
 // List subscriptions for a business account
 async function listPayPalSubscriptions(accessToken: string): Promise<any[]> {
   try {
-    const isSandbox = process.env.PAYPAL_MODE === 'sandbox'
-    const paypalUrl = isSandbox
-      ? 'https://api-m.sandbox.paypal.com/v1/billing/subscriptions'
-      : 'https://api-m.paypal.com/v1/billing/subscriptions'
+    const paypalUrl = 'https://api-m.paypal.com/v1/billing/subscriptions'
     
     const response = await fetch(paypalUrl, {
       method: 'GET',

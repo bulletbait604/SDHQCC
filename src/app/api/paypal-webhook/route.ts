@@ -125,9 +125,10 @@ async function cancelSubscription(subscriptionId: string) {
 
 // Helper function to get PayPal access token
 async function getPayPalAccessToken(): Promise<string | null> {
-  const isSandbox = process.env.PAYPAL_MODE === 'sandbox'
-  const clientId = isSandbox ? process.env.PAYPAL_CLIENT_ID_SANDBOX : process.env.PAYPAL_CLIENT_ID
-  const clientSecret = isSandbox ? process.env.PAYPAL_CLIENT_SECRET_SANDBOX : process.env.PAYPAL_CLIENT_SECRET
+  // PRODUCTION MODE - Live PayPal APIs
+  const isSandbox = false
+  const clientId = process.env.PAYPAL_CLIENT_ID
+  const clientSecret = process.env.PAYPAL_CLIENT_SECRET
   
   if (!clientId || !clientSecret) {
     console.error('PayPal credentials not configured', { isSandbox, hasClientId: !!clientId, hasSecret: !!clientSecret })
@@ -137,11 +138,9 @@ async function getPayPalAccessToken(): Promise<string | null> {
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
   
   try {
-    const paypalUrl = isSandbox
-      ? 'https://api-m.sandbox.paypal.com/v1/oauth2/token'
-      : 'https://api-m.paypal.com/v1/oauth2/token'
+    const paypalUrl = 'https://api-m.paypal.com/v1/oauth2/token'
     
-    console.log(`PayPal: Using ${isSandbox ? 'SANDBOX' : 'LIVE'} mode for token`)
+    console.log(`PayPal: Using LIVE mode for token`)
     
     const response = await fetch(paypalUrl, {
       method: 'POST',
@@ -182,12 +181,9 @@ async function captureOrder(orderId: string): Promise<any | null> {
       return null
     }
     
-    const isSandbox = process.env.PAYPAL_MODE === 'sandbox'
-    const paypalUrl = isSandbox
-      ? `https://api-m.sandbox.paypal.com/v2/checkout/orders/${orderId}/capture`
-      : `https://api-m.paypal.com/v2/checkout/orders/${orderId}/capture`
+    const paypalUrl = `https://api-m.paypal.com/v2/checkout/orders/${orderId}/capture`
     
-    console.log(`PayPal: Capturing order ${orderId} in ${isSandbox ? 'SANDBOX' : 'LIVE'} mode`)
+    console.log(`PayPal: Capturing order ${orderId} in LIVE mode`)
     
     const response = await fetch(paypalUrl, {
       method: 'POST',
@@ -223,12 +219,9 @@ async function getOrderDetails(orderId: string): Promise<any | null> {
       return null
     }
     
-    const isSandbox = process.env.PAYPAL_MODE === 'sandbox'
-    const paypalUrl = isSandbox
-      ? `https://api-m.sandbox.paypal.com/v2/checkout/orders/${orderId}`
-      : `https://api-m.paypal.com/v2/checkout/orders/${orderId}`
+    const paypalUrl = `https://api-m.paypal.com/v2/checkout/orders/${orderId}`
     
-    console.log(`PayPal: Getting order ${orderId} details in ${isSandbox ? 'SANDBOX' : 'LIVE'} mode`)
+    console.log(`PayPal: Getting order ${orderId} details in LIVE mode`)
     
     const response = await fetch(paypalUrl, {
       method: 'GET',
@@ -262,12 +255,9 @@ async function verifySubscriptionWithPayPal(subscriptionId: string): Promise<any
       return null
     }
     
-    const isSandbox = process.env.PAYPAL_MODE === 'sandbox'
-    const paypalUrl = isSandbox
-      ? `https://api-m.sandbox.paypal.com/v1/billing/subscriptions/${subscriptionId}`
-      : `https://api-m.paypal.com/v1/billing/subscriptions/${subscriptionId}`
+    const paypalUrl = `https://api-m.paypal.com/v1/billing/subscriptions/${subscriptionId}`
     
-    console.log(`PayPal: Verifying subscription in ${isSandbox ? 'SANDBOX' : 'LIVE'} mode`)
+    console.log(`PayPal: Verifying subscription in LIVE mode`)
     
     const response = await fetch(paypalUrl, {
       method: 'GET',
