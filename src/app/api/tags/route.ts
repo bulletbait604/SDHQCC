@@ -53,24 +53,26 @@ async function generateTagsWithGemini(description: string, platform: string, cou
         role: 'user',
         parts: [
           {
-            text: `You are an expert social media algorithm analyst and hashtag generator. Generate ${count} platform-optimized hashtags.
+            text: `Act as a Social Media SEO Specialist and Algorithm Researcher.
 
-Platform: ${platformName}
-Content Description: "${description}"
+CONTEXT:
+I am creating content for ${platformName}.
+DESCRIPTION: "${description}"
 
-Platform Strategies:
-- TikTok: discovery hashtags (fyp, foryou, viral, trending) + niche-specific tags. Mix broad and specific.
-- Instagram: community + aesthetic + niche tags. Include location/style tags if relevant.
-- YouTube Shorts: SEO-focused + viral + content type tags. Search-optimized.
-- YouTube Long: SEO + topic + search intent tags. Educational/entertainment focus.
-- Facebook Reels: community + trending + entertainment tags. Broader appeal.
+TASK:
+1. Briefly analyze the current ${platformName} algorithm trends for April 2026 (focusing on "Social Search" and SEO).
+2. Identify the core "High-Intent Keywords" from my description that users would actually type into a search bar.
+3. Generate ${count} optimized hashtags based on the platform strategy below.
 
-Requirements:
+PLATFORM STRATEGY:
+${platformName === 'TikTok' ? '- Focus on discovery and relevance. Mix 2-3 broad trending tags (fyp, foryou, viral) with 3-5 niche-specific tags. Total 5-8 tags maximum.' : ''}${platformName === 'Instagram' ? '- Focus on "Relevance" over "Volume." Use 3-5 highly targeted hashtags combining community + aesthetic + niche.' : ''}${platformName === 'YouTube Shorts' || platformName === 'YouTube' ? '- Focus on "Searchable" tags. Use SEO-focused keywords that users actually search for.' : ''}${platformName === 'Facebook Reels' ? '- Focus on community and trending. Use broader appeal tags with some niche-specific ones.' : ''}
+
+CONSTRAINTS:
 - Generate exactly ${count} hashtags
 - All lowercase, no # symbols
-- Mix of: platform-trending + content-specific + niche tags
-- No spaces in tags (use underscores if needed)
-- Relevant to both the content AND platform algorithm
+- Mix high-reach and niche tags (don't overstuff trending tags)
+- Use underscores_for_multi_word_tags
+- Focus on keywords users actually search for
 
 Return ONLY a valid JSON array of strings:
 ["tag1", "tag2", "tag3", ...]`
