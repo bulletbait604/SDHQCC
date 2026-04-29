@@ -25,6 +25,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "framer-motion": "^11.3.2",
+    "google-auth-library": "^9.14.2",
     "lucide-react": "^0.400.0",
     "mongodb": "^4.17.2",
     "next": "^14.2.0",

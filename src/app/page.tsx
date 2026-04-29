@@ -968,10 +968,17 @@ export default function HomePage() {
       return
     }
 
-    // Validate file size (max 500MB for direct upload to Gemini)
-    const maxSize = 500 * 1024 * 1024
+    // Validate file size (max 250MB as requested)
+    const maxSize = 250 * 1024 * 1024
+    const minSize = 100 * 1024 // 100KB minimum
+    
+    if (clipFile.size < minSize) {
+      setClipError('File size is too small. Video must be at least 100KB to analyze properly.')
+      return
+    }
+    
     if (clipFile.size > maxSize) {
-      setClipError('File size must be less than 500MB.')
+      setClipError('File size must be less than 250MB.')
       return
     }
 
@@ -982,8 +989,9 @@ export default function HomePage() {
     setShowReanalysis(false)
 
     const loadingSteps = [
-      'Uploading video for analysis...',
-      'Processing with Gemini 3.1 Pro...',
+      'Requesting upload authorization...',
+      'Uploading video to Gemini (this may take a moment)...',
+      'Processing video with AI...',
       'Analyzing visual and audio elements...',
       'Cross-referencing with platform algorithm...',
       'Generating optimization recommendations...',
@@ -996,72 +1004,135 @@ export default function HomePage() {
         setLoadingStep(loadingSteps[step])
         step++
       }
-    }, 800)
+    }, 2000)
 
     try {
       const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetimeMember ? 'lifetime' : isSubscribed ? 'subscribed' : 'free'
       
-      // Direct upload to clip-analyzer API
-      console.log('Clip Upload: Direct upload to API...')
+      console.log('Clip Upload: Starting OAuth flow...')
       console.log('Clip Upload: File details:', { name: clipFile.name, type: clipFile.type, size: clipFile.size })
       
-      const formData = new FormData()
-      formData.append('file', clipFile)
-      formData.append('platform', clipPlatform)
-      formData.append('userId', user?.id || '')
-      formData.append('userType', userType)
+      // Step 1: Get OAuth token from backend
+      setLoadingStep(loadingSteps[0])
+      console.log('Clip Upload: Step 1 - Requesting OAuth token...')
       
-      const res = await fetch('/api/clip-analyzer', {
+      const tokenRes = await fetch('/api/gemini-token', {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user?.id || '',
+          userType: userType
+        })
       })
+
+      if (!tokenRes.ok) {
+        const errorData = await tokenRes.json()
+        throw new Error(errorData.userMessage || errorData.error || 'Failed to get upload authorization')
+      }
+
+      const tokenData = await tokenRes.json()
+      console.log('Clip Upload: OAuth token received')
+
+      // Step 2: Upload file directly to Gemini using the OAuth token
+      setLoadingStep(loadingSteps[1])
+      console.log('Clip Upload: Step 2 - Uploading to Gemini File API...')
+
+      // Start resumable upload session
+      const uploadUrlRes = await fetch('https://generativelanguage.googleapis.com/upload/v1beta/files?key=' + tokenData.accessToken, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${tokenData.accessToken}`,
+          'X-Goog-Upload-Protocol': 'resumable',
+          'X-Goog-Upload-Command': 'start',
+          'X-Goog-Upload-Header-Content-Length': clipFile.size.toString(),
+          'X-Goog-Upload-Header-Content-Type': clipFile.type,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          file: {
+            display_name: clipFile.name
+          }
+        })
+      })
+
+      if (!uploadUrlRes.ok) {
+        const errorText = await uploadUrlRes.text()
+        console.error('Clip Upload: Failed to start upload session:', errorText)
+        throw new Error('Failed to start upload session. Please try again.')
+      }
+
+      const uploadUrl = uploadUrlRes.headers.get('X-Goog-Upload-URL')
+      if (!uploadUrl) {
+        throw new Error('Upload URL not received from Gemini')
+      }
+
+      console.log('Clip Upload: Upload session started, uploading bytes...')
+
+      // Upload the actual file bytes
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': clipFile.type,
+          'X-Goog-Upload-Protocol': 'resumable',
+          'X-Goog-Upload-Command': 'upload, finalize',
+          'X-Goog-Upload-Offset': '0'
+        },
+        body: clipFile
+      })
+
+      if (!uploadRes.ok) {
+        const errorText = await uploadRes.text()
+        console.error('Clip Upload: Failed to upload file:', errorText)
+        throw new Error('Failed to upload video. Please try again.')
+      }
+
+      const uploadData = await uploadRes.json()
+      const fileUri = uploadData.file?.uri
       
-      console.log('Clip Upload: Analyzer response status:', res.status, res.statusText)
+      if (!fileUri) {
+        throw new Error('File URI not received from Gemini')
+      }
+
+      console.log('Clip Upload: File uploaded successfully. URI:', fileUri)
+
+      // Step 3: Send file URI to backend for analysis
+      setLoadingStep(loadingSteps[2])
+      console.log('Clip Upload: Step 3 - Sending to analysis API...')
+
+      const analyzeRes = await fetch('/api/clip-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileUri: fileUri,
+          mimeType: clipFile.type,
+          fileName: clipFile.name,
+          fileSize: clipFile.size,
+          platform: clipPlatform,
+          userId: user?.id || '',
+          userType: userType
+        })
+      })
 
       clearInterval(stepInterval)
 
-      if (!res.ok) {
-        // Try to get error message - handle both JSON and plain text errors
-        let errorMessage = 'Analysis failed'
-        try {
-          const contentType = res.headers.get('content-type')
-          if (contentType && contentType.includes('application/json')) {
-            const errorData = await res.json()
-            if (res.status === 429) {
-              const resetDate = new Date(errorData.resetTime)
-              const maxUses = isSubscribed ? 5 : 0
-              const diff = resetDate.getTime() - Date.now()
-              const hours = Math.floor(diff / (1000 * 60 * 60))
-              const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-              const timeString = hours > 0 
-                ? `${hours} hour${hours > 1 ? 's' : ''} and ${minutes} minute${minutes > 1 ? 's' : ''}`
-                : `${minutes} minute${minutes > 1 ? 's' : ''}`
-              setClipRateLimit({ remaining: 0, resetTime: errorData.resetTime })
-              throw new Error(`Rate limit exceeded. You have used your ${maxUses} clip analyses for the day.\n\nYou can analyze more clips in ${timeString}.\n\nResets at: ${resetDate.toLocaleString()}`)
-            }
-            errorMessage = errorData.error || errorData.userMessage || `Server error: ${res.status}`
-          } else {
-            // Handle plain text errors (like "Request Entity Too Large")
-            const textError = await res.text()
-            console.error('Clip Upload: Non-JSON error response:', textError.substring(0, 200))
-            if (res.status === 413 || textError.includes('Request Entity Too Large') || textError.includes('body exceeded')) {
-              errorMessage = 'File is too large. Please upload a video under 50MB (Vercel free tier limit).'
-            } else {
-              errorMessage = `Server error (${res.status}): ${textError.substring(0, 100) || res.statusText}`
-            }
-          }
-        } catch (parseError) {
-          console.error('Clip Upload: Error parsing response:', parseError)
-          if (res.status === 413) {
-            errorMessage = 'File is too large. Please upload a video under 50MB (Vercel free tier limit).'
-          } else {
-            errorMessage = `Server error (${res.status}): ${res.statusText || 'Unknown error'}`
-          }
+      if (!analyzeRes.ok) {
+        const errorData = await analyzeRes.json()
+        if (analyzeRes.status === 429) {
+          const resetDate = new Date(errorData.resetTime)
+          const maxUses = isSubscribed ? 5 : 0
+          const diff = resetDate.getTime() - Date.now()
+          const hours = Math.floor(diff / (1000 * 60 * 60))
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+          const timeString = hours > 0 
+            ? `${hours} hour${hours > 1 ? 's' : ''} and ${minutes} minute${minutes > 1 ? 's' : ''}`
+            : `${minutes} minute${minutes > 1 ? 's' : ''}`
+          setClipRateLimit({ remaining: 0, resetTime: errorData.resetTime })
+          throw new Error(`Rate limit exceeded. You have used your ${maxUses} clip analyses for the day.\n\nYou can analyze more clips in ${timeString}.\n\nResets at: ${resetDate.toLocaleString()}`)
         }
-        throw new Error(errorMessage)
+        throw new Error(errorData.userMessage || errorData.error || 'Analysis failed')
       }
 
-      const data = await res.json()
+      const data = await analyzeRes.json()
       setClipAnalysisResult(data)
       setExtractedData(data.extractedData || null)
       setShowReanalysis(true)
