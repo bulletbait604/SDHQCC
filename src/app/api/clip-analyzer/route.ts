@@ -293,7 +293,7 @@ Respond ONLY with valid JSON in this exact structure:
 
     // TEMPORARY: Try Llama via RapidAPI for larger files (testing larger payload capacity)
     const tempRapidApiKey = process.env.RAPID_API_TEMP_API
-    if (!analysisResult && tempRapidApiKey && fileData.buffer && fileData.size <= 50 * 1024 * 1024) {
+    if (!analysisResult && tempRapidApiKey && fileData.buffer && fileData.size <= 100 * 1024 * 1024) {
       console.log('[Clip Analyzer] Trying temporary Llama RapidAPI for larger video...')
       try {
         const base64Video = fileData.buffer.toString('base64')
@@ -346,7 +346,7 @@ IMPORTANT:
 - Return ONLY valid JSON, no markdown code blocks, no extra text
 - Platform: ${platform}
 
-Video: data:${fileData.type};base64,${base64Video.substring(0, Math.min(base64Video.length, 100000))}`
+Video: data:${fileData.type};base64,${base64Video}`
               }
             ]
           })
