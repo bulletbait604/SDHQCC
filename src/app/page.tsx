@@ -1036,6 +1036,8 @@ export default function HomePage() {
       // Step 2: Upload file directly to Gemini using the OAuth token
       setLoadingStep(loadingSteps[1])
       console.log('Clip Upload: Step 2 - Uploading to Gemini File API...')
+      console.log('Clip Upload: Token preview:', tokenData.accessToken.substring(0, 20) + '...')
+      console.log('Clip Upload: File details:', { size: clipFile.size, type: clipFile.type, name: clipFile.name })
 
       // Start resumable upload session
       const uploadUrlRes = await fetch('https://generativelanguage.googleapis.com/upload/v1beta/files', {
@@ -1055,9 +1057,12 @@ export default function HomePage() {
         })
       })
 
+      console.log('Clip Upload: Upload session response status:', uploadUrlRes.status)
+
       if (!uploadUrlRes.ok) {
         const errorText = await uploadUrlRes.text()
         console.error('Clip Upload: Failed to start upload session:', errorText)
+        console.error('Clip Upload: Response headers:', Object.fromEntries(uploadUrlRes.headers.entries()))
         throw new Error('Failed to start upload session. Please try again.')
       }
 
