@@ -1,30 +1,40 @@
 #!/usr/bin/env node
 
 /**
- * Script to create a PayPal Sandbox Product and Plan
+ * Script to create a PayPal Product and Plan
  * Run: node scripts/create-paypal-plan.js
+ * 
+ * Set PAYPAL_MODE=sandbox for sandbox, or omit for production
  */
 
 async function createPayPalPlan() {
-  const clientId = process.env.PAYPAL_CLIENT_ID_SANDBOX
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET_SANDBOX
+  const isSandbox = process.env.PAYPAL_MODE === 'sandbox'
+  const clientId = isSandbox ? process.env.PAYPAL_CLIENT_ID_SANDBOX : process.env.PAYPAL_CLIENT_ID
+  const clientSecret = isSandbox ? process.env.PAYPAL_CLIENT_SECRET_SANDBOX : process.env.PAYPAL_CLIENT_SECRET
   
   if (!clientId || !clientSecret) {
-    console.error('❌ Error: PAYPAL_CLIENT_ID_SANDBOX and PAYPAL_CLIENT_SECRET_SANDBOX must be set')
+    console.error(`❌ Error: ${isSandbox ? 'PAYPAL_CLIENT_ID_SANDBOX and PAYPAL_CLIENT_SECRET_SANDBOX' : 'PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET'} must be set`)
     console.log('\nAdd these to your environment:')
-    console.log('PAYPAL_CLIENT_ID_SANDBOX=your_sandbox_client_id')
-    console.log('PAYPAL_CLIENT_SECRET_SANDBOX=your_sandbox_client_secret')
+    if (isSandbox) {
+      console.log('PAYPAL_CLIENT_ID_SANDBOX=your_sandbox_client_id')
+      console.log('PAYPAL_CLIENT_SECRET_SANDBOX=your_sandbox_client_secret')
+    } else {
+      console.log('PAYPAL_CLIENT_ID=your_live_client_id')
+      console.log('PAYPAL_CLIENT_SECRET=your_live_client_secret')
+    }
     process.exit(1)
   }
   
-  console.log('🔄 Creating PayPal Sandbox Product and Plan...\n')
+  console.log(`🔄 Creating PayPal ${isSandbox ? 'Sandbox' : 'LIVE'} Product and Plan...\n`)
   
   try {
     // Step 1: Get access token
     console.log('Step 1: Getting access token...')
     const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
     
-    const tokenResponse = await fetch('https://api-m.sandbox.paypal.com/v1/oauth2/token', {
+    const baseUrl = isSandbox ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com'
+    
+    const tokenResponse = await fetch(`${baseUrl}/v1/oauth2/token`, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${auth}`,
@@ -43,7 +53,7 @@ async function createPayPalPlan() {
     
     // Step 2: Create Product
     console.log('Step 2: Creating product...')
-    const productResponse = await fetch('https://api-m.sandbox.paypal.com/v1/catalogs/products', {
+    const productResponse = await fetch(`${baseUrl}/v1/catalogs/products`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -71,7 +81,7 @@ async function createPayPalPlan() {
     
     // Step 3: Create Plan
     console.log('Step 3: Creating subscription plan...')
-    const planResponse = await fetch('https://api-m.sandbox.paypal.com/v1/billing/plans', {
+    const planResponse = await fetch(`${baseUrl}/v1/billing/plans`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
