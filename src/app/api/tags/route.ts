@@ -47,10 +47,10 @@ async function generateTagsWithGemini(description: string, platform: string, cou
   try {
     const ai = new GoogleGenAI({ apiKey: geminiApiKey })
     
-    console.log('[Tags] Calling Gemini API with model: gemini-1.5-flash-latest')
+    console.log('[Tags] Calling Gemini API with model: gemini-3.1-flash')
     
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash-latest',
+      model: 'gemini-3.1-flash',
       contents: [
         {
           role: 'user',
