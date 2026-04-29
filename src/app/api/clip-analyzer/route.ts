@@ -81,14 +81,14 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Invalid file type. Please upload MP4, WebM, MOV, or AVI.' }, { status: 400 })
       }
 
-      // Validate file size (min 100KB, max 100MB)
+      // Validate file size (min 100KB, max 500MB for Google Gemini File API)
       const minSize = 100 * 1024 // 100KB minimum
-      const maxSize = 100 * 1024 * 1024 // 100MB maximum
+      const maxSize = 500 * 1024 * 1024 // 500MB maximum (Gemini File API supports large files)
       if (file.size < minSize) {
         return NextResponse.json({ error: 'File size is too small. Video must be at least 100KB to analyze properly.' }, { status: 400 })
       }
       if (file.size > maxSize) {
-        return NextResponse.json({ error: 'File size must be less than 100MB. Use R2 upload for larger files.' }, { status: 400 })
+        return NextResponse.json({ error: 'File size must be less than 500MB. Please use a smaller video file.' }, { status: 400 })
       }
 
       const arrayBuffer = await file.arrayBuffer()
@@ -156,12 +156,12 @@ export async function POST(request: Request) {
     let analysisResult = null
     let analysisSource = 'none'
 
-    // Try Official Google Gemini 3.1 Pro via File API (supports up to 100MB+ videos)
+    // Try Official Google Gemini 3.1 Pro via File API (supports up to 500MB+ videos)
     // No base64 encoding needed - uploads directly to Google servers
-    const GEMINI_FILE_SIZE_LIMIT = 100 * 1024 * 1024 // 100MB limit
+    const GEMINI_FILE_SIZE_LIMIT = 500 * 1024 * 1024 // 500MB limit for paid Google API
     
     if (geminiApiKey && fileData.buffer && fileData.size <= GEMINI_FILE_SIZE_LIMIT) {
-      console.log(`File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB is within Gemini 3.1 Pro File API limit (100MB)`)
+      console.log(`File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB is within Gemini 3.1 Pro File API limit (500MB)`)
       try {
         console.log('Starting Gemini 3.1 Pro video analysis via Google GenAI File API...')
         
