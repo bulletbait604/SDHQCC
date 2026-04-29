@@ -127,12 +127,15 @@ export async function POST(request: Request) {
       )
     }
 
-    const groqApiKey = process.env.GROQ_API_KEY
-    const rapidApiKey = process.env.RAPID_API_KEY
     const geminiApiKey = process.env.GEMINI_API
     
-    if (!groqApiKey && !rapidApiKey && !geminiApiKey) {
-      return NextResponse.json({ error: 'No content analysis API key configured' }, { status: 500 })
+    if (!geminiApiKey) {
+      console.log('[ACTIVITY_LOG] Clip Analyzer: GEMINI_API key not configured')
+      return NextResponse.json({ 
+        error: 'API not configured',
+        userMessage: 'Gemini is having a tough time right now. Please check back later.',
+        details: 'GEMINI_API key not configured'
+      }, { status: 503 })
     }
 
     // Create basic extracted data from file metadata
@@ -273,309 +276,43 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
           analysisSource = 'gemini-3.1-pro'
           console.log('✅ Gemini 3.1 Pro video analysis successful')
         }
-      } catch (geminiError) {
+      } catch (geminiError: any) {
         console.error('Gemini 3.1 Pro analysis error:', geminiError)
+        
+        // Log specific error details to activity log
+        if (geminiError.message?.includes('quota')) {
+          console.log('[ACTIVITY_LOG] Clip Analyzer: Gemini 3.1 Pro API quota exceeded. Please upgrade plan.')
+        } else if (geminiError.message?.includes('permission') || geminiError.message?.includes('unauthorized')) {
+          console.log('[ACTIVITY_LOG] Clip Analyzer: Gemini 3.1 Pro API key invalid or unauthorized.')
+        } else if (geminiError.message?.includes('rate')) {
+          console.log('[ACTIVITY_LOG] Clip Analyzer: Gemini 3.1 Pro API rate limit exceeded.')
+        } else {
+          console.log(`[ACTIVITY_LOG] Clip Analyzer: Gemini 3.1 Pro API error - ${geminiError.message || 'Unknown error'}`)
+        }
       }
-    } else if (geminiApiKey && fileData.size > GEMINI_FILE_SIZE_LIMIT) {
-      console.log(`⚠️ WARNING: File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB exceeds Gemini 3.1 Pro File API limit (100MB)`)
-      console.log(`⚠️ Video will NOT be analyzed by Gemini - using fallback analysis`)
-    }
-
-    // TEMPORARY: Test RapidAPI endpoints for larger files (DEPLOYED)
-    // Cascading test: Llama → ChatGPT → Chat → Groq → Pollinations
-    const tempRapidApiKey = process.env.RAPID_API_TEMP_API
-    const rapidApiEndpoints = [
-      { name: 'Llama 3.3 70B', url: 'https://open-ai21.p.rapidapi.com/conversationllama' },
-      { name: 'ChatGPT 3.5', url: 'https://open-ai21.p.rapidapi.com/chatgpt' },
-      { name: 'Chat Bot', url: 'https://open-ai21.p.rapidapi.com/chatbotapi' }
-    ]
-
-    if (!analysisResult && tempRapidApiKey && fileData.buffer) {
-      const base64Video = fileData.buffer.toString('base64')
+    } else if (fileData.size > GEMINI_FILE_SIZE_LIMIT) {
+      // Log to activity log
+      console.log(`[ACTIVITY_LOG] Clip Analyzer: File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB exceeds 100MB limit`)
       
-      // Skip RapidAPI test if payload is too large (max 30MB base64 ~ 22MB raw)
-      const MAX_RAPIDAPI_PAYLOAD = 30 * 1024 * 1024 // 30MB
-      if (base64Video.length > MAX_RAPIDAPI_PAYLOAD) {
-        console.log(`[Clip Analyzer] Skipping RapidAPI test - base64 payload ${(base64Video.length / (1024 * 1024)).toFixed(2)}MB exceeds 30MB limit`)
-      } else {
-        console.log(`[Clip Analyzer] RapidAPI payload size: ${(base64Video.length / (1024 * 1024)).toFixed(2)}MB - attempting endpoints...`)
-        
-        for (const endpoint of rapidApiEndpoints) {
-        if (analysisResult) break // Stop if we got a result
-        
-        console.log(`[Clip Analyzer] Testing ${endpoint.name} for video analysis...`)
-        try {
-          // Create abort controller for timeout (30 second limit per endpoint)
-          const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 30000)
-          
-          const rapidResponse = await fetch(endpoint.url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-RapidAPI-Key': tempRapidApiKey,
-              'X-RapidAPI-Host': 'open-ai21.p.rapidapi.com'
-            },
-            signal: controller.signal,
-            body: JSON.stringify({
-              messages: [
-                {
-                  role: 'user',
-                  content: `You are an expert social media algorithm analyst. Analyze this ${platform} video and return ONLY a JSON object with no markdown formatting. 
-
-Return this exact structure:
-{
-  "score": <integer 0-100>,
-  "scoreTitle": "<rating title>",
-  "scoreSummary": "<2 sentence summary>",
-  "insights": [
-    { "icon": "🎣", "label": "Hook Strength", "value": "<rating>", "description": "<analysis>" },
-    { "icon": "⚡", "label": "Engagement Potential", "value": "<rating>", "description": "<analysis>" },
-    { "icon": "🎥", "label": "Visual Quality", "value": "<rating>", "description": "<analysis>" },
-    { "icon": "🔊", "label": "Audio Quality", "value": "<rating>", "description": "<analysis>" }
-  ],
-  "recommendations": [
-    { "priority": "high", "category": "Hook", "text": "<specific recommendation>" },
-    { "priority": "high", "category": "Pacing", "text": "<specific recommendation>" },
-    { "priority": "med", "category": "Visual", "text": "<specific recommendation>" },
-    { "priority": "med", "category": "Audio", "text": "<specific recommendation>" },
-    { "priority": "low", "category": "Metadata", "text": "<specific recommendation>" }
-  ],
-  "overlays": [
-    { "type": "text", "description": "<suggestion>", "timing": "<timestamp>" },
-    { "type": "sound", "description": "<suggestion>", "timing": "<timestamp>" },
-    { "type": "visual", "description": "<suggestion>", "timing": "<timestamp>" },
-    { "type": "cta", "description": "<suggestion>", "timing": "<timestamp>" }
-  ],
-  "titles": ["<title 1>", "<title 2>", "<title 3>"],
-  "description": "<description>",
-  "tags": ["<tag1>", "<tag2>", "...15-20 tags"]
-}
-
-IMPORTANT: 
-- Analyze the video content for ${platform} optimization
-- Provide specific, actionable recommendations with timestamps
-- Return ONLY valid JSON, no markdown code blocks, no extra text
-- Platform: ${platform}
-
-Video: data:${fileData.type};base64,${base64Video}`
-                }
-              ]
-            })
-          })
-
-          clearTimeout(timeoutId) // Clear timeout on success
-          
-          if (rapidResponse.ok) {
-            const rapidData = await rapidResponse.json()
-            const content = rapidData.result || rapidData.message || rapidData.content || rapidData.choices?.[0]?.message?.content || ''
-            
-            if (content) {
-              let cleanContent = content
-              if (content.includes('```')) {
-                cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-              }
-              
-              try {
-                analysisResult = JSON.parse(cleanContent)
-                analysisSource = `${endpoint.name.toLowerCase().replace(/\s+/g, '-')}-rapidapi`
-                console.log(`✅ ${endpoint.name} RapidAPI analysis successful`)
-                break // Exit loop on success
-              } catch (parseError) {
-                console.error(`[Clip Analyzer] ${endpoint.name} JSON parse error:`, parseError)
-              }
-            }
-          } else {
-            const errorText = await rapidResponse.text()
-            console.error(`[Clip Analyzer] ${endpoint.name} error:`, rapidResponse.status, errorText.substring(0, 200))
-          }
-        } catch (endpointError) {
-          clearTimeout(timeoutId) // Clear timeout on error too
-          if (endpointError.name === 'AbortError') {
-            console.error(`[Clip Analyzer] ${endpoint.name} timed out after 30s`)
-          } else {
-            console.error(`[Clip Analyzer] ${endpoint.name} analysis error:`, endpointError)
-          }
-        }
-      }
+      return NextResponse.json({ 
+        error: 'File too large',
+        userMessage: 'This video is too large for AI analysis. Please upload a video under 100MB.',
+        details: `File size: ${(fileData.size / (1024 * 1024)).toFixed(2)}MB (limit: 100MB)`
+      }, { status: 413 })
     }
 
-    // Fallback to GROQ if Gemini/Llama failed or no video buffer
-    if (!analysisResult && groqApiKey) {
-      try {
-        const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${groqApiKey}`
-          },
-          body: JSON.stringify({
-            model: 'llama-3.1-8b-instant',
-            messages: [
-              {
-                role: 'system',
-                content: `You are an expert social media algorithm analyst and content optimization specialist. Your task is to analyze video content and provide specific, actionable recommendations for ${platform}.
-
-PLATFORM-SPECIFIC ALGORITHM PRIORITIES (2026):
-- TikTok: Hook in first 1-2 seconds, completion rate (watch to end), shares, saves, comments, trending audio usage, caption keywords, posting consistency, niche authority
-- Instagram Reels: First 3 seconds engagement, watch time, saves, shares, carousel swipe-through, music trending, hashtags, Reels tab exploration, consistency
-- YouTube Shorts: First 1 second hook, watch time, click-through rate, retention, comments, likes, shares, title optimization, posting schedule
-- Facebook Reels: Early engagement, watch time, shares, comments, trending audio, hashtags, Reels tab exploration
-- YouTube Long: First 5 seconds hook, retention, click-through rate, comments, likes, shares, title optimization, description keywords, posting schedule
-
-SCORING CRITERIA (0-100):
-- Hook strength (first 1-3 seconds): 25 points
-- Content engagement potential: 20 points
-- Visual/audio quality: 15 points
-- Platform-specific optimization: 20 points
-- Metadata quality (title/description/tags): 20 points
-
-IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside the JSON.
-
-Return this exact structure:
-{
-  "score": <integer 0-100>,
-  "scoreTitle": "<short title: Excellent/Good/Fair/Needs Improvement>",
-  "scoreSummary": "<2 sentences: main strength + 1 key improvement needed>",
-  "insights": [
-    { "icon": "<emoji>", "label": "Hook Strength", "value": "<rating: Strong/Moderate/Weak>", "description": "<why this rating + specific improvement - NO abbreviations>" },
-    { "icon": "<emoji>", "label": "Engagement Potential", "value": "<rating: High/Medium/Low>", "description": "<factors affecting engagement + specific boost - NO abbreviations>" },
-    { "icon": "<emoji>", "label": "Visual Quality", "value": "<rating: Professional/Good/Fair>", "description": "<production assessment + specific fix - NO abbreviations>" },
-    { "icon": "<emoji>", "label": "Audio Quality", "value": "<rating: Clear/Muffled/Unbalanced>", "description": "<sound assessment + specific fix - NO abbreviations>" }
-  ],
-  "recommendations": [
-    { "priority": "high", "category": "Hook", "text": "<specific, actionable hook improvement - NO abbreviations>" },
-    { "priority": "high", "category": "Pacing", "text": "<specific pacing adjustment - NO abbreviations>" },
-    { "priority": "med",  "category": "Visual", "text": "<specific visual enhancement - NO abbreviations>" },
-    { "priority": "med",  "category": "Audio", "text": "<specific audio improvement - NO abbreviations>" },
-    { "priority": "low",  "category": "Metadata", "text": "<specific metadata optimization - NO abbreviations>" }
-  ],
-  "overlays": [
-    { "type": "text",   "description": "<specific text overlay suggestion - NO abbreviations>", "timing": "<exact timestamp>" },
-    { "type": "sound",  "description": "<specific audio/music suggestion - NO abbreviations>", "timing": "<exact timestamp>" },
-    { "type": "visual", "description": "<specific visual effect or edit - NO abbreviations>", "timing": "<exact timestamp>" },
-    { "type": "cta",    "description": "<specific call-to-action - NO abbreviations>", "timing": "<exact timestamp>" }
-  ],
-  "titles": [
-    "<optimized title option 1: 50-60 chars max, strong hook + keywords>",
-    "<optimized title option 2: 50-60 chars max, strong hook + keywords>",
-    "<optimized title option 3: 50-60 chars max, strong hook + keywords>"
-  ],
-  "description": "<optimized description: 150-200 characters, keywords + call to action, platform-optimized - NO abbreviations>",
-  "tags": ["<15-20 specific, relevant hashtags for platform>"]
-}
-
-GUIDELINES:
-- Be specific and actionable in all recommendations
-- Use concrete examples (e.g., "Add text overlay at 0:02" not "Add text overlay")
-- Focus on platform-specific best practices
-- Ensure suggestions are practical and implementable
-- Keep descriptions concise but informative
-- Score realistically based on typical content quality (give a balanced score around 60-75 for average content)
-- NEVER use abbreviations (write "description" not "desc", "information" not "info", "second" not "sec")
-- Provide 15-20 relevant, specific hashtags
-- Include 1-2 relevant emojis in each title suggestion
-- NEVER use HTML tags like <b> or <i> - use plain text only
-- Provide 3 distinct title options with different hooks and emojis`
-              },
-              {
-                role: 'user',
-                content: `IMPORTANT LIMITATION: You CANNOT see this video file. It was too large to process. You must provide GENERAL platform optimization advice for ${platform} based on best practices only.
-
-Target Platform: ${platform}
-
-ANALYSIS TASK - GENERIC RECOMMENDATIONS ONLY:
-Since you cannot analyze the actual video content, provide:
-
-1. A balanced score (65-75 for typical content)
-2. Platform-specific best practices for ${platform} (generic insights)
-3. General recommendations for hook, pacing, visual, audio (typical advice)
-4. Example overlay suggestions (not specific to any content)
-5. Platform-optimized metadata templates (generic titles, description, tags for ${platform})
-
-LABEL ALL RECOMMENDATIONS AS "General Best Practice" so users know these are not AI-analyzed from their video.
-
-Do NOT pretend to analyze video content you cannot see.`
-              }
-            ],
-            max_tokens: 2000,
-            temperature: 0.7
-          })
-        })
-
-        if (groqResponse.ok) {
-          const groqData = await groqResponse.json()
-          const content = groqData.choices[0]?.message?.content || ''
-
-          // Parse JSON from response (handle markdown code blocks if present)
-          let cleanContent = content
-          if (content.includes('```')) {
-            cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-          }
-
-          analysisResult = JSON.parse(cleanContent)
-          analysisSource = 'groq'
-        } else {
-          const errorText = await groqResponse.text()
-          console.error('GROQ error:', errorText)
-        }
-      } catch (groqError) {
-        console.error('GROQ analysis error:', groqError)
-      }
-    }
-
-    // Fallback to Pollinations if GROQ failed (final backup)
-    const pollinationsApiKey = process.env.POLLINATIONS_API_KEY
-    if (!analysisResult && pollinationsApiKey) {
-      try {
-        console.log('[Clip Analyzer] Falling back to Pollinations for analysis')
-        const pollinationsResponse = await fetch('https://text.pollinations.ai/openai', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${pollinationsApiKey}`
-          },
-          body: JSON.stringify({
-            model: 'openai',
-            messages: [
-              {
-                role: 'system',
-                content: `You are an expert social media algorithm analyst. Analyze video content for ${platform} and return JSON with: score (0-100), scoreTitle, scoreSummary, insights (array with icon/label/value/description), recommendations (array with priority/category/text), overlays (array with type/description/timing), titles (array of 3), description (string), tags (array of 15-20). Provide general best practices since you cannot see the video.`
-              },
-              {
-                role: 'user',
-                content: `Provide general optimization recommendations for ${platform} based on current best practices for video content.`
-              }
-            ],
-            max_tokens: 2000,
-            temperature: 0.7
-          })
-        })
-
-        if (pollinationsResponse.ok) {
-          const pollinationsData = await pollinationsResponse.json()
-          const content = pollinationsData.choices?.[0]?.message?.content || ''
-
-          let cleanContent = content
-          if (content.includes('```')) {
-            cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-          }
-
-          analysisResult = JSON.parse(cleanContent)
-          analysisSource = 'pollinations'
-          console.log('[Clip Analyzer] Pollinations analysis completed')
-        } else {
-          const errorText = await pollinationsResponse.text()
-          console.error('[Clip Analyzer] Pollinations error:', errorText)
-        }
-      } catch (pollinationsError) {
-        console.error('[Clip Analyzer] Pollinations analysis error:', pollinationsError)
-      }
-    }
-
+    // Only Gemini 3.1 Pro - no fallbacks
     if (!analysisResult) {
-      return NextResponse.json({ error: 'Failed to analyze content from Gemini 2.5 Pro, GROQ, and Pollinations' }, { status: 500 })
+      // Log the error for activity tracking
+      console.log(`[ACTIVITY_LOG] Clip Analyzer: Gemini 3.1 Pro failed to analyze video`)
+      
+      return NextResponse.json({ 
+        error: 'Analysis failed',
+        userMessage: 'Gemini is having a tough time right now. Please check back later.',
+        details: 'Gemini 3.1 Pro API analysis failed'
+      }, { status: 503 })
     }
+
 
     // Auto-delete file from R2 after analysis (if using R2 mode)
     if (uploadMode === 'r2' && fileKey) {

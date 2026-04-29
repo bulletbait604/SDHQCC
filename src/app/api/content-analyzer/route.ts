@@ -627,9 +627,16 @@ ${JSON.stringify(videoData, null, 2)}`
       }
     }
 
+    // Only Gemini 3.1 Pro - no fallbacks
     if (!analysisResult) {
-      console.error('[Content Analyzer] Failed to analyze content - all providers failed')
-      return NextResponse.json({ error: 'Failed to analyze content from GROQ, RapidAPI, and Pollinations' }, { status: 500 })
+      // Log the error for activity tracking
+      console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini 3.1 Pro failed to analyze content`)
+      
+      return NextResponse.json({ 
+        error: 'Analysis failed',
+        userMessage: 'Gemini is having a tough time right now. Please check back later.',
+        details: 'Gemini 3.1 Pro API analysis failed'
+      }, { status: 503 })
     }
 
     console.log(`Content Analyzer: Content analysis completed using: ${analysisSource}`)
