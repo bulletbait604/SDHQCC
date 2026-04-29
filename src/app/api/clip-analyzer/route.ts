@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { getFileFromR2, deleteFileFromR2 } from '@/lib/r2'
 import { GoogleGenAI } from '@google/genai'
 
 // In-memory rate limit storage for clip analyzer
@@ -32,48 +31,17 @@ export async function POST(request: Request) {
     const platform = formData.get('platform') as string
     const userId = formData.get('userId') as string
     const userType = formData.get('userType') as string
-    const fileKey = formData.get('fileKey') as string | null
-    const uploadMode = (formData.get('uploadMode') as string) || 'direct' // 'direct' or 'r2'
 
     console.log('Clip Analyzer API: Form data received:', { 
       hasFile: !!file, 
       platform, 
       userId, 
-      userType, 
-      fileKey, 
-      uploadMode 
+      userType 
     })
 
     let fileData: { name: string; size: number; type: string; buffer?: Buffer } | null = null
 
-    if (uploadMode === 'r2' && fileKey) {
-      // R2 mode: fetch file from R2 storage
-      console.log(`Clip Analyzer API: R2 mode - fetching file from R2: ${fileKey}`)
-      const r2Buffer = await getFileFromR2(fileKey)
-      
-      if (!r2Buffer) {
-        console.error(`Clip Analyzer API: Failed to retrieve file from R2: ${fileKey}`)
-        return NextResponse.json({ error: `Failed to retrieve file from R2 storage: ${fileKey}` }, { status: 500 })
-      }
-
-      // Extract filename from fileKey (format: uploads/timestamp-filename)
-      const filename = fileKey.split('-').slice(1).join('-') || 'video.mp4'
-      
-      // Validate minimum size for R2 files too
-      const minSizeR2 = 100 * 1024 // 100KB minimum
-      if (r2Buffer.length < minSizeR2) {
-        return NextResponse.json({ error: 'File size is too small. Video must be at least 100KB to analyze properly.' }, { status: 400 })
-      }
-
-      fileData = {
-        name: filename,
-        size: r2Buffer.length,
-        type: 'video/mp4', // Assume MP4, could be improved
-        buffer: r2Buffer
-      }
-
-      console.log(`Retrieved file from R2: ${filename} (${(r2Buffer.length / (1024 * 1024)).toFixed(2)} MB)`)
-    } else if (file) {
+    if (file) {
       // Direct upload mode
       // Validate file type
       const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo']
@@ -149,7 +117,7 @@ export async function POST(request: Request) {
       audioAnalysis: 'Video file uploaded for analysis',
       topics: [],
       keyPoints: [],
-      source: uploadMode === 'r2' ? 'r2-storage' : 'direct-upload'
+      source: 'direct-upload'
     }
 
     // Use AI to analyze the video file and provide algorithm recommendations
@@ -295,12 +263,12 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
       }
     } else if (fileData.size > GEMINI_FILE_SIZE_LIMIT) {
       // Log to activity log
-      console.log(`[ACTIVITY_LOG] Clip Analyzer: File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB exceeds 100MB limit`)
+      console.log(`[ACTIVITY_LOG] Clip Analyzer: File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB exceeds 500MB limit`)
       
       return NextResponse.json({ 
         error: 'File too large',
-        userMessage: 'This video is too large for AI analysis. Please upload a video under 100MB.',
-        details: `File size: ${(fileData.size / (1024 * 1024)).toFixed(2)}MB (limit: 100MB)`
+        userMessage: 'This video is too large for AI analysis. Please upload a video under 500MB.',
+        details: `File size: ${(fileData.size / (1024 * 1024)).toFixed(2)}MB (limit: 500MB)`
       }, { status: 413 })
     }
 
@@ -316,25 +284,10 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
       }, { status: 503 })
     }
 
-
-    // Auto-delete file from R2 after successful analysis (cleanup to minimize storage costs)
-    if (uploadMode === 'r2' && fileKey) {
-      try {
-        console.log(`[R2 Cleanup] Auto-deleting file after successful analysis: ${fileKey}`)
-        await deleteFileFromR2(fileKey)
-        console.log(`[R2 Cleanup] Successfully deleted: ${fileKey}`)
-      } catch (cleanupError) {
-        console.error(`[R2 Cleanup] Failed to delete ${fileKey}:`, cleanupError)
-        // Log to activity log but don't fail the request
-        console.log(`[ACTIVITY_LOG] Clip Analyzer: R2 cleanup failed for ${fileKey}`)
-      }
-    }
-
-    // Include extracted data and analysis source in response
+    // Return analysis results
     const response = NextResponse.json({
       ...analysisResult,
       extractedData: extractedData,
-      uploadMode: uploadMode,
       analysisSource: analysisSource
     })
 
