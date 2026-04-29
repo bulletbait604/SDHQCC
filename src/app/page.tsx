@@ -1021,20 +1021,44 @@ export default function HomePage() {
       clearInterval(stepInterval)
 
       if (!res.ok) {
-        const errorData = await res.json()
-        if (res.status === 429) {
-          const resetDate = new Date(errorData.resetTime)
-          const maxUses = isSubscribed ? 5 : 0
-          const diff = resetDate.getTime() - Date.now()
-          const hours = Math.floor(diff / (1000 * 60 * 60))
-          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-          const timeString = hours > 0 
-            ? `${hours} hour${hours > 1 ? 's' : ''} and ${minutes} minute${minutes > 1 ? 's' : ''}`
-            : `${minutes} minute${minutes > 1 ? 's' : ''}`
-          setClipRateLimit({ remaining: 0, resetTime: errorData.resetTime })
-          throw new Error(`Rate limit exceeded. You have used your ${maxUses} clip analyses for the day.\n\nYou can analyze more clips in ${timeString}.\n\nResets at: ${resetDate.toLocaleString()}`)
+        // Try to get error message - handle both JSON and plain text errors
+        let errorMessage = 'Analysis failed'
+        try {
+          const contentType = res.headers.get('content-type')
+          if (contentType && contentType.includes('application/json')) {
+            const errorData = await res.json()
+            if (res.status === 429) {
+              const resetDate = new Date(errorData.resetTime)
+              const maxUses = isSubscribed ? 5 : 0
+              const diff = resetDate.getTime() - Date.now()
+              const hours = Math.floor(diff / (1000 * 60 * 60))
+              const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+              const timeString = hours > 0 
+                ? `${hours} hour${hours > 1 ? 's' : ''} and ${minutes} minute${minutes > 1 ? 's' : ''}`
+                : `${minutes} minute${minutes > 1 ? 's' : ''}`
+              setClipRateLimit({ remaining: 0, resetTime: errorData.resetTime })
+              throw new Error(`Rate limit exceeded. You have used your ${maxUses} clip analyses for the day.\n\nYou can analyze more clips in ${timeString}.\n\nResets at: ${resetDate.toLocaleString()}`)
+            }
+            errorMessage = errorData.error || errorData.userMessage || `Server error: ${res.status}`
+          } else {
+            // Handle plain text errors (like "Request Entity Too Large")
+            const textError = await res.text()
+            console.error('Clip Upload: Non-JSON error response:', textError.substring(0, 200))
+            if (res.status === 413 || textError.includes('Request Entity Too Large') || textError.includes('body exceeded')) {
+              errorMessage = 'File is too large. Please upload a video under 50MB (Vercel free tier limit).'
+            } else {
+              errorMessage = `Server error (${res.status}): ${textError.substring(0, 100) || res.statusText}`
+            }
+          }
+        } catch (parseError) {
+          console.error('Clip Upload: Error parsing response:', parseError)
+          if (res.status === 413) {
+            errorMessage = 'File is too large. Please upload a video under 50MB (Vercel free tier limit).'
+          } else {
+            errorMessage = `Server error (${res.status}): ${res.statusText || 'Unknown error'}`
+          }
         }
-        throw new Error(errorData.error || 'Analysis failed')
+        throw new Error(errorMessage)
       }
 
       const data = await res.json()
