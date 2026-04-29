@@ -1077,6 +1077,7 @@ export default function HomePage() {
       const uploadRes = await fetch(uploadUrl, {
         method: 'POST',
         headers: {
+          'Authorization': `Bearer ${tokenData.accessToken}`,
           'Content-Type': clipFile.type,
           'X-Goog-Upload-Protocol': 'resumable',
           'X-Goog-Upload-Command': 'upload, finalize',
