@@ -1085,8 +1085,11 @@ export default function HomePage() {
       }
       
       console.log('Clip Upload: Upload headers:', { 
-        ...uploadHeaders, 
-        Authorization: `Bearer ${tokenData.accessToken.substring(0, 20)}...` 
+        Authorization: `Bearer ${tokenData.accessToken.substring(0, 20)}...`,
+        'Content-Type': uploadHeaders['Content-Type'],
+        'X-Goog-Upload-Protocol': uploadHeaders['X-Goog-Upload-Protocol'],
+        'X-Goog-Upload-Command': uploadHeaders['X-Goog-Upload-Command'],
+        'X-Goog-Upload-Offset': uploadHeaders['X-Goog-Upload-Offset']
       })
 
       const uploadRes = await fetch(uploadUrl, {
