@@ -44,16 +44,19 @@ async function generateTagsWithGemini(description: string, platform: string, cou
   
   const platformName = platformContext[platform.toLowerCase()] || platform
   
-  const ai = new GoogleGenAI({ apiKey: geminiApiKey })
-  
-  const response = await ai.models.generateContent({
-    model: 'gemini-1.5-flash-latest',
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          {
-            text: `Act as a Social Media SEO Specialist and Algorithm Researcher.
+  try {
+    const ai = new GoogleGenAI({ apiKey: geminiApiKey })
+    
+    console.log('[Tags] Calling Gemini API with model: gemini-1.5-flash-latest')
+    
+    const response = await ai.models.generateContent({
+      model: 'gemini-1.5-flash-latest',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `Act as a Social Media SEO Specialist and Algorithm Researcher.
 
 CONTEXT:
 I am creating content for ${platformName}.
@@ -76,19 +79,32 @@ CONSTRAINTS:
 
 Return ONLY a valid JSON array of strings:
 ["tag1", "tag2", "tag3", ...]`
-          }
-        ]
-      }
-    ]
-  })
-  
-  const content = response.text || ''
-  
-  if (!content) {
-    throw new Error('No content in Gemini response')
+            }
+          ]
+        }
+      ]
+    })
+    
+    const content = response.text || ''
+    
+    console.log('[Tags] Gemini response received:', { contentLength: content.length, preview: content.substring(0, 100) })
+    
+    if (!content) {
+      throw new Error('No content in Gemini response')
+    }
+    
+    return parseTagResponse(content, platformName, count)
+  } catch (error: any) {
+    console.error('[Tags] Gemini API error:', error)
+    if (error.message?.includes('quota')) {
+      throw new Error('Gemini API quota exceeded')
+    } else if (error.message?.includes('permission') || error.message?.includes('unauthorized')) {
+      throw new Error('Gemini API key invalid or unauthorized')
+    } else if (error.message?.includes('not found') || error.message?.includes('404')) {
+      throw new Error('Gemini model not found - check API version')
+    }
+    throw error
   }
-  
-  return parseTagResponse(content, platformName, count)
 }
 
 // Parse tag response from any AI provider
@@ -124,18 +140,22 @@ function parseTagResponse(content: string, platformName: string, count: number):
 async function generateTags(description: string, platform: string, count: number): Promise<{ tags: string[], provider: string }> {
   const geminiApiKey = process.env.GEMINI_API
   
+  console.log('[Tags] Checking GEMINI_API configuration:', { hasKey: !!geminiApiKey, keyLength: geminiApiKey?.length })
+  
   if (!geminiApiKey) {
-    throw new Error('GEMINI_API not configured')
+    throw new Error('GEMINI_API environment variable not configured')
   }
   
   try {
     console.log('[Tags] Generating tags with Gemini 1.5 Flash...')
+    console.log('[Tags] Request:', { platform, count, descriptionLength: description.length })
     const tags = await generateTagsWithGemini(description, platform, count)
-    console.log('[Tags] Gemini succeeded')
+    console.log('[Tags] Gemini succeeded, generated', tags.length, 'tags')
     return { tags, provider: 'gemini-1.5-flash' }
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Tags] Gemini failed:', error)
-    throw new Error('Tag generation failed. Please check GEMINI_API configuration.')
+    console.error('[Tags] Error details:', error.message || error)
+    throw new Error(`Tag generation failed: ${error.message || 'Unknown Gemini error'}`)
   }
 }
 
@@ -229,8 +249,9 @@ export async function POST(request: Request) {
       },
       generatedAt: new Date().toISOString()
     })
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+  } catch (error: any) {
+    const errorMessage = error.message || 'Unknown error'
+    console.error('[Tags API] Final error:', errorMessage)
     return NextResponse.json({ 
       error: 'Failed to generate tags', 
       details: errorMessage
