@@ -334,22 +334,21 @@ GUIDELINES:
                 role: 'user',
                 content: `Analyze this video file for ${platform} optimization.
 
-Video File Information:
-- File Name: ${fileData.name}
-- File Size: ${(fileData.size / (1024 * 1024)).toFixed(2)} MB
-- File Type: ${fileData.type}
-- Target Platform: ${platform}
+IMPORTANT: Do NOT use the filename to infer content. Since video content analysis is not available in this fallback mode, provide general optimization recommendations for ${platform} based on current best practices for video content.
+
+Target Platform: ${platform}
+File Type: ${fileData.type}
 
 ANALYSIS TASK:
-Since this is a video file upload (not a URL), provide general optimization recommendations for ${platform} based on best practices. Assume this is typical content and provide:
+Provide platform-specific optimization advice for ${platform} videos. Focus on:
 
 1. A balanced score (around 60-75 for average content)
-2. General insights about what makes content perform well on ${platform}
+2. Platform-specific insights about what makes content perform well on ${platform}
 3. Specific recommendations for improving hook, pacing, visual quality, and audio
-4. Concrete overlay/edit suggestions with timestamps
-5. Platform-optimized metadata (3 title options, description, 15-20 tags)
+4. Concrete overlay/edit suggestions with example timestamps
+5. Platform-optimized metadata (3 title options with emojis, description, 15-20 tags)
 
-Focus on actionable advice that applies to most video content on ${platform}.`
+Provide actionable advice that applies to most video content on ${platform}. Do NOT reference the filename in your analysis.`
               }
             ],
             max_tokens: 2000,
@@ -461,22 +460,21 @@ GUIDELINES:
                 role: 'user',
                 content: `Analyze this video file for ${platform} optimization.
 
-Video File Information:
-- File Name: ${fileData.name}
-- File Size: ${(fileData.size / (1024 * 1024)).toFixed(2)} MB
-- File Type: ${fileData.type}
-- Target Platform: ${platform}
+IMPORTANT: Do NOT use the filename to infer content. Since video content analysis is not available in this fallback mode, provide general optimization recommendations for ${platform} based on current best practices for video content.
+
+Target Platform: ${platform}
+File Type: ${fileData.type}
 
 ANALYSIS TASK:
-Since this is a video file upload (not a URL), provide general optimization recommendations for ${platform} based on best practices. Assume this is typical content and provide:
+Provide platform-specific optimization advice for ${platform} videos. Focus on:
 
 1. A balanced score (around 60-75 for average content)
-2. General insights about what makes content perform well on ${platform}
+2. Platform-specific insights about what makes content perform well on ${platform}
 3. Specific recommendations for improving hook, pacing, visual quality, and audio
-4. Concrete overlay/edit suggestions with timestamps
-5. Platform-optimized metadata (3 title options, description, 15-20 tags)
+4. Concrete overlay/edit suggestions with example timestamps
+5. Platform-optimized metadata (3 title options with emojis, description, 15-20 tags)
 
-Focus on actionable advice that applies to most video content on ${platform}.`
+Provide actionable advice that applies to most video content on ${platform}. Do NOT reference the filename in your analysis.`
               }
             ],
             max_tokens: 2000,
