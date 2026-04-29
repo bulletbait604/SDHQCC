@@ -1072,23 +1072,35 @@ export default function HomePage() {
       }
 
       console.log('Clip Upload: Upload session started, uploading bytes...')
+      console.log('Clip Upload: Upload URL:', uploadUrl)
+      console.log('Clip Upload: Using token:', tokenData.accessToken.substring(0, 20) + '...')
 
       // Upload the actual file bytes
+      const uploadHeaders = {
+        'Authorization': `Bearer ${tokenData.accessToken}`,
+        'Content-Type': clipFile.type,
+        'X-Goog-Upload-Protocol': 'resumable',
+        'X-Goog-Upload-Command': 'upload, finalize',
+        'X-Goog-Upload-Offset': '0'
+      }
+      
+      console.log('Clip Upload: Upload headers:', { 
+        ...uploadHeaders, 
+        Authorization: `Bearer ${tokenData.accessToken.substring(0, 20)}...` 
+      })
+
       const uploadRes = await fetch(uploadUrl, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${tokenData.accessToken}`,
-          'Content-Type': clipFile.type,
-          'X-Goog-Upload-Protocol': 'resumable',
-          'X-Goog-Upload-Command': 'upload, finalize',
-          'X-Goog-Upload-Offset': '0'
-        },
+        headers: uploadHeaders,
         body: clipFile
       })
+
+      console.log('Clip Upload: Upload response status:', uploadRes.status)
 
       if (!uploadRes.ok) {
         const errorText = await uploadRes.text()
         console.error('Clip Upload: Failed to upload file:', errorText)
+        console.error('Clip Upload: Response headers:', Object.fromEntries(uploadRes.headers.entries()))
         throw new Error('Failed to upload video. Please try again.')
       }
 
