@@ -439,6 +439,99 @@ Generate the analysis following the exact JSON structure provided.`
       }
     }
 
+    // TEMPORARY: Test RapidAPI endpoints for content analysis
+    // Cascading test: Llama → ChatGPT → Chat
+    const tempRapidApiKey = process.env.RAPID_API_TEMP_API
+    const rapidApiEndpoints = [
+      { name: 'Llama 3.3 70B', url: 'https://open-ai21.p.rapidapi.com/conversationllama' },
+      { name: 'ChatGPT 3.5', url: 'https://open-ai21.p.rapidapi.com/chatgpt' },
+      { name: 'Chat Bot', url: 'https://open-ai21.p.rapidapi.com/chatbotapi' }
+    ]
+
+    if (!analysisResult && tempRapidApiKey) {
+      for (const endpoint of rapidApiEndpoints) {
+        if (analysisResult) break
+        
+        console.log(`[Content Analyzer] Testing ${endpoint.name} for content analysis...`)
+        try {
+          const rapidResponse = await fetch(endpoint.url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-RapidAPI-Key': tempRapidApiKey,
+              'X-RapidAPI-Host': 'open-ai21.p.rapidapi.com'
+            },
+            body: JSON.stringify({
+              messages: [
+                {
+                  role: 'user',
+                  content: `You are an expert social media algorithm analyst. Analyze this ${platform} video metadata and return ONLY a JSON object.
+
+Video Information:
+${JSON.stringify(videoData, null, 2)}
+
+Return this exact structure:
+{
+  "score": <integer 0-100>,
+  "scoreTitle": "<rating title>",
+  "scoreSummary": "<2 sentence summary>",
+  "insights": [
+    { "icon": "🎣", "label": "Hook Strength", "value": "<rating>", "description": "<analysis>" },
+    { "icon": "⚡", "label": "Engagement Potential", "value": "<rating>", "description": "<analysis>" },
+    { "icon": "🎥", "label": "Visual Quality", "value": "<rating>", "description": "<analysis>" },
+    { "icon": "🔊", "label": "Audio Quality", "value": "<rating>", "description": "<analysis>" }
+  ],
+  "recommendations": [
+    { "priority": "high", "category": "Hook", "text": "<recommendation>" },
+    { "priority": "high", "category": "Pacing", "text": "<recommendation>" },
+    { "priority": "med", "category": "Visual", "text": "<recommendation>" },
+    { "priority": "med", "category": "Audio", "text": "<recommendation>" },
+    { "priority": "low", "category": "Metadata", "text": "<recommendation>" }
+  ],
+  "overlays": [
+    { "type": "text", "description": "<suggestion>", "timing": "<timestamp>" },
+    { "type": "sound", "description": "<suggestion>", "timing": "<timestamp>" },
+    { "type": "visual", "description": "<suggestion>", "timing": "<timestamp>" },
+    { "type": "cta", "description": "<suggestion>", "timing": "<timestamp>" }
+  ],
+  "titles": ["<title 1>", "<title 2>", "<title 3>"],
+  "description": "<description>",
+  "tags": ["<tag1>", "<tag2>", "...15-20 tags"]
+}`
+                }
+              ]
+            })
+          })
+
+          if (rapidResponse.ok) {
+            const rapidData = await rapidResponse.json()
+            const content = rapidData.result || rapidData.message || rapidData.content || ''
+            
+            if (content) {
+              let cleanContent = content
+              if (content.includes('```')) {
+                cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+              }
+              
+              try {
+                analysisResult = JSON.parse(cleanContent)
+                analysisSource = `${endpoint.name.toLowerCase().replace(/\s+/g, '-')}-rapidapi-temp`
+                console.log(`✅ [Content Analyzer] ${endpoint.name} RapidAPI analysis successful`)
+                break
+              } catch (parseError) {
+                console.error(`[Content Analyzer] ${endpoint.name} JSON parse error:`, parseError)
+              }
+            }
+          } else {
+            const errorText = await rapidResponse.text()
+            console.error(`[Content Analyzer] ${endpoint.name} error:`, rapidResponse.status, errorText.substring(0, 200))
+          }
+        } catch (endpointError) {
+          console.error(`[Content Analyzer] ${endpoint.name} analysis error:`, endpointError)
+        }
+      }
+    }
+
     // Fallback to RapidAPI (DeepSeek) if GROQ failed
     if (!analysisResult && rapidApiKey) {
       try {

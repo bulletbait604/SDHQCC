@@ -291,25 +291,35 @@ Respond ONLY with valid JSON in this exact structure:
       console.log(`⚠️ Video will NOT be analyzed by Gemini - using fallback analysis`)
     }
 
-    // TEMPORARY: Try Llama via RapidAPI for larger files (testing larger payload capacity)
+    // TEMPORARY: Test RapidAPI endpoints for larger files
+    // Cascading test: Llama → ChatGPT → Chat → Groq → Pollinations
     const tempRapidApiKey = process.env.RAPID_API_TEMP_API
-    if (!analysisResult && tempRapidApiKey && fileData.buffer && fileData.size <= 100 * 1024 * 1024) {
-      console.log('[Clip Analyzer] Trying temporary Llama RapidAPI for larger video...')
-      try {
-        const base64Video = fileData.buffer.toString('base64')
+    const rapidApiEndpoints = [
+      { name: 'Llama 3.3 70B', url: 'https://open-ai21.p.rapidapi.com/conversationllama' },
+      { name: 'ChatGPT 3.5', url: 'https://open-ai21.p.rapidapi.com/chatgpt' },
+      { name: 'Chat Bot', url: 'https://open-ai21.p.rapidapi.com/chatbotapi' }
+    ]
+
+    if (!analysisResult && tempRapidApiKey && fileData.buffer) {
+      const base64Video = fileData.buffer.toString('base64')
+      
+      for (const endpoint of rapidApiEndpoints) {
+        if (analysisResult) break // Stop if we got a result
         
-        const llamaResponse = await fetch('https://open-ai21.p.rapidapi.com/conversationllama', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-RapidAPI-Key': tempRapidApiKey,
-            'X-RapidAPI-Host': 'open-ai21.p.rapidapi.com'
-          },
-          body: JSON.stringify({
-            messages: [
-              {
-                role: 'user',
-                content: `You are an expert social media algorithm analyst. Analyze this ${platform} video and return ONLY a JSON object with no markdown formatting. 
+        console.log(`[Clip Analyzer] Testing ${endpoint.name} for video analysis...`)
+        try {
+          const rapidResponse = await fetch(endpoint.url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-RapidAPI-Key': tempRapidApiKey,
+              'X-RapidAPI-Host': 'open-ai21.p.rapidapi.com'
+            },
+            body: JSON.stringify({
+              messages: [
+                {
+                  role: 'user',
+                  content: `You are an expert social media algorithm analyst. Analyze this ${platform} video and return ONLY a JSON object with no markdown formatting. 
 
 Return this exact structure:
 {
@@ -347,31 +357,37 @@ IMPORTANT:
 - Platform: ${platform}
 
 Video: data:${fileData.type};base64,${base64Video}`
-              }
-            ]
+                }
+              ]
+            })
           })
-        })
 
-        if (llamaResponse.ok) {
-          const llamaData = await llamaResponse.json()
-          const content = llamaData.result || llamaData.message || llamaData.content || ''
-          
-          if (content) {
-            let cleanContent = content
-            if (content.includes('```')) {
-              cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-            }
+          if (rapidResponse.ok) {
+            const rapidData = await rapidResponse.json()
+            const content = rapidData.result || rapidData.message || rapidData.content || rapidData.choices?.[0]?.message?.content || ''
             
-            analysisResult = JSON.parse(cleanContent)
-            analysisSource = 'llama-rapidapi-temp'
-            console.log('✅ Temporary Llama RapidAPI analysis successful')
+            if (content) {
+              let cleanContent = content
+              if (content.includes('```')) {
+                cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+              }
+              
+              try {
+                analysisResult = JSON.parse(cleanContent)
+                analysisSource = `${endpoint.name.toLowerCase().replace(/\s+/g, '-')}-rapidapi`
+                console.log(`✅ ${endpoint.name} RapidAPI analysis successful`)
+                break // Exit loop on success
+              } catch (parseError) {
+                console.error(`[Clip Analyzer] ${endpoint.name} JSON parse error:`, parseError)
+              }
+            }
+          } else {
+            const errorText = await rapidResponse.text()
+            console.error(`[Clip Analyzer] ${endpoint.name} error:`, rapidResponse.status, errorText.substring(0, 200))
           }
-        } else {
-          const errorText = await llamaResponse.text()
-          console.error('[Clip Analyzer] Llama RapidAPI error:', llamaResponse.status, errorText)
+        } catch (endpointError) {
+          console.error(`[Clip Analyzer] ${endpoint.name} analysis error:`, endpointError)
         }
-      } catch (llamaError) {
-        console.error('[Clip Analyzer] Llama RapidAPI analysis error:', llamaError)
       }
     }
 
