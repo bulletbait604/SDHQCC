@@ -58,6 +58,12 @@ export async function POST(request: Request) {
       // Extract filename from fileKey (format: uploads/timestamp-filename)
       const filename = fileKey.split('-').slice(1).join('-') || 'video.mp4'
       
+      // Validate minimum size for R2 files too
+      const minSizeR2 = 100 * 1024 // 100KB minimum
+      if (r2Buffer.length < minSizeR2) {
+        return NextResponse.json({ error: 'File size is too small. Video must be at least 100KB to analyze properly.' }, { status: 400 })
+      }
+
       fileData = {
         name: filename,
         size: r2Buffer.length,
@@ -74,8 +80,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Invalid file type. Please upload MP4, WebM, MOV, or AVI.' }, { status: 400 })
       }
 
-      // Validate file size (max 100MB)
-      const maxSize = 100 * 1024 * 1024
+      // Validate file size (min 100KB, max 100MB)
+      const minSize = 100 * 1024 // 100KB minimum
+      const maxSize = 100 * 1024 * 1024 // 100MB maximum
+      if (file.size < minSize) {
+        return NextResponse.json({ error: 'File size is too small. Video must be at least 100KB to analyze properly.' }, { status: 400 })
+      }
       if (file.size > maxSize) {
         return NextResponse.json({ error: 'File size must be less than 100MB. Use R2 upload for larger files.' }, { status: 400 })
       }
