@@ -169,7 +169,7 @@ export async function POST(request: Request) {
         const ai = new GoogleGenAI({ apiKey: geminiApiKey })
         
         // Create a Blob from the buffer for upload
-        const videoBlob = new Blob([fileData.buffer], { type: fileData.type })
+        const videoBlob = new Blob([fileData.buffer as BlobPart], { type: fileData.type })
         
         // Upload video file to Google (handles large files efficiently)
         console.log('[Clip Analyzer] Uploading video to Google File API...')
