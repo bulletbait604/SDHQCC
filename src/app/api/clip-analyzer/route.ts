@@ -303,11 +303,22 @@ Respond ONLY with valid JSON in this exact structure:
     if (!analysisResult && tempRapidApiKey && fileData.buffer) {
       const base64Video = fileData.buffer.toString('base64')
       
-      for (const endpoint of rapidApiEndpoints) {
+      // Skip RapidAPI test if payload is too large (max 30MB base64 ~ 22MB raw)
+      const MAX_RAPIDAPI_PAYLOAD = 30 * 1024 * 1024 // 30MB
+      if (base64Video.length > MAX_RAPIDAPI_PAYLOAD) {
+        console.log(`[Clip Analyzer] Skipping RapidAPI test - base64 payload ${(base64Video.length / (1024 * 1024)).toFixed(2)}MB exceeds 30MB limit`)
+      } else {
+        console.log(`[Clip Analyzer] RapidAPI payload size: ${(base64Video.length / (1024 * 1024)).toFixed(2)}MB - attempting endpoints...`)
+        
+        for (const endpoint of rapidApiEndpoints) {
         if (analysisResult) break // Stop if we got a result
         
         console.log(`[Clip Analyzer] Testing ${endpoint.name} for video analysis...`)
         try {
+          // Create abort controller for timeout (30 second limit per endpoint)
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 30000)
+          
           const rapidResponse = await fetch(endpoint.url, {
             method: 'POST',
             headers: {
@@ -315,6 +326,7 @@ Respond ONLY with valid JSON in this exact structure:
               'X-RapidAPI-Key': tempRapidApiKey,
               'X-RapidAPI-Host': 'open-ai21.p.rapidapi.com'
             },
+            signal: controller.signal,
             body: JSON.stringify({
               messages: [
                 {
@@ -362,6 +374,8 @@ Video: data:${fileData.type};base64,${base64Video}`
             })
           })
 
+          clearTimeout(timeoutId) // Clear timeout on success
+          
           if (rapidResponse.ok) {
             const rapidData = await rapidResponse.json()
             const content = rapidData.result || rapidData.message || rapidData.content || rapidData.choices?.[0]?.message?.content || ''
@@ -386,7 +400,12 @@ Video: data:${fileData.type};base64,${base64Video}`
             console.error(`[Clip Analyzer] ${endpoint.name} error:`, rapidResponse.status, errorText.substring(0, 200))
           }
         } catch (endpointError) {
-          console.error(`[Clip Analyzer] ${endpoint.name} analysis error:`, endpointError)
+          clearTimeout(timeoutId) // Clear timeout on error too
+          if (endpointError.name === 'AbortError') {
+            console.error(`[Clip Analyzer] ${endpoint.name} timed out after 30s`)
+          } else {
+            console.error(`[Clip Analyzer] ${endpoint.name} analysis error:`, endpointError)
+          }
         }
       }
     }
