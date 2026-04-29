@@ -1012,11 +1012,11 @@ export default function HomePage() {
       console.log('Clip Upload: Starting OAuth flow...')
       console.log('Clip Upload: File details:', { name: clipFile.name, type: clipFile.type, size: clipFile.size })
       
-      // Step 1: Get OAuth token from backend
+      // Step 1: Get API key from backend
       setLoadingStep(loadingSteps[0])
-      console.log('Clip Upload: Step 1 - Requesting OAuth token...')
+      console.log('Clip Upload: Step 1 - Getting API key...')
       
-      const tokenRes = await fetch('/api/gemini-token', {
+      const tokenRes = await fetch('/api/gemini-api-key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1030,20 +1030,19 @@ export default function HomePage() {
         throw new Error(errorData.userMessage || errorData.error || 'Failed to get upload authorization')
       }
 
-      const tokenData = await tokenRes.json()
-      console.log('Clip Upload: OAuth token received')
+      const { apiKey } = await tokenRes.json()
+      console.log('Clip Upload: API key received')
 
-      // Step 2: Upload file directly to Gemini using the OAuth token
+      // Step 2: Upload file directly to Gemini using API key (not OAuth)
       setLoadingStep(loadingSteps[1])
       console.log('Clip Upload: Step 2 - Uploading to Gemini File API...')
-      console.log('Clip Upload: Token preview:', tokenData.accessToken.substring(0, 20) + '...')
       console.log('Clip Upload: File details:', { size: clipFile.size, type: clipFile.type, name: clipFile.name })
 
-      // Start resumable upload session
+      // Start resumable upload session with API key
       const uploadUrlRes = await fetch('https://generativelanguage.googleapis.com/upload/v1beta/files', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${tokenData.accessToken}`,
+          'x-goog-api-key': apiKey,
           'X-Goog-Upload-Protocol': 'resumable',
           'X-Goog-Upload-Command': 'start',
           'X-Goog-Upload-Header-Content-Length': clipFile.size.toString(),
@@ -1073,11 +1072,11 @@ export default function HomePage() {
 
       console.log('Clip Upload: Upload session started, uploading bytes...')
       console.log('Clip Upload: Upload URL:', uploadUrl)
-      console.log('Clip Upload: Using token:', tokenData.accessToken.substring(0, 20) + '...')
+      console.log('Clip Upload: Using API key:', apiKey.substring(0, 20) + '...')
 
       // Upload the actual file bytes
       const uploadHeaders = {
-        'Authorization': `Bearer ${tokenData.accessToken}`,
+        'x-goog-api-key': apiKey,
         'Content-Type': clipFile.type,
         'X-Goog-Upload-Protocol': 'resumable',
         'X-Goog-Upload-Command': 'upload, finalize',
@@ -1085,7 +1084,7 @@ export default function HomePage() {
       }
       
       console.log('Clip Upload: Upload headers:', { 
-        Authorization: `Bearer ${tokenData.accessToken.substring(0, 20)}...`,
+        'x-goog-api-key': apiKey.substring(0, 20) + '...',
         'Content-Type': uploadHeaders['Content-Type'],
         'X-Goog-Upload-Protocol': uploadHeaders['X-Goog-Upload-Protocol'],
         'X-Goog-Upload-Command': uploadHeaders['X-Goog-Upload-Command'],
