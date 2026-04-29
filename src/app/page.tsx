@@ -1038,7 +1038,7 @@ export default function HomePage() {
       console.log('Clip Upload: Step 2 - Uploading to Gemini File API...')
 
       // Start resumable upload session
-      const uploadUrlRes = await fetch('https://generativelanguage.googleapis.com/upload/v1beta/files?key=' + tokenData.accessToken, {
+      const uploadUrlRes = await fetch('https://generativelanguage.googleapis.com/upload/v1beta/files', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${tokenData.accessToken}`,
