@@ -968,7 +968,7 @@ export default function HomePage() {
       return
     }
 
-    // Validate file size (max 500MB for R2 uploads)
+    // Validate file size (max 500MB for direct upload to Gemini)
     const maxSize = 500 * 1024 * 1024
     if (clipFile.size > maxSize) {
       setClipError('File size must be less than 500MB.')
@@ -982,12 +982,12 @@ export default function HomePage() {
     setShowReanalysis(false)
 
     const loadingSteps = [
-      'Requesting upload URL...',
-      'Uploading video to cloud storage...',
-      'Analyzing video content with Gemini 2.5 Pro...',
-      'Processing visual and audio elements...',
-      'Generating platform-specific recommendations...',
-      'Creating optimization report...',
+      'Uploading video for analysis...',
+      'Processing with Gemini 3.1 Pro...',
+      'Analyzing visual and audio elements...',
+      'Cross-referencing with platform algorithm...',
+      'Generating optimization recommendations...',
+      'Creating final report...',
     ]
 
     let step = 0
@@ -1001,65 +1001,12 @@ export default function HomePage() {
     try {
       const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetimeMember ? 'lifetime' : isSubscribed ? 'subscribed' : 'free'
       
-      // Step 1: Get presigned upload URL from our API
-      console.log('Clip Upload: Step 1 - Requesting presigned URL...')
+      // Direct upload to clip-analyzer API
+      console.log('Clip Upload: Direct upload to API...')
       console.log('Clip Upload: File details:', { name: clipFile.name, type: clipFile.type, size: clipFile.size })
       
-      const urlRes = await fetch('/api/upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename: clipFile.name,
-          contentType: clipFile.type
-        })
-      })
-
-      console.log('Clip Upload: URL response status:', urlRes.status, urlRes.statusText)
-      
-      if (!urlRes.ok) {
-        const errorText = await urlRes.text()
-        console.error('Clip Upload: Failed to get upload URL. Status:', urlRes.status, 'Response:', errorText)
-        let errorData
-        try {
-          errorData = JSON.parse(errorText)
-        } catch {
-          errorData = { error: errorText || 'Failed to get upload URL' }
-        }
-        throw new Error(`Upload URL Error (${urlRes.status}): ${errorData.error || errorText || 'Unknown error'}`)
-      }
-
-      const { uploadUrl, fileKey } = await urlRes.json()
-      console.log('Clip Upload: Got presigned URL and fileKey:', fileKey)
-
-      // Step 2: Upload file directly to R2 (bypasses Vercel limits)
-      console.log('Clip Upload: Step 2 - Uploading to R2...')
-      console.log('Clip Upload: Upload URL:', uploadUrl.substring(0, 50) + '...')
-      
-      const uploadRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: clipFile,
-        headers: {
-          'Content-Type': clipFile.type
-        }
-      })
-
-      console.log('Clip Upload: R2 upload response status:', uploadRes.status, uploadRes.statusText)
-      
-      if (!uploadRes.ok) {
-        const errorText = await uploadRes.text()
-        console.error('Clip Upload: R2 upload failed. Status:', uploadRes.status, 'Response:', errorText)
-        throw new Error(`R2 Upload Error (${uploadRes.status}): ${errorText || uploadRes.statusText || 'Failed to upload file to cloud storage'}`)
-      }
-      
-      console.log('Clip Upload: File uploaded to R2 successfully')
-
-      // Step 3: Call clip-analyzer with fileKey (R2 mode)
-      console.log('Clip Upload: Step 3 - Calling clip-analyzer...')
-      console.log('Clip Upload: Sending fileKey:', fileKey, 'Platform:', clipPlatform, 'UserType:', userType)
-      
       const formData = new FormData()
-      formData.append('fileKey', fileKey)
-      formData.append('uploadMode', 'r2')
+      formData.append('file', clipFile)
       formData.append('platform', clipPlatform)
       formData.append('userId', user?.id || '')
       formData.append('userType', userType)
@@ -2397,8 +2344,8 @@ export default function HomePage() {
                             <h4 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                               {platform.name}
                             </h4>
-                            <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                              Algorithm Insights
+                            <p className={`text-sm ${darkMode ? 'text-sdhq-dark-400' : 'text-gray-600'}`}>
+                              Max 500MB direct upload
                             </p>
                           </div>
                         </div>
@@ -2924,7 +2871,7 @@ export default function HomePage() {
                     </li>
                   </ol>
                   <div className={`mt-3 p-2 rounded text-sm ${darkMode ? 'bg-sdhq-dark-900/50 text-sdhq-cyan-300' : 'bg-sdhq-cyan-50 text-sdhq-cyan-700'}`}>
-                    <span className="font-semibold">💡 AI Analysis:</span> Videos up to 500MB are analyzed by Gemini 3.1 Pro for detailed AI-powered insights.
+                    <span className="font-semibold">💡 AI Analysis:</span> Videos up to 500MB are analyzed by Gemini 3.1 Pro with platform-specific insights.
                   </div>
                 </div>
 
