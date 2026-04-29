@@ -314,10 +314,17 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
     }
 
 
-    // Auto-delete file from R2 after analysis (if using R2 mode)
+    // Auto-delete file from R2 after successful analysis (cleanup to minimize storage costs)
     if (uploadMode === 'r2' && fileKey) {
-      console.log(`Auto-deleting file from R2 after analysis: ${fileKey}`)
-      await deleteFileFromR2(fileKey)
+      try {
+        console.log(`[R2 Cleanup] Auto-deleting file after successful analysis: ${fileKey}`)
+        await deleteFileFromR2(fileKey)
+        console.log(`[R2 Cleanup] Successfully deleted: ${fileKey}`)
+      } catch (cleanupError) {
+        console.error(`[R2 Cleanup] Failed to delete ${fileKey}:`, cleanupError)
+        // Log to activity log but don't fail the request
+        console.log(`[ACTIVITY_LOG] Clip Analyzer: R2 cleanup failed for ${fileKey}`)
+      }
     }
 
     // Include extracted data and analysis source in response
