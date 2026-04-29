@@ -3103,8 +3103,8 @@ export default function HomePage() {
                     {/* Results Section */}
                     {clipAnalysisResult && (
                       <div className="space-y-4">
-                        {/* Analysis Source Warning */}
-                        {clipAnalysisResult.analysisSource !== 'gemini-2.5-pro' && (
+                        {/* Analysis Source Warning - only show if analysis failed */}
+                        {clipAnalysisResult.analysisSource === 'none' && (
                           <div className={`rounded-lg p-3 border ${
                             darkMode 
                               ? 'bg-yellow-900/30 border-yellow-600/50' 
@@ -3114,11 +3114,10 @@ export default function HomePage() {
                               <span className="text-xl">⚠️</span>
                               <div>
                                 <p className={`font-semibold ${darkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
-                                  Generic Analysis Only
+                                  Analysis Unavailable
                                 </p>
                                 <p className={`text-sm ${darkMode ? 'text-yellow-300/80' : 'text-yellow-600'}`}>
-                                  Video was too large for AI analysis. These are general {platforms.find(p => p.id === clipPlatform)?.name} best practices, not specific to your content.
-                                  <span className="block mt-1">💡 Compress video under 15MB for AI-powered analysis.</span>
+                                  Gemini is having a tough time right now. Please check back later.
                                 </p>
                               </div>
                             </div>
