@@ -48,11 +48,12 @@ export async function POST(request: Request) {
         credentials: serviceAccount,
         scopes: [
           'https://www.googleapis.com/auth/generative-language',
-          'https://www.googleapis.com/auth/cloud-platform'
+          'https://www.googleapis.com/auth/cloud-platform',
+          'https://www.googleapis.com/auth/devstorage.read_write'
         ]
       })
 
-      console.log('[DEBUG] Gemini Token: Requesting access token with scopes: generative-language, cloud-platform')
+      console.log('[DEBUG] Gemini Token: Requesting access token with scopes: generative-language, cloud-platform, devstorage.read_write')
 
       // Get access token
       const client = await auth.getClient()
