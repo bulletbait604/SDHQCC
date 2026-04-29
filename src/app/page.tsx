@@ -3677,6 +3677,93 @@ export default function HomePage() {
                           </div>
                         </div>
 
+                        {/* Video Metadata - Extracted from URL */}
+                        <div>
+                          <div className={`relative overflow-hidden rounded-xl p-3 ${
+                            darkMode 
+                              ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
+                              : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                          }`}>
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className={`text-sm font-semibold tracking-wider uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                Video Metadata
+                              </h4>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 justify-center">
+                              {/* Pulled Title */}
+                              <div className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
+                                darkMode 
+                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
+                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
+                              }`}>
+                                <div className="flex flex-col items-center text-center">
+                                  <span className="text-3xl mb-2">📝</span>
+                                  <div className={`text-base font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                    Title
+                                  </div>
+                                  <div className={`text-lg leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    {contentAnalysisResult.extractedData?.title || contentAnalysisResult.extractedData?.summary || '—'}
+                                  </div>
+                                </div>
+                              </div>
+                              {/* Pulled Description */}
+                              <div className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
+                                darkMode 
+                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
+                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
+                              }`}>
+                                <div className="flex flex-col items-center text-center">
+                                  <span className="text-3xl mb-2">📄</span>
+                                  <div className={`text-base font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                    Description
+                                  </div>
+                                  <div className={`text-lg leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    {contentAnalysisResult.extractedData?.summary || contentAnalysisResult.extractedData?.description || '—'}
+                                  </div>
+                                </div>
+                              </div>
+                              {/* Pulled Tags */}
+                              <div className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
+                                darkMode 
+                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
+                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
+                              }`}>
+                                <div className="flex flex-col items-center text-center">
+                                  <span className="text-3xl mb-2">#️⃣</span>
+                                  <div className={`text-base font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                    Extracted Tags
+                                  </div>
+                                  <div className="flex flex-wrap justify-center gap-1">
+                                    {contentAnalysisResult.extractedData?.tags && contentAnalysisResult.extractedData.tags.length > 0 ? (
+                                      contentAnalysisResult.extractedData.tags.map((tag: string, idx: number) => (
+                                        <span key={idx} className={`px-2 py-1 rounded text-xs font-mono ${
+                                          darkMode 
+                                            ? 'bg-sdhq-dark-800 text-sdhq-cyan-400 border border-sdhq-cyan-500/20' 
+                                            : 'bg-gray-100 text-sdhq-cyan-600 border border-sdhq-cyan-300'
+                                        }`}>
+                                          #{tag.replace(/^#/, '')}
+                                        </span>
+                                      ))
+                                    ) : contentAnalysisResult.extractedData?.topics ? (
+                                      contentAnalysisResult.extractedData.topics.map((topic: string, idx: number) => (
+                                        <span key={idx} className={`px-2 py-1 rounded text-xs font-mono ${
+                                          darkMode 
+                                            ? 'bg-sdhq-dark-800 text-sdhq-cyan-400 border border-sdhq-cyan-500/20' 
+                                            : 'bg-gray-100 text-sdhq-cyan-600 border border-sdhq-cyan-300'
+                                        }`}>
+                                          #{topic}
+                                        </span>
+                                      ))
+                                    ) : (
+                                      <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>—</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
                         {/* Content Insights - Tall Cards */}
                         <div>
                           <div className={`relative overflow-hidden rounded-xl p-3 ${
