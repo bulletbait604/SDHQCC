@@ -46,10 +46,10 @@ export async function POST(request: Request) {
       // Create GoogleAuth client
       const auth = new GoogleAuth({
         credentials: serviceAccount,
-        scopes: ['https://www.googleapis.com/auth/generative-language']
+        scopes: ['https://www.googleapis.com/auth/cloud-platform']
       })
 
-      console.log('[DEBUG] Gemini Token: Requesting access token with scope: https://www.googleapis.com/auth/generative-language')
+      console.log('[DEBUG] Gemini Token: Requesting access token with scope: https://www.googleapis.com/auth/cloud-platform')
 
       // Get access token
       const client = await auth.getClient()
