@@ -291,7 +291,91 @@ Respond ONLY with valid JSON in this exact structure:
       console.log(`⚠️ Video will NOT be analyzed by Gemini - using fallback analysis`)
     }
 
-    // Fallback to GROQ if Gemini failed or no video buffer
+    // TEMPORARY: Try Llama via RapidAPI for larger files (testing larger payload capacity)
+    const tempRapidApiKey = process.env.RAPID_API_TEMP_API
+    if (!analysisResult && tempRapidApiKey && fileData.buffer && fileData.size <= 50 * 1024 * 1024) {
+      console.log('[Clip Analyzer] Trying temporary Llama RapidAPI for larger video...')
+      try {
+        const base64Video = fileData.buffer.toString('base64')
+        
+        const llamaResponse = await fetch('https://open-ai21.p.rapidapi.com/conversationllama', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-RapidAPI-Key': tempRapidApiKey,
+            'X-RapidAPI-Host': 'open-ai21.p.rapidapi.com'
+          },
+          body: JSON.stringify({
+            messages: [
+              {
+                role: 'user',
+                content: `You are an expert social media algorithm analyst. Analyze this ${platform} video and return ONLY a JSON object with no markdown formatting. 
+
+Return this exact structure:
+{
+  "score": <integer 0-100>,
+  "scoreTitle": "<rating title>",
+  "scoreSummary": "<2 sentence summary>",
+  "insights": [
+    { "icon": "🎣", "label": "Hook Strength", "value": "<rating>", "description": "<analysis>" },
+    { "icon": "⚡", "label": "Engagement Potential", "value": "<rating>", "description": "<analysis>" },
+    { "icon": "🎥", "label": "Visual Quality", "value": "<rating>", "description": "<analysis>" },
+    { "icon": "🔊", "label": "Audio Quality", "value": "<rating>", "description": "<analysis>" }
+  ],
+  "recommendations": [
+    { "priority": "high", "category": "Hook", "text": "<specific recommendation>" },
+    { "priority": "high", "category": "Pacing", "text": "<specific recommendation>" },
+    { "priority": "med", "category": "Visual", "text": "<specific recommendation>" },
+    { "priority": "med", "category": "Audio", "text": "<specific recommendation>" },
+    { "priority": "low", "category": "Metadata", "text": "<specific recommendation>" }
+  ],
+  "overlays": [
+    { "type": "text", "description": "<suggestion>", "timing": "<timestamp>" },
+    { "type": "sound", "description": "<suggestion>", "timing": "<timestamp>" },
+    { "type": "visual", "description": "<suggestion>", "timing": "<timestamp>" },
+    { "type": "cta", "description": "<suggestion>", "timing": "<timestamp>" }
+  ],
+  "titles": ["<title 1>", "<title 2>", "<title 3>"],
+  "description": "<description>",
+  "tags": ["<tag1>", "<tag2>", "...15-20 tags"]
+}
+
+IMPORTANT: 
+- Analyze the video content for ${platform} optimization
+- Provide specific, actionable recommendations with timestamps
+- Return ONLY valid JSON, no markdown code blocks, no extra text
+- Platform: ${platform}
+
+Video: data:${fileData.type};base64,${base64Video.substring(0, Math.min(base64Video.length, 100000))}`
+              }
+            ]
+          })
+        })
+
+        if (llamaResponse.ok) {
+          const llamaData = await llamaResponse.json()
+          const content = llamaData.result || llamaData.message || llamaData.content || ''
+          
+          if (content) {
+            let cleanContent = content
+            if (content.includes('```')) {
+              cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+            }
+            
+            analysisResult = JSON.parse(cleanContent)
+            analysisSource = 'llama-rapidapi-temp'
+            console.log('✅ Temporary Llama RapidAPI analysis successful')
+          }
+        } else {
+          const errorText = await llamaResponse.text()
+          console.error('[Clip Analyzer] Llama RapidAPI error:', llamaResponse.status, errorText)
+        }
+      } catch (llamaError) {
+        console.error('[Clip Analyzer] Llama RapidAPI analysis error:', llamaError)
+      }
+    }
+
+    // Fallback to GROQ if Gemini/Llama failed or no video buffer
     if (!analysisResult && groqApiKey) {
       try {
         const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
