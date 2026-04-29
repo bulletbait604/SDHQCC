@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getFileFromR2, deleteFileFromR2 } from '@/lib/r2'
+import { GoogleGenAI } from '@google/genai'
 
 // In-memory rate limit storage for clip analyzer
 const clipAnalyzerRateLimitStore = new Map<string, { count: number; resetTime: number }>()
@@ -128,8 +129,9 @@ export async function POST(request: Request) {
 
     const groqApiKey = process.env.GROQ_API_KEY
     const rapidApiKey = process.env.RAPID_API_KEY
+    const geminiApiKey = process.env.GEMINI_API
     
-    if (!groqApiKey && !rapidApiKey) {
+    if (!groqApiKey && !rapidApiKey && !geminiApiKey) {
       return NextResponse.json({ error: 'No content analysis API key configured' }, { status: 500 })
     }
 
@@ -151,36 +153,65 @@ export async function POST(request: Request) {
     let analysisResult = null
     let analysisSource = 'none'
 
-    // Try Gemini 2.5 Pro via RapidAPI first (best for video analysis with audio)
-    // Limit to 15MB raw because base64 encoding adds ~33% overhead
-    // A 15MB file becomes ~20MB when encoded, which stays within API payload limits
-    const GEMINI_SIZE_LIMIT = 15 * 1024 * 1024 // 15MB raw file limit
+    // Try Official Google Gemini 3.1 Pro via File API (supports up to 100MB+ videos)
+    // No base64 encoding needed - uploads directly to Google servers
+    const GEMINI_FILE_SIZE_LIMIT = 100 * 1024 * 1024 // 100MB limit
     
-    // Check if file size is within limit (accounting for base64 overhead)
-    const estimatedBase64Size = fileData.size * 1.37 // Base64 adds ~37% overhead
-    const API_PAYLOAD_LIMIT = 20 * 1024 * 1024 // 20MB API limit
-    
-    if (rapidApiKey && fileData.buffer && estimatedBase64Size <= API_PAYLOAD_LIMIT) {
-      console.log(`File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB (base64: ~${(estimatedBase64Size / (1024 * 1024)).toFixed(2)}MB) is within API payload limits`)
+    if (geminiApiKey && fileData.buffer && fileData.size <= GEMINI_FILE_SIZE_LIMIT) {
+      console.log(`File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB is within Gemini 3.1 Pro File API limit (100MB)`)
       try {
-        console.log('Starting Gemini 2.5 Pro video analysis via RapidAPI...')
+        console.log('Starting Gemini 3.1 Pro video analysis via Google GenAI File API...')
         
-        // Convert video buffer to base64
-        const base64Video = fileData.buffer.toString('base64')
+        // Initialize Google GenAI client
+        const ai = new GoogleGenAI({ apiKey: geminiApiKey })
         
-        const geminiResponse = await fetch('https://gemini-2-5-pro-by-google-ai-for-reasoning-coding-science.p.rapidapi.com/v1beta/models/gemini-1.5-pro:generateContent', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-RapidAPI-Key': rapidApiKey,
-            'X-RapidAPI-Host': 'gemini-2-5-pro-by-google-ai-for-reasoning-coding-science.p.rapidapi.com'
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: `You are an expert social media algorithm analyst and content strategist. Analyze this video file IN-DEPTH for ${platform} optimization.
+        // Create a Blob from the buffer for upload
+        const videoBlob = new Blob([fileData.buffer], { type: fileData.type })
+        
+        // Upload video file to Google (handles large files efficiently)
+        console.log('[Clip Analyzer] Uploading video to Google File API...')
+        const uploadedFile = await ai.files.upload({
+          file: videoBlob,
+          config: { mimeType: fileData.type }
+        })
+        
+        console.log(`[Clip Analyzer] Video uploaded: ${uploadedFile.name}, state: ${uploadedFile.state}`)
+        
+        // Wait for video processing to complete
+        let fileState = uploadedFile.state
+        let attempts = 0
+        const maxAttempts = 60 // 5 minutes max (5s * 60)
+        
+        while (fileState === 'PROCESSING' && attempts < maxAttempts) {
+          console.log(`[Clip Analyzer] Video processing... attempt ${attempts + 1}/${maxAttempts}`)
+          await new Promise(resolve => setTimeout(resolve, 5000)) // Wait 5 seconds
+          
+          const fileStatus = await ai.files.get({ name: uploadedFile.name })
+          fileState = fileStatus.state
+          attempts++
+        }
+        
+        if (fileState !== 'ACTIVE') {
+          throw new Error(`Video failed to process. Final state: ${fileState}`)
+        }
+        
+        console.log('[Clip Analyzer] Video processing complete. Analyzing with Gemini 3.1 Pro...')
+        
+        // Analyze video using the uploaded file reference
+        const geminiResponse = await ai.models.generateContent({
+          model: 'gemini-3.1-pro-preview',
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                {
+                  fileData: {
+                    mimeType: uploadedFile.mimeType,
+                    fileUri: uploadedFile.uri
+                  }
+                },
+                {
+                  text: `You are an expert social media algorithm analyst and content strategist. Analyze this video file IN-DEPTH for ${platform} optimization.
 
 CRITICAL ANALYSIS REQUIREMENTS:
 1. **SUBJECT MATTER IDENTIFICATION**: What is the video about? Identify the main topic, theme, niche, and target audience.
@@ -211,83 +242,42 @@ PLATFORM-SPECIFIC ALGORITHM PRIORITIES (2026):
 - Instagram Reels: First 3 seconds engagement, watch time, saves, shares, carousel swipe-through, music trending
 - YouTube Shorts: First 1 second hook, watch time, click-through rate, retention, comments
 - Facebook Reels: Early engagement, watch time, shares, comments, trending audio
-- YouTube Long: First 5 seconds hook, retention, click-through rate
+- YouTube Long: First 5 seconds hook, retention, click-through rate, comments, likes, shares, title optimization, posting schedule
 
-CONTENT-SPECIFIC REQUIREMENTS:
-- All insights MUST reference actual content from the video (not generic advice)
-- Recommendations must be tailored to the specific subject matter
-- Title suggestions must include relevant keywords for the video's topic
-- Tags must be specific to the content niche and subject
+SCORING CRITERIA (0-100):
+- Hook strength (first 1-3 seconds): 25 points
+- Content engagement potential: 20 points
+- Visual/audio quality: 15 points
+- Platform-specific optimization: 20 points
+- Metadata quality (title/description/tags): 20 points
 
-Respond ONLY with valid JSON in this exact structure:
-{
-  "score": <integer 0-100>,
-  "scoreTitle": "<rating title>",
-  "scoreSummary": "<2 sentences about main strength + improvement>",
-  "insights": [
-    { "icon": "🎬", "label": "Hook Strength", "value": "<rating>", "description": "<specific analysis>" },
-    { "icon": "📈", "label": "Engagement Potential", "value": "<rating>", "description": "<specific analysis>" },
-    { "icon": "🎥", "label": "Visual Quality", "value": "<rating>", "description": "<specific analysis>" },
-    { "icon": "🔊", "label": "Audio Quality", "value": "<rating>", "description": "<specific analysis>" }
-  ],
-  "recommendations": [
-    { "priority": "high", "category": "Hook", "text": "<specific recommendation>" },
-    { "priority": "high", "category": "Pacing", "text": "<specific recommendation>" },
-    { "priority": "med", "category": "Visual", "text": "<specific recommendation>" },
-    { "priority": "med", "category": "Audio", "text": "<specific recommendation>" },
-    { "priority": "low", "category": "Metadata", "text": "<specific recommendation>" }
-  ],
-  "overlays": [
-    { "type": "text", "description": "<text overlay suggestion>", "timing": "<timestamp>" },
-    { "type": "sound", "description": "<audio suggestion>", "timing": "<timestamp>" },
-    { "type": "visual", "description": "<effect suggestion>", "timing": "<timestamp>" },
-    { "type": "cta", "description": "<CTA suggestion>", "timing": "<timestamp>" }
-  ],
-  "titles": ["<title option 1>", "<title option 2>", "<title option 3>"],
-  "description": "<optimized description 150-200 chars>",
-  "tags": ["<hashtag1>", "<hashtag2>", "... 15-20 hashtags"]
-}`
-                  },
-                  {
-                    inlineData: {
-                      mimeType: fileData.type,
-                      data: base64Video
-                    }
-                  }
-                ]
-              }
-            ],
-            generationConfig: {
-              temperature: 0.7,
-              maxOutputTokens: 2048
+IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside the JSON.
+`
+                }
+              ]
             }
-          })
+          ]
         })
-
-        if (geminiResponse.ok) {
-          const geminiData = await geminiResponse.json()
-          const content = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || ''
-          
-          if (content) {
-            // Parse JSON from response (handle markdown code blocks if present)
-            let cleanContent = content
-            if (content.includes('```')) {
-              cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-            }
-            
-            analysisResult = JSON.parse(cleanContent)
-            analysisSource = 'gemini-2.5-pro'
-            console.log('✅ Gemini 2.5 Pro video analysis successful')
+        
+        // Parse the response from Google GenAI SDK
+        const content = geminiResponse.text || ''
+        
+        if (content) {
+          // Parse JSON from response (handle markdown code blocks if present)
+          let cleanContent = content
+          if (content.includes('```')) {
+            cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
           }
-        } else {
-          const errorText = await geminiResponse.text()
-          console.error('Gemini 2.5 Pro error:', errorText)
+          
+          analysisResult = JSON.parse(cleanContent)
+          analysisSource = 'gemini-3.1-pro'
+          console.log('✅ Gemini 3.1 Pro video analysis successful')
         }
       } catch (geminiError) {
-        console.error('Gemini 2.5 Pro analysis error:', geminiError)
+        console.error('Gemini 3.1 Pro analysis error:', geminiError)
       }
-    } else if (rapidApiKey && estimatedBase64Size > API_PAYLOAD_LIMIT) {
-      console.log(`⚠️ WARNING: File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB (base64: ~${(estimatedBase64Size / (1024 * 1024)).toFixed(2)}MB) exceeds API payload limit`)
+    } else if (geminiApiKey && fileData.size > GEMINI_FILE_SIZE_LIMIT) {
+      console.log(`⚠️ WARNING: File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB exceeds Gemini 3.1 Pro File API limit (100MB)`)
       console.log(`⚠️ Video will NOT be analyzed by Gemini - using fallback analysis`)
     }
 
