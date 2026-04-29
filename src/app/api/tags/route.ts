@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { GoogleGenAI } from '@google/genai'
 
 // In-memory rate limit storage (in production, use Redis or a database)
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
@@ -25,12 +26,12 @@ function checkRateLimit(identifier: string, maxUses: number = 5, windowMs: numbe
   return { allowed: true, remaining: maxUses - userLimit.count, resetTime: userLimit.resetTime }
 }
 
-// Generate tags using DeepSeek via RapidAPI
-async function generateTagsWithDeepSeek(description: string, platform: string, count: number): Promise<string[]> {
-  const rapidApiKey = process.env.RAPID_API_KEY
+// Generate tags using Gemini 1.5 Flash
+async function generateTagsWithGemini(description: string, platform: string, count: number): Promise<string[]> {
+  const geminiApiKey = process.env.GEMINI_API
   
-  if (!rapidApiKey) {
-    throw new Error('RAPID_API_KEY not configured')
+  if (!geminiApiKey) {
+    throw new Error('GEMINI_API not configured')
   }
   
   const platformContext: Record<string, string> = {
@@ -43,172 +44,46 @@ async function generateTagsWithDeepSeek(description: string, platform: string, c
   
   const platformName = platformContext[platform.toLowerCase()] || platform
   
-  const response = await fetch('https://deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-RapidAPI-Key': rapidApiKey,
-      'X-RapidAPI-Host': 'deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com'
-    },
-    body: JSON.stringify({
-      model: 'deepseek-r1-zero',
-      messages: [
-        {
-          role: 'system',
-          content: `You are an expert social media algorithm analyst and hashtag generator. Generate DIFFERENT hashtags for each platform based on their unique algorithms.
+  const ai = new GoogleGenAI({ apiKey: geminiApiKey })
+  
+  const response = await ai.models.generateContent({
+    model: 'gemini-1.5-flash-latest',
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          {
+            text: `You are an expert social media algorithm analyst and hashtag generator. Generate ${count} platform-optimized hashtags.
 
-Platform strategies:
-- TikTok: discovery (fyp, viral, trending) + niche tags. 3-5 tags.
-- Instagram: community + niche + aesthetic tags. 10-30 tags.
-- YouTube Shorts: SEO + viral + content type tags.
-- YouTube Long: SEO + topic + search intent tags.
-- Facebook Reels: community + trending + entertainment tags.
+Platform: ${platformName}
+Content Description: "${description}"
 
-Return only valid JSON arrays of lowercase strings without # symbols.`
-        },
-        {
-          role: 'user',
-          content: `Platform: ${platformName}
-Content: "${description}"
-Number of tags: ${count}
+Platform Strategies:
+- TikTok: discovery hashtags (fyp, foryou, viral, trending) + niche-specific tags. Mix broad and specific.
+- Instagram: community + aesthetic + niche tags. Include location/style tags if relevant.
+- YouTube Shorts: SEO-focused + viral + content type tags. Search-optimized.
+- YouTube Long: SEO + topic + search intent tags. Educational/entertainment focus.
+- Facebook Reels: community + trending + entertainment tags. Broader appeal.
 
-Generate ${count} hashtags SPECIFICALLY for ${platformName}.
+Requirements:
+- Generate exactly ${count} hashtags
+- All lowercase, no # symbols
+- Mix of: platform-trending + content-specific + niche tags
+- No spaces in tags (use underscores if needed)
+- Relevant to both the content AND platform algorithm
 
-Return exactly ${count} tags as JSON: ["tag1", "tag2", ...]`
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 500
-    })
+Return ONLY a valid JSON array of strings:
+["tag1", "tag2", "tag3", ...]`
+          }
+        ]
+      }
+    ]
   })
   
-  if (!response.ok) {
-    throw new Error(`DeepSeek error: ${response.status}`)
-  }
-  
-  const data = await response.json()
-  const content = data.choices?.[0]?.message?.content
+  const content = response.text || ''
   
   if (!content) {
-    throw new Error('No content in DeepSeek response')
-  }
-  
-  return parseTagResponse(content, platformName, count)
-}
-
-// Fallback: Groq API
-async function generateTagsWithGroq(description: string, platform: string, count: number): Promise<string[]> {
-  const groqApiKey = process.env.GROQ_API_KEY
-  
-  if (!groqApiKey) {
-    throw new Error('GROQ_API_KEY not configured')
-  }
-  
-  const modelName = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
-  
-  const platformContext: Record<string, string> = {
-    'tiktok': 'TikTok',
-    'instagram': 'Instagram',
-    'youtube-shorts': 'YouTube Shorts',
-    'youtube-long': 'YouTube',
-    'facebook-reels': 'Facebook Reels'
-  }
-  
-  const platformName = platformContext[platform.toLowerCase()] || platform
-  
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 30000)
-  
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${groqApiKey}`
-    },
-    signal: controller.signal,
-    body: JSON.stringify({
-      model: modelName,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert hashtag generator. Return only valid JSON arrays.'
-        },
-        {
-          role: 'user',
-          content: `Platform: ${platformName}\nContent: "${description}"\nGenerate ${count} hashtags for ${platformName}. Return JSON: ["tag1", ...]`
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 500
-    })
-  })
-  
-  clearTimeout(timeout)
-  
-  if (!response.ok) {
-    throw new Error(`Groq error: ${response.status}`)
-  }
-  
-  const data = await response.json()
-  const content = data.choices?.[0]?.message?.content
-  
-  if (!content) {
-    throw new Error('No content in Groq response')
-  }
-  
-  return parseTagResponse(content, platformName, count)
-}
-
-// Backup: Pollinations API
-async function generateTagsWithPollinations(description: string, platform: string, count: number): Promise<string[]> {
-  const pollinationsApiKey = process.env.POLLINATIONS_API_KEY
-  
-  if (!pollinationsApiKey) {
-    throw new Error('POLLINATIONS_API_KEY not configured')
-  }
-  
-  const platformContext: Record<string, string> = {
-    'tiktok': 'TikTok',
-    'instagram': 'Instagram',
-    'youtube-shorts': 'YouTube Shorts',
-    'youtube-long': 'YouTube',
-    'facebook-reels': 'Facebook Reels'
-  }
-  
-  const platformName = platformContext[platform.toLowerCase()] || platform
-  
-  const response = await fetch('https://text.pollinations.ai/openai', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${pollinationsApiKey}`
-    },
-    body: JSON.stringify({
-      model: 'openai',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert hashtag generator. Return only valid JSON arrays.'
-        },
-        {
-          role: 'user',
-          content: `Platform: ${platformName}\nContent: "${description}"\nGenerate ${count} hashtags for ${platformName}. Return JSON: ["tag1", ...]`
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 500
-    })
-  })
-  
-  if (!response.ok) {
-    throw new Error(`Pollinations error: ${response.status}`)
-  }
-  
-  const data = await response.json()
-  const content = data.choices?.[0]?.message?.content
-  
-  if (!content) {
-    throw new Error('No content in Pollinations response')
+    throw new Error('No content in Gemini response')
   }
   
   return parseTagResponse(content, platformName, count)
@@ -243,51 +118,29 @@ function parseTagResponse(content: string, platformName: string, count: number):
   return cleanedTags
 }
 
-// Main tag generation with cascading fallbacks
+// Main tag generation using Gemini 1.5 Flash only
 async function generateTags(description: string, platform: string, count: number): Promise<{ tags: string[], provider: string }> {
-  // Try DeepSeek first
-  if (process.env.RAPID_API_KEY) {
-    try {
-      console.log('[Tags] Trying DeepSeek...')
-      const tags = await generateTagsWithDeepSeek(description, platform, count)
-      console.log('[Tags] DeepSeek succeeded')
-      return { tags, provider: 'deepseek' }
-    } catch (error) {
-      console.error('[Tags] DeepSeek failed:', error)
-    }
+  const geminiApiKey = process.env.GEMINI_API
+  
+  if (!geminiApiKey) {
+    throw new Error('GEMINI_API not configured')
   }
   
-  // Fallback to Groq
-  if (process.env.GROQ_API_KEY) {
-    try {
-      console.log('[Tags] Falling back to Groq...')
-      const tags = await generateTagsWithGroq(description, platform, count)
-      console.log('[Tags] Groq succeeded')
-      return { tags, provider: 'groq' }
-    } catch (error) {
-      console.error('[Tags] Groq failed:', error)
-    }
+  try {
+    console.log('[Tags] Generating tags with Gemini 1.5 Flash...')
+    const tags = await generateTagsWithGemini(description, platform, count)
+    console.log('[Tags] Gemini succeeded')
+    return { tags, provider: 'gemini-1.5-flash' }
+  } catch (error) {
+    console.error('[Tags] Gemini failed:', error)
+    throw new Error('Tag generation failed. Please check GEMINI_API configuration.')
   }
-  
-  // Final fallback to Pollinations
-  if (process.env.POLLINATIONS_API_KEY) {
-    try {
-      console.log('[Tags] Falling back to Pollinations...')
-      const tags = await generateTagsWithPollinations(description, platform, count)
-      console.log('[Tags] Pollinations succeeded')
-      return { tags, provider: 'pollinations' }
-    } catch (error) {
-      console.error('[Tags] Pollinations failed:', error)
-    }
-  }
-  
-  throw new Error('All AI providers failed for tag generation')
 }
 
 // GET endpoint - retrieve tag database status
 export async function GET() {
   return NextResponse.json({ 
-    message: 'Using Groq for tag generation',
+    message: 'Using Gemini 1.5 Flash for tag generation',
     rateLimit: '5 uses per 24 hours (20 for verified users)',
     status: 'active',
     totalUsers: rateLimitStore.size
