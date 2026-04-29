@@ -130,7 +130,7 @@ export async function POST(request: Request) {
       
       // Analyze video using the file URI (already uploaded by frontend)
       const geminiResponse = await ai.models.generateContent({
-        model: 'gemini-1.5-flash-latest', // Using Flash for faster, cheaper analysis
+        model: 'gemini-1.5-flash', // Using Flash for faster, cheaper analysis
         contents: [
           {
             role: 'user',
