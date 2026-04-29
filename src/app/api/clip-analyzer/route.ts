@@ -152,12 +152,16 @@ export async function POST(request: Request) {
     let analysisSource = 'none'
 
     // Try Gemini 2.5 Pro via RapidAPI first (best for video analysis with audio)
-    // Limit to 20MB because base64 encoding adds ~33% overhead
-    // A 20MB file becomes ~27MB when encoded, which is safer for API payload limits
-    const GEMINI_SIZE_LIMIT = 20 * 1024 * 1024 // 20MB
+    // Limit to 15MB raw because base64 encoding adds ~33% overhead
+    // A 15MB file becomes ~20MB when encoded, which stays within API payload limits
+    const GEMINI_SIZE_LIMIT = 15 * 1024 * 1024 // 15MB raw file limit
     
-    if (rapidApiKey && fileData.buffer && fileData.size <= GEMINI_SIZE_LIMIT) {
-      console.log(`File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB is within Gemini limit (${GEMINI_SIZE_LIMIT / (1024 * 1024)}MB)`)
+    // Check if file size is within limit (accounting for base64 overhead)
+    const estimatedBase64Size = fileData.size * 1.37 // Base64 adds ~37% overhead
+    const API_PAYLOAD_LIMIT = 20 * 1024 * 1024 // 20MB API limit
+    
+    if (rapidApiKey && fileData.buffer && estimatedBase64Size <= API_PAYLOAD_LIMIT) {
+      console.log(`File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB (base64: ~${(estimatedBase64Size / (1024 * 1024)).toFixed(2)}MB) is within API payload limits`)
       try {
         console.log('Starting Gemini 2.5 Pro video analysis via RapidAPI...')
         
@@ -282,10 +286,9 @@ Respond ONLY with valid JSON in this exact structure:
       } catch (geminiError) {
         console.error('Gemini 2.5 Pro analysis error:', geminiError)
       }
-    } else if (rapidApiKey && fileData.size > GEMINI_SIZE_LIMIT) {
-      console.log(`⚠️ WARNING: File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB exceeds Gemini limit (${GEMINI_SIZE_LIMIT / (1024 * 1024)}MB)`)
-      console.log(`⚠️ Video will NOT be analyzed - only generic platform recommendations will be provided`)
-      console.log(`💡 Tip: Compress video under 20MB for AI-powered content analysis`)
+    } else if (rapidApiKey && estimatedBase64Size > API_PAYLOAD_LIMIT) {
+      console.log(`⚠️ WARNING: File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB (base64: ~${(estimatedBase64Size / (1024 * 1024)).toFixed(2)}MB) exceeds API payload limit`)
+      console.log(`⚠️ Video will NOT be analyzed by Gemini - using fallback analysis`)
     }
 
     // Fallback to GROQ if Gemini failed or no video buffer

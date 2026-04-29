@@ -2924,7 +2924,7 @@ export default function HomePage() {
                     </li>
                   </ol>
                   <div className={`mt-3 p-2 rounded text-sm ${darkMode ? 'bg-sdhq-dark-900/50 text-sdhq-cyan-300' : 'bg-sdhq-cyan-50 text-sdhq-cyan-700'}`}>
-                    <span className="font-semibold">💡 AI Analysis:</span> Videos under 20MB get AI-powered content analysis. Larger videos receive general platform recommendations.
+                    <span className="font-semibold">💡 AI Analysis:</span> Videos under 15MB get AI-powered content analysis. Larger videos receive general platform recommendations.
                   </div>
                 </div>
 
@@ -3118,7 +3118,7 @@ export default function HomePage() {
                                 </p>
                                 <p className={`text-sm ${darkMode ? 'text-yellow-300/80' : 'text-yellow-600'}`}>
                                   Video was too large for AI analysis. These are general {platforms.find(p => p.id === clipPlatform)?.name} best practices, not specific to your content.
-                                  <span className="block mt-1">💡 Compress video under 20MB for AI-powered analysis.</span>
+                                  <span className="block mt-1">💡 Compress video under 15MB for AI-powered analysis.</span>
                                 </p>
                               </div>
                             </div>
