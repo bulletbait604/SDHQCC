@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { GoogleGenAI } from '@google/genai'
 
 // In-memory rate limit storage for content analyzer
 const contentAnalyzerRateLimitStore = new Map<string, { count: number; resetTime: number }>()
@@ -24,22 +25,25 @@ function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean
 
 export async function POST(request: Request) {
   try {
-    console.log('Content Analyzer: Request received')
+    console.log('[DEBUG] Content Analyzer: Request received')
     const body = await request.json()
     const { url, platform, userId, userType } = body
 
-    console.log('Content Analyzer: URL:', url)
-    console.log('Content Analyzer: Platform:', platform)
-    console.log('Content Analyzer: User ID:', userId)
-    console.log('Content Analyzer: User Type:', userType)
+    console.log('[DEBUG] Content Analyzer: Form data received:', { 
+      hasUrl: !!url, 
+      platform, 
+      userId, 
+      userType,
+      timestamp: new Date().toISOString()
+    })
 
     if (!url) {
-      console.error('Content Analyzer: URL is required')
+      console.error('[DEBUG] Content Analyzer: URL is required')
       return NextResponse.json({ error: 'URL is required' }, { status: 400 })
     }
 
     if (!platform) {
-      console.error('Content Analyzer: Platform is required')
+      console.error('[DEBUG] Content Analyzer: Platform is required')
       return NextResponse.json({ error: 'Platform is required' }, { status: 400 })
     }
 
@@ -52,278 +56,102 @@ export async function POST(request: Request) {
     } else if (userType === 'subscribed') {
       maxUses = 5
     } else {
-      console.error('Content Analyzer: Access denied - subscription required')
+      console.error('[DEBUG] Content Analyzer: Access denied - subscription required')
       return NextResponse.json({ error: 'Access denied. Subscription required.' }, { status: 403 })
     }
 
-    console.log('Content Analyzer: Rate limit check for:', identifier, 'maxUses:', maxUses)
+    console.log('[DEBUG] Content Analyzer: Rate limiting:', { identifier, maxUses, userType })
     const rateLimit = checkRateLimit(`content-analyzer-${identifier}`, maxUses)
+    
+    console.log('[DEBUG] Content Analyzer: Rate limit result:', { allowed: rateLimit.allowed, remaining: rateLimit.remaining })
 
     if (!rateLimit.allowed) {
-      console.error('Content Analyzer: Rate limit exceeded')
+      console.log('[ACTIVITY_LOG] Content Analyzer: Rate limit exceeded for', identifier)
       return NextResponse.json(
         { error: 'Rate limit exceeded. You have used your daily limit.', resetTime: rateLimit.resetTime },
         { status: 429 }
       )
     }
 
-    const supadataApiKey = process.env.SUPADATA_API_KEY
-    const pollinationsApiKey = process.env.POLLINATIONS_API_KEY
-
-    console.log('Content Analyzer: Supadata key present:', !!supadataApiKey)
-    console.log('Content Analyzer: Pollinations key present:', !!pollinationsApiKey)
-
-    if (!supadataApiKey && !pollinationsApiKey) {
-      console.error('Content Analyzer: No video extraction API key configured')
-      return NextResponse.json({ error: 'No video extraction API key configured' }, { status: 500 })
+    const geminiApiKey = process.env.GEMINI_API
+    
+    if (!geminiApiKey) {
+      console.log('[ACTIVITY_LOG] Content Analyzer: GEMINI_API key not configured')
+      return NextResponse.json({ 
+        error: 'API not configured',
+        userMessage: 'Gemini is having a tough time right now. Please check back later.',
+        details: 'GEMINI_API key not configured'
+      }, { status: 503 })
     }
 
-    const groqApiKey = process.env.GROQ_API_KEY
-    const rapidApiKey = process.env.RAPID_API_KEY
-
-    console.log('Content Analyzer: Groq key present:', !!groqApiKey)
-    console.log('Content Analyzer: RapidAPI key present:', !!rapidApiKey)
-
-    if (!groqApiKey && !rapidApiKey) {
-      console.error('Content Analyzer: No content analysis API key configured')
-      return NextResponse.json({ error: 'No content analysis API key configured' }, { status: 500 })
-    }
-
-    // Step 1: Extract video information using Supadata (with Groq and Pollinations fallbacks)
-    let videoData = null
-    let extractionSource = 'none'
-
-    // PRIMARY: Try Supadata first
-    if (supadataApiKey) {
-      try {
-        console.log('[Content Analyzer] Trying Supadata extraction for URL:', url)
-        const supadataResponse = await fetch('https://api.supadata.ai/v1/extract', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': supadataApiKey
-          },
-          body: JSON.stringify({
-            url: url,
-            prompt: 'Extract comprehensive information about this video including: main topics and themes, key points discussed, visual elements (people, objects, scenes, colors, text overlays, graphics), audio content (speech/transcript, music, sound effects, background audio), captions/subtitles, engagement indicators, pacing, editing style, hook strength, production quality, and any other relevant metadata. Provide a detailed summary of both visual and audio content to give full context for algorithm analysis.'
-          })
-        })
-
-        if (supadataResponse.ok) {
-          const supadataJob = await supadataResponse.json()
-          console.log('Supadata job created:', supadataJob.jobId)
-
-          // Poll for Supadata results
-          let attempts = 0
-          const maxAttempts = 30 // 30 attempts with 2 second delay = 60 seconds max
-
-          while (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2 seconds
-            
-            const resultResponse = await fetch(`https://api.supadata.ai/v1/extract/${supadataJob.jobId}`, {
-              headers: {
-                'x-api-key': supadataApiKey
-              }
-            })
-
-            if (resultResponse.ok) {
-              const resultData = await resultResponse.json()
-              if (resultData.status === 'completed') {
-                videoData = resultData.data
-                extractionSource = 'supadata'
-                break
-              } else if (resultData.status === 'failed') {
-                console.log('Supadata extraction failed, trying fallback')
-                break
-              }
-            }
-            
-            attempts++
-          }
-
-          if (videoData) {
-            console.log('[Content Analyzer] Supadata extraction completed')
-          } else {
-            console.log('[Content Analyzer] Supadata extraction timed out, trying fallback')
-          }
-        } else {
-          const errorText = await supadataResponse.text()
-          console.error('[Content Analyzer] Supadata error:', errorText)
-        }
-      } catch (supadataError) {
-        console.error('[Content Analyzer] Supadata extraction error:', supadataError)
-      }
-    }
-
-    // FALLBACK: Try Groq if Supadata failed (Groq can analyze URL content if provided in context)
-    if (!videoData && groqApiKey) {
-      try {
-        console.log('[Content Analyzer] Falling back to Groq for URL extraction')
-        const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${groqApiKey}`
-          },
-          body: JSON.stringify({
-            model: 'llama-3.1-8b-instant',
-            messages: [
-              {
-                role: 'system',
-                content: 'You are a video content analyzer. Given a video URL, provide a comprehensive analysis of what this video likely contains based on the URL structure, platform, and any identifiable information. Return JSON with: summary, topics (array), keyPoints (array), visualAnalysis, audioAnalysis, transcript (empty string if unknown), title, description.'
-              },
-              {
-                role: 'user',
-                content: `Analyze this video URL and provide comprehensive metadata: ${url}. Platform: ${platform}. Include likely topics, visual elements, audio content, and a detailed summary.`
-              }
-            ],
-            temperature: 0.7,
-            max_tokens: 2000
-          })
-        })
-
-        if (groqResponse.ok) {
-          const groqData = await groqResponse.json()
-          const content = groqData.choices?.[0]?.message?.content || ''
-          
-          let cleanContent = content
-          if (content.includes('```')) {
-            cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-          }
-
-          try {
-            const parsedData = JSON.parse(cleanContent)
-            videoData = {
-              ...parsedData,
-              summary: parsedData.summary || `Video URL analysis: ${url}`,
-              transcript: parsedData.transcript || '',
-              visualAnalysis: parsedData.visualAnalysis || parsedData.visualElements || '',
-              audioAnalysis: parsedData.audioAnalysis || parsedData.audioContent || ''
-            }
-            extractionSource = 'groq'
-            console.log('[Content Analyzer] Groq extraction completed')
-          } catch (parseError) {
-            videoData = {
-              summary: cleanContent,
-              transcript: '',
-              visualAnalysis: cleanContent,
-              audioAnalysis: '',
-              topics: [],
-              keyPoints: []
-            }
-            extractionSource = 'groq'
-            console.log('[Content Analyzer] Groq extraction completed (text fallback)')
-          }
-        } else {
-          const errorText = await groqResponse.text()
-          console.error('[Content Analyzer] Groq extraction error:', errorText)
-        }
-      } catch (groqError) {
-        console.error('[Content Analyzer] Groq extraction error:', groqError)
-      }
-    }
-
-    // BACKUP: Pollinations if both failed
-    if (!videoData && pollinationsApiKey) {
-      try {
-        console.log('[Content Analyzer] Falling back to Pollinations for video extraction')
-        const pollinationsResponse = await fetch('https://text.pollinations.ai/openai', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${pollinationsApiKey}`
-          },
-          body: JSON.stringify({
-            model: 'openai',
-            messages: [
-              {
-                role: 'system',
-                content: 'You are a video content analyzer. Extract comprehensive information about the video at the given URL including: main topics and themes, key points discussed, visual elements (people, objects, scenes, colors, text overlays, graphics), audio content (speech/transcript, music, sound effects, background audio), captions/subtitles, engagement indicators, pacing, editing style, hook strength, production quality. Return the analysis as a structured JSON object with fields: topics, keyPoints, visualElements, audioContent, captions, pacing, editingStyle, hookStrength, productionQuality, summary.'
-              },
-              {
-                role: 'user',
-                content: `Analyze this video URL: ${url}. Provide a comprehensive analysis of the content including visual and audio elements, topics discussed, pacing, and production quality.`
-              }
-            ],
-            max_tokens: 2000,
-            temperature: 0.7,
-            reasoning_effort: 'medium'
-          })
-        })
-
-        if (pollinationsResponse.ok) {
-          const pollinationsData = await pollinationsResponse.json()
-          const content = pollinationsData.choices?.[0]?.message?.content || ''
-          
-          let cleanContent = content
-          if (content.includes('```')) {
-            cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-          }
-
-          try {
-            const parsedData = JSON.parse(cleanContent)
-            videoData = {
-              ...parsedData,
-              summary: parsedData.summary || 'Video analysis completed via Pollinations',
-              transcript: parsedData.audioContent?.transcript || '',
-              visualAnalysis: parsedData.visualElements || '',
-              audioAnalysis: parsedData.audioContent || ''
-            }
-            extractionSource = 'pollinations'
-            console.log('[Content Analyzer] Pollinations extraction completed')
-          } catch (parseError) {
-            videoData = {
-              summary: cleanContent,
-              transcript: '',
-              visualAnalysis: cleanContent,
-              audioAnalysis: cleanContent,
-              topics: [],
-              keyPoints: []
-            }
-            extractionSource = 'pollinations'
-            console.log('[Content Analyzer] Pollinations extraction completed (text fallback)')
-          }
-        } else {
-          const errorText = await pollinationsResponse.text()
-          console.error('[Content Analyzer] Pollinations error:', errorText)
-        }
-      } catch (pollinationsError) {
-        console.error('[Content Analyzer] Pollinations extraction error:', pollinationsError)
-      }
-    }
-
-    if (!videoData) {
-      console.error('[Content Analyzer] Failed to extract video information from all providers')
-      return NextResponse.json({ error: 'Failed to extract video information from Supadata, Groq, and Pollinations' }, { status: 500 })
-    }
-
-    console.log(`[Content Analyzer] Video extraction completed using: ${extractionSource}`)
-
-    // Step 2: Use GROQ to analyze the extracted information and research algorithms (with RapidAPI fallback)
+    // Use Gemini 3.1 Pro to analyze the URL directly - no separate extraction step needed
     let analysisResult = null
     let analysisSource = 'none'
+    let extractedData = {
+      url: url,
+      platform: platform,
+      summary: 'Video URL analysis via Gemini 3.1 Pro',
+      visualAnalysis: 'Analyzed via Gemini 3.1 Pro',
+      audioAnalysis: 'Analyzed via Gemini 3.1 Pro',
+      topics: [],
+      keyPoints: [],
+      source: 'gemini-3.1-pro-url-analysis'
+    }
 
-    // Try GROQ first
-    if (groqApiKey) {
-      try {
-        console.log('Content Analyzer: Starting GROQ analysis for platform:', platform)
-        const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${groqApiKey}`
-          },
-          body: JSON.stringify({
-            model: 'llama-3.1-8b-instant',
-            messages: [
+    // Use Gemini 3.1 Pro to analyze the video URL directly
+    console.log('[DEBUG] Content Analyzer: Starting Gemini 3.1 Pro URL analysis...')
+    
+    try {
+      const ai = new GoogleGenAI({ apiKey: geminiApiKey })
+      
+      const geminiResponse = await ai.models.generateContent({
+        model: 'gemini-3.1-pro-preview',
+        contents: [
+          {
+            role: 'user',
+            parts: [
               {
-                role: 'system',
-                content: `You are an expert social media algorithm analyst and content optimization specialist. Your task is to analyze video content and provide specific, actionable recommendations for ${platform}.
+                text: `You are an expert social media algorithm analyst and content strategist. Analyze this video URL IN-DEPTH for ${platform} optimization.
+
+Video URL: ${url}
+Platform: ${platform}
+
+CRITICAL ANALYSIS REQUIREMENTS:
+1. **SUBJECT MATTER IDENTIFICATION**: 
+   - What is the video about? Identify main topic, theme, niche, and target audience
+   - Detect if this is gaming content - identify the specific game being played
+   - Detect if this is from a streaming platform (Twitch, YouTube Live, Kick, etc.) - identify the original streaming platform
+   - Identify the content type (gameplay, commentary, tutorial, highlight, montage, vlog, etc.)
+2. **VISUAL ANALYSIS**: 
+   - Scene-by-scene breakdown (first 3 seconds, middle, ending)
+   - Camera angles, lighting, color grading
+   - Visual effects, transitions, text overlays
+   - Motion, energy, pacing throughout
+   - Thumbnail-worthy moments
+   - Game-specific visual elements (UI, HUD, gameplay mechanics)
+3. **AUDIO ANALYSIS**:
+   - Speech/dialogue content (what is being said)
+   - Background music genre, mood, energy level
+   - Sound effects and their purpose
+   - Audio quality (clarity, mixing, volume levels)
+   - Voice tone and delivery style
+   - Game audio (sound effects, music, voice lines)
+4. **HOOK ANALYSIS**:
+   - What grabs attention in first 1-3 seconds?
+   - Is the hook visual, audio, or conceptual?
+   - How effective is it for ${platform}?
+5. **ENGAGEMENT MECHANICS**:
+   - What keeps viewers watching?
+   - Call-to-action opportunities
+   - Shareable moments
+   - Comment-worthy elements
 
 PLATFORM-SPECIFIC ALGORITHM PRIORITIES (2026):
-- TikTok: Hook in first 1-2 seconds, completion rate (watch to end), shares, saves, comments, trending audio usage, caption keywords, posting consistency, niche authority
-- Instagram Reels: First 3 seconds engagement, watch time, saves, shares, carousel swipe-through, music trending, hashtags, Reels tab exploration, consistency
+- TikTok: Hook in first 1-2 seconds, completion rate, shares, saves, comments, trending audio, caption keywords, niche authority
+- Instagram Reels: First 3 seconds engagement, watch time, saves, shares, carousel swipe-through, music trending, hashtags, Reels tab exploration
 - YouTube Shorts: First 1 second hook, watch time, click-through rate, retention, comments, likes, shares, title optimization, posting schedule
+- Facebook Reels: Early engagement, watch time, shares, comments, trending audio
+- YouTube Long: First 5 seconds hook, retention, click-through rate, comments, likes, shares, title optimization, posting schedule, description keywords
 - Twitch Clips: Highlight moments, community engagement, game/category relevance, editing pace, audio clarity, discoverability through recommendations
 - Kick Clips: Early engagement, community interaction, category relevance, trending topics, audio quality, visual appeal, shareability
 
@@ -334,9 +162,17 @@ SCORING CRITERIA (0-100):
 - Platform-specific optimization: 20 points
 - Metadata quality (title/description/tags): 20 points
 
-IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside the JSON.
+TAG REQUIREMENTS (15-20 tags total):
+Include a comprehensive mix of:
+1. Platform-specific trending tags (e.g., #fyp, #foryou, #reels, #shorts)
+2. Content-specific tags (what the video is actually about)
+3. Game tags (if gaming content - include the game name and related tags)
+4. Context tags (niche, theme, style, format)
+5. Streaming platform tags (if from a stream - e.g., #twitchclip, #youtubelive)
+6. Broad category tags for discoverability
+7. Niche-specific tags for targeted audience
 
-Return this exact structure:
+Return this exact JSON structure:
 {
   "score": <integer 0-100>,
   "scoreTitle": "<short title: Excellent/Good/Fair/Needs Improvement>",
@@ -366,270 +202,54 @@ Return this exact structure:
     "<optimized title option 3: 50-60 chars max, strong hook + keywords>"
   ],
   "description": "<optimized description: 150-200 characters, keywords + call to action, platform-optimized - NO abbreviations>",
-  "tags": ["<15-20 specific, relevant hashtags for platform>"]
+  "tags": ["<15-20 specific, relevant hashtags for platform - mix of platform, content, game, context, and streaming tags>"]
 }
 
-GUIDELINES:
-- Be specific and actionable in all recommendations
-- Use concrete examples (e.g., "Add text overlay at 0:02" not "Add text overlay")
-- Focus on platform-specific best practices
-- Ensure suggestions are practical and implementable
-- Keep descriptions concise but informative
-- Score realistically based on actual content quality
-- NEVER use abbreviations (write "description" not "desc", "information" not "info", "second" not "sec")
-- Provide 15-20 relevant, specific hashtags
-- Include 1-2 relevant emojis in each title suggestion
-- NEVER use HTML tags like <b> or <i> - use plain text only
-- Provide 3 distinct title options with different hooks and emojis`
-              },
-              {
-                role: 'user',
-                content: `Analyze this video content for ${platform} optimization.
-
-Video Information:
-${JSON.stringify(videoData, null, 2)}
-
-ANALYSIS TASK:
-1. Evaluate the video against ${platform}'s specific algorithm priorities listed above
-2. Score each category (hook, engagement, quality, optimization, metadata) based on the criteria
-3. Provide specific, actionable improvements for each recommendation
-4. Suggest concrete overlay/edit ideas with exact timestamps
-5. Create platform-optimized metadata (title, description, tags)
-
-REQUIREMENTS:
-- Score honestly based on actual content quality
-- Recommendations must be specific (e.g., "Add text 'Follow for more' at 0:03" not "Add text")
-- Focus on the most impactful improvements first (high priority)
-- Ensure metadata follows platform best practices (character limits, keyword placement)
-- Tags should be relevant, specific, and trending for the platform
-- All suggestions should be practical and immediately implementable
-
-Generate the analysis following the exact JSON structure provided.`
+IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside the JSON.
+`
               }
-            ],
-            max_tokens: 2000,
-            temperature: 0.7
-          })
-        })
-
-        if (groqResponse.ok) {
-          const groqData = await groqResponse.json()
-          const content = groqData.choices[0]?.message?.content || ''
-
-          console.log('Content Analyzer: GROQ response content length:', content.length)
-          console.log('Content Analyzer: GROQ response content preview:', content.substring(0, 200))
-
-          // Parse JSON from response (handle markdown code blocks if present)
-          let cleanContent = content
-          if (content.includes('```')) {
-            cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+            ]
           }
-
-          console.log('Content Analyzer: Cleaned content preview:', cleanContent.substring(0, 200))
-
-          analysisResult = JSON.parse(cleanContent)
-          analysisSource = 'groq'
-          console.log('Content Analyzer: GROQ analysis completed')
-        } else {
-          const errorText = await groqResponse.text()
-          console.error('Content Analyzer: GROQ error response:', errorText)
+        ]
+      })
+      
+      const content = geminiResponse.text || ''
+      console.log('[DEBUG] Gemini raw response length:', content.length)
+      console.log('[DEBUG] Gemini response preview:', content.substring(0, 200))
+      
+      if (content) {
+        let cleanContent = content
+        if (content.includes('```')) {
+          cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+          console.log('[DEBUG] Removed markdown code blocks from response')
         }
-      } catch (groqError) {
-        console.error('Content Analyzer: GROQ analysis error:', groqError)
-      }
-    }
-
-    // TEMPORARY: Test RapidAPI endpoints for content analysis
-    // Cascading test: Llama → ChatGPT → Chat
-    const tempRapidApiKey = process.env.RAPID_API_TEMP_API
-    const rapidApiEndpoints = [
-      { name: 'Llama 3.3 70B', url: 'https://open-ai21.p.rapidapi.com/conversationllama' },
-      { name: 'ChatGPT 3.5', url: 'https://open-ai21.p.rapidapi.com/chatgpt' },
-      { name: 'Chat Bot', url: 'https://open-ai21.p.rapidapi.com/chatbotapi' }
-    ]
-
-    if (!analysisResult && tempRapidApiKey) {
-      for (const endpoint of rapidApiEndpoints) {
-        if (analysisResult) break
         
-        console.log(`[Content Analyzer] Testing ${endpoint.name} for content analysis...`)
         try {
-          const rapidResponse = await fetch(endpoint.url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-RapidAPI-Key': tempRapidApiKey,
-              'X-RapidAPI-Host': 'open-ai21.p.rapidapi.com'
-            },
-            body: JSON.stringify({
-              messages: [
-                {
-                  role: 'user',
-                  content: `You are an expert social media algorithm analyst. Analyze this ${platform} video metadata and return ONLY a JSON object.
-
-Video Information:
-${JSON.stringify(videoData, null, 2)}
-
-Return this exact structure:
-{
-  "score": <integer 0-100>,
-  "scoreTitle": "<rating title>",
-  "scoreSummary": "<2 sentence summary>",
-  "insights": [
-    { "icon": "🎣", "label": "Hook Strength", "value": "<rating>", "description": "<analysis>" },
-    { "icon": "⚡", "label": "Engagement Potential", "value": "<rating>", "description": "<analysis>" },
-    { "icon": "🎥", "label": "Visual Quality", "value": "<rating>", "description": "<analysis>" },
-    { "icon": "🔊", "label": "Audio Quality", "value": "<rating>", "description": "<analysis>" }
-  ],
-  "recommendations": [
-    { "priority": "high", "category": "Hook", "text": "<recommendation>" },
-    { "priority": "high", "category": "Pacing", "text": "<recommendation>" },
-    { "priority": "med", "category": "Visual", "text": "<recommendation>" },
-    { "priority": "med", "category": "Audio", "text": "<recommendation>" },
-    { "priority": "low", "category": "Metadata", "text": "<recommendation>" }
-  ],
-  "overlays": [
-    { "type": "text", "description": "<suggestion>", "timing": "<timestamp>" },
-    { "type": "sound", "description": "<suggestion>", "timing": "<timestamp>" },
-    { "type": "visual", "description": "<suggestion>", "timing": "<timestamp>" },
-    { "type": "cta", "description": "<suggestion>", "timing": "<timestamp>" }
-  ],
-  "titles": ["<title 1>", "<title 2>", "<title 3>"],
-  "description": "<description>",
-  "tags": ["<tag1>", "<tag2>", "...15-20 tags"]
-}`
-                }
-              ]
-            })
-          })
-
-          if (rapidResponse.ok) {
-            const rapidData = await rapidResponse.json()
-            const content = rapidData.result || rapidData.message || rapidData.content || ''
-            
-            if (content) {
-              let cleanContent = content
-              if (content.includes('```')) {
-                cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-              }
-              
-              try {
-                analysisResult = JSON.parse(cleanContent)
-                analysisSource = `${endpoint.name.toLowerCase().replace(/\s+/g, '-')}-rapidapi-temp`
-                console.log(`✅ [Content Analyzer] ${endpoint.name} RapidAPI analysis successful`)
-                break
-              } catch (parseError) {
-                console.error(`[Content Analyzer] ${endpoint.name} JSON parse error:`, parseError)
-              }
-            }
-          } else {
-            const errorText = await rapidResponse.text()
-            console.error(`[Content Analyzer] ${endpoint.name} error:`, rapidResponse.status, errorText.substring(0, 200))
-          }
-        } catch (endpointError) {
-          console.error(`[Content Analyzer] ${endpoint.name} analysis error:`, endpointError)
+          analysisResult = JSON.parse(cleanContent)
+          analysisSource = 'gemini-3.1-pro'
+          console.log('✅ [DEBUG] Gemini 3.1 Pro URL analysis successful - parsed JSON with keys:', Object.keys(analysisResult))
+        } catch (parseError) {
+          console.error('[DEBUG] JSON parse error:', parseError)
+          console.error('[DEBUG] Failed content:', cleanContent.substring(0, 500))
+          throw parseError
         }
       }
-    }
-
-    // Fallback to RapidAPI (DeepSeek) if GROQ failed
-    if (!analysisResult && rapidApiKey) {
-      try {
-        console.log('[Content Analyzer] Falling back to RapidAPI (DeepSeek) for analysis')
-        const rapidResponse = await fetch(`https://deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com/v1/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-RapidAPI-Key': rapidApiKey,
-            'X-RapidAPI-Host': 'deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com'
-          },
-          body: JSON.stringify({
-            model: 'deepseek-r1-zero',
-            messages: [
-              {
-                role: 'system',
-                content: `You are an expert social media algorithm analyst. Analyze video content for ${platform} and return JSON with: score (0-100), scoreTitle, scoreSummary, insights (array with icon/label/value/description), recommendations (array with priority/category/text), overlays (array with type/description/timing), titles (array of 3), description (string), tags (array of 15-20). Be specific and actionable.`
-              },
-              {
-                role: 'user',
-                content: `Analyze this video for ${platform}:
-${JSON.stringify(videoData, null, 2)}`
-              }
-            ],
-            max_tokens: 2000,
-            temperature: 0.7
-          })
-        })
-
-        if (rapidResponse.ok) {
-          const rapidData = await rapidResponse.json()
-          const content = rapidData.choices?.[0]?.message?.content || ''
-          let cleanContent = content
-          if (content.includes('```')) {
-            cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-          }
-          analysisResult = JSON.parse(cleanContent)
-          analysisSource = 'rapidapi'
-          console.log('[Content Analyzer] RapidAPI analysis completed')
-        } else {
-          const errorText = await rapidResponse.text()
-          console.error('[Content Analyzer] RapidAPI error:', errorText)
-        }
-      } catch (rapidError) {
-        console.error('[Content Analyzer] RapidAPI analysis error:', rapidError)
-      }
-    }
-
-    // Final fallback to Pollinations if both failed
-    if (!analysisResult && pollinationsApiKey) {
-      try {
-        console.log('[Content Analyzer] Falling back to Pollinations for analysis')
-        const pollinationsResponse = await fetch('https://text.pollinations.ai/openai', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${pollinationsApiKey}`
-          },
-          body: JSON.stringify({
-            model: 'openai',
-            messages: [
-              {
-                role: 'system',
-                content: `You are an expert social media algorithm analyst. Analyze video content for ${platform} and return JSON with: score (0-100), scoreTitle, scoreSummary, insights (array with icon/label/value/description), recommendations (array with priority/category/text), overlays (array with type/description/timing), titles (array of 3), description (string), tags (array of 15-20). Be specific and actionable.`
-              },
-              {
-                role: 'user',
-                content: `Analyze this video for ${platform}:
-${JSON.stringify(videoData, null, 2)}`
-              }
-            ],
-            max_tokens: 2000,
-            temperature: 0.7
-          })
-        })
-
-        if (pollinationsResponse.ok) {
-          const pollinationsData = await pollinationsResponse.json()
-          const content = pollinationsData.choices?.[0]?.message?.content || ''
-          let cleanContent = content
-          if (content.includes('```')) {
-            cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-          }
-          analysisResult = JSON.parse(cleanContent)
-          analysisSource = 'pollinations'
-          console.log('[Content Analyzer] Pollinations analysis completed')
-        } else {
-          const errorText = await pollinationsResponse.text()
-          console.error('[Content Analyzer] Pollinations error:', errorText)
-        }
-      } catch (pollinationsError) {
-        console.error('[Content Analyzer] Pollinations analysis error:', pollinationsError)
+    } catch (geminiError: any) {
+      console.error('Gemini 3.1 Pro analysis error:', geminiError)
+      
+      if (geminiError.message?.includes('quota')) {
+        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3.1 Pro API quota exceeded. Please upgrade plan.')
+      } else if (geminiError.message?.includes('permission') || geminiError.message?.includes('unauthorized')) {
+        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3.1 Pro API key invalid or unauthorized.')
+      } else if (geminiError.message?.includes('rate')) {
+        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3.1 Pro API rate limit exceeded.')
+      } else {
+        console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini 3.1 Pro API error - ${geminiError.message || 'Unknown error'}`)
       }
     }
 
     // Only Gemini 3.1 Pro - no fallbacks
     if (!analysisResult) {
-      // Log the error for activity tracking
       console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini 3.1 Pro failed to analyze content`)
       
       return NextResponse.json({ 
@@ -639,12 +259,18 @@ ${JSON.stringify(videoData, null, 2)}`
       }, { status: 503 })
     }
 
-    console.log(`Content Analyzer: Content analysis completed using: ${analysisSource}`)
-
-    // Include extracted data in response for re-analysis
+    console.log('[DEBUG] Returning successful analysis response:', {
+      hasScore: !!analysisResult?.score,
+      hasInsights: !!analysisResult?.insights,
+      hasRecommendations: !!analysisResult?.recommendations,
+      analysisSource: analysisSource,
+      extractedDataSize: JSON.stringify(extractedData).length
+    })
+    
     const response = NextResponse.json({
       ...analysisResult,
-      extractedData: videoData
+      extractedData: extractedData,
+      analysisSource: analysisSource
     })
 
     return response

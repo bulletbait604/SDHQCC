@@ -199,19 +199,25 @@ export async function POST(request: Request) {
                   text: `You are an expert social media algorithm analyst and content strategist. Analyze this video file IN-DEPTH for ${platform} optimization.
 
 CRITICAL ANALYSIS REQUIREMENTS:
-1. **SUBJECT MATTER IDENTIFICATION**: What is the video about? Identify the main topic, theme, niche, and target audience.
+1. **SUBJECT MATTER IDENTIFICATION**: 
+   - What is the video about? Identify main topic, theme, niche, and target audience
+   - Detect if this is gaming content - identify the specific game being played
+   - Detect if this is from a streaming platform (Twitch, YouTube Live, Kick, etc.) - identify the original streaming platform
+   - Identify the content type (gameplay, commentary, tutorial, highlight, montage, vlog, etc.)
 2. **VISUAL ANALYSIS**: 
    - Scene-by-scene breakdown (first 3 seconds, middle, ending)
    - Camera angles, lighting, color grading
    - Visual effects, transitions, text overlays
    - Motion, energy, pacing throughout
    - Thumbnail-worthy moments
+   - Game-specific visual elements (UI, HUD, gameplay mechanics)
 3. **AUDIO ANALYSIS**:
    - Speech/dialogue content (what is being said)
    - Background music genre, mood, energy level
    - Sound effects and their purpose
    - Audio quality (clarity, mixing, volume levels)
    - Voice tone and delivery style
+   - Game audio (sound effects, music, voice lines)
 4. **HOOK ANALYSIS**:
    - What grabs attention in first 1-3 seconds?
    - Is the hook visual, audio, or conceptual?
@@ -223,11 +229,13 @@ CRITICAL ANALYSIS REQUIREMENTS:
    - Comment-worthy elements
 
 PLATFORM-SPECIFIC ALGORITHM PRIORITIES (2026):
-- TikTok: Hook in first 1-2 seconds, completion rate, shares, saves, comments, trending audio, caption keywords
-- Instagram Reels: First 3 seconds engagement, watch time, saves, shares, carousel swipe-through, music trending
-- YouTube Shorts: First 1 second hook, watch time, click-through rate, retention, comments
+- TikTok: Hook in first 1-2 seconds, completion rate, shares, saves, comments, trending audio, caption keywords, niche authority
+- Instagram Reels: First 3 seconds engagement, watch time, saves, shares, carousel swipe-through, music trending, hashtags, Reels tab exploration
+- YouTube Shorts: First 1 second hook, watch time, click-through rate, retention, comments, likes, shares, title optimization, posting schedule
 - Facebook Reels: Early engagement, watch time, shares, comments, trending audio
-- YouTube Long: First 5 seconds hook, retention, click-through rate, comments, likes, shares, title optimization, posting schedule
+- YouTube Long: First 5 seconds hook, retention, click-through rate, comments, likes, shares, title optimization, posting schedule, description keywords
+- Twitch Clips: Highlight moments, community engagement, game/category relevance, editing pace, audio clarity, discoverability through recommendations
+- Kick Clips: Early engagement, community interaction, category relevance, trending topics, audio quality, visual appeal, shareability
 
 SCORING CRITERIA (0-100):
 - Hook strength (first 1-3 seconds): 25 points
@@ -235,6 +243,49 @@ SCORING CRITERIA (0-100):
 - Visual/audio quality: 15 points
 - Platform-specific optimization: 20 points
 - Metadata quality (title/description/tags): 20 points
+
+TAG REQUIREMENTS (15-20 tags total):
+Include a comprehensive mix of:
+1. Platform-specific trending tags (e.g., #fyp, #foryou, #reels, #shorts)
+2. Content-specific tags (what the video is actually about)
+3. Game tags (if gaming content - include the game name and related tags)
+4. Context tags (niche, theme, style, format)
+5. Streaming platform tags (if from a stream - e.g., #twitchclip, #youtubelive)
+6. Broad category tags for discoverability
+7. Niche-specific tags for targeted audience
+
+Return this exact JSON structure:
+{
+  "score": <integer 0-100>,
+  "scoreTitle": "<short title: Excellent/Good/Fair/Needs Improvement>",
+  "scoreSummary": "<2 sentences: main strength + 1 key improvement needed>",
+  "insights": [
+    { "icon": "<emoji>", "label": "Hook Strength", "value": "<rating: Strong/Moderate/Weak>", "description": "<why this rating + specific improvement - NO abbreviations>" },
+    { "icon": "<emoji>", "label": "Engagement Potential", "value": "<rating: High/Medium/Low>", "description": "<factors affecting engagement + specific boost - NO abbreviations>" },
+    { "icon": "<emoji>", "label": "Visual Quality", "value": "<rating: Professional/Good/Fair>", "description": "<production assessment + specific fix - NO abbreviations>" },
+    { "icon": "<emoji>", "label": "Audio Quality", "value": "<rating: Clear/Muffled/Unbalanced>", "description": "<sound assessment + specific fix - NO abbreviations>" }
+  ],
+  "recommendations": [
+    { "priority": "high", "category": "Hook", "text": "<specific, actionable hook improvement - NO abbreviations>" },
+    { "priority": "high", "category": "Pacing", "text": "<specific pacing adjustment - NO abbreviations>" },
+    { "priority": "med",  "category": "Visual", "text": "<specific visual enhancement - NO abbreviations>" },
+    { "priority": "med",  "category": "Audio", "text": "<specific audio improvement - NO abbreviations>" },
+    { "priority": "low",  "category": "Metadata", "text": "<specific metadata optimization - NO abbreviations>" }
+  ],
+  "overlays": [
+    { "type": "text",   "description": "<specific text overlay suggestion - NO abbreviations>", "timing": "<exact timestamp>" },
+    { "type": "sound",  "description": "<specific audio/music suggestion - NO abbreviations>", "timing": "<exact timestamp>" },
+    { "type": "visual", "description": "<specific visual effect or edit - NO abbreviations>", "timing": "<exact timestamp>" },
+    { "type": "cta",    "description": "<specific call-to-action - NO abbreviations>", "timing": "<exact timestamp>" }
+  ],
+  "titles": [
+    "<optimized title option 1: 50-60 chars max, strong hook + keywords>",
+    "<optimized title option 2: 50-60 chars max, strong hook + keywords>",
+    "<optimized title option 3: 50-60 chars max, strong hook + keywords>"
+  ],
+  "description": "<optimized description: 150-200 characters, keywords + call to action, platform-optimized - NO abbreviations>",
+  "tags": ["<15-20 specific, relevant hashtags for platform - mix of platform, content, game, context, and streaming tags>"]
+}
 
 IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside the JSON.
 `
