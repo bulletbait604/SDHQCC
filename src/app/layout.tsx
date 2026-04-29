@@ -16,8 +16,30 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <div className="min-h-screen bg-gradient-to-br from-sdhq-cyan-50 via-white to-sdhq-green-50">
-          {children}
+        <div className="min-h-screen bg-gradient-to-br from-sdhq-cyan-50 via-white to-sdhq-green-50 flex flex-col">
+          <main className="flex-grow">
+            {children}
+          </main>
+          <footer className="bg-gradient-to-r from-sdhq-cyan-600 to-sdhq-green-500 text-white py-4 px-6">
+            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-sm opacity-90">
+                © {new Date().getFullYear()} SDHQ Creator Corner. All rights reserved.
+              </div>
+              <form action="https://www.paypal.com/donate" method="post" target="_blank" className="flex items-center gap-3">
+                <input type="hidden" name="amount" value="5" />
+                <span className="text-sm">Support us:</span>
+                <button
+                  type="submit"
+                  className="bg-white text-sdhq-cyan-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-sdhq-cyan-50 transition-colors flex items-center gap-2 shadow-md"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944 3.72a.77.77 0 0 1 .757-.629h6.713c2.838 0 5.098.835 5.838 2.44.61 1.336.397 2.838-.61 4.384-.983 1.51-2.587 2.537-4.655 2.943l-.034.006h.034c2.948.622 5.098 2.024 6.03 4.66.468 1.28.468 2.54.02 3.686-.92 2.4-3.194 3.725-6.665 3.868l-.034.004H7.076z"/>
+                  </svg>
+                  Donate $5
+                </button>
+              </form>
+            </div>
+          </footer>
         </div>
       </body>
     </html>
