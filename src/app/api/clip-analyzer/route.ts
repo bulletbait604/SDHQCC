@@ -32,11 +32,12 @@ export async function POST(request: Request) {
     const userId = formData.get('userId') as string
     const userType = formData.get('userType') as string
 
-    console.log('Clip Analyzer API: Form data received:', { 
+    console.log('[DEBUG] Clip Analyzer API: Form data received:', { 
       hasFile: !!file, 
       platform, 
       userId, 
-      userType 
+      userType,
+      timestamp: new Date().toISOString()
     })
 
     let fileData: { name: string; size: number; type: string; buffer?: Buffer } | null = null
@@ -66,6 +67,11 @@ export async function POST(request: Request) {
         type: file.type,
         buffer: Buffer.from(arrayBuffer)
       }
+      console.log('[DEBUG] File processed:', { 
+        name: fileData.name, 
+        sizeMB: (fileData.size / (1024 * 1024)).toFixed(2),
+        type: fileData.type 
+      })
     } else {
       return NextResponse.json({ error: 'File or fileKey is required' }, { status: 400 })
     }
@@ -86,9 +92,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Access denied. Subscription required.' }, { status: 403 })
     }
 
+    console.log('[DEBUG] Rate limiting:', { identifier, maxUses, userType })
+    
     const rateLimit = checkRateLimit(`clip-analyzer-${identifier}`, maxUses)
+    
+    console.log('[DEBUG] Rate limit result:', { allowed: rateLimit.allowed, remaining: rateLimit.remaining })
 
     if (!rateLimit.allowed) {
+      console.log('[ACTIVITY_LOG] Clip Analyzer: Rate limit exceeded for', identifier)
       return NextResponse.json(
         { error: 'Rate limit exceeded. You have used your daily limit.', resetTime: rateLimit.resetTime },
         { status: 429 }
@@ -235,17 +246,26 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         
         // Parse the response from Google GenAI SDK
         const content = geminiResponse.text || ''
+        console.log('[DEBUG] Gemini raw response length:', content.length)
+        console.log('[DEBUG] Gemini response preview:', content.substring(0, 200))
         
         if (content) {
           // Parse JSON from response (handle markdown code blocks if present)
           let cleanContent = content
           if (content.includes('```')) {
             cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+            console.log('[DEBUG] Removed markdown code blocks from response')
           }
           
-          analysisResult = JSON.parse(cleanContent)
-          analysisSource = 'gemini-3.1-pro'
-          console.log('✅ Gemini 3.1 Pro video analysis successful')
+          try {
+            analysisResult = JSON.parse(cleanContent)
+            analysisSource = 'gemini-3.1-pro'
+            console.log('✅ [DEBUG] Gemini 3.1 Pro video analysis successful - parsed JSON with keys:', Object.keys(analysisResult))
+          } catch (parseError) {
+            console.error('[DEBUG] JSON parse error:', parseError)
+            console.error('[DEBUG] Failed content:', cleanContent.substring(0, 500))
+            throw parseError
+          }
         }
       } catch (geminiError: any) {
         console.error('Gemini 3.1 Pro analysis error:', geminiError)
@@ -285,6 +305,14 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
     }
 
     // Return analysis results
+    console.log('[DEBUG] Returning successful analysis response:', {
+      hasScore: !!analysisResult?.score,
+      hasInsights: !!analysisResult?.insights,
+      hasRecommendations: !!analysisResult?.recommendations,
+      analysisSource: analysisSource,
+      extractedDataSize: JSON.stringify(extractedData).length
+    })
+    
     const response = NextResponse.json({
       ...analysisResult,
       extractedData: extractedData,
