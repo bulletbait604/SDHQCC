@@ -25,133 +25,263 @@ function checkRateLimit(identifier: string, maxUses: number = 5, windowMs: numbe
   return { allowed: true, remaining: maxUses - userLimit.count, resetTime: userLimit.resetTime }
 }
 
-// Generate tags using Groq API
-async function generateTagsWithRapidAPI(description: string, platform: string, count: number): Promise<string[]> {
-  const apiKey = process.env.GROQ_API_KEY || process.env.HUGGINGFACE_TOKEN || process.env.RAPID_API_UNLIMITED_GPT || process.env.RAPIDAPI || process.env.RAPID_API_KEY
-  const modelName = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
+// Generate tags using DeepSeek via RapidAPI
+async function generateTagsWithDeepSeek(description: string, platform: string, count: number): Promise<string[]> {
+  const rapidApiKey = process.env.RAPID_API_KEY
   
-  const apiUrl = 'https://api.groq.com/openai/v1/chat/completions'
-  
-  console.log('API Key present:', !!apiKey)
-  console.log('API Key length:', apiKey?.length)
-  console.log('API Key prefix:', apiKey?.substring(0, 5))
-  console.log('Model:', modelName)
-  
-  if (!apiKey) {
-    throw new Error('Groq API key not configured')
+  if (!rapidApiKey) {
+    throw new Error('RAPID_API_KEY not configured')
   }
   
-  try {
-    console.log(`Calling Groq API: ${apiUrl}`)
-    
-    const platformContext: Record<string, string> = {
-      'tiktok': 'TikTok',
-      'instagram': 'Instagram',
-      'youtube-shorts': 'YouTube Shorts',
-      'youtube-long': 'YouTube',
-      'facebook-reels': 'Facebook Reels'
-    }
-    
-    const platformName = platformContext[platform.toLowerCase()] || platform
-    
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout for Groq
-    
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: modelName,
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert social media algorithm analyst and hashtag generator. You MUST generate DIFFERENT hashtags for each platform based on their unique algorithms and audience behaviors. The same content should have completely different hashtag strategies for TikTok vs Instagram vs YouTube.
+  const platformContext: Record<string, string> = {
+    'tiktok': 'TikTok',
+    'instagram': 'Instagram',
+    'youtube-shorts': 'YouTube Shorts',
+    'youtube-long': 'YouTube',
+    'facebook-reels': 'Facebook Reels'
+  }
+  
+  const platformName = platformContext[platform.toLowerCase()] || platform
+  
+  const response = await fetch('https://deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-RapidAPI-Key': rapidApiKey,
+      'X-RapidAPI-Host': 'deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com'
+    },
+    body: JSON.stringify({
+      model: 'deepseek-r1-zero',
+      messages: [
+        {
+          role: 'system',
+          content: `You are an expert social media algorithm analyst and hashtag generator. Generate DIFFERENT hashtags for each platform based on their unique algorithms.
 
-CRITICAL: Always analyze the platform first, then generate platform-specific hashtags. Never use the same tags across platforms.
-
-Platform-specific examples:
-- TikTok gaming content: ["fyp", "gaming", "viral", "trending", "fps", "gamer"]
-- Instagram gaming content: ["gamingcommunity", "gamersofinstagram", "esports", "gaminglife", "videogames", "pcgaming"]
-- YouTube Shorts gaming: ["shorts", "gamingclips", "viralshorts", "gamingshorts", "fpsgame", "trending"]
-- Facebook Reels gaming: ["gaming", "videogames", "gamingcommunity", "facebookgaming", "gamers", "entertainment"]
-
-Platform-specific strategies:
-- TikTok: Focus on discovery (fyp, viral, trending) + niche tags. 3-5 tags, broad reach focus.
-- Instagram: Focus on community + niche + aesthetic tags. 10-30 tags, engagement focus.
-- YouTube Shorts: Focus on SEO + viral + content type tags. Mix of search and discovery.
-- YouTube Long-form: Focus on SEO + topic + search intent tags. Search optimization.
-- Facebook Reels: Focus on community + trending + entertainment tags. Social engagement.
+Platform strategies:
+- TikTok: discovery (fyp, viral, trending) + niche tags. 3-5 tags.
+- Instagram: community + niche + aesthetic tags. 10-30 tags.
+- YouTube Shorts: SEO + viral + content type tags.
+- YouTube Long: SEO + topic + search intent tags.
+- Facebook Reels: community + trending + entertainment tags.
 
 Return only valid JSON arrays of lowercase strings without # symbols.`
-          },
-          {
-            role: 'user',
-            content: `Platform: ${platformName}
+        },
+        {
+          role: 'user',
+          content: `Platform: ${platformName}
 Content: "${description}"
 Number of tags: ${count}
 
-Generate ${count} hashtags SPECIFICALLY for ${platformName}. Do NOT use generic tags - make them tailored to ${platformName}'s algorithm and audience.
+Generate ${count} hashtags SPECIFICALLY for ${platformName}.
 
-Think step by step:
-1. What is ${platformName}'s algorithm priority? (discovery, engagement, search, community)
-2. What types of hashtags perform best on ${platformName}?
-3. How should I balance broad vs specific tags for ${platformName}?
-4. What are the optimal tag characteristics for ${platformName}?
-
-Return exactly ${count} tags as a JSON array: ["tag1", "tag2", "tag3", ...]`
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 500
-      })
+Return exactly ${count} tags as JSON: ["tag1", "tag2", ...]`
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 500
     })
-    
-    clearTimeout(timeout)
-    
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Groq error: ${response.status} - ${errorText}`)
-    }
-    
-    const data = await response.json()
-    const content = data.choices?.[0]?.message?.content
-    
-    if (!content) {
-      throw new Error('No content in Groq response')
-    }
-    
-    let tags: string[]
-    try {
-      tags = JSON.parse(content)
-      if (!Array.isArray(tags)) {
-        throw new Error('Response is not an array')
-      }
-    } catch (e) {
-      const match = content.match(/\[([^\]]+)\]/)
-      if (match) {
-        tags = match[1].split(',').map((t: string) => t.trim().replace(/["']/g, ''))
-      } else {
-        tags = content.split(/[,;\n]/).map((t: string) => t.trim().replace(/[#"']/g, '')).filter((t: string) => t.length > 0)
-      }
-    }
-    
-    const cleanedTags = tags
-      .map((tag: string) => tag.toLowerCase().replace(/[^a-z0-9_]/g, ''))
-      .filter((tag: string) => tag.length > 2)
-      .slice(0, count)
-    
-    if (cleanedTags.length === 0) {
-      return [platformName.toLowerCase().replace(/\s/g, ''), 'content', 'viral', 'trending']
-    }
-    
-    return cleanedTags
-  } catch (error) {
-    throw error instanceof Error ? error : new Error(String(error))
+  })
+  
+  if (!response.ok) {
+    throw new Error(`DeepSeek error: ${response.status}`)
   }
+  
+  const data = await response.json()
+  const content = data.choices?.[0]?.message?.content
+  
+  if (!content) {
+    throw new Error('No content in DeepSeek response')
+  }
+  
+  return parseTagResponse(content, platformName, count)
+}
+
+// Fallback: Groq API
+async function generateTagsWithGroq(description: string, platform: string, count: number): Promise<string[]> {
+  const groqApiKey = process.env.GROQ_API_KEY
+  
+  if (!groqApiKey) {
+    throw new Error('GROQ_API_KEY not configured')
+  }
+  
+  const modelName = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
+  
+  const platformContext: Record<string, string> = {
+    'tiktok': 'TikTok',
+    'instagram': 'Instagram',
+    'youtube-shorts': 'YouTube Shorts',
+    'youtube-long': 'YouTube',
+    'facebook-reels': 'Facebook Reels'
+  }
+  
+  const platformName = platformContext[platform.toLowerCase()] || platform
+  
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 30000)
+  
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${groqApiKey}`
+    },
+    signal: controller.signal,
+    body: JSON.stringify({
+      model: modelName,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert hashtag generator. Return only valid JSON arrays.'
+        },
+        {
+          role: 'user',
+          content: `Platform: ${platformName}\nContent: "${description}"\nGenerate ${count} hashtags for ${platformName}. Return JSON: ["tag1", ...]`
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 500
+    })
+  })
+  
+  clearTimeout(timeout)
+  
+  if (!response.ok) {
+    throw new Error(`Groq error: ${response.status}`)
+  }
+  
+  const data = await response.json()
+  const content = data.choices?.[0]?.message?.content
+  
+  if (!content) {
+    throw new Error('No content in Groq response')
+  }
+  
+  return parseTagResponse(content, platformName, count)
+}
+
+// Backup: Pollinations API
+async function generateTagsWithPollinations(description: string, platform: string, count: number): Promise<string[]> {
+  const pollinationsApiKey = process.env.POLLINATIONS_API_KEY
+  
+  if (!pollinationsApiKey) {
+    throw new Error('POLLINATIONS_API_KEY not configured')
+  }
+  
+  const platformContext: Record<string, string> = {
+    'tiktok': 'TikTok',
+    'instagram': 'Instagram',
+    'youtube-shorts': 'YouTube Shorts',
+    'youtube-long': 'YouTube',
+    'facebook-reels': 'Facebook Reels'
+  }
+  
+  const platformName = platformContext[platform.toLowerCase()] || platform
+  
+  const response = await fetch('https://text.pollinations.ai/openai', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${pollinationsApiKey}`
+    },
+    body: JSON.stringify({
+      model: 'openai',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert hashtag generator. Return only valid JSON arrays.'
+        },
+        {
+          role: 'user',
+          content: `Platform: ${platformName}\nContent: "${description}"\nGenerate ${count} hashtags for ${platformName}. Return JSON: ["tag1", ...]`
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 500
+    })
+  })
+  
+  if (!response.ok) {
+    throw new Error(`Pollinations error: ${response.status}`)
+  }
+  
+  const data = await response.json()
+  const content = data.choices?.[0]?.message?.content
+  
+  if (!content) {
+    throw new Error('No content in Pollinations response')
+  }
+  
+  return parseTagResponse(content, platformName, count)
+}
+
+// Parse tag response from any AI provider
+function parseTagResponse(content: string, platformName: string, count: number): string[] {
+  let tags: string[]
+  try {
+    tags = JSON.parse(content)
+    if (!Array.isArray(tags)) {
+      throw new Error('Response is not an array')
+    }
+  } catch (e) {
+    const match = content.match(/\[([^\]]+)\]/)
+    if (match) {
+      tags = match[1].split(',').map((t: string) => t.trim().replace(/["']/g, ''))
+    } else {
+      tags = content.split(/[,;\n]/).map((t: string) => t.trim().replace(/[#"']/g, '')).filter((t: string) => t.length > 0)
+    }
+  }
+  
+  const cleanedTags = tags
+    .map((tag: string) => tag.toLowerCase().replace(/[^a-z0-9_]/g, ''))
+    .filter((tag: string) => tag.length > 2)
+    .slice(0, count)
+  
+  if (cleanedTags.length === 0) {
+    return [platformName.toLowerCase().replace(/\s/g, ''), 'content', 'viral', 'trending']
+  }
+  
+  return cleanedTags
+}
+
+// Main tag generation with cascading fallbacks
+async function generateTags(description: string, platform: string, count: number): Promise<{ tags: string[], provider: string }> {
+  // Try DeepSeek first
+  if (process.env.RAPID_API_KEY) {
+    try {
+      console.log('[Tags] Trying DeepSeek...')
+      const tags = await generateTagsWithDeepSeek(description, platform, count)
+      console.log('[Tags] DeepSeek succeeded')
+      return { tags, provider: 'deepseek' }
+    } catch (error) {
+      console.error('[Tags] DeepSeek failed:', error)
+    }
+  }
+  
+  // Fallback to Groq
+  if (process.env.GROQ_API_KEY) {
+    try {
+      console.log('[Tags] Falling back to Groq...')
+      const tags = await generateTagsWithGroq(description, platform, count)
+      console.log('[Tags] Groq succeeded')
+      return { tags, provider: 'groq' }
+    } catch (error) {
+      console.error('[Tags] Groq failed:', error)
+    }
+  }
+  
+  // Final fallback to Pollinations
+  if (process.env.POLLINATIONS_API_KEY) {
+    try {
+      console.log('[Tags] Falling back to Pollinations...')
+      const tags = await generateTagsWithPollinations(description, platform, count)
+      console.log('[Tags] Pollinations succeeded')
+      return { tags, provider: 'pollinations' }
+    } catch (error) {
+      console.error('[Tags] Pollinations failed:', error)
+    }
+  }
+  
+  throw new Error('All AI providers failed for tag generation')
 }
 
 // GET endpoint - retrieve tag database status
@@ -226,8 +356,8 @@ export async function POST(request: Request) {
       }
     }
     
-    // Generate tags using RapidAPI
-    const tags = await generateTagsWithRapidAPI(description, platform, count)
+    // Generate tags with cascading fallbacks
+    const { tags, provider } = await generateTags(description, platform, count)
     
     // Add artificial delay to simulate processing
     await new Promise(resolve => setTimeout(resolve, 2000))
@@ -236,7 +366,7 @@ export async function POST(request: Request) {
       tags,
       platform,
       count: tags.length,
-      algorithm: 'groq',
+      provider: provider,
       rateLimit: isAdmin ? { remaining: -1, resetTime: null } : {
         remaining: rateLimitResult!.remaining,
         resetTime: rateLimitResult!.resetTime,
@@ -246,17 +376,9 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    const apiKey = process.env.RAPID_API_UNLIMITED_GPT || process.env.RAPIDAPI || process.env.RAPID_API_KEY
     return NextResponse.json({ 
       error: 'Failed to generate tags', 
-      details: errorMessage,
-      debug: {
-        apiKeyPresent: !!apiKey,
-        apiKeyLength: apiKey?.length || 0,
-        apiKeyPrefix: apiKey?.substring(0, 5) || 'none',
-        apiUrl: process.env.RAPID_API_URL || 'https://openai-chatgpt-gpt-api.p.rapidapi.com/v1/chat/completions',
-        apiHost: process.env.RAPID_API_HOST || 'openai-chatgpt-gpt-api.p.rapidapi.com'
-      }
+      details: errorMessage
     }, { status: 500 })
   }
 }

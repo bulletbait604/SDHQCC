@@ -108,13 +108,9 @@ async function writeData(data: any) {
   }
 }
 
-async function researchAlgorithm(platform: string, apiKey: string, retries: number = 3, maxTokens: number = 1000): Promise<any> {
-  const modelName = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
-  const apiUrl = 'https://api.groq.com/openai/v1/chat/completions'
-
-  for (let attempt = 0; attempt < retries; attempt++) {
-    try {
-      const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
+// Primary: DeepSeek via RapidAPI
+async function researchWithDeepSeek(platform: string, rapidApiKey: string, maxTokens: number = 1000): Promise<any> {
+  const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
 {
   "keyChanges": "Summary of key changes in how the algorithm works",
   "editingTips": "Tips for editing content for ${platform}",
@@ -131,73 +127,205 @@ async function researchAlgorithm(platform: string, apiKey: string, retries: numb
 
 Focus on recent changes and best practices as of 2026. Be specific and actionable. The summaries should be punchy, platform-specific takeaways that make users want to click Read More.`
 
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 90000) // 90 second timeout for Groq
+  const response = await fetch('https://deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-RapidAPI-Key': rapidApiKey,
+      'X-RapidAPI-Host': 'deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com'
+    },
+    body: JSON.stringify({
+      model: 'deepseek-r1-zero',
+      messages: [
+        { role: 'system', content: 'You are an expert in social media algorithms and content optimization. Provide specific, actionable advice based on current best practices. Return only valid JSON without markdown code blocks.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7,
+      max_tokens: maxTokens
+    })
+  })
 
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: modelName,
-          messages: [
-            { role: 'system', content: 'You are an expert in social media algorithms and content optimization. Provide specific, actionable advice based on current best practices. Return only valid JSON without markdown code blocks.' },
-            { role: 'user', content: prompt }
-          ],
-          temperature: 0.7,
-          max_tokens: maxTokens
-        })
-      })
+  if (!response.ok) {
+    throw new Error(`DeepSeek error: ${response.status}`)
+  }
 
-      clearTimeout(timeout)
+  const data = await response.json()
+  const content = data.choices?.[0]?.message?.content
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`Groq error response: ${errorText}`)
+  if (!content) {
+    throw new Error('No content in DeepSeek response')
+  }
 
-        // Handle rate limit error specifically
-        if (response.status === 429) {
-          const match = errorText.match(/Please try again in ([\d.]+)s/)
-          const waitTime = match ? parseFloat(match[1]) * 1000 : 30000
-          await new Promise(resolve => setTimeout(resolve, waitTime))
-          throw new Error(`Rate limit exceeded, waited ${waitTime}ms`)
-        }
+  // Strip markdown code blocks if present
+  let cleanContent = content
+  if (content.includes('```')) {
+    cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+  }
 
-        throw new Error(`Groq error: ${response.status} - ${errorText}`)
-      }
+  return JSON.parse(cleanContent || '{}')
+}
 
-      const data = await response.json()
-      const content = data.choices?.[0]?.message?.content
+// Fallback: Groq API
+async function researchWithGroq(platform: string, groqApiKey: string, maxTokens: number = 1000): Promise<any> {
+  const modelName = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
+  
+  const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
+{
+  "keyChanges": "Summary of key changes in how the algorithm works",
+  "editingTips": "Tips for editing content for ${platform}",
+  "postingTips": "Tips for when to post and posting frequency",
+  "titleTips": "Tips for creating effective titles",
+  "descriptionTips": "Tips for writing descriptions",
+  "summaries": [
+    "First key insight specific to ${platform} - max 6 words",
+    "Second insight about ${platform} algorithm - max 6 words",
+    "Third tip for ${platform} growth - max 6 words",
+    "Fourth strategy for ${platform} - max 6 words"
+  ]
+}
 
-      if (!content) {
-        throw new Error('No content in Groq response')
-      }
+Focus on recent changes and best practices as of 2026. Be specific and actionable.`
 
-      // Strip markdown code blocks if present
-      let cleanContent = content
-      if (content.includes('```')) {
-        cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-      }
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 90000)
 
-      const parsed = JSON.parse(cleanContent || '{}')
-      return parsed
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${groqApiKey}`
+    },
+    signal: controller.signal,
+    body: JSON.stringify({
+      model: modelName,
+      messages: [
+        { role: 'system', content: 'You are an expert in social media algorithms. Return only valid JSON.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7,
+      max_tokens: maxTokens
+    })
+  })
+
+  clearTimeout(timeout)
+
+  if (!response.ok) {
+    throw new Error(`Groq error: ${response.status}`)
+  }
+
+  const data = await response.json()
+  const content = data.choices?.[0]?.message?.content
+
+  if (!content) {
+    throw new Error('No content in Groq response')
+  }
+
+  let cleanContent = content
+  if (content.includes('```')) {
+    cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+  }
+
+  return JSON.parse(cleanContent || '{}')
+}
+
+// Backup: Pollinations API
+async function researchWithPollinations(platform: string, pollinationsApiKey: string, maxTokens: number = 1000): Promise<any> {
+  const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
+{
+  "keyChanges": "Summary of key changes in how the algorithm works",
+  "editingTips": "Tips for editing content for ${platform}",
+  "postingTips": "Tips for when to post and posting frequency",
+  "titleTips": "Tips for creating effective titles",
+  "descriptionTips": "Tips for writing descriptions",
+  "summaries": [
+    "First key insight specific to ${platform} - max 6 words",
+    "Second insight about ${platform} algorithm - max 6 words",
+    "Third tip for ${platform} growth - max 6 words",
+    "Fourth strategy for ${platform} - max 6 words"
+  ]
+}
+
+Focus on recent changes and best practices as of 2026.`
+
+  const response = await fetch('https://text.pollinations.ai/openai', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${pollinationsApiKey}`
+    },
+    body: JSON.stringify({
+      model: 'openai',
+      messages: [
+        { role: 'system', content: 'You are an expert in social media algorithms. Return only valid JSON.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7,
+      max_tokens: maxTokens
+    })
+  })
+
+  if (!response.ok) {
+    throw new Error(`Pollinations error: ${response.status}`)
+  }
+
+  const data = await response.json()
+  const content = data.choices?.[0]?.message?.content
+
+  if (!content) {
+    throw new Error('No content in Pollinations response')
+  }
+
+  let cleanContent = content
+  if (content.includes('```')) {
+    cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+  }
+
+  return JSON.parse(cleanContent || '{}')
+}
+
+// Main research function with cascading fallbacks
+async function researchAlgorithm(platform: string, maxTokens: number = 1000): Promise<any> {
+  const rapidApiKey = process.env.RAPID_API_KEY
+  const groqApiKey = process.env.GROQ_API_KEY
+  const pollinationsApiKey = process.env.POLLINATIONS_API_KEY
+
+  // Try DeepSeek (RapidAPI) first
+  if (rapidApiKey) {
+    try {
+      console.log(`[Algorithms] Trying DeepSeek for ${platform}...`)
+      const result = await researchWithDeepSeek(platform, rapidApiKey, maxTokens)
+      console.log(`[Algorithms] DeepSeek succeeded for ${platform}`)
+      return { ...result, provider: 'deepseek' }
     } catch (error) {
-      console.error(`Groq API failed for ${platform} (attempt ${attempt + 1}/${retries}):`, error)
-
-      if (attempt < retries - 1) {
-        // Wait before retrying (exponential backoff)
-        const delay = Math.pow(2, attempt) * 2000
-        await new Promise(resolve => setTimeout(resolve, delay))
-      } else {
-        throw new Error(`Failed to research ${platform} after ${retries} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      }
+      console.error(`[Algorithms] DeepSeek failed for ${platform}:`, error)
     }
   }
-  
-  return null
+
+  // Fallback to Groq
+  if (groqApiKey) {
+    try {
+      console.log(`[Algorithms] Falling back to Groq for ${platform}...`)
+      const result = await researchWithGroq(platform, groqApiKey, maxTokens)
+      console.log(`[Algorithms] Groq succeeded for ${platform}`)
+      return { ...result, provider: 'groq' }
+    } catch (error) {
+      console.error(`[Algorithms] Groq failed for ${platform}:`, error)
+    }
+  }
+
+  // Final fallback to Pollinations
+  if (pollinationsApiKey) {
+    try {
+      console.log(`[Algorithms] Falling back to Pollinations for ${platform}...`)
+      const result = await researchWithPollinations(platform, pollinationsApiKey, maxTokens)
+      console.log(`[Algorithms] Pollinations succeeded for ${platform}`)
+      return { ...result, provider: 'pollinations' }
+    } catch (error) {
+      console.error(`[Algorithms] Pollinations failed for ${platform}:`, error)
+    }
+  }
+
+  throw new Error(`All AI providers failed for ${platform}`)
 }
 
 // Placeholder data to show until AI research completes
@@ -284,10 +412,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const apiKey = process.env.GROQ_API_KEY || process.env.HUGGINGFACE_TOKEN || process.env.RAPID_API_UNLIMITED_GPT || process.env.RAPIDAPI || process.env.RAPID_API_KEY
-
-  if (!apiKey) {
-    return NextResponse.json({ error: 'No API key configured. Please set GROQ_API_KEY' }, { status: 500 })
+  // Check that at least one AI provider is configured
+  const hasProvider = process.env.RAPID_API_KEY || process.env.GROQ_API_KEY || process.env.POLLINATIONS_API_KEY
+  
+  if (!hasProvider) {
+    return NextResponse.json({ error: 'No AI API key configured. Please set RAPID_API_KEY, GROQ_API_KEY, or POLLINATIONS_API_KEY' }, { status: 500 })
   }
 
   const body = await request.json()
@@ -304,13 +433,19 @@ export async function POST(request: Request) {
 
   // Use higher max_tokens for single platform refresh, lower for all platforms
   const maxTokens = platformId ? 2500 : 1000
+  
+  // Track which provider was used
+  const providersUsed: string[] = []
 
   for (const platform of platformsToRefresh) {
     try {
-      const result = await researchAlgorithm(platform.name, apiKey, 3, maxTokens)
+      const result = await researchAlgorithm(platform.name, maxTokens)
 
       if (result) {
         data.data[platform.id] = result
+        if (result.provider && !providersUsed.includes(result.provider)) {
+          providersUsed.push(result.provider)
+        }
       } else {
         errors.push(`${platform.name}: No data returned`)
       }
@@ -328,7 +463,7 @@ export async function POST(request: Request) {
   }
 
   data.lastUpdated = new Date().toISOString()
-  data.provider = 'groq'
+  data.provider = providersUsed.join(', ') || 'unknown'
   data.errors = errors.length > 0 ? errors : undefined
 
   await writeData(data)

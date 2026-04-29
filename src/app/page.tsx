@@ -3195,9 +3195,6 @@ export default function HomePage() {
                               <h4 className={`text-sm font-semibold tracking-wider uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                 Content Insights
                               </h4>
-                              <div className={`text-lg font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                {Math.round((clipAnalysisResult.score || 0) * 0.25)}
-                              </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 justify-center">
                               {(clipAnalysisResult.insights || []).map((insight: any, idx: number) => (
@@ -3237,9 +3234,6 @@ export default function HomePage() {
                               <h4 className={`text-sm font-semibold tracking-wider uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                 Algorithm Recommendations
                               </h4>
-                              <div className={`text-lg font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                {Math.round((clipAnalysisResult.score || 0) * 0.2)}
-                              </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 justify-center">
                               {(clipAnalysisResult.recommendations || []).map((rec: any, idx: number) => (
@@ -3796,9 +3790,6 @@ export default function HomePage() {
                               <h4 className={`text-sm font-semibold tracking-wider uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                 Content Insights
                               </h4>
-                              <div className={`text-lg font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                {Math.round((contentAnalysisResult.score || 0) * 0.25)}
-                              </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 justify-center">
                               {(contentAnalysisResult.insights || []).map((insight: any, idx: number) => (
@@ -3838,9 +3829,6 @@ export default function HomePage() {
                               <h4 className={`text-sm font-semibold tracking-wider uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                 Algorithm Recommendations
                               </h4>
-                              <div className={`text-lg font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                {Math.round((contentAnalysisResult.score || 0) * 0.2)}
-                              </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 justify-center">
                               {(contentAnalysisResult.recommendations || []).map((rec: any, idx: number) => (

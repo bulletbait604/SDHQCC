@@ -401,104 +401,27 @@ Do NOT pretend to analyze video content you cannot see.`
       }
     }
 
-    // Fallback to RapidAPI if GROQ failed or is not available
-    if (!analysisResult && rapidApiKey) {
+    // Fallback to Pollinations if GROQ failed (final backup)
+    const pollinationsApiKey = process.env.POLLINATIONS_API_KEY
+    if (!analysisResult && pollinationsApiKey) {
       try {
-        const rapidResponse = await fetch(`https://deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com/v1/chat/completions`, {
+        console.log('[Clip Analyzer] Falling back to Pollinations for analysis')
+        const pollinationsResponse = await fetch('https://text.pollinations.ai/openai', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-RapidAPI-Key': rapidApiKey,
-            'X-RapidAPI-Host': 'deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com'
+            'Authorization': `Bearer ${pollinationsApiKey}`
           },
           body: JSON.stringify({
-            model: 'deepseek-r1-zero',
+            model: 'openai',
             messages: [
               {
                 role: 'system',
-                content: `You are an expert social media algorithm analyst and content optimization specialist. Your task is to analyze video content and provide specific, actionable recommendations for ${platform}.
-
-PLATFORM-SPECIFIC ALGORITHM PRIORITIES (2026):
-- TikTok: Hook in first 1-2 seconds, completion rate (watch to end), shares, saves, comments, trending audio usage, caption keywords, posting consistency, niche authority
-- Instagram Reels: First 3 seconds engagement, watch time, saves, shares, carousel swipe-through, music trending, hashtags, Reels tab exploration, consistency
-- YouTube Shorts: First 1 second hook, watch time, click-through rate, retention, comments, likes, shares, title optimization, posting schedule
-- Facebook Reels: Early engagement, watch time, shares, comments, trending audio, hashtags, Reels tab exploration
-- YouTube Long: First 5 seconds hook, retention, click-through rate, comments, likes, shares, title optimization, description keywords, posting schedule
-
-SCORING CRITERIA (0-100):
-- Hook strength (first 1-3 seconds): 25 points
-- Content engagement potential: 20 points
-- Visual/audio quality: 15 points
-- Platform-specific optimization: 20 points
-- Metadata quality (title/description/tags): 20 points
-
-IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside the JSON.
-
-Return this exact structure:
-{
-  "score": <integer 0-100>,
-  "scoreTitle": "<short title: Excellent/Good/Fair/Needs Improvement>",
-  "scoreSummary": "<2 sentences: main strength + 1 key improvement needed>",
-  "insights": [
-    { "icon": "<emoji>", "label": "Hook Strength", "value": "<rating: Strong/Moderate/Weak>", "description": "<why this rating + specific improvement - NO abbreviations>" },
-    { "icon": "<emoji>", "label": "Engagement Potential", "value": "<rating: High/Medium/Low>", "description": "<factors affecting engagement + specific boost - NO abbreviations>" },
-    { "icon": "<emoji>", "label": "Visual Quality", "value": "<rating: Professional/Good/Fair>", "description": "<production assessment + specific fix - NO abbreviations>" },
-    { "icon": "<emoji>", "label": "Audio Quality", "value": "<rating: Clear/Muffled/Unbalanced>", "description": "<sound assessment + specific fix - NO abbreviations>" }
-  ],
-  "recommendations": [
-    { "priority": "high", "category": "Hook", "text": "<specific, actionable hook improvement - NO abbreviations>" },
-    { "priority": "high", "category": "Pacing", "text": "<specific pacing adjustment - NO abbreviations>" },
-    { "priority": "med",  "category": "Visual", "text": "<specific visual enhancement - NO abbreviations>" },
-    { "priority": "med",  "category": "Audio", "text": "<specific audio improvement - NO abbreviations>" },
-    { "priority": "low",  "category": "Metadata", "text": "<specific metadata optimization - NO abbreviations>" }
-  ],
-  "overlays": [
-    { "type": "text",   "description": "<specific text overlay suggestion - NO abbreviations>", "timing": "<exact timestamp>" },
-    { "type": "sound",  "description": "<specific audio/music suggestion - NO abbreviations>", "timing": "<exact timestamp>" },
-    { "type": "visual", "description": "<specific visual effect or edit - NO abbreviations>", "timing": "<exact timestamp>" },
-    { "type": "cta",    "description": "<specific call-to-action - NO abbreviations>", "timing": "<exact timestamp>" }
-  ],
-  "titles": [
-    "<optimized title option 1: 50-60 chars max, strong hook + keywords>",
-    "<optimized title option 2: 50-60 chars max, strong hook + keywords>",
-    "<optimized title option 3: 50-60 chars max, strong hook + keywords>"
-  ],
-  "description": "<optimized description: 150-200 characters, keywords + call to action, platform-optimized - NO abbreviations>",
-  "tags": ["<15-20 specific, relevant hashtags for platform>"]
-}
-
-GUIDELINES:
-- Be specific and actionable in all recommendations
-- Use concrete examples (e.g., "Add text overlay at 0:02" not "Add text overlay")
-- Focus on platform-specific best practices
-- Ensure suggestions are practical and implementable
-- Keep descriptions concise but informative
-- Score realistically based on typical content quality (give a balanced score around 60-75 for average content)
-- NEVER use abbreviations (write "description" not "desc", "information" not "info", "second" not "sec")
-- Provide 15-20 relevant, specific hashtags
-- Include 1-2 relevant emojis in each title suggestion
-- NEVER use HTML tags like <b> or <i> - use plain text only
-- Provide 3 distinct title options with different hooks and emojis`
+                content: `You are an expert social media algorithm analyst. Analyze video content for ${platform} and return JSON with: score (0-100), scoreTitle, scoreSummary, insights (array with icon/label/value/description), recommendations (array with priority/category/text), overlays (array with type/description/timing), titles (array of 3), description (string), tags (array of 15-20). Provide general best practices since you cannot see the video.`
               },
               {
                 role: 'user',
-                content: `Analyze this video file for ${platform} optimization.
-
-IMPORTANT: Do NOT use the filename to infer content. Since video content analysis is not available in this fallback mode, provide general optimization recommendations for ${platform} based on current best practices for video content.
-
-Target Platform: ${platform}
-File Type: ${fileData.type}
-
-ANALYSIS TASK:
-Provide platform-specific optimization advice for ${platform} videos. Focus on:
-
-1. A balanced score (around 60-75 for average content)
-2. Platform-specific insights about what makes content perform well on ${platform}
-3. Specific recommendations for improving hook, pacing, visual quality, and audio
-4. Concrete overlay/edit suggestions with example timestamps
-5. Platform-optimized metadata (3 title options with emojis, description, 15-20 tags)
-
-Provide actionable advice that applies to most video content on ${platform}. Do NOT reference the filename in your analysis.`
+                content: `Provide general optimization recommendations for ${platform} based on current best practices for video content.`
               }
             ],
             max_tokens: 2000,
@@ -506,29 +429,29 @@ Provide actionable advice that applies to most video content on ${platform}. Do 
           })
         })
 
-        if (rapidResponse.ok) {
-          const rapidData = await rapidResponse.json()
-          const content = rapidData.choices?.[0]?.message?.content || ''
+        if (pollinationsResponse.ok) {
+          const pollinationsData = await pollinationsResponse.json()
+          const content = pollinationsData.choices?.[0]?.message?.content || ''
 
-          // Parse JSON from response (handle markdown code blocks if present)
           let cleanContent = content
           if (content.includes('```')) {
             cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
           }
 
           analysisResult = JSON.parse(cleanContent)
-          analysisSource = 'rapidapi'
+          analysisSource = 'pollinations'
+          console.log('[Clip Analyzer] Pollinations analysis completed')
         } else {
-          const errorText = await rapidResponse.text()
-          console.error('RapidAPI error:', errorText)
+          const errorText = await pollinationsResponse.text()
+          console.error('[Clip Analyzer] Pollinations error:', errorText)
         }
-      } catch (rapidError) {
-        console.error('RapidAPI analysis error:', rapidError)
+      } catch (pollinationsError) {
+        console.error('[Clip Analyzer] Pollinations analysis error:', pollinationsError)
       }
     }
 
     if (!analysisResult) {
-      return NextResponse.json({ error: 'Failed to analyze content from Gemini 2.5 Pro, GROQ, and RapidAPI' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to analyze content from Gemini 2.5 Pro, GROQ, and Pollinations' }, { status: 500 })
     }
 
     // Auto-delete file from R2 after analysis (if using R2 mode)
