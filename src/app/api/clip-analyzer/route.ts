@@ -291,7 +291,7 @@ Respond ONLY with valid JSON in this exact structure:
       console.log(`⚠️ Video will NOT be analyzed by Gemini - using fallback analysis`)
     }
 
-    // TEMPORARY: Test RapidAPI endpoints for larger files
+    // TEMPORARY: Test RapidAPI endpoints for larger files (DEPLOYED)
     // Cascading test: Llama → ChatGPT → Chat → Groq → Pollinations
     const tempRapidApiKey = process.env.RAPID_API_TEMP_API
     const rapidApiEndpoints = [
