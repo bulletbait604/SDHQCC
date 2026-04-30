@@ -11,6 +11,6 @@ export async function GET() {
     model: modelUsed,
     message: 'Debug endpoint to verify model deployment',
     timestamp: new Date().toISOString(),
-    deploymentHash: 'd4a7265'
+    deploymentHash: '5d60011'
   })
 }
