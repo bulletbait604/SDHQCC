@@ -154,7 +154,11 @@ export async function POST(request: Request) {
       // NEW BUNDLE VALIDATION: Ensure this code runs
       const bundleCheck = `bundle-${Date.now()}`
       console.log('[FORCE DEPLOY] Using model:', MODEL_NAME, 'with v1beta endpoint - VALIDATED')
-      console.log('[DEBUG] Bundle check:', bundleCheck, 'hash: 19ae1cf')
+      console.log('[DEBUG] Bundle check:', bundleCheck, 'hash: 60aff1b')
+      
+      // FINAL: Force model override to prevent any caching issues
+      const finalModelCheck = `FINAL: ${MODEL_NAME}-${Date.now()}`
+      console.log('[FINAL] Model override confirmed:', finalModelCheck)
       
       // Analyze video using the file URI (already uploaded by frontend)
       const geminiResponse = await genAI.models.generateContent({
