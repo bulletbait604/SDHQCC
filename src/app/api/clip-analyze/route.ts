@@ -4,7 +4,8 @@ import { GoogleGenAI } from '@google/genai'
 // Force dynamic rendering to prevent static optimization
 export const dynamic = 'force-dynamic'
 
-// FIXED: Using gemini-2.5-flash model (stable release)
+// Use gemini-2.5-flash model (stable release)
+const MODEL_NAME = 'gemini-2.5-flash'
 
 // In-memory rate limit storage for clip analyzer
 // NOTE: On Vercel serverless, this resets on cold starts. For production, use Redis/Vercel KV.
@@ -39,6 +40,7 @@ export async function POST(request: Request) {
 
     console.log('[DEBUG] Clip Analyze API: Request data:', { 
       hasFileUri: !!fileUri, 
+      fileUriPreview: fileUri ? fileUri.substring(0, 60) : 'none',
       mimeType, 
       fileName,
       fileSizeMB: fileSize ? (fileSize / (1024 * 1024)).toFixed(2) : 'unknown',
@@ -52,6 +54,15 @@ export async function POST(request: Request) {
     if (!fileUri) {
       console.error('[DEBUG] Clip Analyze API: fileUri is required')
       return NextResponse.json({ error: 'fileUri is required' }, { status: 400 })
+    }
+    
+    // Validate fileUri format - must be a Google Files API URI
+    if (!fileUri.startsWith('https://generativelanguage.googleapis.com/')) {
+      console.error('[DEBUG] Clip Analyze API: Invalid fileUri format - not a Google Files API URI')
+      return NextResponse.json({ 
+        error: 'Invalid fileUri format',
+        details: 'fileUri must be a Google Files API URI (https://generativelanguage.googleapis.com/). This error typically occurs when the file was uploaded with different API credentials than those used for analysis. Both upload and analysis must use the same GEMINI_API key.'
+      }, { status: 400 })
     }
     
     if (!platform) {
@@ -127,9 +138,6 @@ export async function POST(request: Request) {
     // Use AI to analyze the video file using the provided file URI
     let analysisResult = null
     let analysisSource = 'none'
-    
-    // Use gemini-2.5-flash model (stable release)
-    const MODEL_NAME = 'gemini-2.5-flash'
 
     try {
       // Initialize Google GenAI client
@@ -140,7 +148,7 @@ export async function POST(request: Request) {
       
       // Add timeout protection (Vercel serverless has 60s timeout)
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Gemini API timeout after 55 seconds')), 55000)
+        setTimeout(() => reject(new Error('Gemini API timeout after 52 seconds')), 52000)
       })
       
       // Analyze video using the file URI (already uploaded by frontend)
@@ -253,15 +261,22 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
       ]) as any
       
       // Parse the response from Google GenAI SDK
-      const content = geminiResponse.text || ''
+      let rawText: string
+      try {
+        rawText = typeof (geminiResponse as any).text === 'function'
+          ? (geminiResponse as any).text()
+          : (geminiResponse as any).text ?? ''
+      } catch (textError) {
+        throw new Error('Gemini returned a response with no readable text — may have been blocked by safety filters')
+      }
       
-      console.log('[DEBUG] Gemini raw response length:', content.length)
-      console.log('[DEBUG] Gemini response preview:', content.substring(0, 200))
+      console.log('[DEBUG] Gemini raw response length:', rawText.length)
+      console.log('[DEBUG] Gemini response preview:', rawText.substring(0, 200))
       
-      if (content) {
-        let cleanContent = content
-        if (content.includes('```')) {
-          cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+      if (rawText) {
+        let cleanContent = rawText
+        if (rawText.includes('```')) {
+          cleanContent = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
           console.log('[DEBUG] Removed markdown code blocks from response')
         }
         
@@ -281,7 +296,20 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
       console.error('[ERROR] Error message:', geminiError.message)
       
       const errorMessage = geminiError.message || 'Unknown error'
-      const errorDetails = `Model: ${MODEL_NAME}, Error: ${errorMessage}`
+      
+      // Extract HTTP status code if available
+      let httpStatus = 'unknown'
+      if (geminiError.status) {
+        httpStatus = geminiError.status.toString()
+      } else if (errorMessage.includes('403') || errorMessage.includes('permission') || errorMessage.includes('forbidden')) {
+        httpStatus = '403'
+      } else if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+        httpStatus = '404'
+      } else if (errorMessage.includes('timeout')) {
+        httpStatus = 'timeout'
+      }
+      
+      console.error('[ERROR] HTTP Status:', httpStatus)
       
       // Handle timeout specifically
       if (errorMessage.includes('timeout')) {
@@ -289,10 +317,32 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         return NextResponse.json({ 
           error: 'Analysis timeout',
           userMessage: 'The video is taking too long to analyze. Please try a shorter video or check back later.',
-          details: 'Gemini API timeout after 55 seconds'
+          details: 'Gemini API timeout after 52 seconds'
         }, { status: 504 })
       }
       
+      // Handle permission/forbidden errors (credential mismatch)
+      if (httpStatus === '403' || errorMessage.includes('permission') || errorMessage.includes('forbidden')) {
+        console.error('[ERROR] Permission denied - fileUri uploaded with different credentials')
+        return NextResponse.json({ 
+          error: 'Permission denied',
+          userMessage: 'The file was uploaded with different API credentials than those used for analysis. Please try uploading the file again.',
+          details: 'fileUri was uploaded with a different API key than GEMINI_API. Both upload and analysis must use the same GEMINI_API key.'
+        }, { status: 403 })
+      }
+      
+      // Handle not found errors (expired URI)
+      if (httpStatus === '404' || errorMessage.includes('not found')) {
+        console.error('[ERROR] File not found - URI may have expired')
+        return NextResponse.json({ 
+          error: 'File not found',
+          userMessage: 'The uploaded file could not be found. Files API URIs expire after 48 hours. Please upload the file again.',
+          details: 'Google Files API URIs expire after 48 hours. The fileUri may have expired or been deleted.'
+        }, { status: 404 })
+      }
+      
+      // Handle all other errors
+      const errorDetails = `Model: ${MODEL_NAME}, HTTP ${httpStatus}: ${errorMessage}`
       return NextResponse.json({ 
         error: 'Analysis failed',
         userMessage: 'Gemini is having a tough time right now. Please check back later.',
