@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 
+// Force dynamic rendering to prevent static optimization
+export const dynamic = 'force-dynamic'
+
 // In-memory rate limit storage (in production, use Redis or a database)
+// NOTE: On Vercel serverless, this resets on cold starts. For production, use Redis/Vercel KV.
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
 
 // Check rate limit
@@ -26,7 +30,7 @@ function checkRateLimit(identifier: string, maxUses: number = 5, windowMs: numbe
   return { allowed: true, remaining: maxUses - userLimit.count, resetTime: userLimit.resetTime }
 }
 
-// Generate tags using Gemini 1.5 Flash
+// Generate tags using Gemini
 async function generateTagsWithGemini(description: string, platform: string, count: number): Promise<string[]> {
   const geminiApiKey = process.env.GEMINI_API
   
@@ -43,14 +47,15 @@ async function generateTagsWithGemini(description: string, platform: string, cou
   }
   
   const platformName = platformContext[platform.toLowerCase()] || platform
+  const MODEL_NAME = 'gemini-2.5-flash-preview-04-17'
   
   try {
     const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
     
-    console.log('[Tags] Calling Gemini API with model: gemini-3-flash-preview (v1beta endpoint)')
+    console.log('[Tags] Calling Gemini API with model:', MODEL_NAME)
     
     const response = await genAI.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: MODEL_NAME,
       contents: [
         {
           role: 'user',
@@ -96,14 +101,15 @@ Return ONLY a valid JSON array of strings:
     return parseTagResponse(content, platformName, count)
   } catch (error: any) {
     console.error('[Tags] Gemini API error:', error)
-    if (error.message?.includes('quota')) {
+    const errorMessage = error.message || 'Unknown error'
+    if (errorMessage.includes('quota')) {
       throw new Error('Gemini API quota exceeded')
-    } else if (error.message?.includes('permission') || error.message?.includes('unauthorized')) {
+    } else if (errorMessage.includes('permission') || errorMessage.includes('unauthorized')) {
       throw new Error('Gemini API key invalid or unauthorized')
-    } else if (error.message?.includes('not found') || error.message?.includes('404')) {
-      throw new Error('Gemini model not found - check API version')
+    } else if (errorMessage.includes('not found') || errorMessage.includes('404')) {
+      throw new Error(`Gemini model not found: ${MODEL_NAME}`)
     }
-    throw error
+    throw new Error(`Gemini API error: ${errorMessage}`)
   }
 }
 
@@ -136,9 +142,10 @@ function parseTagResponse(content: string, platformName: string, count: number):
   return cleanedTags
 }
 
-// Main tag generation using Gemini 1.5 Flash only
+// Main tag generation using Gemini
 async function generateTags(description: string, platform: string, count: number): Promise<{ tags: string[], provider: string }> {
   const geminiApiKey = process.env.GEMINI_API
+  const MODEL_NAME = 'gemini-2.5-flash-preview-04-17'
   
   console.log('[Tags] Checking GEMINI_API configuration:', { hasKey: !!geminiApiKey, keyLength: geminiApiKey?.length })
   
@@ -147,11 +154,11 @@ async function generateTags(description: string, platform: string, count: number
   }
   
   try {
-    console.log('[Tags] Generating tags with Gemini 3 Flash Preview (v1beta endpoint)...')
+    console.log('[Tags] Generating tags with Gemini:', MODEL_NAME)
     console.log('[Tags] Request:', { platform, count, descriptionLength: description.length })
     const tags = await generateTagsWithGemini(description, platform, count)
     console.log('[Tags] Gemini succeeded, generated', tags.length, 'tags')
-    return { tags, provider: 'gemini-3-flash-preview' }
+    return { tags, provider: MODEL_NAME }
   } catch (error: any) {
     console.error('[Tags] Gemini failed:', error)
     console.error('[Tags] Error details:', error.message || error)
@@ -161,12 +168,19 @@ async function generateTags(description: string, platform: string, count: number
 
 // GET endpoint - retrieve tag database status
 export async function GET() {
-  return NextResponse.json({ 
-    message: 'Using Gemini 3 Flash Preview (v1beta endpoint) for tag generation',
+  const response = NextResponse.json({ 
+    message: 'Using Gemini 2.5 Flash Preview for tag generation',
+    model: 'gemini-2.5-flash-preview-04-17',
     rateLimit: '5 uses per 24 hours (20 for verified users)',
     status: 'active',
     totalUsers: rateLimitStore.size
   })
+  
+  // Add cache-busting headers
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
+  response.headers.set('X-Deploy-Hash', '49769a4')
+  
+  return response
 }
 
 // DELETE endpoint - reset rate limit (admin only)
@@ -237,7 +251,7 @@ export async function POST(request: Request) {
     // Add artificial delay to simulate processing
     await new Promise(resolve => setTimeout(resolve, 2000))
     
-    return NextResponse.json({
+    const response = NextResponse.json({
       tags,
       platform,
       count: tags.length,
@@ -249,6 +263,12 @@ export async function POST(request: Request) {
       },
       generatedAt: new Date().toISOString()
     })
+    
+    // Add cache-busting headers
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
+    response.headers.set('X-Deploy-Hash', '49769a4')
+    
+    return response
   } catch (error: any) {
     const errorMessage = error.message || 'Unknown error'
     console.error('[Tags API] Final error:', errorMessage)

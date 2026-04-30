@@ -1,16 +1,25 @@
 import { NextResponse } from 'next/server'
 
+// Force dynamic rendering to prevent static optimization
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
-  const modelUsed = 'gemini-3-flash-preview' // This should match our code
+  const modelUsed = 'gemini-2.5-flash-preview-04-17'
   
   console.log('[DEBUG MODEL] Checking model name:', modelUsed)
   console.log('[DEBUG MODEL] Current timestamp:', new Date().toISOString())
   
-  return NextResponse.json({
+  const response = NextResponse.json({
     success: true,
     model: modelUsed,
     message: 'Debug endpoint to verify model deployment',
     timestamp: new Date().toISOString(),
-    deploymentHash: 'a08af39'
+    deploymentHash: '49769a4'
   })
+  
+  // Add cache-busting headers
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
+  response.headers.set('X-Deploy-Hash', '49769a4')
+  
+  return response
 }

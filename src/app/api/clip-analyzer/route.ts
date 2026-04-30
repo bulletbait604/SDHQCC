@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 
+// Force dynamic rendering to prevent static optimization
+export const dynamic = 'force-dynamic'
+
 // In-memory rate limit storage for clip analyzer
+// NOTE: On Vercel serverless, this resets on cold starts. For production, use Redis/Vercel KV.
 const clipAnalyzerRateLimitStore = new Map<string, { count: number; resetTime: number }>()
 
 function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean; remaining: number; resetTime: number | null } {
@@ -134,15 +138,16 @@ export async function POST(request: Request) {
     // Use AI to analyze the video file and provide algorithm recommendations
     let analysisResult = null
     let analysisSource = 'none'
+    const MODEL_NAME = 'gemini-2.5-flash-preview-04-17'
 
-    // Try Official Google Gemini 3 Flash Preview via File API (supports up to 500MB+ videos)
+    // Try Official Google Gemini via File API (supports up to 500MB+ videos)
     // No base64 encoding needed - uploads directly to Google servers
     const GEMINI_FILE_SIZE_LIMIT = 500 * 1024 * 1024 // 500MB limit for paid Google API
     
     if (geminiApiKey && fileData.buffer && fileData.size <= GEMINI_FILE_SIZE_LIMIT) {
-      console.log(`File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB is within Gemini 3 Flash Preview File API limit (500MB)`)
+      console.log(`File size ${(fileData.size / (1024 * 1024)).toFixed(2)}MB is within Gemini File API limit (500MB)`)
       try {
-        console.log('Starting Gemini 3 Flash Preview video analysis via Google GenAI File API...')
+        console.log('Starting Gemini video analysis via Google GenAI File API...')
         
         // Initialize Google GenAI client
         const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
@@ -180,11 +185,11 @@ export async function POST(request: Request) {
           throw new Error(`Video failed to process. Final state: ${fileState}`)
         }
         
-        console.log('[Clip Analyzer] Video processing complete. Analyzing with Gemini 3 Flash Preview (v1beta endpoint)...')
+        console.log('[Clip Analyzer] Video processing complete. Analyzing with Gemini...')
         
         // Analyze video using the uploaded file reference
         const geminiResponse = await genAI.models.generateContent({
-          model: 'gemini-3-flash-preview',
+          model: MODEL_NAME,
           contents: [
             {
               role: 'user',
@@ -310,8 +315,8 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
           
           try {
             analysisResult = JSON.parse(cleanContent)
-            analysisSource = 'gemini-3-flash-preview'
-            console.log('✅ [DEBUG] Gemini 3 Flash Preview video analysis successful - parsed JSON with keys:', Object.keys(analysisResult))
+            analysisSource = MODEL_NAME
+            console.log('✅ [DEBUG] Gemini video analysis successful - parsed JSON with keys:', Object.keys(analysisResult))
           } catch (parseError) {
             console.error('[DEBUG] JSON parse error:', parseError)
             console.error('[DEBUG] Failed content:', cleanContent.substring(0, 500))
@@ -319,18 +324,16 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
           }
         }
       } catch (geminiError: any) {
-        console.error('Gemini 3 Flash Preview analysis error:', geminiError)
+        console.error('Gemini analysis error:', geminiError)
         
-        // Log specific error details to activity log
-        if (geminiError.message?.includes('quota')) {
-          console.log('[ACTIVITY_LOG] Clip Analyzer: Gemini 3 Flash Preview API quota exceeded. Please upgrade plan.')
-        } else if (geminiError.message?.includes('permission') || geminiError.message?.includes('unauthorized')) {
-          console.log('[ACTIVITY_LOG] Clip Analyzer: Gemini 3 Flash Preview API key invalid or unauthorized.')
-        } else if (geminiError.message?.includes('rate')) {
-          console.log('[ACTIVITY_LOG] Clip Analyzer: Gemini 3 Flash Preview API rate limit exceeded.')
-        } else {
-          console.log(`[ACTIVITY_LOG] Clip Analyzer: Gemini 3 Flash Preview API error - ${geminiError.message || 'Unknown error'}`)
-        }
+        const errorMessage = geminiError.message || 'Unknown error'
+        const errorDetails = `Model: ${MODEL_NAME}, Error: ${errorMessage}`
+        
+        return NextResponse.json({ 
+          error: 'Analysis failed',
+          userMessage: 'Gemini is having a tough time right now. Please check back later.',
+          details: errorDetails
+        }, { status: 503 })
       }
     } else if (fileData.size > GEMINI_FILE_SIZE_LIMIT) {
       // Log to activity log
@@ -343,15 +346,14 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
       }, { status: 413 })
     }
 
-    // Only Gemini 3 Flash Preview - no fallbacks
+    // Only Gemini - no fallbacks
     if (!analysisResult) {
-      // Log the error for activity tracking
-      console.log(`[ACTIVITY_LOG] Clip Analyzer: Gemini 3 Flash Preview failed to analyze video`)
+      console.log(`[ACTIVITY_LOG] Clip Analyzer: Gemini failed to analyze video`)
       
       return NextResponse.json({ 
         error: 'Analysis failed',
         userMessage: 'Gemini is having a tough time right now. Please check back later.',
-        details: 'Gemini 3 Flash Preview API analysis failed'
+        details: 'Gemini API analysis failed'
       }, { status: 503 })
     }
 
@@ -369,6 +371,10 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
       extractedData: extractedData,
       analysisSource: analysisSource
     })
+
+    // Add cache-busting headers
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
+    response.headers.set('X-Deploy-Hash', '49769a4')
 
     return response
   } catch (error) {

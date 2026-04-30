@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 
+// Force dynamic rendering to prevent static optimization
+export const dynamic = 'force-dynamic'
+
 // In-memory rate limit storage for content analyzer
+// NOTE: On Vercel serverless, this resets on cold starts. For production, use Redis/Vercel KV.
 const contentAnalyzerRateLimitStore = new Map<string, { count: number; resetTime: number }>()
 
 function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean; remaining: number; resetTime: number | null } {
@@ -84,28 +88,29 @@ export async function POST(request: Request) {
       }, { status: 503 })
     }
 
-    // Use Gemini 3.1 Flash to analyze the URL directly - no separate extraction step needed
+    // Use Gemini to analyze the URL directly - no separate extraction step needed
     let analysisResult = null
     let analysisSource = 'none'
+    const MODEL_NAME = 'gemini-2.5-flash-preview-04-17'
     const extractedData = {
       url: url,
       platform: platform,
-      summary: 'Video URL analysis via Gemini 3 Flash Preview (v1beta endpoint)',
-      visualAnalysis: 'Analyzed via Gemini 3 Flash Preview (v1beta endpoint)',
-      audioAnalysis: 'Analyzed via Gemini 3 Flash Preview (v1beta endpoint)',
+      summary: 'Video URL analysis via Gemini',
+      visualAnalysis: 'Analyzed via Gemini',
+      audioAnalysis: 'Analyzed via Gemini',
       topics: [],
       keyPoints: [],
-      source: 'gemini-3-flash-preview-url-analysis'
+      source: MODEL_NAME
     }
 
-    // Use Gemini 3 Flash Preview (v1beta endpoint) to analyze the video URL directly
-    console.log('[DEBUG] Content Analyzer: Starting Gemini 3 Flash Preview URL analysis (v1beta endpoint)...')
+    // Use Gemini to analyze the video URL directly
+    console.log('[DEBUG] Content Analyzer: Starting Gemini URL analysis...')
     
     try {
       const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
       
       const geminiResponse = await genAI.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: MODEL_NAME,
         contents: [
           {
             role: 'user',
@@ -226,8 +231,8 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         
         try {
           analysisResult = JSON.parse(cleanContent)
-          analysisSource = 'gemini-3-flash-preview'
-          console.log('✅ [DEBUG] Gemini 3 Flash Preview URL analysis successful (v1beta endpoint) - parsed JSON with keys:', Object.keys(analysisResult))
+          analysisSource = MODEL_NAME
+          console.log('✅ [DEBUG] Gemini URL analysis successful - parsed JSON with keys:', Object.keys(analysisResult))
         } catch (parseError) {
           console.error('[DEBUG] JSON parse error:', parseError)
           console.error('[DEBUG] Failed content:', cleanContent.substring(0, 500))
@@ -235,27 +240,26 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         }
       }
     } catch (geminiError: any) {
-      console.error('Gemini 3 Flash Preview analysis error (v1beta endpoint):', geminiError)
+      console.error('Gemini analysis error:', geminiError)
       
-      if (geminiError.message?.includes('quota')) {
-        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview API quota exceeded (v1beta endpoint). Please upgrade plan.')
-      } else if (geminiError.message?.includes('permission') || geminiError.message?.includes('unauthorized')) {
-        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview API key invalid or unauthorized (v1beta endpoint).')
-      } else if (geminiError.message?.includes('rate')) {
-        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview API rate limit exceeded (v1beta endpoint).')
-      } else {
-        console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview API error (v1beta endpoint) - ${geminiError.message || 'Unknown error'}`)
-      }
-    }
-
-    // Only Gemini 3 Flash Preview (v1beta endpoint) - no fallbacks
-    if (!analysisResult) {
-      console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview failed to analyze content (v1beta endpoint)`)
+      const errorMessage = geminiError.message || 'Unknown error'
+      const errorDetails = `Model: ${MODEL_NAME}, Error: ${errorMessage}`
       
       return NextResponse.json({ 
         error: 'Analysis failed',
         userMessage: 'Gemini is having a tough time right now. Please check back later.',
-        details: 'Gemini 3 Flash Preview API analysis failed (v1beta endpoint)'
+        details: errorDetails
+      }, { status: 503 })
+    }
+
+    // Only Gemini - no fallbacks
+    if (!analysisResult) {
+      console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini failed to analyze content`)
+      
+      return NextResponse.json({ 
+        error: 'Analysis failed',
+        userMessage: 'Gemini is having a tough time right now. Please check back later.',
+        details: 'Gemini API analysis failed'
       }, { status: 503 })
     }
 
@@ -272,6 +276,10 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
       extractedData: extractedData,
       analysisSource: analysisSource
     })
+
+    // Add cache-busting headers
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
+    response.headers.set('X-Deploy-Hash', '49769a4')
 
     return response
   } catch (error) {
