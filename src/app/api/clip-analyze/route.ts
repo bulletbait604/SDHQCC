@@ -4,9 +4,10 @@ import { GoogleGenAI } from '@google/genai'
 // Force dynamic rendering to prevent static optimization
 export const dynamic = 'force-dynamic'
 
-// FIXED: Using gemini-2.0-flash model (stable release)
+// FIXED: Using gemini-2.5-flash-preview-04-17 model (latest stable)
 
 // In-memory rate limit storage for clip analyzer
+// NOTE: On Vercel serverless, this resets on cold starts. For production, use Redis/Vercel KV.
 const clipAnalyzerRateLimitStore = new Map<string, { count: number; resetTime: number }>()
 
 function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean; remaining: number; resetTime: number | null } {
@@ -127,8 +128,8 @@ export async function POST(request: Request) {
     let analysisResult = null
     let analysisSource = 'none'
     
-    // Use stable gemini-2.0-flash model
-    const MODEL_NAME = 'gemini-2.0-flash'
+    // Use gemini-2.5-flash-preview-04-17 model (latest stable)
+    const MODEL_NAME = 'gemini-2.5-flash-preview-04-17'
 
     try {
       // Initialize Google GenAI client
@@ -304,6 +305,10 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
       extractedData: extractedData,
       analysisSource: analysisSource
     })
+
+    // Add cache-busting headers
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
+    response.headers.set('X-Deploy-Hash', '34d0b22')
 
     return response
   } catch (error) {
