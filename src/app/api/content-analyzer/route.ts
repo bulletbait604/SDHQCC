@@ -84,28 +84,28 @@ export async function POST(request: Request) {
       }, { status: 503 })
     }
 
-    // Use Gemini 3.1 Pro to analyze the URL directly - no separate extraction step needed
+    // Use Gemini 3.1 Flash to analyze the URL directly - no separate extraction step needed
     let analysisResult = null
     let analysisSource = 'none'
-    let extractedData = {
+    const extractedData = {
       url: url,
       platform: platform,
-      summary: 'Video URL analysis via Gemini 3.1 Pro',
-      visualAnalysis: 'Analyzed via Gemini 3.1 Pro',
-      audioAnalysis: 'Analyzed via Gemini 3.1 Pro',
+      summary: 'Video URL analysis via Gemini 3.1 Flash',
+      visualAnalysis: 'Analyzed via Gemini 3.1 Flash',
+      audioAnalysis: 'Analyzed via Gemini 3.1 Flash',
       topics: [],
       keyPoints: [],
-      source: 'gemini-3.1-pro-url-analysis'
+      source: 'gemini-3.1-flash-url-analysis'
     }
 
-    // Use Gemini 3.1 Pro to analyze the video URL directly
-    console.log('[DEBUG] Content Analyzer: Starting Gemini 3.1 Pro URL analysis...')
+    // Use Gemini 3.1 Flash to analyze the video URL directly
+    console.log('[DEBUG] Content Analyzer: Starting Gemini 3.1 Flash URL analysis...')
     
     try {
       const ai = new GoogleGenAI({ apiKey: geminiApiKey })
       
       const geminiResponse = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+        model: 'gemini-3.1-flash',
         contents: [
           {
             role: 'user',
@@ -226,8 +226,8 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         
         try {
           analysisResult = JSON.parse(cleanContent)
-          analysisSource = 'gemini-3.1-pro'
-          console.log('✅ [DEBUG] Gemini 3.1 Pro URL analysis successful - parsed JSON with keys:', Object.keys(analysisResult))
+          analysisSource = 'gemini-3.1-flash'
+          console.log('✅ [DEBUG] Gemini 3.1 Flash URL analysis successful - parsed JSON with keys:', Object.keys(analysisResult))
         } catch (parseError) {
           console.error('[DEBUG] JSON parse error:', parseError)
           console.error('[DEBUG] Failed content:', cleanContent.substring(0, 500))
@@ -235,27 +235,27 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         }
       }
     } catch (geminiError: any) {
-      console.error('Gemini 3.1 Pro analysis error:', geminiError)
+      console.error('Gemini 3.1 Flash analysis error:', geminiError)
       
       if (geminiError.message?.includes('quota')) {
-        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3.1 Pro API quota exceeded. Please upgrade plan.')
+        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3.1 Flash API quota exceeded. Please upgrade plan.')
       } else if (geminiError.message?.includes('permission') || geminiError.message?.includes('unauthorized')) {
-        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3.1 Pro API key invalid or unauthorized.')
+        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3.1 Flash API key invalid or unauthorized.')
       } else if (geminiError.message?.includes('rate')) {
-        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3.1 Pro API rate limit exceeded.')
+        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3.1 Flash API rate limit exceeded.')
       } else {
-        console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini 3.1 Pro API error - ${geminiError.message || 'Unknown error'}`)
+        console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini 3.1 Flash API error - ${geminiError.message || 'Unknown error'}`)
       }
     }
 
-    // Only Gemini 3.1 Pro - no fallbacks
+    // Only Gemini 3.1 Flash - no fallbacks
     if (!analysisResult) {
-      console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini 3.1 Pro failed to analyze content`)
+      console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini 3.1 Flash failed to analyze content`)
       
       return NextResponse.json({ 
         error: 'Analysis failed',
         userMessage: 'Gemini is having a tough time right now. Please check back later.',
-        details: 'Gemini 3.1 Pro API analysis failed'
+        details: 'Gemini 3.1 Flash API analysis failed'
       }, { status: 503 })
     }
 

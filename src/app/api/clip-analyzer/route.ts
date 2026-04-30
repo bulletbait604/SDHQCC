@@ -184,7 +184,7 @@ export async function POST(request: Request) {
         
         // Analyze video using the uploaded file reference
         const geminiResponse = await ai.models.generateContent({
-          model: 'gemini-3.1-pro-preview',
+          model: 'gemini-3.1-flash',
           contents: [
             {
               role: 'user',
