@@ -26,7 +26,11 @@ function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean
 }
 
 export async function POST(request: Request) {
-  console.log('[DEBUG] Clip Analyze API: Request received - DEPLOY HASH: 30468d1')
+  console.log('[DEBUG] Clip Analyze API: Request received - DEPLOY HASH: 19ae1cf - FORCED REBUILD')
+  
+  // FORCE NEW BUNDLE: Add validation that wasn't in old code
+  const startTime = Date.now()
+  console.log('[DEBUG] Bundle validation:', { startTime, hash: '19ae1cf' })
   
   try {
     console.log('[DEBUG] Clip Analyze API: Parsing request body...')
@@ -138,7 +142,10 @@ export async function POST(request: Request) {
         throw new Error(`Invalid model detected: ${MODEL_NAME}. Expected: gemini-3-flash-preview`)
       }
       
+      // NEW BUNDLE VALIDATION: Ensure this code runs
+      const bundleCheck = `bundle-${Date.now()}`
       console.log('[FORCE DEPLOY] Using model:', MODEL_NAME, 'with v1beta endpoint - VALIDATED')
+      console.log('[DEBUG] Bundle check:', bundleCheck, 'hash: 19ae1cf')
       
       // Analyze video using the file URI (already uploaded by frontend)
       const geminiResponse = await genAI.models.generateContent({
