@@ -26,11 +26,11 @@ function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean
 }
 
 export async function POST(request: Request) {
-  console.log('[DEBUG] Clip Analyze API: Request received - DEPLOY HASH: 19ae1cf - FORCED REBUILD')
+  console.log('[DEBUG] Clip Analyze API: Request received - DEPLOY HASH: 3cf0672 - FORCED REBUILD')
   
   // FORCE NEW BUNDLE: Add validation that wasn't in old code
   const startTime = Date.now()
-  console.log('[DEBUG] Bundle validation:', { startTime, hash: '19ae1cf' })
+  console.log('[DEBUG] Bundle validation:', { startTime, hash: '3cf0672' })
   
   try {
     console.log('[DEBUG] Clip Analyze API: Parsing request body...')
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       console.error('[DEBUG] Clip Analyze API: fileUri is required')
       return NextResponse.json({ error: 'fileUri is required' }, { status: 400 })
     }
-
+    
     if (!platform) {
       console.error('[DEBUG] Clip Analyze API: platform is required')
       return NextResponse.json({ error: 'Platform is required' }, { status: 400 })
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
     const rateLimit = checkRateLimit(`clip-analyzer-${identifier}`, maxUses)
     
     console.log('[DEBUG] Clip Analyze API: Rate limit result:', { allowed: rateLimit.allowed, remaining: rateLimit.remaining })
-
+    
     if (!rateLimit.allowed) {
       console.log('[ACTIVITY_LOG] Clip Analyze: Rate limit exceeded for', identifier)
       return NextResponse.json(
@@ -130,11 +130,11 @@ export async function POST(request: Request) {
 
     try {
       // NEW DEPLOY: Using gemini-3-flash-preview model (requires v1beta endpoint)
-      console.log('[DEBUG] Clip Analyze API: Request received - DEPLOY HASH: b9bee29 - FORCED REBUILD')
+      console.log('[DEBUG] Clip Analyze API: Request received - DEPLOY HASH: 3cf0672 - FORCED REBUILD')
       
       // FORCE NEW BUNDLE: Add validation that wasn't in old code
       const startTime = Date.now()
-      console.log('[DEBUG] Bundle validation:', { startTime, hash: 'b9bee29' })
+      console.log('[DEBUG] Bundle validation:', { startTime, hash: '3cf0672' })
       
       // Initialize Google GenAI client (defaults to v1beta for preview models)
       const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
@@ -201,24 +201,20 @@ CRITICAL ANALYSIS REQUIREMENTS:
    - Call-to-action opportunities
    - Shareable moments
    - Comment-worthy elements
-
-PLATFORM-SPECIFIC ALGORITHM PRIORITIES (2026):
+6. **PLATFORM-SPECIFIC ALGORITHM PRIORITIES (2026):
 - TikTok: Hook in first 1-2 seconds, completion rate, shares, saves, comments, trending audio, caption keywords, niche authority
 - Instagram Reels: First 3 seconds engagement, watch time, saves, shares, carousel swipe-through, music trending, hashtags, Reels tab exploration
 - YouTube Shorts: First 1 second hook, watch time, click-through rate, retention, comments, likes, shares, title optimization, posting schedule
-- Facebook Reels: Early engagement, watch time, shares, comments, trending audio
 - YouTube Long: First 5 seconds hook, retention, click-through rate, comments, likes, shares, title optimization, posting schedule, description keywords
 - Twitch Clips: Highlight moments, community engagement, game/category relevance, editing pace, audio clarity, discoverability through recommendations
 - Kick Clips: Early engagement, community interaction, category relevance, trending topics, audio quality, visual appeal, shareability
-
-SCORING CRITERIA (0-100):
+7. **SCORING CRITERIA (0-100):
 - Hook strength (first 1-3 seconds): 25 points
 - Content engagement potential: 20 points
 - Visual/audio quality: 15 points
 - Platform-specific optimization: 20 points
 - Metadata quality (title/description/tags): 20 points
-
-TAG REQUIREMENTS (15-20 tags total):
+8. **TAG REQUIREMENTS (15-20 tags total):
 Include a comprehensive mix of:
 1. Platform-specific trending tags (e.g., #fyp, #foryou, #reels, #shorts)
 2. Content-specific tags (what the video is actually about)
@@ -241,14 +237,14 @@ Return this exact JSON structure:
   ],
   "recommendations": [
     { "priority": "high", "category": "Hook", "text": "<specific, actionable hook improvement - NO abbreviations>" },
-    { "priority": "high", "category": "Pacing", "text": "<specific pacing adjustment - NO abbreviations>" },
-    { "priority": "med",  "category": "Visual", "text": "<specific visual enhancement - NO abbreviations>" },
-    { "priority": "med",  "category": "Audio", "text": "<specific audio improvement - NO abbreviations>" },
-    { "priority": "low",  "category": "Metadata", "text": "<specific metadata optimization - NO abbreviations>" }
+    { "priority": "med", "category": "Pacing", "text": "<specific pacing adjustment - NO abbreviations>" },
+    { "priority": "med", "category": "Visual", "text": "<specific visual enhancement - NO abbreviations>" },
+    { "priority": "med", "category": "Audio", "text": "<specific audio improvement - NO abbreviations>" },
+    { "priority": "low", "category": "Metadata", "text": "<specific metadata optimization - NO abbreviations>" }
   ],
   "overlays": [
     { "type": "text",   "description": "<specific text overlay suggestion - NO abbreviations>", "timing": "<exact timestamp>" },
-    { "type": "sound",  "description": "<specific audio/music suggestion - NO abbreviations>", "timing": "<exact timestamp>" },
+    { "type": "sound", "description": "<specific audio/music suggestion - NO abbreviations>", "timing": "<exact timestamp>" },
     { "type": "visual", "description": "<specific visual effect or edit - NO abbreviations>", "timing": "<exact timestamp>" },
     { "type": "cta",    "description": "<specific call-to-action - NO abbreviations>", "timing": "<exact timestamp>" }
   ],
@@ -260,8 +256,7 @@ Return this exact JSON structure:
   "description": "<optimized description: 150-200 characters, keywords + call to action, platform-optimized - NO abbreviations>",
   "tags": ["<15-20 specific, relevant hashtags for platform - mix of platform, content, game, context, and streaming tags>"]
 }
-
-IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside the JSON.
+IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside of JSON.
 `
               }
             ]
@@ -332,7 +327,6 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
     })
 
     return response
-
   } catch (error) {
     console.error('[DEBUG] Clip Analyze API: Unhandled error:', error)
     console.error('[DEBUG] Clip Analyze API: Error stack:', error instanceof Error ? error.stack : 'No stack available')
