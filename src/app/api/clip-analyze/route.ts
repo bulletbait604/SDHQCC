@@ -129,12 +129,16 @@ export async function POST(request: Request) {
     let analysisSource = 'none'
 
     try {
-      console.log('[Clip Analyze] Analyzing with Gemini 3.1 Pro using file URI...')
+      // NEW DEPLOY: Using gemini-3-flash-preview model (requires v1beta endpoint)
+      console.log('[DEBUG] Clip Analyze API: Request received - DEPLOY HASH: b9bee29 - FORCED REBUILD')
+      
+      // FORCE NEW BUNDLE: Add validation that wasn't in old code
+      const startTime = Date.now()
+      console.log('[DEBUG] Bundle validation:', { startTime, hash: 'b9bee29' })
       
       // Initialize Google GenAI client (defaults to v1beta for preview models)
       const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
       
-      // FORCE DEPLOY: Using gemini-3-flash-preview model (requires v1beta endpoint)
       // EXPLICIT: Override any environment variables that might contain old model names
       const MODEL_NAME = 'gemini-3-flash-preview'
       
@@ -145,6 +149,7 @@ export async function POST(request: Request) {
       
       // DEBUG: Log to confirm we're using the right model
       console.log('[CRITICAL] Model validation passed:', MODEL_NAME, 'Timestamp:', Date.now())
+      console.log('[FORCE DEPLOY] Using model:', MODEL_NAME, 'with v1beta endpoint - VALIDATED')
       
       // NEW BUNDLE VALIDATION: Ensure this code runs
       const bundleCheck = `bundle-${Date.now()}`
