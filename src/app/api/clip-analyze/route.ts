@@ -36,11 +36,14 @@ export async function POST(request: Request) {
   try {
     console.log('[DEBUG] Clip Analyze API: Parsing request body...')
     const body = await request.json()
-    const { videoUrl, platform, userId, userType } = body
+    const { fileUri, mimeType, fileName, fileSize, platform, userId, userType } = body
 
     console.log('[DEBUG] Clip Analyze API: Request data:', { 
-      hasVideoUrl: !!videoUrl, 
-      videoUrlPreview: videoUrl ? videoUrl.substring(0, 60) : 'none',
+      hasFileUri: !!fileUri, 
+      fileUriPreview: fileUri ? fileUri.substring(0, 60) : 'none',
+      mimeType, 
+      fileName,
+      fileSizeMB: fileSize ? (fileSize / (1024 * 1024)).toFixed(2) : 'unknown',
       platform, 
       userId, 
       userType,
@@ -48,18 +51,17 @@ export async function POST(request: Request) {
     })
 
     // Validate required fields
-    if (!videoUrl) {
-      console.error('[DEBUG] Clip Analyze API: videoUrl is required')
-      return NextResponse.json({ error: 'videoUrl is required' }, { status: 400 })
+    if (!fileUri) {
+      console.error('[DEBUG] Clip Analyze API: fileUri is required')
+      return NextResponse.json({ error: 'fileUri is required' }, { status: 400 })
     }
     
-    // Validate videoUrl format - must be a valid video URL
-    const validUrlPattern = /^(https?:\/\/)?(www\.)?(tiktok\.com|instagram\.com|youtube\.com|youtu\.be|facebook\.com|fb\.watch|twitter\.com|x\.com)/
-    if (!validUrlPattern.test(videoUrl)) {
-      console.error('[DEBUG] Clip Analyze API: Invalid videoUrl format')
+    // Validate fileUri format - must be a Google Files API URI
+    if (!fileUri.startsWith('https://generativelanguage.googleapis.com/')) {
+      console.error('[DEBUG] Clip Analyze API: Invalid fileUri format')
       return NextResponse.json({ 
-        error: 'Invalid videoUrl format',
-        details: 'videoUrl must be a valid video URL from TikTok, Instagram, YouTube, Facebook, or Twitter.'
+        error: 'Invalid fileUri format',
+        details: 'fileUri must be a Google Files API URI'
       }, { status: 400 })
     }
     
@@ -109,10 +111,18 @@ export async function POST(request: Request) {
       }, { status: 503 })
     }
 
-    // Create basic extracted data from URL
+    // Create basic extracted data from file metadata
     const extractedData = {
-      videoUrl: videoUrl,
-      source: 'url-analysis-gemini-2.5-flash'
+      fileName: fileName || 'Unknown',
+      fileSize: fileSize || 0,
+      fileType: mimeType || 'video/mp4',
+      duration: 'Unknown (requires video processing)',
+      summary: `Uploaded video file: ${fileName || 'Unknown'} (${fileSize ? (fileSize / (1024 * 1024)).toFixed(2) : 'Unknown'} MB)`,
+      visualAnalysis: 'Video file uploaded for analysis',
+      audioAnalysis: 'Video file uploaded for analysis',
+      topics: [],
+      keyPoints: [],
+      source: 'direct-upload-gemini'
     }
 
     console.log('[DEBUG] Clip Analyze API: Starting Gemini analysis with file URI...')
@@ -133,14 +143,7 @@ export async function POST(request: Request) {
         setTimeout(() => reject(new Error('Gemini API timeout after 52 seconds')), 52000)
       })
       
-      // TODO: Download video from URL and upload to Gemini Files API
-      // For now, we'll analyze based on URL metadata and platform knowledge
-      // Full implementation requires:
-      // 1. Download video from videoUrl (handling CORS, redirects, etc.)
-      // 2. Upload to Gemini Files API
-      // 3. Use fileUri from upload for analysis
-      
-      console.log('[DEBUG] Analyzing video URL:', videoUrl)
+      console.log('[DEBUG] Analyzing file URI:', fileUri)
       
       const geminiResponse = await Promise.race([
         genAI.models.generateContent({
@@ -150,7 +153,10 @@ export async function POST(request: Request) {
               role: 'user',
               parts: [
                 {
-                  text: `Analyze this video from ${videoUrl} for ${platform} optimization. Note: Full video content analysis requires downloading and processing the video file.`
+                  fileData: {
+                    mimeType: mimeType || 'video/mp4',
+                    fileUri: fileUri
+                  }
                 },
                 {
                   text: `You are an expert social media algorithm analyst and content strategist. Analyze this video file IN-DEPTH for ${platform} optimization.
