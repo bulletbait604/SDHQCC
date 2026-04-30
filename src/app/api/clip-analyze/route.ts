@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 
+// Fixed: Using gemini-3.1-flash model (updated from gemini-1.5-flash-latest)
+
 // In-memory rate limit storage for clip analyzer
 const clipAnalyzerRateLimitStore = new Map<string, { count: number; resetTime: number }>()
 
