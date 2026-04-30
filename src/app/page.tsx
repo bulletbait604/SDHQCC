@@ -3493,44 +3493,6 @@ export default function HomePage() {
                           </div>
                         </div>
 
-                        {/* Re-analysis Section */}
-                        {showReanalysis && (
-                          <div className={`relative overflow-hidden rounded-2xl p-6 ${
-                            darkMode 
-                              ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
-                              : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
-                          }`}>
-                            <div className={`absolute inset-0 bg-gradient-to-r from-sdhq-cyan-500/5 to-sdhq-green-500/5 animate-pulse`}></div>
-                            <div className="relative">
-                              <h4 className={`text-sm font-semibold tracking-wider uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                Analyze for Different Platform
-                                <span className="flex-1 h-px bg-gradient-to-r from-sdhq-cyan-500/50 to-transparent"></span>
-                              </h4>
-                              <p className={`text-base mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                Currently optimized for: <span className={`font-semibold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>{platforms.find(p => p.id === clipPlatform)?.name}</span>
-                              </p>
-                              <div className="flex gap-3">
-                                <select
-                                  onChange={(e) => e.target.value && handleReanalyzeClip(e.target.value)}
-                                  disabled={isAnalyzingClip}
-                                  className={`flex-1 px-4 py-3 rounded-xl text-base outline-none transition-all duration-300 ${
-                                    darkMode 
-                                      ? 'bg-sdhq-dark-900/80 border-sdhq-cyan-500/30 text-gray-300 focus:border-sdhq-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)]' 
-                                      : 'bg-white/80 border-sdhq-cyan-300 text-gray-800 focus:border-sdhq-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.2)]'
-                                  } border backdrop-blur-sm`}
-                                >
-                                  <option value="">Select a platform to re-analyze...</option>
-                                  {platforms.filter(p => p.id !== clipPlatform).map((platform) => (
-                                    <option key={platform.id} value={platform.id}>
-                                      {platform.name}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
                         {/* Reset Button */}
                         <button
                           onClick={handleResetClip}
