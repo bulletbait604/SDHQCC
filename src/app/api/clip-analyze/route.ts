@@ -133,7 +133,6 @@ export async function POST(request: Request) {
       console.log('[DEBUG] Clip Analyze API: Request received - DEPLOY HASH: cec550a - FORCED REBUILD')
       
       // FORCE NEW BUNDLE: Add validation that wasn't in old code
-      const startTime = Date.now()
       console.log('[DEBUG] Bundle validation:', { startTime, hash: 'cec550a' })
       
       // Initialize Google GenAI client (defaults to v1beta for preview models)
@@ -283,7 +282,7 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         
         try {
           analysisResult = JSON.parse(cleanContent)
-          analysisSource = 'gemini-1.5-flash'
+          analysisSource = 'gemini-3-flash-preview'
           console.log('✅ [DEBUG] Gemini analysis successful - parsed JSON with keys:', Object.keys(analysisResult))
         } catch (parseError) {
           console.error('[DEBUG] JSON parse error:', parseError)
