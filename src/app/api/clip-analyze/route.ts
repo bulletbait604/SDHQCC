@@ -30,7 +30,7 @@ function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean
 }
 
 export async function POST(request: Request) {
-  console.log('[DEBUG] Clip Analyze API: Request received')
+  console.log('[DEBUG] Clip Analyze API: Request received - DEPLOY: f3366cc')
   
   try {
     console.log('[DEBUG] Clip Analyze API: Parsing request body...')
@@ -136,20 +136,27 @@ export async function POST(request: Request) {
       const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
       
       console.log('[DEBUG] Using model:', MODEL_NAME)
+      console.log('[DEBUG] Starting Gemini API call with timeout protection...')
+      
+      // Add timeout protection (Vercel serverless has 60s timeout)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Gemini API timeout after 55 seconds')), 55000)
+      })
       
       // Analyze video using the file URI (already uploaded by frontend)
-      const geminiResponse = await genAI.models.generateContent({
-        model: MODEL_NAME,
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                fileData: {
-                  mimeType: mimeType || 'video/mp4',
-                  fileUri: fileUri
-                }
-              },
+      const geminiResponse = await Promise.race([
+        genAI.models.generateContent({
+          model: MODEL_NAME,
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                {
+                  fileData: {
+                    mimeType: mimeType || 'video/mp4',
+                    fileUri: fileUri
+                  }
+                },
               {
                 text: `You are an expert social media algorithm analyst and content strategist. Analyze this video file IN-DEPTH for ${platform} optimization.
 
@@ -241,9 +248,9 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
 `
               }
             ]
-          }
-        ]
-      })
+        }),
+        timeoutPromise
+      ]) as any
       
       // Parse the response from Google GenAI SDK
       const content = geminiResponse.text || ''
@@ -269,10 +276,22 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         }
       }
     } catch (geminiError: any) {
-      console.error('Gemini analysis error:', geminiError)
+      console.error('[ERROR] Gemini analysis error:', geminiError)
+      console.error('[ERROR] Error type:', geminiError.constructor.name)
+      console.error('[ERROR] Error message:', geminiError.message)
       
       const errorMessage = geminiError.message || 'Unknown error'
       const errorDetails = `Model: ${MODEL_NAME}, Error: ${errorMessage}`
+      
+      // Handle timeout specifically
+      if (errorMessage.includes('timeout')) {
+        console.error('[ERROR] Request timed out - video too large or processing too slow')
+        return NextResponse.json({ 
+          error: 'Analysis timeout',
+          userMessage: 'The video is taking too long to analyze. Please try a shorter video or check back later.',
+          details: 'Gemini API timeout after 55 seconds'
+        }, { status: 504 })
+      }
       
       return NextResponse.json({ 
         error: 'Analysis failed',
@@ -308,7 +327,7 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
 
     // Add cache-busting headers
     response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
-    response.headers.set('X-Deploy-Hash', '34d0b22')
+    response.headers.set('X-Deploy-Hash', 'f3366cc')
 
     return response
   } catch (error) {
