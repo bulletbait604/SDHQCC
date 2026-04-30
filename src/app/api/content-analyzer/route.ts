@@ -90,16 +90,16 @@ export async function POST(request: Request) {
     const extractedData = {
       url: url,
       platform: platform,
-      summary: 'Video URL analysis via Gemini 3 Flash Preview',
-      visualAnalysis: 'Analyzed via Gemini 3 Flash Preview',
-      audioAnalysis: 'Analyzed via Gemini 3 Flash Preview',
+      summary: 'Video URL analysis via Gemini 3 Flash Preview (v1beta endpoint)',
+      visualAnalysis: 'Analyzed via Gemini 3 Flash Preview (v1beta endpoint)',
+      audioAnalysis: 'Analyzed via Gemini 3 Flash Preview (v1beta endpoint)',
       topics: [],
       keyPoints: [],
       source: 'gemini-3-flash-preview-url-analysis'
     }
 
-    // Use Gemini 3 Flash Preview to analyze the video URL directly
-    console.log('[DEBUG] Content Analyzer: Starting Gemini 3 Flash Preview URL analysis...')
+    // Use Gemini 3 Flash Preview (v1beta endpoint) to analyze the video URL directly
+    console.log('[DEBUG] Content Analyzer: Starting Gemini 3 Flash Preview URL analysis (v1beta endpoint)...')
     
     try {
       const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
@@ -227,7 +227,7 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         try {
           analysisResult = JSON.parse(cleanContent)
           analysisSource = 'gemini-3-flash-preview'
-          console.log('✅ [DEBUG] Gemini 3 Flash Preview URL analysis successful - parsed JSON with keys:', Object.keys(analysisResult))
+          console.log('✅ [DEBUG] Gemini 3 Flash Preview URL analysis successful (v1beta endpoint) - parsed JSON with keys:', Object.keys(analysisResult))
         } catch (parseError) {
           console.error('[DEBUG] JSON parse error:', parseError)
           console.error('[DEBUG] Failed content:', cleanContent.substring(0, 500))
@@ -235,27 +235,27 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         }
       }
     } catch (geminiError: any) {
-      console.error('Gemini 3 Flash Preview analysis error:', geminiError)
+      console.error('Gemini 3 Flash Preview analysis error (v1beta endpoint):', geminiError)
       
       if (geminiError.message?.includes('quota')) {
-        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview API quota exceeded. Please upgrade plan.')
+        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview API quota exceeded (v1beta endpoint). Please upgrade plan.')
       } else if (geminiError.message?.includes('permission') || geminiError.message?.includes('unauthorized')) {
-        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview API key invalid or unauthorized.')
+        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview API key invalid or unauthorized (v1beta endpoint).')
       } else if (geminiError.message?.includes('rate')) {
-        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview API rate limit exceeded.')
+        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview API rate limit exceeded (v1beta endpoint).')
       } else {
-        console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview API error - ${geminiError.message || 'Unknown error'}`)
+        console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview API error (v1beta endpoint) - ${geminiError.message || 'Unknown error'}`)
       }
     }
 
-    // Only Gemini 3 Flash Preview - no fallbacks
+    // Only Gemini 3 Flash Preview (v1beta endpoint) - no fallbacks
     if (!analysisResult) {
-      console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview failed to analyze content`)
+      console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview failed to analyze content (v1beta endpoint)`)
       
       return NextResponse.json({ 
         error: 'Analysis failed',
         userMessage: 'Gemini is having a tough time right now. Please check back later.',
-        details: 'Gemini 3 Flash Preview API analysis failed'
+        details: 'Gemini 3 Flash Preview API analysis failed (v1beta endpoint)'
       }, { status: 503 })
     }
 

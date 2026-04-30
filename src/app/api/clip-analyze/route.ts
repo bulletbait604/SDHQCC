@@ -127,12 +127,12 @@ export async function POST(request: Request) {
     try {
       console.log('[Clip Analyze] Analyzing with Gemini 3.1 Pro using file URI...')
       
-      // Initialize Google GenAI client
+      // Initialize Google GenAI client (defaults to v1beta for preview models)
       const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
       
-      // FORCE DEPLOY: Using gemini-3-flash-preview model (from list)
+      // FORCE DEPLOY: Using gemini-3-flash-preview model (requires v1beta endpoint)
       const MODEL_NAME = 'gemini-3-flash-preview'
-      console.log('[FORCE DEPLOY] Using model:', MODEL_NAME)
+      console.log('[FORCE DEPLOY] Using model:', MODEL_NAME, 'with v1beta endpoint')
       
       // Analyze video using the file URI (already uploaded by frontend)
       const geminiResponse = await genAI.models.generateContent({

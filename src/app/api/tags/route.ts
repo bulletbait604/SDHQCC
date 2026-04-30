@@ -47,7 +47,7 @@ async function generateTagsWithGemini(description: string, platform: string, cou
   try {
     const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
     
-    console.log('[Tags] Calling Gemini API with model: gemini-3-flash-preview')
+    console.log('[Tags] Calling Gemini API with model: gemini-3-flash-preview (v1beta endpoint)')
     
     const response = await genAI.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -147,7 +147,7 @@ async function generateTags(description: string, platform: string, count: number
   }
   
   try {
-    console.log('[Tags] Generating tags with Gemini 3 Flash Preview...')
+    console.log('[Tags] Generating tags with Gemini 3 Flash Preview (v1beta endpoint)...')
     console.log('[Tags] Request:', { platform, count, descriptionLength: description.length })
     const tags = await generateTagsWithGemini(description, platform, count)
     console.log('[Tags] Gemini succeeded, generated', tags.length, 'tags')
@@ -162,7 +162,7 @@ async function generateTags(description: string, platform: string, count: number
 // GET endpoint - retrieve tag database status
 export async function GET() {
   return NextResponse.json({ 
-    message: 'Using Gemini 3 Flash Preview for tag generation',
+    message: 'Using Gemini 3 Flash Preview (v1beta endpoint) for tag generation',
     rateLimit: '5 uses per 24 hours (20 for verified users)',
     status: 'active',
     totalUsers: rateLimitStore.size
