@@ -90,22 +90,22 @@ export async function POST(request: Request) {
     const extractedData = {
       url: url,
       platform: platform,
-      summary: 'Video URL analysis via Gemini 2.5 Flash Lite',
-      visualAnalysis: 'Analyzed via Gemini 2.5 Flash Lite',
-      audioAnalysis: 'Analyzed via Gemini 2.5 Flash Lite',
+      summary: 'Video URL analysis via Gemini 2.5 Flash',
+      visualAnalysis: 'Analyzed via Gemini 2.5 Flash',
+      audioAnalysis: 'Analyzed via Gemini 2.5 Flash',
       topics: [],
       keyPoints: [],
-      source: 'gemini-2.5-flash-lite-url-analysis'
+      source: 'gemini-2.5-flash-url-analysis'
     }
 
-    // Use Gemini 2.5 Flash Lite to analyze the video URL directly
-    console.log('[DEBUG] Content Analyzer: Starting Gemini 2.5 Flash Lite URL analysis...')
+    // Use Gemini 2.5 Flash to analyze the video URL directly
+    console.log('[DEBUG] Content Analyzer: Starting Gemini 2.5 Flash URL analysis...')
     
     try {
       const ai = new GoogleGenAI({ apiKey: geminiApiKey })
       
       const geminiResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-lite',
+        model: 'gemini-2.5-flash',
         contents: [
           {
             role: 'user',
@@ -226,8 +226,8 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         
         try {
           analysisResult = JSON.parse(cleanContent)
-          analysisSource = 'gemini-2.5-flash-lite'
-          console.log('✅ [DEBUG] Gemini 2.5 Flash Lite URL analysis successful - parsed JSON with keys:', Object.keys(analysisResult))
+          analysisSource = 'gemini-2.5-flash'
+          console.log('✅ [DEBUG] Gemini 2.5 Flash URL analysis successful - parsed JSON with keys:', Object.keys(analysisResult))
         } catch (parseError) {
           console.error('[DEBUG] JSON parse error:', parseError)
           console.error('[DEBUG] Failed content:', cleanContent.substring(0, 500))
@@ -235,27 +235,27 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         }
       }
     } catch (geminiError: any) {
-      console.error('Gemini 2.5 Flash Lite analysis error:', geminiError)
+      console.error('Gemini 2.5 Flash analysis error:', geminiError)
       
       if (geminiError.message?.includes('quota')) {
-        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 2.5 Flash Lite API quota exceeded. Please upgrade plan.')
+        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 2.5 Flash API quota exceeded. Please upgrade plan.')
       } else if (geminiError.message?.includes('permission') || geminiError.message?.includes('unauthorized')) {
-        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 2.5 Flash Lite API key invalid or unauthorized.')
+        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 2.5 Flash API key invalid or unauthorized.')
       } else if (geminiError.message?.includes('rate')) {
-        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 2.5 Flash Lite API rate limit exceeded.')
+        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 2.5 Flash API rate limit exceeded.')
       } else {
-        console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini 2.5 Flash Lite API error - ${geminiError.message || 'Unknown error'}`)
+        console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini 2.5 Flash API error - ${geminiError.message || 'Unknown error'}`)
       }
     }
 
-    // Only Gemini 2.5 Flash Lite - no fallbacks
+    // Only Gemini 2.5 Flash - no fallbacks
     if (!analysisResult) {
-      console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini 2.5 Flash Lite failed to analyze content`)
+      console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini 2.5 Flash failed to analyze content`)
       
       return NextResponse.json({ 
         error: 'Analysis failed',
         userMessage: 'Gemini is having a tough time right now. Please check back later.',
-        details: 'Gemini 2.5 Flash Lite API analysis failed'
+        details: 'Gemini 2.5 Flash API analysis failed'
       }, { status: 503 })
     }
 

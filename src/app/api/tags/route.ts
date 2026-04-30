@@ -47,10 +47,10 @@ async function generateTagsWithGemini(description: string, platform: string, cou
   try {
     const ai = new GoogleGenAI({ apiKey: geminiApiKey })
     
-    console.log('[Tags] Calling Gemini API with model: gemini-2.5-flash-lite')
+    console.log('[Tags] Calling Gemini API with model: gemini-2.5-flash')
     
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-lite',
+      model: 'gemini-2.5-flash',
       contents: [
         {
           role: 'user',
@@ -147,11 +147,11 @@ async function generateTags(description: string, platform: string, count: number
   }
   
   try {
-    console.log('[Tags] Generating tags with Gemini 2.5 Flash Lite...')
+    console.log('[Tags] Generating tags with Gemini 2.5 Flash...')
     console.log('[Tags] Request:', { platform, count, descriptionLength: description.length })
     const tags = await generateTagsWithGemini(description, platform, count)
     console.log('[Tags] Gemini succeeded, generated', tags.length, 'tags')
-    return { tags, provider: 'gemini-2.5-flash-lite' }
+    return { tags, provider: 'gemini-2.5-flash' }
   } catch (error: any) {
     console.error('[Tags] Gemini failed:', error)
     console.error('[Tags] Error details:', error.message || error)
@@ -162,7 +162,7 @@ async function generateTags(description: string, platform: string, count: number
 // GET endpoint - retrieve tag database status
 export async function GET() {
   return NextResponse.json({ 
-    message: 'Using Gemini 2.5 Flash Lite for tag generation',
+    message: 'Using Gemini 2.5 Flash for tag generation',
     rateLimit: '5 uses per 24 hours (20 for verified users)',
     status: 'active',
     totalUsers: rateLimitStore.size
