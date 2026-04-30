@@ -312,6 +312,7 @@ export default function HomePage() {
   const [extractedData, setExtractedData] = useState<any>(null)
   const [showReanalysis, setShowReanalysis] = useState<boolean>(false)
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
+  const [copiedTags, setCopiedTags] = useState<boolean>(false)
 
   // Content Analyzer states
   const [contentUrl, setContentUrl] = useState<string>('')
@@ -1179,6 +1180,7 @@ export default function HomePage() {
     setExtractedData(null)
     setShowReanalysis(false)
     setExpandedCards(new Set())
+    setCopiedTags(false)
   }
 
   const toggleCard = (cardId: string) => {
@@ -3186,7 +3188,7 @@ export default function HomePage() {
                           </div>
                         </div>
 
-                        {/* Content Insights - Expandable Summary Cards */}
+                        {/* Content Insights - 2x2 Grid Pattern */}
                         <div>
                           <div className={`relative overflow-hidden rounded-xl p-3 ${
                             darkMode 
@@ -3198,40 +3200,36 @@ export default function HomePage() {
                                 Content Insights
                               </h4>
                             </div>
-                            <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
                               {(clipAnalysisResult.insights || []).map((insight: any, idx: number) => {
                                 const isExpanded = expandedCards.has(`insight-${idx}`)
                                 return (
-                                  <div key={idx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 ${
+                                  <div key={idx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 min-h-[140px] flex flex-col ${
                                     darkMode 
                                       ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
                                       : 'bg-white border-sdhq-cyan-200'
                                   }`}>
                                     {/* Summary Header */}
                                     <div 
-                                      className="p-3 flex items-center justify-between cursor-pointer hover:bg-opacity-80 transition-colors"
+                                      className="p-4 flex flex-col items-center text-center cursor-pointer hover:bg-opacity-80 transition-colors flex-1"
                                       onClick={() => toggleCard(`insight-${idx}`)}
                                     >
-                                      <div className="flex items-center gap-3">
-                                        <span className="text-2xl">{insight.icon || '📊'}</span>
-                                        <div>
-                                          <div className={`text-sm font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                            {insight.label}
-                                          </div>
-                                          <div className={`text-base font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                            {insight.value}
-                                          </div>
-                                        </div>
+                                      <span className="text-3xl mb-2">{insight.icon || '📊'}</span>
+                                      <div className={`text-xs font-semibold uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                        {insight.label}
                                       </div>
-                                      <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                      <div className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                        {insight.value}
+                                      </div>
+                                      <div className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                         {isExpanded ? '▼' : '▶'} Details
                                       </div>
                                     </div>
                                     
                                     {/* Expandable Details */}
                                     {isExpanded && insight.description && (
-                                      <div className={`px-3 pb-3 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-                                        <ul className={`mt-2 space-y-1 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                        <ul className={`mt-3 space-y-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                           {insight.description?.replace(/<[^>]*>/g, '').split('. ').filter((s: string) => s.trim()).map((sentence: string, sIdx: number) => (
                                             <li key={sIdx} className="flex items-start gap-2">
                                               <span className="text-sdhq-cyan-500 mt-0.5">•</span>
@@ -3239,6 +3237,9 @@ export default function HomePage() {
                                             </li>
                                           ))}
                                         </ul>
+                                        <div className={`mt-3 p-2 rounded text-xs ${darkMode ? 'bg-sdhq-dark-800 text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
+                                          💡 <strong>Analysis:</strong> This insight is based on the video content analysis and platform algorithm trends.
+                                        </div>
                                       </div>
                                     )}
                                   </div>
@@ -3248,7 +3249,7 @@ export default function HomePage() {
                           </div>
                         </div>
 
-                        {/* Recommendations - Expandable Summary Cards */}
+                        {/* Recommendations - 3 top, 2 bottom Pattern */}
                         <div>
                           <div className={`relative overflow-hidden rounded-xl p-3 ${
                             darkMode 
@@ -3260,41 +3261,37 @@ export default function HomePage() {
                                 Algorithm Recommendations
                               </h4>
                             </div>
-                            <div className="space-y-3">
-                              {(clipAnalysisResult.recommendations || []).map((rec: any, idx: number) => {
+                            <div className="grid grid-cols-3 gap-3 mb-3">
+                              {(clipAnalysisResult.recommendations || []).slice(0, 3).map((rec: any, idx: number) => {
                                 const isExpanded = expandedCards.has(`rec-${idx}`)
                                 const priorityColor = rec.priority === 'high' ? '🔴' : rec.priority === 'med' ? '🟡' : '🟢'
                                 return (
-                                  <div key={idx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 ${
+                                  <div key={idx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 min-h-[140px] flex flex-col ${
                                     darkMode 
                                       ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
                                       : 'bg-white border-sdhq-cyan-200'
                                   }`}>
                                     {/* Summary Header */}
                                     <div 
-                                      className="p-3 flex items-center justify-between cursor-pointer hover:bg-opacity-80 transition-colors"
+                                      className="p-4 flex flex-col items-center text-center cursor-pointer hover:bg-opacity-80 transition-colors flex-1"
                                       onClick={() => toggleCard(`rec-${idx}`)}
                                     >
-                                      <div className="flex items-center gap-3">
-                                        <span className="text-lg">{priorityColor}</span>
-                                        <div>
-                                          <div className={`text-sm font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                            {rec.category}
-                                          </div>
-                                          <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                            {rec.text?.replace(/<[^>]*>/g, '').substring(0, 60)}{rec.text?.length > 60 ? '...' : ''}
-                                          </div>
-                                        </div>
+                                      <span className="text-2xl mb-2">{priorityColor}</span>
+                                      <div className={`text-xs font-semibold uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                        {rec.category}
                                       </div>
-                                      <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                      <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        {rec.text?.replace(/<[^>]*>/g, '').substring(0, 50)}{rec.text?.length > 50 ? '...' : ''}
+                                      </div>
+                                      <div className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                         {isExpanded ? '▼' : '▶'} Details
                                       </div>
                                     </div>
                                     
                                     {/* Expandable Details */}
                                     {isExpanded && (
-                                      <div className={`px-3 pb-3 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-                                        <ul className={`mt-2 space-y-1 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                        <ul className={`mt-3 space-y-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                           {rec.text?.replace(/<[^>]*>/g, '').split('. ').filter((s: string) => s.trim()).map((sentence: string, sIdx: number) => (
                                             <li key={sIdx} className="flex items-start gap-2">
                                               <span className="text-sdhq-cyan-500 mt-0.5">•</span>
@@ -3302,6 +3299,59 @@ export default function HomePage() {
                                             </li>
                                           ))}
                                         </ul>
+                                        <div className={`mt-3 p-2 rounded text-xs ${darkMode ? 'bg-sdhq-dark-800 text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
+                                          🎯 <strong>Impact:</strong> {rec.priority === 'high' ? 'Critical for viral potential' : rec.priority === 'med' ? 'Moderate impact on performance' : 'Nice to have improvement'}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                            {/* Bottom row - 2 cards centered */}
+                            <div className="grid grid-cols-3 gap-3">
+                              <div className="col-span-1"></div>
+                              {(clipAnalysisResult.recommendations || []).slice(3, 5).map((rec: any, idx: number) => {
+                                const actualIdx = idx + 3
+                                const isExpanded = expandedCards.has(`rec-${actualIdx}`)
+                                const priorityColor = rec.priority === 'high' ? '🔴' : rec.priority === 'med' ? '🟡' : '🟢'
+                                return (
+                                  <div key={actualIdx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 min-h-[140px] flex flex-col ${
+                                    darkMode 
+                                      ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
+                                      : 'bg-white border-sdhq-cyan-200'
+                                  }`}>
+                                    {/* Summary Header */}
+                                    <div 
+                                      className="p-4 flex flex-col items-center text-center cursor-pointer hover:bg-opacity-80 transition-colors flex-1"
+                                      onClick={() => toggleCard(`rec-${actualIdx}`)}
+                                    >
+                                      <span className="text-2xl mb-2">{priorityColor}</span>
+                                      <div className={`text-xs font-semibold uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                        {rec.category}
+                                      </div>
+                                      <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        {rec.text?.replace(/<[^>]*>/g, '').substring(0, 50)}{rec.text?.length > 50 ? '...' : ''}
+                                      </div>
+                                      <div className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                        {isExpanded ? '▼' : '▶'} Details
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Expandable Details */}
+                                    {isExpanded && (
+                                      <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                        <ul className={`mt-3 space-y-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                          {rec.text?.replace(/<[^>]*>/g, '').split('. ').filter((s: string) => s.trim()).map((sentence: string, sIdx: number) => (
+                                            <li key={sIdx} className="flex items-start gap-2">
+                                              <span className="text-sdhq-cyan-500 mt-0.5">•</span>
+                                              <span>{sentence.trim()}{!sentence.trim().endsWith('.') ? '.' : ''}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                        <div className={`mt-3 p-2 rounded text-xs ${darkMode ? 'bg-sdhq-dark-800 text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
+                                          🎯 <strong>Impact:</strong> {rec.priority === 'high' ? 'Critical for viral potential' : rec.priority === 'med' ? 'Moderate impact on performance' : 'Nice to have improvement'}
+                                        </div>
                                       </div>
                                     )}
                                   </div>
@@ -3311,7 +3361,7 @@ export default function HomePage() {
                           </div>
                         </div>
 
-                        {/* Overlays - Expandable Summary Cards */}
+                        {/* Overlays - 2x2 Grid Pattern */}
                         <div>
                           <div className={`relative overflow-hidden rounded-xl p-3 ${
                             darkMode 
@@ -3323,7 +3373,7 @@ export default function HomePage() {
                                 Overlay & Edit Suggestions
                               </h4>
                             </div>
-                            <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
                               {(clipAnalysisResult.overlays || []).map((overlay: any, idx: number) => {
                                 const isExpanded = expandedCards.has(`overlay-${idx}`)
                                 const iconMap: Record<string, string> = {
@@ -3333,36 +3383,35 @@ export default function HomePage() {
                                   cta: '👆'
                                 }
                                 return (
-                                  <div key={idx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 ${
+                                  <div key={idx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 min-h-[140px] flex flex-col ${
                                     darkMode 
                                       ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
                                       : 'bg-white border-sdhq-cyan-200'
                                   }`}>
                                     {/* Summary Header */}
                                     <div 
-                                      className="p-3 flex items-center justify-between cursor-pointer hover:bg-opacity-80 transition-colors"
+                                      className="p-4 flex flex-col items-center text-center cursor-pointer hover:bg-opacity-80 transition-colors flex-1"
                                       onClick={() => toggleCard(`overlay-${idx}`)}
                                     >
-                                      <div className="flex items-center gap-3">
-                                        <span className="text-2xl">{iconMap[overlay.type] || '✨'}</span>
-                                        <div>
-                                          <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                            {overlay.description?.replace(/<[^>]*>/g, '').substring(0, 50)}{overlay.description?.length > 50 ? '...' : ''}
-                                          </div>
-                                          <div className={`text-xs font-mono mt-0.5 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                            {overlay.timing}
-                                          </div>
-                                        </div>
+                                      <span className="text-3xl mb-2">{iconMap[overlay.type] || '✨'}</span>
+                                      <div className={`text-xs font-semibold uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                        {overlay.type}
                                       </div>
-                                      <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                      <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        {overlay.description?.replace(/<[^>]*>/g, '').substring(0, 40)}{overlay.description?.length > 40 ? '...' : ''}
+                                      </div>
+                                      <div className={`text-xs font-mono mt-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                        {overlay.timing}
+                                      </div>
+                                      <div className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                         {isExpanded ? '▼' : '▶'} Details
                                       </div>
                                     </div>
                                     
                                     {/* Expandable Details */}
                                     {isExpanded && (
-                                      <div className={`px-3 pb-3 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-                                        <ul className={`mt-2 space-y-1 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                        <ul className={`mt-3 space-y-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                           <li className="flex items-start gap-2">
                                             <span className="text-sdhq-cyan-500 mt-0.5">•</span>
                                             <span><strong>Type:</strong> {overlay.type}</span>
@@ -3376,6 +3425,9 @@ export default function HomePage() {
                                             <span>{overlay.description?.replace(/<[^>]*>/g, '')}</span>
                                           </li>
                                         </ul>
+                                        <div className={`mt-3 p-2 rounded text-xs ${darkMode ? 'bg-sdhq-dark-800 text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
+                                          🎬 <strong>Implementation:</strong> Add this overlay during editing to improve viewer retention and engagement.
+                                        </div>
                                       </div>
                                     )}
                                   </div>
@@ -3450,11 +3502,28 @@ export default function HomePage() {
                                     ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
                                     : 'bg-white border-sdhq-cyan-200'
                                 }`}>
-                                  <div className="p-3 flex items-center gap-3">
-                                    <span className="text-2xl">#️⃣</span>
-                                    <div className={`text-sm font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                      Recommended Tags
+                                  <div className="p-3 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-2xl">#️⃣</span>
+                                      <div className={`text-sm font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                        Recommended Tags
+                                      </div>
                                     </div>
+                                    <button
+                                      onClick={() => {
+                                        const tagsText = (clipAnalysisResult.tags || []).map((t: string) => `#${t.replace(/^#/, '')}`).join(' ')
+                                        navigator.clipboard.writeText(tagsText)
+                                        setCopiedTags(true)
+                                        setTimeout(() => setCopiedTags(false), 2000)
+                                      }}
+                                      className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                                        copiedTags
+                                          ? (darkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600')
+                                          : (darkMode ? 'bg-sdhq-dark-600 text-sdhq-cyan-400 hover:bg-sdhq-cyan-500/20' : 'bg-gray-100 text-sdhq-cyan-600 hover:bg-sdhq-cyan-50')
+                                      }`}
+                                    >
+                                      {copiedTags ? '✓ Copied!' : '📋 Copy'}
+                                    </button>
                                   </div>
                                   <div className={`px-3 pb-3 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
                                     <div className="mt-2 flex flex-wrap gap-1">
