@@ -256,9 +256,11 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
 `
               }
             ]
-        }),
-        timeoutPromise
-      ]) as any
+          }
+        ]
+      }),
+      timeoutPromise
+    ]) as any
       
       // Parse the response from Google GenAI SDK
       let rawText: string
