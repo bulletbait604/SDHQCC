@@ -26,7 +26,7 @@ function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean
 }
 
 export async function POST(request: Request) {
-  console.log('[DEBUG] Clip Analyze API: Request received - DEPLOY HASH: d9f92b4')
+  console.log('[DEBUG] Clip Analyze API: Request received - DEPLOY HASH: 680478f')
   
   try {
     console.log('[DEBUG] Clip Analyze API: Parsing request body...')
