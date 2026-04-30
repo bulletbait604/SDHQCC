@@ -36,14 +36,11 @@ export async function POST(request: Request) {
   try {
     console.log('[DEBUG] Clip Analyze API: Parsing request body...')
     const body = await request.json()
-    const { fileUri, mimeType, fileName, fileSize, platform, userId, userType } = body
+    const { videoUrl, platform, userId, userType } = body
 
     console.log('[DEBUG] Clip Analyze API: Request data:', { 
-      hasFileUri: !!fileUri, 
-      fileUriPreview: fileUri ? fileUri.substring(0, 60) : 'none',
-      mimeType, 
-      fileName,
-      fileSizeMB: fileSize ? (fileSize / (1024 * 1024)).toFixed(2) : 'unknown',
+      hasVideoUrl: !!videoUrl, 
+      videoUrlPreview: videoUrl ? videoUrl.substring(0, 60) : 'none',
       platform, 
       userId, 
       userType,
@@ -51,17 +48,18 @@ export async function POST(request: Request) {
     })
 
     // Validate required fields
-    if (!fileUri) {
-      console.error('[DEBUG] Clip Analyze API: fileUri is required')
-      return NextResponse.json({ error: 'fileUri is required' }, { status: 400 })
+    if (!videoUrl) {
+      console.error('[DEBUG] Clip Analyze API: videoUrl is required')
+      return NextResponse.json({ error: 'videoUrl is required' }, { status: 400 })
     }
     
-    // Validate fileUri format - must be a Google Files API URI
-    if (!fileUri.startsWith('https://generativelanguage.googleapis.com/')) {
-      console.error('[DEBUG] Clip Analyze API: Invalid fileUri format - not a Google Files API URI')
+    // Validate videoUrl format - must be a valid video URL
+    const validUrlPattern = /^(https?:\/\/)?(www\.)?(tiktok\.com|instagram\.com|youtube\.com|youtu\.be|facebook\.com|fb\.watch|twitter\.com|x\.com)/
+    if (!validUrlPattern.test(videoUrl)) {
+      console.error('[DEBUG] Clip Analyze API: Invalid videoUrl format')
       return NextResponse.json({ 
-        error: 'Invalid fileUri format',
-        details: 'fileUri must be a Google Files API URI (https://generativelanguage.googleapis.com/). This error typically occurs when the file was uploaded with different API credentials than those used for analysis. Both upload and analysis must use the same GEMINI_API key.'
+        error: 'Invalid videoUrl format',
+        details: 'videoUrl must be a valid video URL from TikTok, Instagram, YouTube, Facebook, or Twitter.'
       }, { status: 400 })
     }
     
@@ -70,16 +68,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Platform is required' }, { status: 400 })
     }
 
-    // Validate file size (min 100KB, max 250MB as requested)
-    const minSize = 100 * 1024 // 100KB minimum
-    const maxSize = 250 * 1024 * 1024 // 250MB maximum
-    
-    if (fileSize != null && fileSize > 0 && fileSize < minSize) {
-      return NextResponse.json({ error: 'File size is too small. Video must be at least 100KB to analyze properly.' }, { status: 400 })
-    }
-    if (fileSize != null && fileSize > maxSize) {
-      return NextResponse.json({ error: 'File size must be less than 250MB. Please use a smaller video file.' }, { status: 400 })
-    }
+    // Note: 150MB limit is enforced on the frontend for direct URLs
+    // Videos larger than 150MB may not be accessible for analysis
 
     // Rate limiting
     const identifier = userId || 'anonymous'
@@ -119,18 +109,10 @@ export async function POST(request: Request) {
       }, { status: 503 })
     }
 
-    // Create basic extracted data from file metadata
+    // Create basic extracted data from URL
     const extractedData = {
-      fileName: fileName || 'Unknown',
-      fileSize: fileSize || 0,
-      fileType: mimeType || 'video/mp4',
-      duration: 'Unknown (requires video processing)',
-      summary: `Uploaded video file: ${fileName || 'Unknown'} (${fileSize ? (fileSize / (1024 * 1024)).toFixed(2) : 'Unknown'} MB)`,
-      visualAnalysis: 'Video file uploaded for analysis',
-      audioAnalysis: 'Video file uploaded for analysis',
-      topics: [],
-      keyPoints: [],
-      source: 'direct-upload-gemini-oauth'
+      videoUrl: videoUrl,
+      source: 'url-analysis-gemini-2.5-flash'
     }
 
     console.log('[DEBUG] Clip Analyze API: Starting Gemini analysis with file URI...')
@@ -151,7 +133,15 @@ export async function POST(request: Request) {
         setTimeout(() => reject(new Error('Gemini API timeout after 52 seconds')), 52000)
       })
       
-      // Analyze video using the file URI (already uploaded by frontend)
+      // TODO: Download video from URL and upload to Gemini Files API
+      // For now, we'll analyze based on URL metadata and platform knowledge
+      // Full implementation requires:
+      // 1. Download video from videoUrl (handling CORS, redirects, etc.)
+      // 2. Upload to Gemini Files API
+      // 3. Use fileUri from upload for analysis
+      
+      console.log('[DEBUG] Analyzing video URL:', videoUrl)
+      
       const geminiResponse = await Promise.race([
         genAI.models.generateContent({
           model: MODEL_NAME,
@@ -160,10 +150,7 @@ export async function POST(request: Request) {
               role: 'user',
               parts: [
                 {
-                  fileData: {
-                    mimeType: mimeType || 'video/mp4',
-                    fileUri: fileUri
-                  }
+                  text: `Analyze this video from ${videoUrl} for ${platform} optimization. Note: Full video content analysis requires downloading and processing the video file.`
                 },
                 {
                   text: `You are an expert social media algorithm analyst and content strategist. Analyze this video file IN-DEPTH for ${platform} optimization.
