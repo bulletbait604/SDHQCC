@@ -1108,12 +1108,62 @@ export default function HomePage() {
 
       const uploadData = await uploadRes.json()
       const fileUri = uploadData.file?.uri
+      const fileName = uploadData.file?.name
       
       if (!fileUri) {
         throw new Error('File URI not received from Gemini')
       }
 
       console.log('Clip Upload: File uploaded successfully. URI:', fileUri)
+
+      // Step 2.5: Wait for file to be in ACTIVE state before analysis
+      setLoadingStep({ title: 'Processing', description: 'Preparing video for analysis...' })
+      console.log('Clip Upload: Waiting for file to become ACTIVE...')
+      
+      const maxRetries = 30 // Max 30 retries
+      const retryDelay = 2000 // 2 seconds between retries
+      let fileState = uploadData.file?.state || 'PROCESSING'
+      let retryCount = 0
+      
+      // Extract file ID from URI for status checks
+      // URI format: https://generativelanguage.googleapis.com/v1beta/files/{fileId}
+      const fileId = fileUri.split('/').pop()
+      
+      while (fileState !== 'ACTIVE' && retryCount < maxRetries) {
+        console.log(`Clip Upload: File state is ${fileState}, waiting... (attempt ${retryCount + 1}/${maxRetries})`)
+        
+        // Wait before checking again
+        await new Promise(resolve => setTimeout(resolve, retryDelay))
+        
+        // Check file status via Files API
+        try {
+          const statusRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/files/${fileId}?key=${apiKey}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          })
+          
+          if (statusRes.ok) {
+            const statusData = await statusRes.json()
+            fileState = statusData.file?.state || 'PROCESSING'
+            console.log('Clip Upload: File status check:', { fileId, state: fileState })
+          } else {
+            console.error('Clip Upload: Failed to check file status:', statusRes.status)
+          }
+        } catch (statusError) {
+          console.error('Clip Upload: Error checking file status:', statusError)
+        }
+        
+        retryCount++
+      }
+      
+      if (fileState !== 'ACTIVE') {
+        console.error(`Clip Upload: File did not become ACTIVE after ${maxRetries} retries`)
+        throw new Error(`Video is taking too long to process. Please try a shorter video or check back later. (State: ${fileState})`)
+      }
+      
+      console.log('Clip Upload: File is now ACTIVE, proceeding to analysis')
 
       // Step 3: Send file URI to backend for analysis
       setLoadingStep(loadingSteps[2])
