@@ -302,7 +302,7 @@ export default function HomePage() {
   const [timeUntilReset, setTimeUntilReset] = useState<string>('')
 
   // Clip Analyzer states
-  const [clipFile, setClipFile] = useState<File | null>(null)
+  const [clipUrl, setClipUrl] = useState<string>('')
   const [clipPlatform, setClipPlatform] = useState<string>('tiktok')
   const [isAnalyzingClip, setIsAnalyzingClip] = useState<boolean>(false)
   const [clipAnalysisResult, setClipAnalysisResult] = useState<any>(null)
@@ -951,8 +951,8 @@ export default function HomePage() {
   }
 
   const handleAnalyzeClip = async () => {
-    if (!clipFile) {
-      setClipError('Please select a video file to analyze.')
+    if (!clipUrl.trim()) {
+      setClipError('Please enter a video URL to analyze.')
       return
     }
 
@@ -961,24 +961,10 @@ export default function HomePage() {
       return
     }
 
-    // Validate file type
-    const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo']
-    if (!validTypes.includes(clipFile.type)) {
-      setClipError('Please select a valid video file (MP4, WebM, MOV, or AVI).')
-      return
-    }
-
-    // Validate file size (max 250MB as requested)
-    const maxSize = 250 * 1024 * 1024
-    const minSize = 100 * 1024 // 100KB minimum
-    
-    if (clipFile.size < minSize) {
-      setClipError('File size is too small. Video must be at least 100KB to analyze properly.')
-      return
-    }
-    
-    if (clipFile.size > maxSize) {
-      setClipError('File size must be less than 250MB.')
+    // Validate URL format
+    const urlPattern = /^(https?:\/\/)?(www\.)?(tiktok\.com|instagram\.com|youtube\.com|youtu\.be|facebook\.com|fb\.watch|twitter\.com|x\.com|t\.co)\/.+$/
+    if (!urlPattern.test(clipUrl)) {
+      setClipError('Please enter a valid video URL from TikTok, Instagram, YouTube, Facebook, or Twitter.')
       return
     }
 
@@ -989,10 +975,8 @@ export default function HomePage() {
     setShowReanalysis(false)
 
     const loadingSteps = [
-      'Requesting upload authorization...',
-      'Uploading video to Gemini (this may take a moment)...',
-      'Processing video with AI...',
-      'Analyzing visual and audio elements...',
+      'Researching video content...',
+      'Analyzing with Gemini 2.5 Flash...',
       'Cross-referencing with platform algorithm...',
       'Generating optimization recommendations...',
       'Creating final report...',
@@ -1009,8 +993,8 @@ export default function HomePage() {
     try {
       const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetimeMember ? 'lifetime' : isSubscribed ? 'subscribed' : 'free'
       
-      console.log('Clip Upload: Starting OAuth flow...')
-      console.log('Clip Upload: File details:', { name: clipFile.name, type: clipFile.type, size: clipFile.size })
+      console.log('Clip Analyzer: Starting analysis...')
+      console.log('Clip Analyzer: URL:', clipUrl)
       
       // Step 1: Get API key from backend
       setLoadingStep(loadingSteps[0])
@@ -1027,154 +1011,21 @@ export default function HomePage() {
 
       if (!tokenRes.ok) {
         const errorData = await tokenRes.json()
-        throw new Error(errorData.userMessage || errorData.error || 'Failed to get upload authorization')
+        throw new Error(errorData.userMessage || errorData.error || 'Failed to get API authorization')
       }
 
-      const { apiKey } = await tokenRes.json()
-      console.log('Clip Upload: API key received')
+      console.log('Clip Analyzer: API authorized')
 
-      // Step 2: Upload file directly to Gemini using API key (not OAuth)
+      // Step 2: Send URL directly to backend for analysis (no upload needed)
       setLoadingStep(loadingSteps[1])
-      console.log('Clip Upload: Step 2 - Uploading to Gemini File API...')
-      console.log('Clip Upload: File details:', { size: clipFile.size, type: clipFile.type, name: clipFile.name })
-
-      // Start resumable upload session with API key
-      const uploadUrlRes = await fetch('https://generativelanguage.googleapis.com/upload/v1beta/files', {
-        method: 'POST',
-        headers: {
-          'x-goog-api-key': apiKey,
-          'X-Goog-Upload-Protocol': 'resumable',
-          'X-Goog-Upload-Command': 'start',
-          'X-Goog-Upload-Header-Content-Length': clipFile.size.toString(),
-          'X-Goog-Upload-Header-Content-Type': clipFile.type,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          file: {
-            display_name: clipFile.name
-          }
-        })
-      })
-
-      console.log('Clip Upload: Upload session response status:', uploadUrlRes.status)
-
-      if (!uploadUrlRes.ok) {
-        const errorText = await uploadUrlRes.text()
-        console.error('Clip Upload: Failed to start upload session:', errorText)
-        console.error('Clip Upload: Response headers:', Object.fromEntries(uploadUrlRes.headers.entries()))
-        throw new Error('Failed to start upload session. Please try again.')
-      }
-
-      const uploadUrl = uploadUrlRes.headers.get('X-Goog-Upload-URL')
-      if (!uploadUrl) {
-        throw new Error('Upload URL not received from Gemini')
-      }
-
-      console.log('Clip Upload: Upload session started, uploading bytes...')
-      console.log('Clip Upload: Upload URL:', uploadUrl)
-      console.log('Clip Upload: Using API key:', apiKey.substring(0, 20) + '...')
-
-      // Upload the actual file bytes
-      const uploadHeaders = {
-        'x-goog-api-key': apiKey,
-        'Content-Type': clipFile.type,
-        'X-Goog-Upload-Protocol': 'resumable',
-        'X-Goog-Upload-Command': 'upload, finalize',
-        'X-Goog-Upload-Offset': '0'
-      }
-      
-      console.log('Clip Upload: Upload headers:', { 
-        'x-goog-api-key': apiKey.substring(0, 20) + '...',
-        'Content-Type': uploadHeaders['Content-Type'],
-        'X-Goog-Upload-Protocol': uploadHeaders['X-Goog-Upload-Protocol'],
-        'X-Goog-Upload-Command': uploadHeaders['X-Goog-Upload-Command'],
-        'X-Goog-Upload-Offset': uploadHeaders['X-Goog-Upload-Offset']
-      })
-
-      const uploadRes = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: uploadHeaders,
-        body: clipFile
-      })
-
-      console.log('Clip Upload: Upload response status:', uploadRes.status)
-
-      if (!uploadRes.ok) {
-        const errorText = await uploadRes.text()
-        console.error('Clip Upload: Failed to upload file:', errorText)
-        console.error('Clip Upload: Response headers:', Object.fromEntries(uploadRes.headers.entries()))
-        throw new Error('Failed to upload video. Please try again.')
-      }
-
-      const uploadData = await uploadRes.json()
-      const fileUri = uploadData.file?.uri
-      const fileName = uploadData.file?.name
-      
-      if (!fileUri) {
-        throw new Error('File URI not received from Gemini')
-      }
-
-      console.log('Clip Upload: File uploaded successfully. URI:', fileUri)
-
-      // Step 2.5: Wait for file to be in ACTIVE state before analysis
-      setLoadingStep('Preparing video for analysis...')
-      console.log('Clip Upload: Waiting for file to become ACTIVE...')
-      
-      // Extract file ID from URI for status checks
-      // URI format: https://generativelanguage.googleapis.com/v1beta/files/{fileId}
-      const fileId = fileUri.split('/').pop()
-      const maxRetries = 30      // 30 retries × 2s = 60s is plenty for a 43MB file
-      const retryDelay = 2000
-      let fileState: string = uploadData.file?.state ?? 'PROCESSING'  // let, not const
-      let retryCount = 0
-
-      console.log('Clip Upload: Initial state:', fileState)
-
-      while (fileState !== 'ACTIVE' && fileState !== 'FAILED' && retryCount < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, retryDelay))
-        retryCount++
-
-        console.log(`Clip Upload: Polling attempt ${retryCount}/${maxRetries}...`)
-
-        try {
-          const statusRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/files/${fileId}?key=${apiKey}`,
-            { method: 'GET' }
-          )
-
-          if (!statusRes.ok) {
-            console.error('Clip Upload: Status check failed:', statusRes.status)
-            continue
-          }
-
-          const statusData = await statusRes.json()
-          // Files API returns state at statusData.state (not statusData.file?.state)
-          fileState = statusData.state ?? statusData.file?.state ?? fileState
-          
-          console.log(`Clip Upload: State is now: ${fileState}`)
-        } catch (statusError) {
-          console.error('Clip Upload: Error checking file status:', statusError)
-        }
-      }
-
-      if (fileState !== 'ACTIVE') {
-        throw new Error(`File did not become ACTIVE. Final state: ${fileState}`)
-      }
-
-      console.log('Clip Upload: File is now ACTIVE, proceeding to analysis')
-
-      // Step 3: Send file URI to backend for analysis
-      setLoadingStep(loadingSteps[2])
-      console.log('Clip Upload: Step 3 - Sending to analysis API...')
+      console.log('Clip Analyzer: Sending URL to analysis API...')
+      console.log('Clip Analyzer: URL:', clipUrl)
 
       const analyzeRes = await fetch('/api/clip-analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fileUri: fileUri,
-          mimeType: clipFile.type,
-          fileName: clipFile.name,
-          fileSize: clipFile.size,
+          videoUrl: clipUrl,
           platform: clipPlatform,
           userId: user?.id || '',
           userType: userType
@@ -1326,7 +1177,7 @@ export default function HomePage() {
   }
 
   const handleResetClip = () => {
-    setClipFile(null)
+    setClipUrl('')
     setClipPlatform('tiktok')
     setClipAnalysisResult(null)
     setClipError('')
@@ -3022,7 +2873,7 @@ export default function HomePage() {
                     </li>
                     <li className="flex items-start gap-2">
                       <span className={`font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>2.</span>
-                      <span>Upload your video file (MP4, WebM, MOV, AVI - max 500MB)</span>
+                      <span>Paste a video URL from TikTok, Instagram, YouTube, or other platforms</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className={`font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>3.</span>
@@ -3034,7 +2885,7 @@ export default function HomePage() {
                     </li>
                   </ol>
                   <div className={`mt-3 p-2 rounded text-sm ${darkMode ? 'bg-sdhq-dark-900/50 text-sdhq-cyan-300' : 'bg-sdhq-cyan-50 text-sdhq-cyan-700'}`}>
-                    <span className="font-semibold">💡 AI Analysis:</span> Videos up to 500MB are analyzed by Gemini 3.1 Pro with platform-specific insights.
+                    <span className="font-semibold">💡 AI Analysis:</span> Videos up to 150MB are analyzed by Gemini 2.5 Flash with platform-specific insights.
                   </div>
                 </div>
 
@@ -3140,16 +2991,14 @@ export default function HomePage() {
                         </select>
 
                         <label className={`block text-sm font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                          Video File
+                          Video URL
                         </label>
                         <div className="flex gap-3">
                           <input
-                            type="file"
-                            accept="video/mp4,video/webm,video/quicktime,video/x-msvideo"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0] || null
-                              setClipFile(file)
-                            }}
+                            type="url"
+                            placeholder="Paste TikTok, Instagram, YouTube, or Facebook video URL..."
+                            value={clipUrl}
+                            onChange={(e) => setClipUrl(e.target.value)}
                             disabled={isAnalyzingClip}
                             className={`flex-1 px-4 py-3 rounded-xl text-base outline-none transition-all duration-300 ${
                               darkMode 
@@ -3159,18 +3008,17 @@ export default function HomePage() {
                           />
                           <Button
                             onClick={handleAnalyzeClip}
-                            disabled={isAnalyzingClip || !clipFile}
+                            disabled={isAnalyzingClip || !clipUrl.trim()}
                             className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold px-6 rounded-xl hover:shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all duration-300 flex items-center gap-2"
                           >
                             <span>Analyze</span>
                             <span>→</span>
                           </Button>
                         </div>
-                        {clipFile && (
-                          <div className="mt-3 text-base">
-                            <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Selected:</span>
-                            <span className={`ml-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>{clipFile.name}</span>
-                            <span className={`ml-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>({(clipFile.size / (1024 * 1024)).toFixed(2)} MB)</span>
+                        {clipUrl && (
+                          <div className="mt-3 text-base truncate">
+                            <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>URL:</span>
+                            <span className={`ml-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>{clipUrl}</span>
                           </div>
                         )}
                         {clipError && (
