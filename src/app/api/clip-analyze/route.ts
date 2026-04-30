@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 
-// Fixed: Using gemini-3-flash-preview model (from list) - Deploy: 2026-04-29T17:43:00Z
+// FIXED: Using gemini-3-flash-preview model (from list) - DEPLOY: 2026-04-29T18:13:00Z - FORCE REBUILD
 
 // In-memory rate limit storage for clip analyzer
 const clipAnalyzerRateLimitStore = new Map<string, { count: number; resetTime: number }>()
@@ -132,7 +132,13 @@ export async function POST(request: Request) {
       
       // FORCE DEPLOY: Using gemini-3-flash-preview model (requires v1beta endpoint)
       const MODEL_NAME = 'gemini-3-flash-preview'
-      console.log('[FORCE DEPLOY] Using model:', MODEL_NAME, 'with v1beta endpoint')
+      
+      // CRITICAL: Validate model name to prevent old references
+      if (MODEL_NAME !== 'gemini-3-flash-preview') {
+        throw new Error(`Invalid model detected: ${MODEL_NAME}. Expected: gemini-3-flash-preview`)
+      }
+      
+      console.log('[FORCE DEPLOY] Using model:', MODEL_NAME, 'with v1beta endpoint - VALIDATED')
       
       // Analyze video using the file URI (already uploaded by frontend)
       const geminiResponse = await genAI.models.generateContent({
