@@ -1117,10 +1117,10 @@ export default function HomePage() {
       console.log('Clip Upload: File uploaded successfully. URI:', fileUri)
 
       // Step 2.5: Wait for file to be in ACTIVE state before analysis
-      setLoadingStep({ title: 'Processing', description: 'Preparing video for analysis...' })
+      setLoadingStep('Preparing video for analysis...')
       console.log('Clip Upload: Waiting for file to become ACTIVE...')
       
-      const maxRetries = 30 // Max 30 retries
+      const maxRetries = 60 // Max 60 retries = 120 seconds (2 minutes) for large files
       const retryDelay = 2000 // 2 seconds between retries
       let fileState = uploadData.file?.state || 'PROCESSING'
       let retryCount = 0
@@ -1128,6 +1128,7 @@ export default function HomePage() {
       // Extract file ID from URI for status checks
       // URI format: https://generativelanguage.googleapis.com/v1beta/files/{fileId}
       const fileId = fileUri.split('/').pop()
+      console.log('Clip Upload: Extracted fileId:', fileId, 'from URI:', fileUri.substring(0, 60))
       
       while (fileState !== 'ACTIVE' && retryCount < maxRetries) {
         console.log(`Clip Upload: File state is ${fileState}, waiting... (attempt ${retryCount + 1}/${maxRetries})`)
@@ -1147,9 +1148,10 @@ export default function HomePage() {
           if (statusRes.ok) {
             const statusData = await statusRes.json()
             fileState = statusData.file?.state || 'PROCESSING'
-            console.log('Clip Upload: File status check:', { fileId, state: fileState })
+            console.log('Clip Upload: File status check:', { fileId, state: fileState, fullData: statusData })
           } else {
-            console.error('Clip Upload: Failed to check file status:', statusRes.status)
+            const errorText = await statusRes.text()
+            console.error('Clip Upload: Failed to check file status:', statusRes.status, errorText)
           }
         } catch (statusError) {
           console.error('Clip Upload: Error checking file status:', statusError)
