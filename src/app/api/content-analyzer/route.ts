@@ -90,22 +90,22 @@ export async function POST(request: Request) {
     const extractedData = {
       url: url,
       platform: platform,
-      summary: 'Video URL analysis via Gemini Flash Latest',
-      visualAnalysis: 'Analyzed via Gemini Flash Latest',
-      audioAnalysis: 'Analyzed via Gemini Flash Latest',
+      summary: 'Video URL analysis via Gemini 3 Flash Preview',
+      visualAnalysis: 'Analyzed via Gemini 3 Flash Preview',
+      audioAnalysis: 'Analyzed via Gemini 3 Flash Preview',
       topics: [],
       keyPoints: [],
-      source: 'gemini-flash-latest-url-analysis'
+      source: 'gemini-3-flash-preview-url-analysis'
     }
 
-    // Use Gemini Flash Latest to analyze the video URL directly
-    console.log('[DEBUG] Content Analyzer: Starting Gemini Flash Latest URL analysis...')
+    // Use Gemini 3 Flash Preview to analyze the video URL directly
+    console.log('[DEBUG] Content Analyzer: Starting Gemini 3 Flash Preview URL analysis...')
     
     try {
       const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
       
       const geminiResponse = await genAI.models.generateContent({
-        model: 'gemini-flash-latest',
+        model: 'gemini-3-flash-preview',
         contents: [
           {
             role: 'user',
@@ -226,8 +226,8 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         
         try {
           analysisResult = JSON.parse(cleanContent)
-          analysisSource = 'gemini-flash-latest'
-          console.log('✅ [DEBUG] Gemini Flash Latest URL analysis successful - parsed JSON with keys:', Object.keys(analysisResult))
+          analysisSource = 'gemini-3-flash-preview'
+          console.log('✅ [DEBUG] Gemini 3 Flash Preview URL analysis successful - parsed JSON with keys:', Object.keys(analysisResult))
         } catch (parseError) {
           console.error('[DEBUG] JSON parse error:', parseError)
           console.error('[DEBUG] Failed content:', cleanContent.substring(0, 500))
@@ -235,27 +235,27 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         }
       }
     } catch (geminiError: any) {
-      console.error('Gemini Flash Latest analysis error:', geminiError)
+      console.error('Gemini 3 Flash Preview analysis error:', geminiError)
       
       if (geminiError.message?.includes('quota')) {
-        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini Flash Latest API quota exceeded. Please upgrade plan.')
+        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview API quota exceeded. Please upgrade plan.')
       } else if (geminiError.message?.includes('permission') || geminiError.message?.includes('unauthorized')) {
-        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini Flash Latest API key invalid or unauthorized.')
+        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview API key invalid or unauthorized.')
       } else if (geminiError.message?.includes('rate')) {
-        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini Flash Latest API rate limit exceeded.')
+        console.log('[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview API rate limit exceeded.')
       } else {
-        console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini Flash Latest API error - ${geminiError.message || 'Unknown error'}`)
+        console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview API error - ${geminiError.message || 'Unknown error'}`)
       }
     }
 
-    // Only Gemini Flash Latest - no fallbacks
+    // Only Gemini 3 Flash Preview - no fallbacks
     if (!analysisResult) {
-      console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini Flash Latest failed to analyze content`)
+      console.log(`[ACTIVITY_LOG] Content Analyzer: Gemini 3 Flash Preview failed to analyze content`)
       
       return NextResponse.json({ 
         error: 'Analysis failed',
         userMessage: 'Gemini is having a tough time right now. Please check back later.',
-        details: 'Gemini Flash Latest API analysis failed'
+        details: 'Gemini 3 Flash Preview API analysis failed'
       }, { status: 503 })
     }
 

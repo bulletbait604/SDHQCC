@@ -180,11 +180,11 @@ export async function POST(request: Request) {
           throw new Error(`Video failed to process. Final state: ${fileState}`)
         }
         
-        console.log('[Clip Analyzer] Video processing complete. Analyzing with Gemini Flash Latest...')
+        console.log('[Clip Analyzer] Video processing complete. Analyzing with Gemini 3 Flash Preview...')
         
         // Analyze video using the uploaded file reference
         const geminiResponse = await genAI.models.generateContent({
-          model: 'gemini-flash-latest',
+          model: 'gemini-3-flash-preview',
           contents: [
             {
               role: 'user',
