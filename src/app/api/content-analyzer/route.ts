@@ -4,6 +4,9 @@ import { GoogleGenAI } from '@google/genai'
 // Force dynamic rendering to prevent static optimization
 export const dynamic = 'force-dynamic'
 
+// Use gemini-2.5-flash model (stable release)
+const MODEL_NAME = 'gemini-2.5-flash'
+
 // In-memory rate limit storage for content analyzer
 // NOTE: On Vercel serverless, this resets on cold starts. For production, use Redis/Vercel KV.
 const contentAnalyzerRateLimitStore = new Map<string, { count: number; resetTime: number }>()
@@ -91,7 +94,6 @@ export async function POST(request: Request) {
     // Use Gemini to analyze the URL directly - no separate extraction step needed
     let analysisResult = null
     let analysisSource = 'none'
-    const MODEL_NAME = 'gemini-2.5-flash'
     const extractedData = {
       url: url,
       platform: platform,
@@ -109,14 +111,20 @@ export async function POST(request: Request) {
     try {
       const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
       
-      const geminiResponse = await genAI.models.generateContent({
-        model: MODEL_NAME,
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text: `You are an expert social media algorithm analyst and content strategist. Analyze this video URL IN-DEPTH for ${platform} optimization.
+      // Add timeout protection (Vercel serverless has 60s timeout)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Gemini API timeout after 52 seconds')), 52000)
+      })
+      
+      const geminiResponse = await Promise.race([
+        genAI.models.generateContent({
+          model: MODEL_NAME,
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                {
+                  text: `You are an expert social media algorithm analyst and content strategist. Analyze this video URL IN-DEPTH for ${platform} optimization.
 
 Video URL: ${url}
 Platform: ${platform}
@@ -216,16 +224,26 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
             ]
           }
         ]
-      })
+      }),
+      timeoutPromise
+      ]) as any
       
-      const content = geminiResponse.text || ''
-      console.log('[DEBUG] Gemini raw response length:', content.length)
-      console.log('[DEBUG] Gemini response preview:', content.substring(0, 200))
+      // Parse the response from Google GenAI SDK
+      let rawText: string
+      try {
+        rawText = typeof (geminiResponse as any).text === 'function'
+          ? (geminiResponse as any).text()
+          : (geminiResponse as any).text ?? ''
+      } catch (textError) {
+        throw new Error('Gemini returned a response with no readable text — may have been blocked by safety filters')
+      }
+      console.log('[DEBUG] Gemini raw response length:', rawText.length)
+      console.log('[DEBUG] Gemini response preview:', rawText.substring(0, 200))
       
-      if (content) {
-        let cleanContent = content
-        if (content.includes('```')) {
-          cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+      if (rawText) {
+        let cleanContent = rawText
+        if (rawText.includes('```')) {
+          cleanContent = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
           console.log('[DEBUG] Removed markdown code blocks from response')
         }
         
@@ -240,11 +258,48 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         }
       }
     } catch (geminiError: any) {
-      console.error('Gemini analysis error:', geminiError)
+      console.error('[ERROR] Gemini analysis error:', geminiError)
+      console.error('[ERROR] Error type:', geminiError.constructor.name)
+      console.error('[ERROR] Error message:', geminiError.message)
       
       const errorMessage = geminiError.message || 'Unknown error'
-      const errorDetails = `Model: ${MODEL_NAME}, Error: ${errorMessage}`
       
+      // Extract HTTP status code if available
+      let httpStatus = 'unknown'
+      if (geminiError.status) {
+        httpStatus = geminiError.status.toString()
+      } else if (errorMessage.includes('403') || errorMessage.includes('permission') || errorMessage.includes('forbidden')) {
+        httpStatus = '403'
+      } else if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+        httpStatus = '404'
+      } else if (errorMessage.includes('timeout')) {
+        httpStatus = 'timeout'
+      }
+      
+      console.error('[ERROR] HTTP Status:', httpStatus)
+      
+      // Handle timeout specifically
+      if (errorMessage.includes('timeout')) {
+        console.error('[ERROR] Request timed out - URL analysis taking too long')
+        return NextResponse.json({ 
+          error: 'Analysis timeout',
+          userMessage: 'The URL analysis is taking too long. Please try again later.',
+          details: 'Gemini API timeout after 52 seconds'
+        }, { status: 504 })
+      }
+      
+      // Handle permission/forbidden errors
+      if (httpStatus === '403' || errorMessage.includes('permission') || errorMessage.includes('forbidden')) {
+        console.error('[ERROR] Permission denied - API key issue')
+        return NextResponse.json({ 
+          error: 'Permission denied',
+          userMessage: 'API access denied. Please check your API key configuration.',
+          details: 'API key may be invalid or unauthorized for this operation.'
+        }, { status: 403 })
+      }
+      
+      // Handle all other errors
+      const errorDetails = `Model: ${MODEL_NAME}, HTTP ${httpStatus}: ${errorMessage}`
       return NextResponse.json({ 
         error: 'Analysis failed',
         userMessage: 'Gemini is having a tough time right now. Please check back later.',
@@ -279,7 +334,7 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
 
     // Add cache-busting headers
     response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
-    response.headers.set('X-Deploy-Hash', '49769a4')
+    response.headers.set('X-Deploy-Hash', '2e2e9ae')
 
     return response
   } catch (error) {

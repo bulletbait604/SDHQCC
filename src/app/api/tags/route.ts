@@ -4,6 +4,9 @@ import { GoogleGenAI } from '@google/genai'
 // Force dynamic rendering to prevent static optimization
 export const dynamic = 'force-dynamic'
 
+// Use gemini-2.5-flash model (stable release)
+const MODEL_NAME = 'gemini-2.5-flash'
+
 // In-memory rate limit storage (in production, use Redis or a database)
 // NOTE: On Vercel serverless, this resets on cold starts. For production, use Redis/Vercel KV.
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
@@ -47,7 +50,6 @@ async function generateTagsWithGemini(description: string, platform: string, cou
   }
   
   const platformName = platformContext[platform.toLowerCase()] || platform
-  const MODEL_NAME = 'gemini-2.5-flash'
   
   try {
     const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
@@ -90,15 +92,23 @@ Return ONLY a valid JSON array of strings:
       ]
     })
     
-    const content = response.text || ''
+    // Parse the response from Google GenAI SDK
+    let rawText: string
+    try {
+      rawText = typeof (response as any).text === 'function'
+        ? (response as any).text()
+        : (response as any).text ?? ''
+    } catch (textError) {
+      throw new Error('Gemini returned a response with no readable text — may have been blocked by safety filters')
+    }
     
-    console.log('[Tags] Gemini response received:', { contentLength: content.length, preview: content.substring(0, 100) })
+    console.log('[Tags] Gemini response received:', { contentLength: rawText.length, preview: rawText.substring(0, 100) })
     
-    if (!content) {
+    if (!rawText) {
       throw new Error('No content in Gemini response')
     }
     
-    return parseTagResponse(content, platformName, count)
+    return parseTagResponse(rawText, platformName, count)
   } catch (error: any) {
     console.error('[Tags] Gemini API error:', error)
     const errorMessage = error.message || 'Unknown error'
@@ -145,7 +155,6 @@ function parseTagResponse(content: string, platformName: string, count: number):
 // Main tag generation using Gemini
 async function generateTags(description: string, platform: string, count: number): Promise<{ tags: string[], provider: string }> {
   const geminiApiKey = process.env.GEMINI_API
-  const MODEL_NAME = 'gemini-2.5-flash'
   
   console.log('[Tags] Checking GEMINI_API configuration:', { hasKey: !!geminiApiKey, keyLength: geminiApiKey?.length })
   
@@ -178,7 +187,7 @@ export async function GET() {
   
   // Add cache-busting headers
   response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
-  response.headers.set('X-Deploy-Hash', '49769a4')
+  response.headers.set('X-Deploy-Hash', '2e2e9ae')
   
   return response
 }
@@ -266,7 +275,7 @@ export async function POST(request: Request) {
     
     // Add cache-busting headers
     response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
-    response.headers.set('X-Deploy-Hash', '49769a4')
+    response.headers.set('X-Deploy-Hash', '2e2e9ae')
     
     return response
   } catch (error: any) {

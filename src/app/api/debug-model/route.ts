@@ -14,12 +14,12 @@ export async function GET() {
     model: modelUsed,
     message: 'Debug endpoint to verify model deployment',
     timestamp: new Date().toISOString(),
-    deploymentHash: '49769a4'
+    deploymentHash: '2e2e9ae'
   })
   
   // Add cache-busting headers
   response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
-  response.headers.set('X-Deploy-Hash', '49769a4')
+  response.headers.set('X-Deploy-Hash', '2e2e9ae')
   
   return response
 }
