@@ -102,8 +102,8 @@ const translations = {
     algorithmsExplained: 'Algorithms Explained',
     tagGeneratorFree: 'Tag Generator (Free)',
     tagGeneratorPaid: 'Tag Generator (Paid)',
-    clipAnalyzer: 'Content Analyzer (Paid)',
-    contentAnalyzer: 'Clip Analyzer (Paid)',
+    clipAnalyzer: 'Clip Analyzer (Paid)',
+    contentAnalyzer: 'Content Analyzer (Paid)',
     settings: 'Settings',
     logout: 'Logout',
     verifySubscription: 'Verify Subscription',
@@ -133,8 +133,8 @@ const translations = {
     algorithmsExplained: 'Algoritmos Explicados',
     tagGeneratorFree: 'Generador de Etiquetas (Gratis)',
     tagGeneratorPaid: 'Generador de Etiquetas (Pago)',
-    clipAnalyzer: 'Analizador de Contenido (Pago)',
-    contentAnalyzer: 'Analizador de Clips (Pago)',
+    clipAnalyzer: 'Analizador de Clips (Pago)',
+    contentAnalyzer: 'Analizador de Contenido (Pago)',
     settings: 'Configuración',
     logout: 'Cerrar sesión',
     verifySubscription: 'Verificar Suscripción',
@@ -164,8 +164,8 @@ const translations = {
     algorithmsExplained: 'Algorithmes Expliqués',
     tagGeneratorFree: 'Générateur de Tags (Gratuit)',
     tagGeneratorPaid: 'Générateur de Tags (Payant)',
-    clipAnalyzer: 'Analyseur de Contenu (Payant)',
-    contentAnalyzer: 'Analyseur de Clips (Payant)',
+    thumbnailGenerator: 'Générateur de Miniatures (Payant)',
+    contentAnalyzer: 'Analyseur de Contenu (Payant)',
     settings: 'Paramètres',
     logout: 'Déconnexion',
     verifySubscription: 'Vérifier Abonnement',
@@ -183,7 +183,7 @@ const translations = {
     algorithmsDesc: 'Obtenez des insights détaillés sur le fonctionnement des algorithmes et optimisez votre contenu.',
     tagFreeDesc: 'Générez des tags de base pour améliorer la découvrabilité de votre contenu.',
     tagPaidDesc: 'Génération avancée de tags avec IA, mots-clés tendance et recommandations spécifiques.',
-    clipAnalyzerDesc: 'Analysez vos clips vidéo avec IA pour des insights sur les performances.',
+    thumbnailGeneratorDesc: 'Téléchargez une image de référence et fournissez des instructions pour générer des miniatures personnalisées avec IA.',
     contentAnalyzerDesc: 'Analyse complète du contenu avec insights IA, détection de tendances et stratégies.',
     footerCopyright: '© 2026 SDHQ Creator Corner. Tous droits réservés.',
     footerTagline: 'Optimisation de contenu IA pour créateurs.',
@@ -195,8 +195,8 @@ const translations = {
     algorithmsExplained: 'Algorithmen Erklärt',
     tagGeneratorFree: 'Tag Generator (Kostenlos)',
     tagGeneratorPaid: 'Tag Generator (Bezahlt)',
-    clipAnalyzer: 'Content Analyzer (Bezahlt)',
-    contentAnalyzer: 'Clip Analyzer (Bezahlt)',
+    thumbnailGenerator: 'Thumbnail Generator (Bezahlt)',
+    contentAnalyzer: 'Content Analyzer (Bezahlt)',
     settings: 'Einstellungen',
     logout: 'Abmelden',
     verifySubscription: 'Abonnement Verifizieren',
@@ -214,7 +214,7 @@ const translations = {
     algorithmsDesc: 'Erhalten Sie detaillierte Einblicke in Algorithmen und optimieren Sie Ihren Content.',
     tagFreeDesc: 'Generieren Sie grundlegende Tags für bessere Auffindbarkeit auf allen Plattformen.',
     tagPaidDesc: 'KI-gestützte Tag-Generierung mit Trends und plattformspezifischen Empfehlungen.',
-    clipAnalyzerDesc: 'Analysieren Sie Clips mit KI für Performance-Einblicke und Optimierungen.',
+    thumbnailGeneratorDesc: 'Laden Sie ein Referenzbild hoch und geben Sie Anweisungen für KI-generierte Thumbnails.',
     contentAnalyzerDesc: 'Umfassende Content-Analyse mit KI-Einblicken, Trend-Erkennung und Strategien.',
     footerCopyright: '© 2026 SDHQ Creator Corner. Alle Rechte vorbehalten.',
     footerTagline: 'KI-gestützte Content-Optimierung für Creator.',
@@ -302,7 +302,7 @@ export default function HomePage() {
   const [timeUntilReset, setTimeUntilReset] = useState<string>('')
 
   // Clip Analyzer states
-  const [clipUrl, setClipUrl] = useState<string>('')
+  const [clipFile, setClipFile] = useState<File | null>(null)
   const [clipPlatform, setClipPlatform] = useState<string>('tiktok')
   const [isAnalyzingClip, setIsAnalyzingClip] = useState<boolean>(false)
   const [clipAnalysisResult, setClipAnalysisResult] = useState<any>(null)
@@ -951,8 +951,8 @@ export default function HomePage() {
   }
 
   const handleAnalyzeClip = async () => {
-    if (!clipUrl.trim()) {
-      setClipError('Please enter a video URL to analyze.')
+    if (!clipFile) {
+      setClipError('Please select a video file to analyze.')
       return
     }
 
@@ -961,10 +961,24 @@ export default function HomePage() {
       return
     }
 
-    // Validate URL format
-    const urlPattern = /^(https?:\/\/)?(www\.)?(tiktok\.com|instagram\.com|youtube\.com|youtu\.be|facebook\.com|fb\.watch|twitter\.com|x\.com|t\.co)\/.+$/
-    if (!urlPattern.test(clipUrl)) {
-      setClipError('Please enter a valid video URL from TikTok, Instagram, YouTube, Facebook, or Twitter.')
+    // Validate file type
+    const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo']
+    if (!validTypes.includes(clipFile.type)) {
+      setClipError('Please select a valid video file (MP4, WebM, MOV, or AVI).')
+      return
+    }
+
+    // Validate file size (max 250MB)
+    const maxSize = 250 * 1024 * 1024
+    const minSize = 100 * 1024
+    
+    if (clipFile.size < minSize) {
+      setClipError('File size is too small. Video must be at least 100KB to analyze properly.')
+      return
+    }
+    
+    if (clipFile.size > maxSize) {
+      setClipError('File size must be less than 250MB.')
       return
     }
 
@@ -975,8 +989,10 @@ export default function HomePage() {
     setShowReanalysis(false)
 
     const loadingSteps = [
-      'Researching video content...',
-      'Analyzing with Gemini 2.5 Flash...',
+      'Requesting upload authorization...',
+      'Uploading video to Gemini...',
+      'Processing video with AI...',
+      'Analyzing visual and audio elements...',
       'Cross-referencing with platform algorithm...',
       'Generating optimization recommendations...',
       'Creating final report...',
@@ -993,12 +1009,11 @@ export default function HomePage() {
     try {
       const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetimeMember ? 'lifetime' : isSubscribed ? 'subscribed' : 'free'
       
-      console.log('Clip Analyzer: Starting analysis...')
-      console.log('Clip Analyzer: URL:', clipUrl)
+      console.log('Clip Upload: Starting upload flow...')
+      console.log('Clip Upload: File details:', { name: clipFile.name, type: clipFile.type, size: clipFile.size })
       
       // Step 1: Get API key from backend
       setLoadingStep(loadingSteps[0])
-      console.log('Clip Upload: Step 1 - Getting API key...')
       
       const tokenRes = await fetch('/api/gemini-api-key', {
         method: 'POST',
@@ -1011,21 +1026,103 @@ export default function HomePage() {
 
       if (!tokenRes.ok) {
         const errorData = await tokenRes.json()
-        throw new Error(errorData.userMessage || errorData.error || 'Failed to get API authorization')
+        throw new Error(errorData.userMessage || errorData.error || 'Failed to get upload authorization')
       }
 
-      console.log('Clip Analyzer: API authorized')
+      const { apiKey } = await tokenRes.json()
+      console.log('Clip Upload: API key received')
 
-      // Step 2: Send URL directly to backend for analysis (no upload needed)
+      // Step 2: Upload file directly to Gemini
       setLoadingStep(loadingSteps[1])
-      console.log('Clip Analyzer: Sending URL to analysis API...')
-      console.log('Clip Analyzer: URL:', clipUrl)
+      console.log('Clip Upload: Uploading to Gemini...')
+
+      // Start resumable upload
+      const uploadUrlRes = await fetch('https://generativelanguage.googleapis.com/upload/v1beta/files', {
+        method: 'POST',
+        headers: {
+          'x-goog-api-key': apiKey,
+          'X-Goog-Upload-Protocol': 'resumable',
+          'X-Goog-Upload-Command': 'start',
+          'X-Goog-Upload-Header-Content-Length': clipFile.size.toString(),
+          'X-Goog-Upload-Header-Content-Type': clipFile.type,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ file: { display_name: clipFile.name } })
+      })
+
+      if (!uploadUrlRes.ok) {
+        throw new Error('Failed to start upload session')
+      }
+
+      const uploadUrl = uploadUrlRes.headers.get('X-Goog-Upload-URL')
+      if (!uploadUrl) {
+        throw new Error('Upload URL not received')
+      }
+
+      // Upload file bytes
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'x-goog-api-key': apiKey,
+          'Content-Type': clipFile.type,
+          'X-Goog-Upload-Protocol': 'resumable',
+          'X-Goog-Upload-Command': 'upload, finalize',
+          'X-Goog-Upload-Offset': '0'
+        },
+        body: clipFile
+      })
+
+      if (!uploadRes.ok) {
+        throw new Error('Failed to upload video')
+      }
+
+      const uploadData = await uploadRes.json()
+      const fileUri = uploadData.file?.uri
+      
+      if (!fileUri) {
+        throw new Error('File URI not received')
+      }
+
+      console.log('Clip Upload: File uploaded, URI:', fileUri)
+
+      // Step 3: Poll for ACTIVE state
+      setLoadingStep('Waiting for file processing...')
+      const fileId = fileUri.split('/').pop()
+      const maxRetries = 30
+      const retryDelay = 2000
+      let fileState = uploadData.file?.state ?? 'PROCESSING'
+      let retryCount = 0
+
+      while (fileState !== 'ACTIVE' && fileState !== 'FAILED' && retryCount < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, retryDelay))
+        retryCount++
+        
+        const statusRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/files/${fileId}?key=${apiKey}`,
+          { method: 'GET' }
+        )
+        
+        if (statusRes.ok) {
+          const statusData = await statusRes.json()
+          fileState = statusData.state ?? statusData.file?.state ?? fileState
+        }
+      }
+
+      if (fileState !== 'ACTIVE') {
+        throw new Error(`File did not become ACTIVE. State: ${fileState}`)
+      }
+
+      // Step 4: Analyze
+      setLoadingStep(loadingSteps[2])
 
       const analyzeRes = await fetch('/api/clip-analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          videoUrl: clipUrl,
+          fileUri: fileUri,
+          mimeType: clipFile.type,
+          fileName: clipFile.name,
+          fileSize: clipFile.size,
           platform: clipPlatform,
           userId: user?.id || '',
           userType: userType
@@ -1037,18 +1134,10 @@ export default function HomePage() {
       if (!analyzeRes.ok) {
         const errorData = await analyzeRes.json()
         if (analyzeRes.status === 429) {
-          const resetDate = new Date(errorData.resetTime)
-          const maxUses = isSubscribed ? 5 : 0
-          const diff = resetDate.getTime() - Date.now()
-          const hours = Math.floor(diff / (1000 * 60 * 60))
-          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-          const timeString = hours > 0 
-            ? `${hours} hour${hours > 1 ? 's' : ''} and ${minutes} minute${minutes > 1 ? 's' : ''}`
-            : `${minutes} minute${minutes > 1 ? 's' : ''}`
           setClipRateLimit({ remaining: 0, resetTime: errorData.resetTime })
-          throw new Error(`Rate limit exceeded. You have used your ${maxUses} clip analyses for the day.\n\nYou can analyze more clips in ${timeString}.\n\nResets at: ${resetDate.toLocaleString()}`)
+          throw new Error('Rate limit exceeded')
         }
-        throw new Error(errorData.userMessage || errorData.error || 'Analysis failed')
+        throw new Error(errorData.error || 'Analysis failed')
       }
 
       const data = await analyzeRes.json()
@@ -1056,30 +1145,19 @@ export default function HomePage() {
       setExtractedData(data.extractedData || null)
       setShowReanalysis(true)
       
-      // Log clip analysis activity
+      // Log activity
       if (user) {
-        const clipEntry: ActivityLogEntry = {
+        const entry: ActivityLogEntry = {
           id: Date.now().toString(),
           username: user.username,
           timestamp: new Date().toISOString(),
           action: 'clip_analysis',
-          details: `Analyzed video for ${platforms.find(p => p.id === clipPlatform)?.name} (score: ${data.score})`
+          details: `Analyzed clip for ${clipPlatform} (score: ${data.score})`
         }
-        setActivityLog(prev => [clipEntry, ...prev].slice(0, 100))
-        
-        // Log to backend
-        fetch('/api/activity-log', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username: user.username,
-            action: 'clip_analysis',
-            details: `Analyzed video for ${platforms.find(p => p.id === clipPlatform)?.name} (score: ${data.score})`
-          })
-        }).catch(error => console.error('Failed to log to backend:', error))
+        setActivityLog(prev => [entry, ...prev].slice(0, 100))
       }
       
-      // Decrement rate limit after successful analysis (only if not unlimited)
+      // Update rate limit
       if (clipRateLimit.remaining !== -1) {
         setClipRateLimit(prev => ({ ...prev, remaining: Math.max(0, prev.remaining - 1) }))
       }
@@ -1092,92 +1170,8 @@ export default function HomePage() {
     }
   }
 
-  const handleReanalyzeClip = async (newPlatform: string) => {
-    if (!extractedData) {
-      setClipError('No extracted data available for re-analysis.')
-      return
-    }
-
-    setClipError('')
-    setIsAnalyzingClip(true)
-    setClipAnalysisResult(null)
-
-    const loadingSteps = [
-      'Loading extracted data...',
-      'Researching new platform algorithm...',
-      'Cross-referencing with algorithm...',
-      'Generating optimization report...',
-    ]
-
-    let step = 0
-    const stepInterval = setInterval(() => {
-      if (step < loadingSteps.length) {
-        setLoadingStep(loadingSteps[step])
-        step++
-      }
-    }, 900)
-
-    try {
-      const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetimeMember ? 'lifetime' : isSubscribed ? 'subscribed' : 'free'
-      
-      const res = await fetch('/api/clip-analyzer/reanalyze', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          extractedData: extractedData,
-          originalPlatform: clipPlatform,
-          newPlatform: newPlatform,
-          userId: user?.id || '',
-          userType: userType
-        })
-      })
-
-      clearInterval(stepInterval)
-
-      if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.error || 'Re-analysis failed')
-      }
-
-      const data = await res.json()
-      setClipAnalysisResult(data)
-      setClipPlatform(newPlatform)
-      
-      // Log re-analysis activity
-      if (user) {
-        const reanalysisEntry: ActivityLogEntry = {
-          id: Date.now().toString(),
-          username: user.username,
-          timestamp: new Date().toISOString(),
-          action: 'clip_reanalysis',
-          details: `Re-analyzed for ${platforms.find(p => p.id === newPlatform)?.name}`
-        }
-        setActivityLog(prev => [reanalysisEntry, ...prev].slice(0, 100))
-        
-        // Log to backend
-        fetch('/api/activity-log', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username: user.username,
-            action: 'clip_reanalysis',
-            details: `Re-analyzed for ${platforms.find(p => p.id === newPlatform)?.name}`
-          })
-        }).catch(error => console.error('Failed to log to backend:', error))
-      }
-    } catch (error) {
-      clearInterval(stepInterval)
-      setClipError(error instanceof Error ? error.message : 'Re-analysis failed. Please try again.')
-    } finally {
-      setIsAnalyzingClip(false)
-      setLoadingStep('')
-    }
-  }
-
   const handleResetClip = () => {
-    setClipUrl('')
+    setClipFile(null)
     setClipPlatform('tiktok')
     setClipAnalysisResult(null)
     setClipError('')
