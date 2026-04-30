@@ -102,9 +102,9 @@ export async function POST(request: Request) {
     console.log('[DEBUG] Content Analyzer: Starting Gemini 2.5 Flash URL analysis...')
     
     try {
-      const ai = new GoogleGenAI({ apiKey: geminiApiKey })
+      const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
       
-      const geminiResponse = await ai.models.generateContent({
+      const geminiResponse = await genAI.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: [
           {

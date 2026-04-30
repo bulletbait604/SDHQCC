@@ -145,14 +145,14 @@ export async function POST(request: Request) {
         console.log('Starting Gemini 3.1 Pro video analysis via Google GenAI File API...')
         
         // Initialize Google GenAI client
-        const ai = new GoogleGenAI({ apiKey: geminiApiKey })
+        const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
         
         // Create a Blob from the buffer for upload
         const videoBlob = new Blob([fileData.buffer as BlobPart], { type: fileData.type })
         
         // Upload video file to Google (handles large files efficiently)
         console.log('[Clip Analyzer] Uploading video to Google File API...')
-        const uploadedFile = await ai.files.upload({
+        const uploadedFile = await genAI.files.upload({
           file: videoBlob,
           config: { mimeType: fileData.type }
         })
@@ -171,7 +171,7 @@ export async function POST(request: Request) {
           if (!uploadedFile.name) {
             throw new Error('Uploaded file name is undefined')
           }
-          const fileStatus = await ai.files.get({ name: uploadedFile.name })
+          const fileStatus = await genAI.files.get({ name: uploadedFile.name })
           fileState = fileStatus.state
           attempts++
         }
@@ -183,7 +183,7 @@ export async function POST(request: Request) {
         console.log('[Clip Analyzer] Video processing complete. Analyzing with Gemini 2.5 Flash...')
         
         // Analyze video using the uploaded file reference
-        const geminiResponse = await ai.models.generateContent({
+        const geminiResponse = await genAI.models.generateContent({
           model: 'gemini-2.5-flash',
           contents: [
             {

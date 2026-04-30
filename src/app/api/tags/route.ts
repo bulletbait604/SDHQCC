@@ -45,11 +45,11 @@ async function generateTagsWithGemini(description: string, platform: string, cou
   const platformName = platformContext[platform.toLowerCase()] || platform
   
   try {
-    const ai = new GoogleGenAI({ apiKey: geminiApiKey })
+    const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
     
     console.log('[Tags] Calling Gemini API with model: gemini-2.5-flash')
     
-    const response = await ai.models.generateContent({
+    const response = await genAI.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: [
         {

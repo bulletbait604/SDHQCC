@@ -128,11 +128,11 @@ export async function POST(request: Request) {
       console.log('[Clip Analyze] Analyzing with Gemini 3.1 Pro using file URI...')
       
       // Initialize Google GenAI client
-      const ai = new GoogleGenAI({ apiKey: geminiApiKey })
+      const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
       
       // Analyze video using the file URI (already uploaded by frontend)
-      const geminiResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash', // Using Gemini 2.5 Flash (stable release)
+      const geminiResponse = await genAI.models.generateContent({
+        model: 'gemini-2.5-flash',
         contents: [
           {
             role: 'user',
