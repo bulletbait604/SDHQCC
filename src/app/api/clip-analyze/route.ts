@@ -26,11 +26,11 @@ function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean
 }
 
 export async function POST(request: Request) {
-  console.log('[DEBUG] Clip Analyze API: Request received - DEPLOY HASH: cec550a - FORCED REBUILD')
+  console.log('[DEBUG] Clip Analyze API: Request received - DEPLOY HASH: a08af39 - FORCED REBUILD')
   
   // FORCE NEW BUNDLE: Add validation that wasn't in old code
   const startTime = Date.now()
-  console.log('[DEBUG] Bundle validation:', { startTime, hash: 'cec550a' })
+  console.log('[DEBUG] Bundle validation:', { startTime, hash: 'a08af39' })
   
   try {
     console.log('[DEBUG] Clip Analyze API: Parsing request body...')
@@ -130,10 +130,10 @@ export async function POST(request: Request) {
 
     try {
       // NEW DEPLOY: Using gemini-3-flash-preview model (requires v1beta endpoint)
-      console.log('[DEBUG] Clip Analyze API: Request received - DEPLOY HASH: cec550a - FORCED REBUILD')
+      console.log('[DEBUG] Clip Analyze API: Request received - DEPLOY HASH: a08af39 - FORCED REBUILD')
       
       // FORCE NEW BUNDLE: Add validation that wasn't in old code
-      console.log('[DEBUG] Bundle validation:', { startTime, hash: 'cec550a' })
+      console.log('[DEBUG] Bundle validation:', { startTime, hash: 'a08af39' })
       
       // Initialize Google GenAI client (defaults to v1beta for preview models)
       const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
@@ -153,7 +153,7 @@ export async function POST(request: Request) {
       // NEW BUNDLE VALIDATION: Ensure this code runs
       const bundleCheck = `bundle-${Date.now()}`
       console.log('[FORCE DEPLOY] Using model:', MODEL_NAME, 'with v1beta endpoint - VALIDATED')
-      console.log('[DEBUG] Bundle check:', bundleCheck, 'hash: cec550a')
+      console.log('[DEBUG] Bundle check:', bundleCheck, 'hash: a08af39')
       
       // FINAL: Force model override to prevent any caching issues
       const finalModelCheck = `FINAL: ${MODEL_NAME}-${Date.now()}`
