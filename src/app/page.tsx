@@ -3555,9 +3555,8 @@ export default function HomePage() {
                                   }
                                 }
                                 const content = fullContent[overlay.type] || {
-                                  summary: ['Overlay recommended at ' + overlay.timing, 'Apply in video editor', 'Test before posting'],
-                                  details: ['Review the suggested timing in your video', 'Apply the overlay using your preferred editor', 'Preview on mobile device before final export'],
-                                  proTips: ['Always test overlays on actual mobile device screen size', 'Check that overlay does not cover important visual elements']
+                                  details: ['Review the suggested timing in your video', 'Apply the overlay using your preferred editor', 'Preview on mobile device before final export', 'Test on actual device screen size', 'Adjust opacity if needed', 'Export and review final quality', 'Post and monitor performance metrics'],
+                                  proTips: ['Always test overlays on actual mobile device screen size', 'Check that overlay does not cover important visual elements', 'Render preview at full quality before final export']
                                 }
                                 return (
                                   <div key={idx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 flex flex-col ${
@@ -3576,21 +3575,9 @@ export default function HomePage() {
                                       </div>
                                     </div>
                                     
-                                    {/* Summary - Always Visible */}
-                                    <div className={`px-4 pb-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                      <ul className="space-y-2 text-sm">
-                                        {content.summary.map((bullet, bIdx) => (
-                                          <li key={bIdx} className="flex items-start gap-2">
-                                            <span className="text-sdhq-cyan-500 mt-0.5">•</span>
-                                            <span>{bullet}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                    
                                     {/* Full Details - Always Visible */}
-                                    <div className={`px-4 pb-3 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-                                      <div className={`mt-3 p-3 rounded ${darkMode ? 'bg-sdhq-dark-800' : 'bg-gray-50'}`}>
+                                    <div className={`px-4 pb-3 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                      <div className={`p-3 rounded ${darkMode ? 'bg-sdhq-dark-800' : 'bg-gray-50'}`}>
                                         <div className={`text-sm font-semibold mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                           🎬 Implementation Guide
                                         </div>
@@ -3609,8 +3596,8 @@ export default function HomePage() {
                                     </div>
                                     
                                     {/* Pro Tips - Always Visible */}
-                                    <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-                                      <div className={`mt-3 p-3 rounded ${darkMode ? 'bg-sdhq-cyan-500/10 border border-sdhq-cyan-500/20' : 'bg-sdhq-cyan-50 border border-sdhq-cyan-200'}`}>
+                                    <div className={`px-4 pb-4 ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                      <div className={`p-3 rounded ${darkMode ? 'bg-sdhq-cyan-500/10 border border-sdhq-cyan-500/20' : 'bg-sdhq-cyan-50 border border-sdhq-cyan-200'}`}>
                                         <div className={`text-sm font-semibold mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                           💡 Pro Tips
                                         </div>
