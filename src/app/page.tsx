@@ -1128,7 +1128,9 @@ export default function HomePage() {
       // Extract file ID from URI for status checks
       // URI format: https://generativelanguage.googleapis.com/v1beta/files/{fileId}
       const fileId = fileUri.split('/').pop()
-      console.log('Clip Upload: Extracted fileId:', fileId, 'from URI:', fileUri.substring(0, 60))
+      console.log('Clip Upload: Initial upload data:', uploadData)
+      console.log('Clip Upload: Extracted fileId:', fileId, 'Initial state:', fileState)
+      console.log('Clip Upload: Will enter while loop?', fileState !== 'ACTIVE', retryCount < maxRetries)
       
       while (fileState !== 'ACTIVE' && retryCount < maxRetries) {
         console.log(`Clip Upload: File state is ${fileState}, waiting... (attempt ${retryCount + 1}/${maxRetries})`)
