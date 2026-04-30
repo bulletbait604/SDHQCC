@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 
-// Fixed: Using gemini-2.5-flash model (stable release from June 2025) - Deploy: 2026-04-29T17:23:00Z
+// Fixed: Using gemini-3-flash model (from available list) - Deploy: 2026-04-29T17:35:00Z
 
 // In-memory rate limit storage for clip analyzer
 const clipAnalyzerRateLimitStore = new Map<string, { count: number; resetTime: number }>()
@@ -130,8 +130,8 @@ export async function POST(request: Request) {
       // Initialize Google GenAI client
       const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
       
-      // FORCE DEPLOY: Using gemini-2.5-flash model (verified from API list)
-      const MODEL_NAME = 'gemini-2.5-flash'
+      // FORCE DEPLOY: Using gemini-3-flash model (from available list)
+      const MODEL_NAME = 'gemini-3-flash'
       console.log('[FORCE DEPLOY] Using model:', MODEL_NAME)
       
       // Analyze video using the file URI (already uploaded by frontend)
