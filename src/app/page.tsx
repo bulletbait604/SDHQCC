@@ -3174,10 +3174,10 @@ export default function HomePage() {
                             <div className="grid grid-cols-2 gap-4">
                               {/* Category Score Cards */}
                               {[
-                                { key: 'hook', icon: '🎯', label: 'Hook Strength', score: clipAnalysisResult.hookStrength || Math.round(clipAnalysisResult.score * 0.9), preview: ['Strong opening visual/audio', '3-sec curiosity gap'], details: ['Your hook captures attention within the critical first 3 seconds', 'Uses pattern interrupt or unexpected element', 'Creates curiosity gap that demands viewers keep watching', 'Strong audio/visual sync in opening', 'Aligns with trending content patterns', 'Recommended: Test multiple hook variations in first 24 hours'] },
-                                { key: 'engagement', icon: '⚡', label: 'Engagement Potential', score: clipAnalysisResult.engagementPotential || Math.round(clipAnalysisResult.score * 0.95), preview: ['Loop-worthy structure', 'Clear CTA present'], details: ['Content structure encourages re-watches and loops', 'Includes subtle or direct call-to-action', 'Creates conversation in comments section', 'Trigger words used to boost emotional response', 'Watch time retention curve is favorable', 'Recommended: Respond to first 10 comments within 30 minutes of posting'] },
-                                { key: 'visual', icon: '🎬', label: 'Visual Quality', score: clipAnalysisResult.visualQuality || Math.round(clipAnalysisResult.score * 0.85), preview: ['9:16 vertical format', 'Consistent lighting'], details: ['Properly formatted for vertical 9:16 mobile viewing', 'Consistent color grading and lighting throughout', 'Face/on-camera presence detected (algorithm boost)', 'Background is clean and non-distracting', 'Motion and movement keeps viewer attention', 'Recommended: Maintain 1080x1920 resolution for best quality'] },
-                                { key: 'audio', icon: '🔊', label: 'Audio Quality', score: clipAnalysisResult.audioQuality || Math.round(clipAnalysisResult.score * 0.88), preview: ['Clear voice levels', 'Trending sound use'], details: ['Voice audio is clear and properly leveled', 'Uses trending or algorithm-boosting audio/sound', 'Background music complements without overpowering', 'Audio-visual synchronization is precise', 'Sound effects used strategically for emphasis', 'Recommended: Use original audio mix with trending sound at 20% volume'] }
+                                { key: 'hook', icon: '🎯', label: 'Hook Strength', score: clipAnalysisResult.hookStrength || Math.round(clipAnalysisResult.score * 0.9), preview: ['Strong opening visual/audio hook captures immediate attention', '3-second curiosity gap creates intrigue', 'Pattern interrupt technique used effectively', 'Opening aligns with trending content patterns', 'High retention potential in critical first 3 seconds'], details: ['Your hook captures attention within the critical first 3 seconds - this is when 80% of viewers decide to keep watching or scroll away', 'Uses pattern interrupt or unexpected element that breaks viewer scrolling pattern', 'Creates curiosity gap that demands viewers keep watching to get the payoff', 'Strong audio/visual sync in opening frames maximizes impact', 'Aligns with trending content patterns currently favored by the algorithm', 'Recommended: Test multiple hook variations in first 24 hours to identify highest performing version'] },
+                                { key: 'engagement', icon: '⚡', label: 'Engagement Potential', score: clipAnalysisResult.engagementPotential || Math.round(clipAnalysisResult.score * 0.95), preview: ['Loop-worthy content structure encourages re-watches', 'Clear call-to-action present for viewer interaction', 'Creates conversation opportunities in comments', 'Emotional trigger words boost response rates', 'Favorable watch time retention curve predicted'], details: ['Content structure encourages re-watches and loops - viewers naturally want to watch again', 'Includes subtle or direct call-to-action that prompts viewer interaction', 'Creates conversation in comments section with discussion-worthy content', 'Trigger words used to boost emotional response and engagement', 'Watch time retention curve is favorable with strong mid-video hold', 'Recommended: Respond to first 10 comments within 30 minutes of posting to boost algorithm ranking'] },
+                                { key: 'visual', icon: '🎬', label: 'Visual Quality', score: clipAnalysisResult.visualQuality || Math.round(clipAnalysisResult.score * 0.85), preview: ['Properly formatted 9:16 vertical mobile viewing', 'Consistent color grading and lighting throughout', 'Face/on-camera presence detected for algorithm boost', 'Clean background without visual distractions', 'Dynamic motion keeps viewer attention engaged'], details: ['Properly formatted for vertical 9:16 mobile viewing - optimized for phone screens', 'Consistent color grading and lighting throughout maintains professional appearance', 'Face/on-camera presence detected (major algorithm boost for all platforms)', 'Background is clean and non-distracting keeping focus on subject', 'Motion and movement keeps viewer attention from wandering', 'Recommended: Maintain 1080x1920 resolution for best quality and clarity on all devices'] },
+                                { key: 'audio', icon: '🔊', label: 'Audio Quality', score: clipAnalysisResult.audioQuality || Math.round(clipAnalysisResult.score * 0.88), preview: ['Clear voice audio with proper leveling', 'Trending sound integration detected', 'Background music complements voiceover', 'Precise audio-visual synchronization', 'Strategic sound effects for emphasis'], details: ['Voice audio is clear and properly leveled - no clipping or distortion detected', 'Uses trending or algorithm-boosting audio/sound that increases discoverability', 'Background music complements without overpowering the main audio', 'Audio-visual synchronization is precise creating professional feel', 'Sound effects used strategically for emphasis on key moments', 'Recommended: Use original audio mix with trending sound layered at 20% volume for best results'] }
                               ].map((cat, idx) => {
                                 const isExpanded = expandedCards.has(`cat-${cat.key}`)
                                 return (
@@ -3274,7 +3274,22 @@ export default function HomePage() {
                               {(clipAnalysisResult.recommendations || []).slice(0, 3).map((rec: any, idx: number) => {
                                 const isExpanded = expandedCards.has(`rec-${idx}`)
                                 const priorityColor = rec.priority === 'high' ? '🔴' : rec.priority === 'med' ? '🟡' : '🟢'
-                                const previewBullets = rec.text?.replace(/<[^>]*>/g, '').split('. ').slice(0, 2).filter((s: string) => s.trim().length > 10) || ['Action item available', 'Implementation guide ready']
+                                // Generate more preview bullets (4-5) from the recommendation text
+                                const generatePreviewBullets = (text: string, category: string) => {
+                                  const sentences = text?.replace(/<[^>]*>/g, '').split('. ').filter((s: string) => s.trim().length > 15) || []
+                                  if (sentences.length >= 4) return sentences.slice(0, 4)
+                                  // Fallback previews based on category
+                                  const fallbacks: Record<string, string[]> = {
+                                    'hook': ['First 3 seconds are critical for retention', 'Remove dead air and hesitation', 'Add pattern interrupt technique', 'Test multiple hook variations', 'Expected 20-40% retention improvement'],
+                                    'editing': ['Cut pauses longer than 0.5 seconds', 'Add jump cuts every 2-3 seconds', 'Include zoom effects on key moments', 'Layer background music at 15-20%', 'Expected 15-25% watch time increase'],
+                                    'hashtags': ['Research trending hashtags in niche', 'Mix broad (1M+) and specific (<100K) tags', 'Place 3-5 hashtags in caption', 'Add remaining in first comment', 'Expected 30-50% reach increase'],
+                                    'trending': ['Check trending sounds daily', 'Use trending sound within 48-72 hours', 'Layer trending audio at 25% volume', 'Participate in trending challenges early', 'Expected 2-5x algorithm boost'],
+                                    'engagement': ['Ask specific question in caption', 'Reply to first 20 comments within 1 hour', 'Pin a comment to start conversation', 'End with open-ended question', 'Expected 3x comment rate increase'],
+                                    'posting': ['Post at optimal time: 7-9 PM target timezone', 'Avoid posting near major events', 'Space posts 2-4 hours apart', 'Use consistent posting schedule', 'Expected 25% more initial views']
+                                  }
+                                  return sentences.length > 0 ? [...sentences.slice(0, 2), ...((fallbacks[category.toLowerCase()] || fallbacks['hook']).slice(2, 4))] : (fallbacks[category.toLowerCase()] || fallbacks['hook'])
+                                }
+                                const previewBullets = generatePreviewBullets(rec.text, rec.category)
                                 // Generate detailed expansion content
                                 const getDetailedContent = (category: string, priority: string) => {
                                   const details: Record<string, string[]> = {
@@ -3364,7 +3379,21 @@ export default function HomePage() {
                                 const actualIdx = idx + 3
                                 const isExpanded = expandedCards.has(`rec-${actualIdx}`)
                                 const priorityColor = rec.priority === 'high' ? '🔴' : rec.priority === 'med' ? '🟡' : '🟢'
-                                const previewBullets = rec.text?.replace(/<[^>]*>/g, '').split('. ').slice(0, 2).filter((s: string) => s.trim().length > 10) || ['Action item available', 'Implementation guide ready']
+                                // Generate more preview bullets (4-5) from the recommendation text
+                                const generatePreviewBullets = (text: string, category: string) => {
+                                  const sentences = text?.replace(/<[^>]*>/g, '').split('. ').filter((s: string) => s.trim().length > 15) || []
+                                  if (sentences.length >= 4) return sentences.slice(0, 4)
+                                  const fallbacks: Record<string, string[]> = {
+                                    'hook': ['First 3 seconds are critical for retention', 'Remove dead air and hesitation', 'Add pattern interrupt technique', 'Test multiple hook variations', 'Expected 20-40% retention improvement'],
+                                    'editing': ['Cut pauses longer than 0.5 seconds', 'Add jump cuts every 2-3 seconds', 'Include zoom effects on key moments', 'Layer background music at 15-20%', 'Expected 15-25% watch time increase'],
+                                    'hashtags': ['Research trending hashtags in niche', 'Mix broad (1M+) and specific (<100K) tags', 'Place 3-5 hashtags in caption', 'Add remaining in first comment', 'Expected 30-50% reach increase'],
+                                    'trending': ['Check trending sounds daily', 'Use trending sound within 48-72 hours', 'Layer trending audio at 25% volume', 'Participate in trending challenges early', 'Expected 2-5x algorithm boost'],
+                                    'engagement': ['Ask specific question in caption', 'Reply to first 20 comments within 1 hour', 'Pin a comment to start conversation', 'End with open-ended question', 'Expected 3x comment rate increase'],
+                                    'posting': ['Post at optimal time: 7-9 PM target timezone', 'Avoid posting near major events', 'Space posts 2-4 hours apart', 'Use consistent posting schedule', 'Expected 25% more initial views']
+                                  }
+                                  return sentences.length > 0 ? [...sentences.slice(0, 2), ...((fallbacks[category.toLowerCase()] || fallbacks['hook']).slice(2, 4))] : (fallbacks[category.toLowerCase()] || fallbacks['hook'])
+                                }
+                                const previewBullets = generatePreviewBullets(rec.text, rec.category)
                                 const getDetailedContent = (category: string, priority: string) => {
                                   const details: Record<string, string[]> = {
                                     'hook': ['Analyze the first 3 seconds frame-by-frame', 'Remove any dead air or hesitation', 'Add pattern interrupt (sound/visual)', 'Test 3 different hook variations', 'A/B test thumbnails if applicable', 'Expected impact: 20-40% retention boost'],
@@ -3449,7 +3478,7 @@ export default function HomePage() {
                           </div>
                         </div>
 
-                        {/* Overlays - 2x2 Grid with Preview Bullets */}
+                        {/* Overlays - 2x2 Grid with FULL Detail Always Visible */}
                         <div>
                           <div className={`relative overflow-hidden rounded-xl p-4 ${
                             darkMode 
@@ -3463,27 +3492,73 @@ export default function HomePage() {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                               {(clipAnalysisResult.overlays || []).map((overlay: any, idx: number) => {
-                                const isExpanded = expandedCards.has(`overlay-${idx}`)
                                 const iconMap: Record<string, string> = {
                                   text: '✏️',
                                   sound: '🎵',
                                   visual: '🎬',
                                   cta: '👆'
                                 }
-                                const previewBullets: Record<string, string[]> = {
-                                  text: ['Text overlay recommended', 'Keep concise and bold'],
-                                  sound: ['Audio layer needed', 'Sync with visual'],
-                                  visual: ['Visual effect suggested', 'Smooth transition'],
-                                  cta: ['Call-to-action overlay', 'Strategic placement']
+                                const fullContent: Record<string, {summary: string[], details: string[], proTips: string[]}> = {
+                                  text: {
+                                    summary: ['Text overlay enhances message clarity', 'Should appear at ' + overlay.timing, 'Keep under 5 words for maximum impact'],
+                                    details: [
+                                      'Open your video editor (CapCut, Premiere, or DaVinci Resolve)',
+                                      'Add a new text layer and position in the safe zone (center 80% of screen)',
+                                      'Choose bold, high-contrast font - white with black stroke works best',
+                                      'Keep text concise: maximum 3-5 words per overlay',
+                                      'Add subtle entrance animation (fade or slide, 0.3s duration)',
+                                      'Display overlay for minimum 2-3 seconds so viewers can read',
+                                      'Use platform-safe fonts that render correctly on mobile devices'
+                                    ],
+                                    proTips: ['Test text readability on a small phone screen before posting', 'Use text to emphasize key quotes or data points', 'Avoid text at very top/bottom where UI elements may cover it']
+                                  },
+                                  sound: {
+                                    summary: ['Audio layer enhances emotional impact', 'Timing: ' + overlay.timing, 'Trending sounds boost algorithm reach'],
+                                    details: [
+                                      'Import trending sound from platform library (TikTok: sound library, Instagram: music sticker, YouTube: audio library)',
+                                      'Layer trending audio at 20-30% volume underneath your main voice audio',
+                                      'Sync audio peaks and beats with visual transitions and cuts',
+                                      'Add sound effects (whoosh, pop, ding) for emphasis on key moments',
+                                      'If not using trending sound, ensure royalty-free music to avoid copyright strikes',
+                                      'Test final audio levels on mobile device - should be clear without being too loud',
+                                      'Export with audio normalized to -14 LUFS for platform compliance'
+                                    ],
+                                    proTips: ['TikTok algorithm heavily weights videos using trending sounds within first 48 hours', 'Original audio + trending sound overlay = best of both worlds', 'Always check sound volume on mobile before posting - many watch without headphones']
+                                  },
+                                  visual: {
+                                    summary: ['Visual effect maintains viewer engagement', 'Apply at ' + overlay.timing, 'Transitions should feel seamless'],
+                                    details: [
+                                      'Identify the transition point in your video where this effect should begin',
+                                      'Apply transition effect between scenes (cut, slide, zoom, or morph depending on content style)',
+                                      'Add zoom (110-120%) or pan effect for static moments to maintain visual interest',
+                                      'Use color grading/lut to maintain consistent look throughout entire video',
+                                      'Insert B-roll footage if main shot becomes visually stagnant',
+                                      'Add motion graphics or animated elements for data points or statistics',
+                                      'Keep effects subtle - fast cuts every 1-2 seconds maximum to avoid viewer fatigue',
+                                      'Match transition speed to content energy (fast for high-energy, slow for calm moments)'
+                                    ],
+                                    proTips: ['Rule of thumb: cut every 2-3 seconds minimum in first 15 seconds', 'Zoom effects work great when revealing something or emphasizing a point', 'Always render preview at full quality before final export to catch visual issues']
+                                  },
+                                  cta: {
+                                    summary: ['Call-to-action drives viewer interaction', 'Display at ' + overlay.timing, 'Position strategically for visibility'],
+                                    details: [
+                                      'Create text overlay with action words: "Follow", "Comment", "Share", "Save", "Link in bio"',
+                                      'Position CTA in bottom third or top safe zone away from platform UI elements',
+                                      'Use high-contrasting colors - white text with black stroke is most readable',
+                                      'Keep CTA on screen for 3-5 seconds minimum so viewers can process and act',
+                                      'Add subtle pulse, glow, or bounce animation to draw attention without being annoying',
+                                      'Include arrow, finger pointing, or circle animation if space permits',
+                                      'For "Link in bio" CTAs: ensure your bio actually has the link ready before posting',
+                                      'Test CTA placement on mobile to confirm it is not covered by like/comment buttons'
+                                    ],
+                                    proTips: ['One clear CTA beats multiple confusing ones - pick the action you want most', '"Save this" or "Share with a friend" often outperform generic "Follow me" CTAs', 'Pin a comment with the same CTA immediately after posting for reinforcement']
+                                  }
                                 }
-                                const detailedSteps: Record<string, string[]> = {
-                                  text: ['Open your video editor and add text layer', 'Position text in safe zone (center 80%)', 'Use bold, high-contrast font colors', 'Keep text under 5 words per overlay', 'Add subtle entrance animation (0.3s)', 'Display for minimum 2-3 seconds'],
-                                  sound: ['Import trending sound from platform library', 'Layer audio at 20-30% volume under voice', 'Sync audio peaks with visual transitions', 'Add sound effects for emphasis moments', 'Use royalty-free music if not trending', 'Test audio levels on mobile device'],
-                                  visual: ['Apply transition effect between scenes', 'Add zoom or pan for static moments', 'Use color grading for consistent look', 'Insert B-roll for visual interest', 'Add motion graphics for key data points', 'Keep effects subtle - content is king'],
-                                  cta: ['Create text overlay with action words', 'Position in bottom or top safe zone', 'Use contrasting color (white with black stroke)', 'Keep on screen for 3-5 seconds minimum', 'Add subtle pulse or glow animation', 'Include arrow or finger pointing if applicable']
+                                const content = fullContent[overlay.type] || {
+                                  summary: ['Overlay recommended at ' + overlay.timing, 'Apply in video editor', 'Test before posting'],
+                                  details: ['Review the suggested timing in your video', 'Apply the overlay using your preferred editor', 'Preview on mobile device before final export'],
+                                  proTips: ['Always test overlays on actual mobile device screen size', 'Check that overlay does not cover important visual elements']
                                 }
-                                const bullets = previewBullets[overlay.type] || ['Overlay recommended', 'Timing: ' + overlay.timing]
-                                const steps = detailedSteps[overlay.type] || ['Review overlay timing', 'Apply in video editor', 'Test on mobile preview', 'Adjust opacity if needed', 'Export and review final', 'Post and monitor performance']
                                 return (
                                   <div key={idx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 flex flex-col ${
                                     darkMode 
@@ -3491,10 +3566,7 @@ export default function HomePage() {
                                       : 'bg-white border-sdhq-cyan-200'
                                   }`}>
                                     {/* Header */}
-                                    <div 
-                                      className="p-4 flex flex-col items-center text-center cursor-pointer hover:bg-opacity-80 transition-colors"
-                                      onClick={() => toggleCard(`overlay-${idx}`)}
-                                    >
+                                    <div className="p-4 flex flex-col items-center text-center">
                                       <span className="text-3xl mb-2">{iconMap[overlay.type] || '✨'}</span>
                                       <div className={`text-sm font-semibold uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                         {overlay.type}
@@ -3504,10 +3576,10 @@ export default function HomePage() {
                                       </div>
                                     </div>
                                     
-                                    {/* Preview Bullets */}
+                                    {/* Summary - Always Visible */}
                                     <div className={`px-4 pb-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                       <ul className="space-y-2 text-sm">
-                                        {bullets.map((bullet, bIdx) => (
+                                        {content.summary.map((bullet, bIdx) => (
                                           <li key={bIdx} className="flex items-start gap-2">
                                             <span className="text-sdhq-cyan-500 mt-0.5">•</span>
                                             <span>{bullet}</span>
@@ -3516,35 +3588,42 @@ export default function HomePage() {
                                       </ul>
                                     </div>
                                     
-                                    {/* Read More Button */}
-                                    <div 
-                                      className={`px-4 pb-3 text-sm font-medium cursor-pointer ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'} hover:underline transition-colors text-center`}
-                                      onClick={() => toggleCard(`overlay-${idx}`)}
-                                    >
-                                      {isExpanded ? '▼ Read less' : '▶ Read more'}
+                                    {/* Full Details - Always Visible */}
+                                    <div className={`px-4 pb-3 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                      <div className={`mt-3 p-3 rounded ${darkMode ? 'bg-sdhq-dark-800' : 'bg-gray-50'}`}>
+                                        <div className={`text-sm font-semibold mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                          🎬 Implementation Guide
+                                        </div>
+                                        <p className={`text-sm mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                          {overlay.description?.replace(/<[^>]*>/g, '')}
+                                        </p>
+                                        <ol className={`space-y-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                          {content.details.map((step, sIdx) => (
+                                            <li key={sIdx} className="flex items-start gap-2">
+                                              <span className="text-sdhq-cyan-500 mt-1 font-mono">{sIdx + 1}.</span>
+                                              <span>{step}</span>
+                                            </li>
+                                          ))}
+                                        </ol>
+                                      </div>
                                     </div>
                                     
-                                    {/* Expandable Details - Detailed */}
-                                    {isExpanded && (
-                                      <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-                                        <div className={`mt-3 p-3 rounded ${darkMode ? 'bg-sdhq-dark-800' : 'bg-gray-50'}`}>
-                                          <div className={`text-sm font-semibold mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                            🎬 Step-by-Step Implementation
-                                          </div>
-                                          <p className={`text-sm mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                            {overlay.description?.replace(/<[^>]*>/g, '')}
-                                          </p>
-                                          <ul className={`space-y-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                            {steps.map((step, sIdx) => (
-                                              <li key={sIdx} className="flex items-start gap-2">
-                                                <span className="text-sdhq-cyan-500 mt-1">{sIdx + 1}.</span>
-                                                <span>{step}</span>
-                                              </li>
-                                            ))}
-                                          </ul>
+                                    {/* Pro Tips - Always Visible */}
+                                    <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                      <div className={`mt-3 p-3 rounded ${darkMode ? 'bg-sdhq-cyan-500/10 border border-sdhq-cyan-500/20' : 'bg-sdhq-cyan-50 border border-sdhq-cyan-200'}`}>
+                                        <div className={`text-sm font-semibold mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                          💡 Pro Tips
                                         </div>
+                                        <ul className={`space-y-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                          {content.proTips.map((tip, tIdx) => (
+                                            <li key={tIdx} className="flex items-start gap-2">
+                                              <span className="text-sdhq-cyan-500 mt-1">→</span>
+                                              <span>{tip}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
                                       </div>
-                                    )}
+                                    </div>
                                   </div>
                                 )
                               })}
@@ -3567,9 +3646,11 @@ export default function HomePage() {
                                 {clipPlatform === 'tiktok' ? '🎵 TikTok' : clipPlatform === 'youtube' ? '▶️ YouTube' : '📸 Instagram'} Optimized
                               </div>
                             </div>
-                            <div className="space-y-4">
+                            
+                            {/* Title and Description Side by Side */}
+                            <div className="grid grid-cols-2 gap-4 mb-4">
                               {/* Title Options with Platform Emojis */}
-                              <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 ${
+                              <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 h-full ${
                                 darkMode 
                                   ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
                                   : 'bg-white border-sdhq-cyan-200'
@@ -3582,7 +3663,7 @@ export default function HomePage() {
                                     </div>
                                   </div>
                                   <div className={`text-sm ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                    + emojis for {clipPlatform}
+                                    + emojis
                                   </div>
                                 </div>
                                 <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
@@ -3622,7 +3703,7 @@ export default function HomePage() {
 
                               {/* Description with Copy Button & Hashtags */}
                               {clipAnalysisResult.description && (
-                                <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 ${
+                                <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 h-full ${
                                   darkMode 
                                     ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
                                     : 'bg-white border-sdhq-cyan-200'
@@ -3658,59 +3739,66 @@ export default function HomePage() {
                                     <p className={`mt-3 text-base ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                       {clipAnalysisResult.description?.replace(/<[^>]*>/g, '')}
                                     </p>
-                                    <div className={`mt-3 text-sm ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                      💡 Auto-adds {clipPlatform === 'tiktok' ? '4' : clipPlatform === 'youtube' ? '15' : '30'} hashtags when copied
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Tags */}
-                              {(clipAnalysisResult.tags || []).length > 0 && (
-                                <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 ${
-                                  darkMode 
-                                    ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
-                                    : 'bg-white border-sdhq-cyan-200'
-                                }`}>
-                                  <div className="p-4 flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                      <span className="text-2xl">#️⃣</span>
-                                      <div className={`text-base font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                        Recommended Tags
-                                      </div>
-                                    </div>
-                                    <button
-                                      onClick={() => {
-                                        const tagsText = (clipAnalysisResult.tags || []).map((t: string) => `#${t.replace(/^#/, '')}`).join(' ')
-                                        navigator.clipboard.writeText(tagsText)
-                                        setCopiedTags(true)
-                                        setTimeout(() => setCopiedTags(false), 2000)
-                                      }}
-                                      className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
-                                        copiedTags
-                                          ? (darkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600')
-                                          : (darkMode ? 'bg-sdhq-dark-600 text-sdhq-cyan-400 hover:bg-sdhq-cyan-500/20' : 'bg-gray-100 text-sdhq-cyan-600 hover:bg-sdhq-cyan-50')
-                                      }`}
-                                    >
-                                      {copiedTags ? '✓ Copied!' : '📋 Copy'}
-                                    </button>
-                                  </div>
-                                  <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-                                    <div className="mt-3 flex flex-wrap gap-2">
-                                      {(clipAnalysisResult.tags || []).map((tag: string, idx: number) => (
-                                        <span key={idx} className={`px-3 py-1.5 rounded text-sm font-mono ${
-                                          darkMode 
-                                            ? 'bg-sdhq-dark-800 text-sdhq-cyan-400 border border-sdhq-cyan-500/20' 
-                                            : 'bg-gray-100 text-sdhq-cyan-600 border border-sdhq-cyan-300'
-                                        }`}>
-                                          #{tag.replace(/^#/, '')}
-                                        </span>
-                                      ))}
-                                    </div>
                                   </div>
                                 </div>
                               )}
                             </div>
+
+                            {/* Tags - Full Width Below */}
+                            {(clipAnalysisResult.tags || []).length > 0 && (
+                              <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 ${
+                                darkMode 
+                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
+                                  : 'bg-white border-sdhq-cyan-200'
+                              }`}>
+                                <div className="p-4 flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-2xl">#️⃣</span>
+                                    <div className={`text-base font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                      Recommended Tags
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      const tagsText = (clipAnalysisResult.tags || []).map((t: string) => `#${t.replace(/^#/, '')}`).join(' ')
+                                      navigator.clipboard.writeText(tagsText)
+                                      setCopiedTags(true)
+                                      setTimeout(() => setCopiedTags(false), 2000)
+                                    }}
+                                    className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
+                                      copiedTags
+                                        ? (darkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600')
+                                        : (darkMode ? 'bg-sdhq-dark-600 text-sdhq-cyan-400 hover:bg-sdhq-cyan-500/20' : 'bg-gray-100 text-sdhq-cyan-600 hover:bg-sdhq-cyan-50')
+                                    }`}
+                                  >
+                                    {copiedTags ? '✓ Copied!' : '📋 Copy All'}
+                                  </button>
+                                </div>
+                                <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    {(clipAnalysisResult.tags || []).map((tag: string, idx: number) => (
+                                      <span key={idx} className={`px-3 py-1.5 rounded text-sm font-mono cursor-pointer hover:scale-105 transition-transform ${
+                                        darkMode 
+                                          ? 'bg-sdhq-dark-800 text-sdhq-cyan-400 border border-sdhq-cyan-500/20 hover:bg-sdhq-cyan-500/10' 
+                                          : 'bg-gray-100 text-sdhq-cyan-600 border border-sdhq-cyan-300 hover:bg-sdhq-cyan-50'
+                                      }`}
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(`#${tag.replace(/^#/, '')}`)
+                                        setCopiedTags(true)
+                                        setTimeout(() => setCopiedTags(false), 1000)
+                                      }}
+                                      title="Click to copy"
+                                      >
+                                        #{tag.replace(/^#/, '')}
+                                      </span>
+                                    ))}
+                                  </div>
+                                  <div className={`mt-3 text-sm ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                    💡 Click any tag to copy individually, or use "Copy All" for all tags
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
 
