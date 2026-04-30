@@ -135,12 +135,16 @@ export async function POST(request: Request) {
       const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
       
       // FORCE DEPLOY: Using gemini-3-flash-preview model (requires v1beta endpoint)
+      // EXPLICIT: Override any environment variables that might contain old model names
       const MODEL_NAME = 'gemini-3-flash-preview'
       
       // CRITICAL: Validate model name to prevent old references
       if (MODEL_NAME !== 'gemini-3-flash-preview') {
         throw new Error(`Invalid model detected: ${MODEL_NAME}. Expected: gemini-3-flash-preview`)
       }
+      
+      // DEBUG: Log to confirm we're using the right model
+      console.log('[CRITICAL] Model validation passed:', MODEL_NAME, 'Timestamp:', Date.now())
       
       // NEW BUNDLE VALIDATION: Ensure this code runs
       const bundleCheck = `bundle-${Date.now()}`
