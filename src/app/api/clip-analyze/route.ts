@@ -165,8 +165,8 @@ export async function POST(request: Request) {
                     fileUri: fileUri
                   }
                 },
-              {
-                text: `You are an expert social media algorithm analyst and content strategist. Analyze this video file IN-DEPTH for ${platform} optimization.
+                {
+                  text: `You are an expert social media algorithm analyst and content strategist. Analyze this video file IN-DEPTH for ${platform} optimization.
 
 CRITICAL ANALYSIS REQUIREMENTS:
 1. **SUBJECT MATTER IDENTIFICATION**: 
