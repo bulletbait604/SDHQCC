@@ -313,6 +313,7 @@ export default function HomePage() {
   const [showReanalysis, setShowReanalysis] = useState<boolean>(false)
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
   const [copiedTags, setCopiedTags] = useState<boolean>(false)
+  const [copiedDescription, setCopiedDescription] = useState<boolean>(false)
 
   // Content Analyzer states
   const [contentUrl, setContentUrl] = useState<string>('')
@@ -1181,6 +1182,7 @@ export default function HomePage() {
     setShowReanalysis(false)
     setExpandedCards(new Set())
     setCopiedTags(false)
+    setCopiedDescription(false)
   }
 
   const toggleCard = (cardId: string) => {
@@ -3154,41 +3156,10 @@ export default function HomePage() {
                               </div>
                             </div>
 
-                            {/* 4 Category Scores */}
-                            <div className="relative grid grid-cols-2 md:grid-cols-4 gap-3">
-                              {[
-                                { label: 'Hook Strength', score: clipAnalysisResult.hookStrength || Math.round(clipAnalysisResult.score * 0.9) },
-                                { label: 'Engagement', score: clipAnalysisResult.engagementPotential || Math.round(clipAnalysisResult.score * 0.95) },
-                                { label: 'Visual Quality', score: clipAnalysisResult.visualQuality || Math.round(clipAnalysisResult.score * 0.85) },
-                                { label: 'Audio Quality', score: clipAnalysisResult.audioQuality || Math.round(clipAnalysisResult.score * 0.88) }
-                              ].map((cat, idx) => (
-                                <div key={idx} className={`p-2 rounded-lg text-center ${
-                                  darkMode ? 'bg-sdhq-dark-700/50' : 'bg-white/50'
-                                }`}>
-                                  <div className={`text-xs uppercase tracking-wider mb-1 ${
-                                    darkMode ? 'text-gray-400' : 'text-gray-500'
-                                  }`}>{cat.label}</div>
-                                  <div className={`text-xl font-bold ${
-                                    cat.score >= 70 ? (darkMode ? 'text-green-400' : 'text-green-600') :
-                                    cat.score >= 45 ? (darkMode ? 'text-yellow-400' : 'text-yellow-600') :
-                                    (darkMode ? 'text-red-400' : 'text-red-600')
-                                  }`}>{cat.score}</div>
-                                  <div className={`h-1.5 rounded-full mt-1 ${darkMode ? 'bg-sdhq-dark-600' : 'bg-gray-200'}`}>
-                                    <div 
-                                      className={`h-full rounded-full ${
-                                        cat.score >= 70 ? 'bg-green-500' :
-                                        cat.score >= 45 ? 'bg-yellow-500' : 'bg-red-500'
-                                      }`}
-                                      style={{ width: `${cat.score}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
                           </div>
                         </div>
 
-                        {/* Content Insights - 2x2 Grid Pattern */}
+                        {/* Content Insights - 2x2 Grid with Category Scores */}
                         <div>
                           <div className={`relative overflow-hidden rounded-xl p-3 ${
                             darkMode 
@@ -3201,44 +3172,78 @@ export default function HomePage() {
                               </h4>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
-                              {(clipAnalysisResult.insights || []).map((insight: any, idx: number) => {
-                                const isExpanded = expandedCards.has(`insight-${idx}`)
+                              {/* Category Score Cards */}
+                              {[
+                                { key: 'hook', icon: '🎯', label: 'Hook Strength', score: clipAnalysisResult.hookStrength || Math.round(clipAnalysisResult.score * 0.9), bullets: ['Opens with strong visual/audio hook', 'Curiosity gap in first 3 seconds', 'Pattern interrupt technique'] },
+                                { key: 'engagement', icon: '⚡', label: 'Engagement', score: clipAnalysisResult.engagementPotential || Math.round(clipAnalysisResult.score * 0.95), bullets: ['Loop-worthy content structure', 'Clear call-to-action present', 'Comment-baiting opportunity'] },
+                                { key: 'visual', icon: '🎬', label: 'Visual Quality', score: clipAnalysisResult.visualQuality || Math.round(clipAnalysisResult.score * 0.85), bullets: ['Consistent lighting/framing', 'Vertical format optimized', 'Face/on-camera presence'] },
+                                { key: 'audio', icon: '🔊', label: 'Audio Quality', score: clipAnalysisResult.audioQuality || Math.round(clipAnalysisResult.score * 0.88), bullets: ['Clear voice/audio levels', 'Trending sound integration', 'Audio-visual sync'] }
+                              ].map((cat, idx) => {
+                                const isExpanded = expandedCards.has(`cat-${cat.key}`)
+                                const scoreColor = cat.score >= 70 ? 'green' : cat.score >= 45 ? 'yellow' : 'red'
                                 return (
-                                  <div key={idx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 min-h-[140px] flex flex-col ${
+                                  <div key={idx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 flex flex-col ${
                                     darkMode 
                                       ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
                                       : 'bg-white border-sdhq-cyan-200'
                                   }`}>
-                                    {/* Summary Header */}
+                                    {/* Header with Score */}
                                     <div 
-                                      className="p-4 flex flex-col items-center text-center cursor-pointer hover:bg-opacity-80 transition-colors flex-1"
-                                      onClick={() => toggleCard(`insight-${idx}`)}
+                                      className="p-4 flex flex-col items-center text-center cursor-pointer hover:bg-opacity-80 transition-colors"
+                                      onClick={() => toggleCard(`cat-${cat.key}`)}
                                     >
-                                      <span className="text-3xl mb-2">{insight.icon || '📊'}</span>
+                                      <span className="text-2xl mb-1">{cat.icon}</span>
                                       <div className={`text-xs font-semibold uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                        {insight.label}
+                                        {cat.label}
                                       </div>
-                                      <div className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                        {insight.value}
+                                      <div className={`text-2xl font-bold ${
+                                        cat.score >= 70 ? (darkMode ? 'text-green-400' : 'text-green-600') :
+                                        cat.score >= 45 ? (darkMode ? 'text-yellow-400' : 'text-yellow-600') :
+                                        (darkMode ? 'text-red-400' : 'text-red-600')
+                                      }`}>
+                                        {cat.score}
                                       </div>
-                                      <div className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                        {isExpanded ? '▼' : '▶'} Details
+                                      <div className={`w-full h-1.5 rounded-full mt-2 ${darkMode ? 'bg-sdhq-dark-600' : 'bg-gray-200'}`}>
+                                        <div 
+                                          className={`h-full rounded-full ${
+                                            cat.score >= 70 ? 'bg-green-500' :
+                                            cat.score >= 45 ? 'bg-yellow-500' : 'bg-red-500'
+                                          }`}
+                                          style={{ width: `${cat.score}%` }}
+                                        />
                                       </div>
                                     </div>
                                     
+                                    {/* Preview Bullets (always visible) */}
+                                    <div className={`px-4 pb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                      <ul className="space-y-1 text-xs">
+                                        {cat.bullets.map((bullet, bIdx) => (
+                                          <li key={bIdx} className="flex items-start gap-1.5">
+                                            <span className="text-sdhq-cyan-500 mt-0.5">•</span>
+                                            <span>{bullet}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                    
+                                    {/* Expand Details Button */}
+                                    <div 
+                                      className={`px-4 pb-3 text-xs cursor-pointer ${darkMode ? 'text-gray-500' : 'text-gray-500'} hover:text-sdhq-cyan-500 transition-colors text-center`}
+                                      onClick={() => toggleCard(`cat-${cat.key}`)}
+                                    >
+                                      {isExpanded ? '▼ Less details' : '▶ More details'}
+                                    </div>
+                                    
                                     {/* Expandable Details */}
-                                    {isExpanded && insight.description && (
+                                    {isExpanded && (
                                       <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-                                        <ul className={`mt-3 space-y-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                          {insight.description?.replace(/<[^>]*>/g, '').split('. ').filter((s: string) => s.trim()).map((sentence: string, sIdx: number) => (
-                                            <li key={sIdx} className="flex items-start gap-2">
-                                              <span className="text-sdhq-cyan-500 mt-0.5">•</span>
-                                              <span>{sentence.trim()}{!sentence.trim().endsWith('.') ? '.' : ''}</span>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                        <div className={`mt-3 p-2 rounded text-xs ${darkMode ? 'bg-sdhq-dark-800 text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
-                                          💡 <strong>Analysis:</strong> This insight is based on the video content analysis and platform algorithm trends.
+                                        <div className={`mt-3 p-2 rounded text-xs ${darkMode ? 'bg-sdhq-dark-800 text-gray-300' : 'bg-gray-50 text-gray-600'}`}>
+                                          <strong className={darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}>💡 Analysis:</strong>
+                                          <ul className="mt-1 space-y-1">
+                                            <li>• Score based on {cat.label.toLowerCase()} metrics</li>
+                                            <li>• {cat.score >= 70 ? 'Strong performance expected' : cat.score >= 45 ? 'Moderate potential with tweaks' : 'Needs optimization'}</li>
+                                            <li>• {clipPlatform === 'tiktok' ? 'TikTok algorithm favors this metric' : clipPlatform === 'youtube' ? 'YouTube Shorts prioritizes this' : 'Instagram Reels values this highly'}</li>
+                                          </ul>
                                         </div>
                                       </div>
                                     )}
@@ -3249,7 +3254,7 @@ export default function HomePage() {
                           </div>
                         </div>
 
-                        {/* Recommendations - 3 top, 2 bottom Pattern */}
+                        {/* Recommendations - 3 top, 2 bottom with Preview Bullets */}
                         <div>
                           <div className={`relative overflow-hidden rounded-xl p-3 ${
                             darkMode 
@@ -3265,42 +3270,63 @@ export default function HomePage() {
                               {(clipAnalysisResult.recommendations || []).slice(0, 3).map((rec: any, idx: number) => {
                                 const isExpanded = expandedCards.has(`rec-${idx}`)
                                 const priorityColor = rec.priority === 'high' ? '🔴' : rec.priority === 'med' ? '🟡' : '🟢'
+                                const previewBullets = rec.text?.replace(/<[^>]*>/g, '').split('. ').slice(0, 2).filter((s: string) => s.trim().length > 10) || ['Action item available', 'Implementation guide ready']
                                 return (
-                                  <div key={idx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 min-h-[140px] flex flex-col ${
+                                  <div key={idx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 flex flex-col ${
                                     darkMode 
                                       ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
                                       : 'bg-white border-sdhq-cyan-200'
                                   }`}>
-                                    {/* Summary Header */}
+                                    {/* Header */}
                                     <div 
-                                      className="p-4 flex flex-col items-center text-center cursor-pointer hover:bg-opacity-80 transition-colors flex-1"
+                                      className="p-3 flex flex-col items-center text-center cursor-pointer hover:bg-opacity-80 transition-colors"
                                       onClick={() => toggleCard(`rec-${idx}`)}
                                     >
-                                      <span className="text-2xl mb-2">{priorityColor}</span>
+                                      <span className="text-xl mb-1">{priorityColor}</span>
                                       <div className={`text-xs font-semibold uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                         {rec.category}
                                       </div>
-                                      <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                        {rec.text?.replace(/<[^>]*>/g, '').substring(0, 50)}{rec.text?.length > 50 ? '...' : ''}
-                                      </div>
-                                      <div className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                        {isExpanded ? '▼' : '▶'} Details
-                                      </div>
                                     </div>
                                     
-                                    {/* Expandable Details */}
+                                    {/* Preview Bullets */}
+                                    <div className={`px-3 pb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                      <ul className="space-y-1 text-xs">
+                                        {previewBullets.map((bullet: string, bIdx: number) => (
+                                          <li key={bIdx} className="flex items-start gap-1.5">
+                                            <span className="text-sdhq-cyan-500 mt-0.5">•</span>
+                                            <span>{bullet.substring(0, 45)}{bullet.length > 45 ? '...' : ''}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                    
+                                    {/* Expand Button */}
+                                    <div 
+                                      className={`px-3 pb-2 text-xs cursor-pointer ${darkMode ? 'text-gray-500' : 'text-gray-500'} hover:text-sdhq-cyan-500 transition-colors text-center`}
+                                      onClick={() => toggleCard(`rec-${idx}`)}
+                                    >
+                                      {isExpanded ? '▼ Less' : '▶ Full guide'}
+                                    </div>
+                                    
+                                    {/* Expandable Details - Concise */}
                                     {isExpanded && (
-                                      <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-                                        <ul className={`mt-3 space-y-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                          {rec.text?.replace(/<[^>]*>/g, '').split('. ').filter((s: string) => s.trim()).map((sentence: string, sIdx: number) => (
-                                            <li key={sIdx} className="flex items-start gap-2">
+                                      <div className={`px-3 pb-3 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                        <ul className={`mt-2 space-y-1 text-xs ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                          {rec.text?.replace(/<[^>]*>/g, '').split('. ').filter((s: string) => s.trim().length > 5).map((sentence: string, sIdx: number) => (
+                                            <li key={sIdx} className="flex items-start gap-1.5">
                                               <span className="text-sdhq-cyan-500 mt-0.5">•</span>
                                               <span>{sentence.trim()}{!sentence.trim().endsWith('.') ? '.' : ''}</span>
                                             </li>
                                           ))}
                                         </ul>
-                                        <div className={`mt-3 p-2 rounded text-xs ${darkMode ? 'bg-sdhq-dark-800 text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
-                                          🎯 <strong>Impact:</strong> {rec.priority === 'high' ? 'Critical for viral potential' : rec.priority === 'med' ? 'Moderate impact on performance' : 'Nice to have improvement'}
+                                        <div className={`mt-2 p-1.5 rounded text-[10px] ${
+                                          rec.priority === 'high' 
+                                            ? (darkMode ? 'bg-red-500/20 text-red-400' : 'bg-red-50 text-red-600')
+                                            : rec.priority === 'med'
+                                            ? (darkMode ? 'bg-yellow-500/20 text-yellow-400' : 'bg-yellow-50 text-yellow-600')
+                                            : (darkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-50 text-green-600')
+                                        }`}>
+                                          <strong>{rec.priority === 'high' ? '🔴 Critical' : rec.priority === 'med' ? '🟡 Moderate' : '🟢 Optional'}</strong> — {rec.priority === 'high' ? 'Fix immediately' : rec.priority === 'med' ? 'Implement soon' : 'Nice to have'}
                                         </div>
                                       </div>
                                     )}
@@ -3315,42 +3341,63 @@ export default function HomePage() {
                                 const actualIdx = idx + 3
                                 const isExpanded = expandedCards.has(`rec-${actualIdx}`)
                                 const priorityColor = rec.priority === 'high' ? '🔴' : rec.priority === 'med' ? '🟡' : '🟢'
+                                const previewBullets = rec.text?.replace(/<[^>]*>/g, '').split('. ').slice(0, 2).filter((s: string) => s.trim().length > 10) || ['Action item available', 'Implementation guide ready']
                                 return (
-                                  <div key={actualIdx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 min-h-[140px] flex flex-col ${
+                                  <div key={actualIdx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 flex flex-col ${
                                     darkMode 
                                       ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
                                       : 'bg-white border-sdhq-cyan-200'
                                   }`}>
-                                    {/* Summary Header */}
+                                    {/* Header */}
                                     <div 
-                                      className="p-4 flex flex-col items-center text-center cursor-pointer hover:bg-opacity-80 transition-colors flex-1"
+                                      className="p-3 flex flex-col items-center text-center cursor-pointer hover:bg-opacity-80 transition-colors"
                                       onClick={() => toggleCard(`rec-${actualIdx}`)}
                                     >
-                                      <span className="text-2xl mb-2">{priorityColor}</span>
+                                      <span className="text-xl mb-1">{priorityColor}</span>
                                       <div className={`text-xs font-semibold uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                         {rec.category}
                                       </div>
-                                      <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                        {rec.text?.replace(/<[^>]*>/g, '').substring(0, 50)}{rec.text?.length > 50 ? '...' : ''}
-                                      </div>
-                                      <div className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                        {isExpanded ? '▼' : '▶'} Details
-                                      </div>
+                                    </div>
+                                    
+                                    {/* Preview Bullets */}
+                                    <div className={`px-3 pb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                      <ul className="space-y-1 text-xs">
+                                        {previewBullets.map((bullet: string, bIdx: number) => (
+                                          <li key={bIdx} className="flex items-start gap-1.5">
+                                            <span className="text-sdhq-cyan-500 mt-0.5">•</span>
+                                            <span>{bullet.substring(0, 45)}{bullet.length > 45 ? '...' : ''}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                    
+                                    {/* Expand Button */}
+                                    <div 
+                                      className={`px-3 pb-2 text-xs cursor-pointer ${darkMode ? 'text-gray-500' : 'text-gray-500'} hover:text-sdhq-cyan-500 transition-colors text-center`}
+                                      onClick={() => toggleCard(`rec-${actualIdx}`)}
+                                    >
+                                      {isExpanded ? '▼ Less' : '▶ Full guide'}
                                     </div>
                                     
                                     {/* Expandable Details */}
                                     {isExpanded && (
-                                      <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-                                        <ul className={`mt-3 space-y-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                          {rec.text?.replace(/<[^>]*>/g, '').split('. ').filter((s: string) => s.trim()).map((sentence: string, sIdx: number) => (
-                                            <li key={sIdx} className="flex items-start gap-2">
+                                      <div className={`px-3 pb-3 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                        <ul className={`mt-2 space-y-1 text-xs ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                          {rec.text?.replace(/<[^>]*>/g, '').split('. ').filter((s: string) => s.trim().length > 5).map((sentence: string, sIdx: number) => (
+                                            <li key={sIdx} className="flex items-start gap-1.5">
                                               <span className="text-sdhq-cyan-500 mt-0.5">•</span>
                                               <span>{sentence.trim()}{!sentence.trim().endsWith('.') ? '.' : ''}</span>
                                             </li>
                                           ))}
                                         </ul>
-                                        <div className={`mt-3 p-2 rounded text-xs ${darkMode ? 'bg-sdhq-dark-800 text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
-                                          🎯 <strong>Impact:</strong> {rec.priority === 'high' ? 'Critical for viral potential' : rec.priority === 'med' ? 'Moderate impact on performance' : 'Nice to have improvement'}
+                                        <div className={`mt-2 p-1.5 rounded text-[10px] ${
+                                          rec.priority === 'high' 
+                                            ? (darkMode ? 'bg-red-500/20 text-red-400' : 'bg-red-50 text-red-600')
+                                            : rec.priority === 'med'
+                                            ? (darkMode ? 'bg-yellow-500/20 text-yellow-400' : 'bg-yellow-50 text-yellow-600')
+                                            : (darkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-50 text-green-600')
+                                        }`}>
+                                          <strong>{rec.priority === 'high' ? '🔴 Critical' : rec.priority === 'med' ? '🟡 Moderate' : '🟢 Optional'}</strong> — {rec.priority === 'high' ? 'Fix immediately' : rec.priority === 'med' ? 'Implement soon' : 'Nice to have'}
                                         </div>
                                       </div>
                                     )}
@@ -3361,7 +3408,7 @@ export default function HomePage() {
                           </div>
                         </div>
 
-                        {/* Overlays - 2x2 Grid Pattern */}
+                        {/* Overlays - 2x2 Grid with Preview Bullets */}
                         <div>
                           <div className={`relative overflow-hidden rounded-xl p-3 ${
                             darkMode 
@@ -3382,51 +3429,61 @@ export default function HomePage() {
                                   visual: '🎬',
                                   cta: '👆'
                                 }
+                                const typeBullets: Record<string, string[]> = {
+                                  text: ['Add text overlay', 'Highlight key points', 'Keep under 5 words'],
+                                  sound: ['Layer audio effect', 'Sync with visual beat', 'Boost engagement'],
+                                  visual: ['Apply effect/filter', 'Transition smoothly', 'Maintain brand style'],
+                                  cta: ['Add CTA overlay', 'Position strategically', 'Use action words']
+                                }
+                                const bullets = typeBullets[overlay.type] || ['Overlay recommended', 'Timing optimized', 'Boosts retention']
                                 return (
-                                  <div key={idx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 min-h-[140px] flex flex-col ${
+                                  <div key={idx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 flex flex-col ${
                                     darkMode 
                                       ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
                                       : 'bg-white border-sdhq-cyan-200'
                                   }`}>
-                                    {/* Summary Header */}
+                                    {/* Header */}
                                     <div 
-                                      className="p-4 flex flex-col items-center text-center cursor-pointer hover:bg-opacity-80 transition-colors flex-1"
+                                      className="p-3 flex flex-col items-center text-center cursor-pointer hover:bg-opacity-80 transition-colors"
                                       onClick={() => toggleCard(`overlay-${idx}`)}
                                     >
-                                      <span className="text-3xl mb-2">{iconMap[overlay.type] || '✨'}</span>
+                                      <span className="text-2xl mb-1">{iconMap[overlay.type] || '✨'}</span>
                                       <div className={`text-xs font-semibold uppercase mb-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                         {overlay.type}
                                       </div>
-                                      <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                        {overlay.description?.replace(/<[^>]*>/g, '').substring(0, 40)}{overlay.description?.length > 40 ? '...' : ''}
-                                      </div>
-                                      <div className={`text-xs font-mono mt-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                      <div className={`text-xs font-mono ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                         {overlay.timing}
-                                      </div>
-                                      <div className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                        {isExpanded ? '▼' : '▶'} Details
                                       </div>
                                     </div>
                                     
-                                    {/* Expandable Details */}
+                                    {/* Preview Bullets */}
+                                    <div className={`px-3 pb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                      <ul className="space-y-1 text-xs">
+                                        {bullets.map((bullet, bIdx) => (
+                                          <li key={bIdx} className="flex items-start gap-1.5">
+                                            <span className="text-sdhq-cyan-500 mt-0.5">•</span>
+                                            <span>{bullet}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                    
+                                    {/* Expand Button */}
+                                    <div 
+                                      className={`px-3 pb-2 text-xs cursor-pointer ${darkMode ? 'text-gray-500' : 'text-gray-500'} hover:text-sdhq-cyan-500 transition-colors text-center`}
+                                      onClick={() => toggleCard(`overlay-${idx}`)}
+                                    >
+                                      {isExpanded ? '▼ Less' : '▶ How to'}
+                                    </div>
+                                    
+                                    {/* Expandable Details - Concise */}
                                     {isExpanded && (
-                                      <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-                                        <ul className={`mt-3 space-y-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                          <li className="flex items-start gap-2">
-                                            <span className="text-sdhq-cyan-500 mt-0.5">•</span>
-                                            <span><strong>Type:</strong> {overlay.type}</span>
-                                          </li>
-                                          <li className="flex items-start gap-2">
-                                            <span className="text-sdhq-cyan-500 mt-0.5">•</span>
-                                            <span><strong>Timing:</strong> {overlay.timing}</span>
-                                          </li>
-                                          <li className="flex items-start gap-2">
-                                            <span className="text-sdhq-cyan-500 mt-0.5">•</span>
-                                            <span>{overlay.description?.replace(/<[^>]*>/g, '')}</span>
-                                          </li>
-                                        </ul>
-                                        <div className={`mt-3 p-2 rounded text-xs ${darkMode ? 'bg-sdhq-dark-800 text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
-                                          🎬 <strong>Implementation:</strong> Add this overlay during editing to improve viewer retention and engagement.
+                                      <div className={`px-3 pb-3 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                        <p className={`mt-2 text-xs ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                          {overlay.description?.replace(/<[^>]*>/g, '')}
+                                        </p>
+                                        <div className={`mt-2 p-1.5 rounded text-[10px] ${darkMode ? 'bg-sdhq-dark-800 text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
+                                          <strong className={darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}>🎬 Pro tip:</strong> Add at {overlay.timing} for max impact. Use {clipPlatform === 'tiktok' ? 'CapCut' : clipPlatform === 'youtube' ? 'YouTube Studio' : 'native editor'}.
                                         </div>
                                       </div>
                                     )}
@@ -3437,7 +3494,7 @@ export default function HomePage() {
                           </div>
                         </div>
 
-                        {/* Post Suggestions - Expandable Summary Cards */}
+                        {/* Post Suggestions - with Copy Buttons & Platform Optimization */}
                         <div>
                           <div className={`relative overflow-hidden rounded-xl p-3 ${
                             darkMode 
@@ -3448,49 +3505,104 @@ export default function HomePage() {
                               <h4 className={`text-sm font-semibold tracking-wider uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                 Post Suggestions
                               </h4>
+                              <div className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-sdhq-dark-700 text-sdhq-cyan-400' : 'bg-gray-100 text-sdhq-cyan-600'}`}>
+                                {clipPlatform === 'tiktok' ? '🎵 TikTok' : clipPlatform === 'youtube' ? '▶️ YouTube' : '📸 Instagram'} Optimized
+                              </div>
                             </div>
                             <div className="space-y-3">
-                              {/* Title Options */}
+                              {/* Title Options with Platform Emojis */}
                               <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 ${
                                 darkMode 
                                   ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
                                   : 'bg-white border-sdhq-cyan-200'
                               }`}>
-                                <div className="p-3 flex items-center gap-3">
-                                  <span className="text-2xl">📝</span>
-                                  <div className={`text-sm font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                    Title Options
+                                <div className="p-3 flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-2xl">📝</span>
+                                    <div className={`text-sm font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                      Title Options
+                                    </div>
+                                  </div>
+                                  <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                    + emojis for {clipPlatform}
                                   </div>
                                 </div>
                                 <div className={`px-3 pb-3 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-                                  <ul className={`mt-2 space-y-1 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                    {(clipAnalysisResult.titles || [clipAnalysisResult.title]).filter(Boolean).map((title: string, idx: number) => (
-                                      <li key={idx} className="flex items-start gap-2">
-                                        <span className="text-sdhq-cyan-500 mt-0.5">{idx + 1}.</span>
-                                        <span>{title}</span>
-                                      </li>
-                                    ))}
+                                  <ul className={`mt-2 space-y-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    {(clipAnalysisResult.titles || [clipAnalysisResult.title]).filter(Boolean).map((title: string, idx: number) => {
+                                      // Add platform-specific emojis to titles
+                                      const platformEmojis: Record<string, string[]> = {
+                                        tiktok: ['🔥', '✨', '😱', '💯', '🎯'],
+                                        youtube: ['🔴', '🎬', '▶️', '💡', '🚀'],
+                                        instagram: ['📸', '✨', '🔥', '💫', '🌟']
+                                      }
+                                      const emojis = platformEmojis[clipPlatform] || ['✨']
+                                      const randomEmoji = emojis[idx % emojis.length]
+                                      const enhancedTitle = `${randomEmoji} ${title} ${randomEmoji}`
+                                      return (
+                                        <li key={idx} className="flex items-start gap-2 group">
+                                          <span className="text-sdhq-cyan-500 mt-0.5">{idx + 1}.</span>
+                                          <span className="flex-1">{enhancedTitle}</span>
+                                          <button
+                                            onClick={() => {
+                                              navigator.clipboard.writeText(enhancedTitle)
+                                              setCopiedTags(true)
+                                              setTimeout(() => setCopiedTags(false), 1000)
+                                            }}
+                                            className={`opacity-0 group-hover:opacity-100 px-2 py-0.5 rounded text-[10px] transition-all ${
+                                              darkMode ? 'bg-sdhq-dark-600 text-sdhq-cyan-400 hover:bg-sdhq-cyan-500/20' : 'bg-gray-100 text-sdhq-cyan-600 hover:bg-sdhq-cyan-50'
+                                            }`}
+                                          >
+                                            Copy
+                                          </button>
+                                        </li>
+                                      )
+                                    })}
                                   </ul>
                                 </div>
                               </div>
 
-                              {/* Description */}
+                              {/* Description with Copy Button & Hashtags */}
                               {clipAnalysisResult.description && (
                                 <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 ${
                                   darkMode 
                                     ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
                                     : 'bg-white border-sdhq-cyan-200'
                                 }`}>
-                                  <div className="p-3 flex items-center gap-3">
-                                    <span className="text-2xl">📄</span>
-                                    <div className={`text-sm font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                      Description
+                                  <div className="p-3 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-2xl">📄</span>
+                                      <div className={`text-sm font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                        Description
+                                      </div>
                                     </div>
+                                    <button
+                                      onClick={() => {
+                                        // Build optimized description with hashtags based on platform
+                                        const baseDesc = clipAnalysisResult.description?.replace(/<[^>]*>/g, '') || ''
+                                        const tags = (clipAnalysisResult.tags || []).slice(0, clipPlatform === 'tiktok' ? 4 : clipPlatform === 'youtube' ? 15 : 30)
+                                        const hashtagBlock = tags.map((t: string) => `#${t.replace(/^#/, '')}`).join(' ')
+                                        const fullText = `${baseDesc}\n\n${hashtagBlock}`
+                                        navigator.clipboard.writeText(fullText)
+                                        setCopiedDescription(true)
+                                        setTimeout(() => setCopiedDescription(false), 2000)
+                                      }}
+                                      className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                                        copiedDescription
+                                          ? (darkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600')
+                                          : (darkMode ? 'bg-sdhq-dark-600 text-sdhq-cyan-400 hover:bg-sdhq-cyan-500/20' : 'bg-gray-100 text-sdhq-cyan-600 hover:bg-sdhq-cyan-50')
+                                      }`}
+                                    >
+                                      {copiedDescription ? '✓ Copied!' : '📋 Copy + Tags'}
+                                    </button>
                                   </div>
                                   <div className={`px-3 pb-3 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
                                     <p className={`mt-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                       {clipAnalysisResult.description?.replace(/<[^>]*>/g, '')}
                                     </p>
+                                    <div className={`mt-2 text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                      💡 Auto-adds {clipPlatform === 'tiktok' ? '4' : clipPlatform === 'youtube' ? '15' : '30'} hashtags when copied
+                                    </div>
                                   </div>
                                 </div>
                               )}
