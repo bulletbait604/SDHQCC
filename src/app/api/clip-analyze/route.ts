@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 
-// Fixed: Using gemini-3.1-flash model (updated from gemini-1.5-flash-latest)
+// Fixed: Using gemini-3.1-flash-lite model (updated from gemini-1.5-flash-latest)
 
 // In-memory rate limit storage for clip analyzer
 const clipAnalyzerRateLimitStore = new Map<string, { count: number; resetTime: number }>()
@@ -132,7 +132,7 @@ export async function POST(request: Request) {
       
       // Analyze video using the file URI (already uploaded by frontend)
       const geminiResponse = await ai.models.generateContent({
-        model: 'gemini-3.1-flash', // Using Gemini 3.1 Flash for latest capabilities
+        model: 'gemini-3.1-flash-lite', // Using Gemini 3.1 Flash Lite for latest capabilities
         contents: [
           {
             role: 'user',
