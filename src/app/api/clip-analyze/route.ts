@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 
-// FIXED: Using gemini-3-flash-preview model (from list) - DEPLOY: 2026-04-29T18:13:00Z - FORCE REBUILD
+// Force dynamic rendering to prevent static optimization
+export const dynamic = 'force-dynamic'
+
+// FIXED: Using gemini-2.0-flash model (stable release)
 
 // In-memory rate limit storage for clip analyzer
 const clipAnalyzerRateLimitStore = new Map<string, { count: number; resetTime: number }>()
@@ -26,11 +29,7 @@ function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean
 }
 
 export async function POST(request: Request) {
-  console.log('[DEBUG] Clip Analyze API: Request received - DEPLOY HASH: a08af39 - FORCED REBUILD')
-  
-  // FORCE NEW BUNDLE: Add validation that wasn't in old code
-  const startTime = Date.now()
-  console.log('[DEBUG] Bundle validation:', { startTime, hash: 'a08af39' })
+  console.log('[DEBUG] Clip Analyze API: Request received')
   
   try {
     console.log('[DEBUG] Clip Analyze API: Parsing request body...')
@@ -63,10 +62,10 @@ export async function POST(request: Request) {
     const minSize = 100 * 1024 // 100KB minimum
     const maxSize = 250 * 1024 * 1024 // 250MB maximum
     
-    if (fileSize && fileSize < minSize) {
+    if (fileSize != null && fileSize > 0 && fileSize < minSize) {
       return NextResponse.json({ error: 'File size is too small. Video must be at least 100KB to analyze properly.' }, { status: 400 })
     }
-    if (fileSize && fileSize > maxSize) {
+    if (fileSize != null && fileSize > maxSize) {
       return NextResponse.json({ error: 'File size must be less than 250MB. Please use a smaller video file.' }, { status: 400 })
     }
 
@@ -127,37 +126,15 @@ export async function POST(request: Request) {
     // Use AI to analyze the video file using the provided file URI
     let analysisResult = null
     let analysisSource = 'none'
+    
+    // Use stable gemini-2.0-flash model
+    const MODEL_NAME = 'gemini-2.0-flash'
 
     try {
-      // NEW DEPLOY: Using gemini-3-flash-preview model (requires v1beta endpoint)
-      console.log('[DEBUG] Clip Analyze API: Request received - DEPLOY HASH: a08af39 - FORCED REBUILD')
-      
-      // FORCE NEW BUNDLE: Add validation that wasn't in old code
-      console.log('[DEBUG] Bundle validation:', { startTime, hash: 'a08af39' })
-      
-      // Initialize Google GenAI client (defaults to v1beta for preview models)
+      // Initialize Google GenAI client
       const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
       
-      // EXPLICIT: Override any environment variables that might contain old model names
-      const MODEL_NAME = 'gemini-3-flash-preview'
-      
-      // CRITICAL: Validate model name to prevent old references
-      if (MODEL_NAME !== 'gemini-3-flash-preview') {
-        throw new Error(`Invalid model detected: ${MODEL_NAME}. Expected: gemini-3-flash-preview`)
-      }
-      
-      // DEBUG: Log to confirm we're using the right model
-      console.log('[CRITICAL] Model validation passed:', MODEL_NAME, 'Timestamp:', Date.now())
-      console.log('[FORCE DEPLOY] Using model:', MODEL_NAME, 'with v1beta endpoint - VALIDATED')
-      
-      // NEW BUNDLE VALIDATION: Ensure this code runs
-      const bundleCheck = `bundle-${Date.now()}`
-      console.log('[FORCE DEPLOY] Using model:', MODEL_NAME, 'with v1beta endpoint - VALIDATED')
-      console.log('[DEBUG] Bundle check:', bundleCheck, 'hash: a08af39')
-      
-      // FINAL: Force model override to prevent any caching issues
-      const finalModelCheck = `FINAL: ${MODEL_NAME}-${Date.now()}`
-      console.log('[FINAL] Model override confirmed:', finalModelCheck)
+      console.log('[DEBUG] Using model:', MODEL_NAME)
       
       // Analyze video using the file URI (already uploaded by frontend)
       const geminiResponse = await genAI.models.generateContent({
@@ -282,7 +259,7 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         
         try {
           analysisResult = JSON.parse(cleanContent)
-          analysisSource = 'gemini-3-flash-preview'
+          analysisSource = MODEL_NAME
           console.log('✅ [DEBUG] Gemini analysis successful - parsed JSON with keys:', Object.keys(analysisResult))
         } catch (parseError) {
           console.error('[DEBUG] JSON parse error:', parseError)
@@ -293,15 +270,14 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
     } catch (geminiError: any) {
       console.error('Gemini analysis error:', geminiError)
       
-      if (geminiError.message?.includes('quota')) {
-        console.log('[ACTIVITY_LOG] Clip Analyze: Gemini API quota exceeded. Please upgrade plan.')
-      } else if (geminiError.message?.includes('permission') || geminiError.message?.includes('unauthorized')) {
-        console.log('[ACTIVITY_LOG] Clip Analyze: Gemini API key invalid or unauthorized.')
-      } else if (geminiError.message?.includes('rate')) {
-        console.log('[ACTIVITY_LOG] Clip Analyze: Gemini API rate limit exceeded.')
-      } else {
-        console.log(`[ACTIVITY_LOG] Clip Analyze: Gemini API error - ${geminiError.message || 'Unknown error'}`)
-      }
+      const errorMessage = geminiError.message || 'Unknown error'
+      const errorDetails = `Model: ${MODEL_NAME}, Error: ${errorMessage}`
+      
+      return NextResponse.json({ 
+        error: 'Analysis failed',
+        userMessage: 'Gemini is having a tough time right now. Please check back later.',
+        details: errorDetails
+      }, { status: 503 })
     }
 
     // Only Gemini - no fallbacks
