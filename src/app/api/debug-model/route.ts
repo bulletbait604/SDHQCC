@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const modelUsed = 'gemini-2.5-flash-preview-04-17'
+  const modelUsed = 'gemini-2.5-flash'
   
   console.log('[DEBUG MODEL] Checking model name:', modelUsed)
   console.log('[DEBUG MODEL] Current timestamp:', new Date().toISOString())

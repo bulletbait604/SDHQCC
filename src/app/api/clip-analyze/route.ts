@@ -4,7 +4,7 @@ import { GoogleGenAI } from '@google/genai'
 // Force dynamic rendering to prevent static optimization
 export const dynamic = 'force-dynamic'
 
-// FIXED: Using gemini-2.5-flash-preview-04-17 model (latest stable)
+// FIXED: Using gemini-2.5-flash model (stable release)
 
 // In-memory rate limit storage for clip analyzer
 // NOTE: On Vercel serverless, this resets on cold starts. For production, use Redis/Vercel KV.
@@ -128,8 +128,8 @@ export async function POST(request: Request) {
     let analysisResult = null
     let analysisSource = 'none'
     
-    // Use gemini-2.5-flash-preview-04-17 model (latest stable)
-    const MODEL_NAME = 'gemini-2.5-flash-preview-04-17'
+    // Use gemini-2.5-flash model (stable release)
+    const MODEL_NAME = 'gemini-2.5-flash'
 
     try {
       // Initialize Google GenAI client

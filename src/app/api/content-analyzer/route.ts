@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     // Use Gemini to analyze the URL directly - no separate extraction step needed
     let analysisResult = null
     let analysisSource = 'none'
-    const MODEL_NAME = 'gemini-2.5-flash-preview-04-17'
+    const MODEL_NAME = 'gemini-2.5-flash'
     const extractedData = {
       url: url,
       platform: platform,

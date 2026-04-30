@@ -47,7 +47,7 @@ async function generateTagsWithGemini(description: string, platform: string, cou
   }
   
   const platformName = platformContext[platform.toLowerCase()] || platform
-  const MODEL_NAME = 'gemini-2.5-flash-preview-04-17'
+  const MODEL_NAME = 'gemini-2.5-flash'
   
   try {
     const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
@@ -145,7 +145,7 @@ function parseTagResponse(content: string, platformName: string, count: number):
 // Main tag generation using Gemini
 async function generateTags(description: string, platform: string, count: number): Promise<{ tags: string[], provider: string }> {
   const geminiApiKey = process.env.GEMINI_API
-  const MODEL_NAME = 'gemini-2.5-flash-preview-04-17'
+  const MODEL_NAME = 'gemini-2.5-flash'
   
   console.log('[Tags] Checking GEMINI_API configuration:', { hasKey: !!geminiApiKey, keyLength: geminiApiKey?.length })
   
@@ -169,8 +169,8 @@ async function generateTags(description: string, platform: string, count: number
 // GET endpoint - retrieve tag database status
 export async function GET() {
   const response = NextResponse.json({ 
-    message: 'Using Gemini 2.5 Flash Preview for tag generation',
-    model: 'gemini-2.5-flash-preview-04-17',
+    message: 'Using Gemini 2.5 Flash for tag generation',
+    model: 'gemini-2.5-flash',
     rateLimit: '5 uses per 24 hours (20 for verified users)',
     status: 'active',
     totalUsers: rateLimitStore.size

@@ -138,7 +138,7 @@ export async function POST(request: Request) {
     // Use AI to analyze the video file and provide algorithm recommendations
     let analysisResult = null
     let analysisSource = 'none'
-    const MODEL_NAME = 'gemini-2.5-flash-preview-04-17'
+    const MODEL_NAME = 'gemini-2.5-flash'
 
     // Try Official Google Gemini via File API (supports up to 500MB+ videos)
     // No base64 encoding needed - uploads directly to Google servers
