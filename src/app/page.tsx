@@ -1120,53 +1120,47 @@ export default function HomePage() {
       setLoadingStep('Preparing video for analysis...')
       console.log('Clip Upload: Waiting for file to become ACTIVE...')
       
-      const maxRetries = 60 // Max 60 retries = 120 seconds (2 minutes) for large files
-      const retryDelay = 2000 // 2 seconds between retries
-      let fileState = uploadData.file?.state || 'PROCESSING'
-      let retryCount = 0
-      
       // Extract file ID from URI for status checks
       // URI format: https://generativelanguage.googleapis.com/v1beta/files/{fileId}
       const fileId = fileUri.split('/').pop()
-      console.log('Clip Upload: Initial upload data:', uploadData)
-      console.log('Clip Upload: Extracted fileId:', fileId, 'Initial state:', fileState)
-      console.log('Clip Upload: Will enter while loop?', fileState !== 'ACTIVE', retryCount < maxRetries)
-      
-      while (fileState !== 'ACTIVE' && retryCount < maxRetries) {
-        console.log(`Clip Upload: File state is ${fileState}, waiting... (attempt ${retryCount + 1}/${maxRetries})`)
-        
-        // Wait before checking again
+      const maxRetries = 30      // 30 retries × 2s = 60s is plenty for a 43MB file
+      const retryDelay = 2000
+      let fileState: string = uploadData.file?.state ?? 'PROCESSING'  // let, not const
+      let retryCount = 0
+
+      console.log('Clip Upload: Initial state:', fileState)
+
+      while (fileState !== 'ACTIVE' && fileState !== 'FAILED' && retryCount < maxRetries) {
         await new Promise(resolve => setTimeout(resolve, retryDelay))
-        
-        // Check file status via Files API
+        retryCount++
+
+        console.log(`Clip Upload: Polling attempt ${retryCount}/${maxRetries}...`)
+
         try {
-          const statusRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/files/${fileId}?key=${apiKey}`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          })
-          
-          if (statusRes.ok) {
-            const statusData = await statusRes.json()
-            fileState = statusData.file?.state || 'PROCESSING'
-            console.log('Clip Upload: File status check:', { fileId, state: fileState, fullData: statusData })
-          } else {
-            const errorText = await statusRes.text()
-            console.error('Clip Upload: Failed to check file status:', statusRes.status, errorText)
+          const statusRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/files/${fileId}?key=${apiKey}`,
+            { method: 'GET' }
+          )
+
+          if (!statusRes.ok) {
+            console.error('Clip Upload: Status check failed:', statusRes.status)
+            continue
           }
+
+          const statusData = await statusRes.json()
+          // Files API returns state at statusData.state (not statusData.file?.state)
+          fileState = statusData.state ?? statusData.file?.state ?? fileState
+          
+          console.log(`Clip Upload: State is now: ${fileState}`)
         } catch (statusError) {
           console.error('Clip Upload: Error checking file status:', statusError)
         }
-        
-        retryCount++
       }
-      
+
       if (fileState !== 'ACTIVE') {
-        console.error(`Clip Upload: File did not become ACTIVE after ${maxRetries} retries`)
-        throw new Error(`Video is taking too long to process. Please try a shorter video or check back later. (State: ${fileState})`)
+        throw new Error(`File did not become ACTIVE. Final state: ${fileState}`)
       }
-      
+
       console.log('Clip Upload: File is now ACTIVE, proceeding to analysis')
 
       // Step 3: Send file URI to backend for analysis
