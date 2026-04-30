@@ -2985,14 +2985,16 @@ export default function HomePage() {
                         </select>
 
                         <label className={`block text-sm font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                          Video URL
+                          Video File
                         </label>
                         <div className="flex gap-3">
                           <input
-                            type="url"
-                            placeholder="Paste TikTok, Instagram, YouTube, or Facebook video URL..."
-                            value={clipUrl}
-                            onChange={(e) => setClipUrl(e.target.value)}
+                            type="file"
+                            accept="video/mp4,video/webm,video/quicktime,video/x-msvideo"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] || null
+                              setClipFile(file)
+                            }}
                             disabled={isAnalyzingClip}
                             className={`flex-1 px-4 py-3 rounded-xl text-base outline-none transition-all duration-300 ${
                               darkMode 
@@ -3002,17 +3004,18 @@ export default function HomePage() {
                           />
                           <Button
                             onClick={handleAnalyzeClip}
-                            disabled={isAnalyzingClip || !clipUrl.trim()}
+                            disabled={isAnalyzingClip || !clipFile}
                             className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold px-6 rounded-xl hover:shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all duration-300 flex items-center gap-2"
                           >
                             <span>Analyze</span>
                             <span>→</span>
                           </Button>
                         </div>
-                        {clipUrl && (
-                          <div className="mt-3 text-base truncate">
-                            <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>URL:</span>
-                            <span className={`ml-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>{clipUrl}</span>
+                        {clipFile && (
+                          <div className="mt-3 text-base">
+                            <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Selected:</span>
+                            <span className={`ml-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>{clipFile.name}</span>
+                            <span className={`ml-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>({(clipFile.size / (1024 * 1024)).toFixed(2)} MB)</span>
                           </div>
                         )}
                         {clipError && (
