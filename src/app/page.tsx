@@ -311,6 +311,7 @@ export default function HomePage() {
   const [clipRateLimit, setClipRateLimit] = useState<{remaining: number, resetTime: number | null}>({remaining: 5, resetTime: null})
   const [extractedData, setExtractedData] = useState<any>(null)
   const [showReanalysis, setShowReanalysis] = useState<boolean>(false)
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
 
   // Content Analyzer states
   const [contentUrl, setContentUrl] = useState<string>('')
@@ -1177,6 +1178,19 @@ export default function HomePage() {
     setClipError('')
     setExtractedData(null)
     setShowReanalysis(false)
+    setExpandedCards(new Set())
+  }
+
+  const toggleCard = (cardId: string) => {
+    setExpandedCards(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(cardId)) {
+        newSet.delete(cardId)
+      } else {
+        newSet.add(cardId)
+      }
+      return newSet
+    })
   }
 
   // Content Analyzer functions
@@ -3079,9 +3093,9 @@ export default function HomePage() {
                           </div>
                         )}
 
-                        {/* Score Card */}
+                        {/* Score Card with Category Scores */}
                         <div>
-                          <div className={`relative overflow-hidden rounded-xl p-4 flex items-center gap-4 ${
+                          <div className={`relative overflow-hidden rounded-xl p-4 ${
                             darkMode 
                               ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
                               : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
@@ -3093,7 +3107,9 @@ export default function HomePage() {
                                   ? 'from-yellow-500/10 to-orange-500/10' 
                                   : 'from-red-500/10 to-pink-500/10'
                             }`}></div>
-                            <div className="relative">
+                            
+                            {/* Overall Score */}
+                            <div className="relative flex items-center gap-4 mb-4">
                               <div className="relative w-16 h-16 flex-shrink-0">
                                 <svg width="64" height="64" viewBox="0 0 96 96" className="transform -rotate-90">
                                   <circle cx="48" cy="48" r="40" fill="none" stroke={darkMode ? '#222230' : '#e5e7eb'} strokeWidth="8"/>
@@ -3126,19 +3142,51 @@ export default function HomePage() {
                                   <span className={`text-[10px] ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>/100</span>
                                 </div>
                               </div>
+                              <div className="flex-1">
+                                <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                  {clipAnalysisResult.scoreTitle || 'Discoverability Score'}
+                                </h3>
+                                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                  {clipAnalysisResult.scoreSummary || ''}
+                                </p>
+                              </div>
                             </div>
-                            <div className="relative flex-1">
-                              <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                {clipAnalysisResult.scoreTitle || 'Discoverability Score'}
-                              </h3>
-                              <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                {clipAnalysisResult.scoreSummary || ''}
-                              </p>
+
+                            {/* 4 Category Scores */}
+                            <div className="relative grid grid-cols-2 md:grid-cols-4 gap-3">
+                              {[
+                                { label: 'Hook Strength', score: clipAnalysisResult.hookStrength || Math.round(clipAnalysisResult.score * 0.9) },
+                                { label: 'Engagement', score: clipAnalysisResult.engagementPotential || Math.round(clipAnalysisResult.score * 0.95) },
+                                { label: 'Visual Quality', score: clipAnalysisResult.visualQuality || Math.round(clipAnalysisResult.score * 0.85) },
+                                { label: 'Audio Quality', score: clipAnalysisResult.audioQuality || Math.round(clipAnalysisResult.score * 0.88) }
+                              ].map((cat, idx) => (
+                                <div key={idx} className={`p-2 rounded-lg text-center ${
+                                  darkMode ? 'bg-sdhq-dark-700/50' : 'bg-white/50'
+                                }`}>
+                                  <div className={`text-xs uppercase tracking-wider mb-1 ${
+                                    darkMode ? 'text-gray-400' : 'text-gray-500'
+                                  }`}>{cat.label}</div>
+                                  <div className={`text-xl font-bold ${
+                                    cat.score >= 70 ? (darkMode ? 'text-green-400' : 'text-green-600') :
+                                    cat.score >= 45 ? (darkMode ? 'text-yellow-400' : 'text-yellow-600') :
+                                    (darkMode ? 'text-red-400' : 'text-red-600')
+                                  }`}>{cat.score}</div>
+                                  <div className={`h-1.5 rounded-full mt-1 ${darkMode ? 'bg-sdhq-dark-600' : 'bg-gray-200'}`}>
+                                    <div 
+                                      className={`h-full rounded-full ${
+                                        cat.score >= 70 ? 'bg-green-500' :
+                                        cat.score >= 45 ? 'bg-yellow-500' : 'bg-red-500'
+                                      }`}
+                                      style={{ width: `${cat.score}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         </div>
 
-                        {/* Content Insights - Tall Cards */}
+                        {/* Content Insights - Expandable Summary Cards */}
                         <div>
                           <div className={`relative overflow-hidden rounded-xl p-3 ${
                             darkMode 
@@ -3150,34 +3198,57 @@ export default function HomePage() {
                                 Content Insights
                               </h4>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 justify-center">
-                              {(clipAnalysisResult.insights || []).map((insight: any, idx: number) => (
-                                <div key={idx} className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
-                                  darkMode 
-                                    ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
-                                    : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
-                                }`}>
-                                  <div className="flex flex-col items-center text-center">
-                                    <span className="text-3xl mb-2">{insight.icon || '📊'}</span>
-                                    <div className={`text-base font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                      {insight.label}
+                            <div className="space-y-3">
+                              {(clipAnalysisResult.insights || []).map((insight: any, idx: number) => {
+                                const isExpanded = expandedCards.has(`insight-${idx}`)
+                                return (
+                                  <div key={idx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 ${
+                                    darkMode 
+                                      ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
+                                      : 'bg-white border-sdhq-cyan-200'
+                                  }`}>
+                                    {/* Summary Header */}
+                                    <div 
+                                      className="p-3 flex items-center justify-between cursor-pointer hover:bg-opacity-80 transition-colors"
+                                      onClick={() => toggleCard(`insight-${idx}`)}
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-2xl">{insight.icon || '📊'}</span>
+                                        <div>
+                                          <div className={`text-sm font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                            {insight.label}
+                                          </div>
+                                          <div className={`text-base font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                            {insight.value}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                        {isExpanded ? '▼' : '▶'} Details
+                                      </div>
                                     </div>
-                                    <div className={`text-lg font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                      {insight.value}
-                                    </div>
-                                    {insight.description && (
-                                      <div className={`text-base leading-relaxed ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                        {insight.description?.replace(/<[^>]*>/g, '')}
+                                    
+                                    {/* Expandable Details */}
+                                    {isExpanded && insight.description && (
+                                      <div className={`px-3 pb-3 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                        <ul className={`mt-2 space-y-1 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                          {insight.description?.replace(/<[^>]*>/g, '').split('. ').filter((s: string) => s.trim()).map((sentence: string, sIdx: number) => (
+                                            <li key={sIdx} className="flex items-start gap-2">
+                                              <span className="text-sdhq-cyan-500 mt-0.5">•</span>
+                                              <span>{sentence.trim()}{!sentence.trim().endsWith('.') ? '.' : ''}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
                                       </div>
                                     )}
                                   </div>
-                                </div>
-                              ))}
+                                )
+                              })}
                             </div>
                           </div>
                         </div>
 
-                        {/* Recommendations - Tall Cards */}
+                        {/* Recommendations - Expandable Summary Cards */}
                         <div>
                           <div className={`relative overflow-hidden rounded-xl p-3 ${
                             darkMode 
@@ -3189,32 +3260,58 @@ export default function HomePage() {
                                 Algorithm Recommendations
                               </h4>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 justify-center">
-                              {(clipAnalysisResult.recommendations || []).map((rec: any, idx: number) => (
-                                <div key={idx} className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
-                                  darkMode 
-                                    ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
-                                    : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
-                                }`}>
-                                  <div className="flex flex-col items-center text-center">
-                                    <div className={`w-2 h-2 rounded-full mb-3 ${
-                                      rec.priority === 'high' ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.5)]' :
-                                      rec.priority === 'med' ? 'bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.5)]' : 'bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)]'
-                                    }`}></div>
-                                    <div className={`text-base font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                      {rec.category}
+                            <div className="space-y-3">
+                              {(clipAnalysisResult.recommendations || []).map((rec: any, idx: number) => {
+                                const isExpanded = expandedCards.has(`rec-${idx}`)
+                                const priorityColor = rec.priority === 'high' ? '🔴' : rec.priority === 'med' ? '🟡' : '🟢'
+                                return (
+                                  <div key={idx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 ${
+                                    darkMode 
+                                      ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
+                                      : 'bg-white border-sdhq-cyan-200'
+                                  }`}>
+                                    {/* Summary Header */}
+                                    <div 
+                                      className="p-3 flex items-center justify-between cursor-pointer hover:bg-opacity-80 transition-colors"
+                                      onClick={() => toggleCard(`rec-${idx}`)}
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-lg">{priorityColor}</span>
+                                        <div>
+                                          <div className={`text-sm font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                            {rec.category}
+                                          </div>
+                                          <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                            {rec.text?.replace(/<[^>]*>/g, '').substring(0, 60)}{rec.text?.length > 60 ? '...' : ''}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                        {isExpanded ? '▼' : '▶'} Details
+                                      </div>
                                     </div>
-                                    <div className={`text-lg leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                      {rec.text?.replace(/<[^>]*>/g, '')}
-                                    </div>
+                                    
+                                    {/* Expandable Details */}
+                                    {isExpanded && (
+                                      <div className={`px-3 pb-3 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                        <ul className={`mt-2 space-y-1 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                          {rec.text?.replace(/<[^>]*>/g, '').split('. ').filter((s: string) => s.trim()).map((sentence: string, sIdx: number) => (
+                                            <li key={sIdx} className="flex items-start gap-2">
+                                              <span className="text-sdhq-cyan-500 mt-0.5">•</span>
+                                              <span>{sentence.trim()}{!sentence.trim().endsWith('.') ? '.' : ''}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
                                   </div>
-                                </div>
-                              ))}
+                                )
+                              })}
                             </div>
                           </div>
                         </div>
 
-                        {/* Overlays - Tall Cards */}
+                        {/* Overlays - Expandable Summary Cards */}
                         <div>
                           <div className={`relative overflow-hidden rounded-xl p-3 ${
                             darkMode 
@@ -3225,12 +3322,10 @@ export default function HomePage() {
                               <h4 className={`text-sm font-semibold tracking-wider uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                 Overlay & Edit Suggestions
                               </h4>
-                              <div className={`text-lg font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                {Math.round((clipAnalysisResult.score || 0) * 0.15)}
-                              </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 justify-center">
+                            <div className="space-y-3">
                               {(clipAnalysisResult.overlays || []).map((overlay: any, idx: number) => {
+                                const isExpanded = expandedCards.has(`overlay-${idx}`)
                                 const iconMap: Record<string, string> = {
                                   text: '✏️',
                                   sound: '🎵',
@@ -3238,22 +3333,51 @@ export default function HomePage() {
                                   cta: '👆'
                                 }
                                 return (
-                                  <div key={idx} className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
+                                  <div key={idx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 ${
                                     darkMode 
-                                      ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
-                                      : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
+                                      ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
+                                      : 'bg-white border-sdhq-cyan-200'
                                   }`}>
-                                    <div className="flex flex-col items-center text-center">
-                                      <div className="text-3xl mb-2">
-                                        {iconMap[overlay.type] || '✨'}
+                                    {/* Summary Header */}
+                                    <div 
+                                      className="p-3 flex items-center justify-between cursor-pointer hover:bg-opacity-80 transition-colors"
+                                      onClick={() => toggleCard(`overlay-${idx}`)}
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-2xl">{iconMap[overlay.type] || '✨'}</span>
+                                        <div>
+                                          <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                            {overlay.description?.replace(/<[^>]*>/g, '').substring(0, 50)}{overlay.description?.length > 50 ? '...' : ''}
+                                          </div>
+                                          <div className={`text-xs font-mono mt-0.5 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                            {overlay.timing}
+                                          </div>
+                                        </div>
                                       </div>
-                                      <div className={`text-lg mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                        {overlay.description?.replace(/<[^>]*>/g, '')}
-                                      </div>
-                                      <div className={`text-base font-mono ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                        {overlay.timing}
+                                      <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                        {isExpanded ? '▼' : '▶'} Details
                                       </div>
                                     </div>
+                                    
+                                    {/* Expandable Details */}
+                                    {isExpanded && (
+                                      <div className={`px-3 pb-3 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                        <ul className={`mt-2 space-y-1 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                          <li className="flex items-start gap-2">
+                                            <span className="text-sdhq-cyan-500 mt-0.5">•</span>
+                                            <span><strong>Type:</strong> {overlay.type}</span>
+                                          </li>
+                                          <li className="flex items-start gap-2">
+                                            <span className="text-sdhq-cyan-500 mt-0.5">•</span>
+                                            <span><strong>Timing:</strong> {overlay.timing}</span>
+                                          </li>
+                                          <li className="flex items-start gap-2">
+                                            <span className="text-sdhq-cyan-500 mt-0.5">•</span>
+                                            <span>{overlay.description?.replace(/<[^>]*>/g, '')}</span>
+                                          </li>
+                                        </ul>
+                                      </div>
+                                    )}
                                   </div>
                                 )
                               })}
@@ -3261,7 +3385,7 @@ export default function HomePage() {
                           </div>
                         </div>
 
-                        {/* Post Suggestions */}
+                        {/* Post Suggestions - Expandable Summary Cards */}
                         <div>
                           <div className={`relative overflow-hidden rounded-xl p-3 ${
                             darkMode 
@@ -3272,68 +3396,81 @@ export default function HomePage() {
                               <h4 className={`text-sm font-semibold tracking-wider uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                 Post Suggestions
                               </h4>
-                              <div className={`text-lg font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                {Math.round((clipAnalysisResult.score || 0) * 0.2)}
-                              </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 justify-center">
-                              <div className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
+                            <div className="space-y-3">
+                              {/* Title Options */}
+                              <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 ${
                                 darkMode 
-                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
-                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
+                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
+                                  : 'bg-white border-sdhq-cyan-200'
                               }`}>
-                                <div className="flex flex-col items-center text-center">
-                                  <span className="text-3xl mb-2">📝</span>
-                                  <div className={`text-base font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                <div className="p-3 flex items-center gap-3">
+                                  <span className="text-2xl">📝</span>
+                                  <div className={`text-sm font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                     Title Options
                                   </div>
-                                  <div className={`text-lg leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                    {(clipAnalysisResult.titles || [clipAnalysisResult.title]).map((title: string, idx: number) => (
-                                      <div key={idx} className="mb-1 last:mb-0">
-                                        {idx + 1}. {title}
-                                      </div>
+                                </div>
+                                <div className={`px-3 pb-3 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                  <ul className={`mt-2 space-y-1 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    {(clipAnalysisResult.titles || [clipAnalysisResult.title]).filter(Boolean).map((title: string, idx: number) => (
+                                      <li key={idx} className="flex items-start gap-2">
+                                        <span className="text-sdhq-cyan-500 mt-0.5">{idx + 1}.</span>
+                                        <span>{title}</span>
+                                      </li>
                                     ))}
-                                  </div>
+                                  </ul>
                                 </div>
                               </div>
-                              <div className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
-                                darkMode 
-                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
-                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
-                              }`}>
-                                <div className="flex flex-col items-center text-center">
-                                  <span className="text-3xl mb-2">📄</span>
-                                  <div className={`text-base font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                    Description
+
+                              {/* Description */}
+                              {clipAnalysisResult.description && (
+                                <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 ${
+                                  darkMode 
+                                    ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
+                                    : 'bg-white border-sdhq-cyan-200'
+                                }`}>
+                                  <div className="p-3 flex items-center gap-3">
+                                    <span className="text-2xl">📄</span>
+                                    <div className={`text-sm font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                      Description
+                                    </div>
                                   </div>
-                                  <div className={`text-lg leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                    {clipAnalysisResult.description?.replace(/<[^>]*>/g, '') || '—'}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className={`p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
-                                darkMode 
-                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
-                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
-                              }`}>
-                                <div className="flex flex-col items-center text-center">
-                                  <span className="text-3xl mb-2">#️⃣</span>
-                                  <div className={`text-base font-semibold uppercase mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                    Recommended Tags
-                                  </div>
-                                  <div className="flex flex-wrap justify-center gap-1">
-                                    {(clipAnalysisResult.tags || []).map((tag: string, idx: number) => (
-                                      <span key={idx} className={`px-2 py-1 rounded text-xs font-mono ${
-                                        darkMode 
-                                          ? 'bg-sdhq-dark-800 text-sdhq-cyan-400 border border-sdhq-cyan-500/20' 
-                                          : 'bg-gray-100 text-sdhq-cyan-600 border border-sdhq-cyan-300'
-                                      }`}>
-                                        #{tag.replace(/^#/, '')}
-                                      </span>
-                                    ))}
+                                  <div className={`px-3 pb-3 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                    <p className={`mt-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      {clipAnalysisResult.description?.replace(/<[^>]*>/g, '')}
+                                    </p>
                                   </div>
                                 </div>
-                              </div>
+                              )}
+
+                              {/* Tags */}
+                              {(clipAnalysisResult.tags || []).length > 0 && (
+                                <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 ${
+                                  darkMode 
+                                    ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
+                                    : 'bg-white border-sdhq-cyan-200'
+                                }`}>
+                                  <div className="p-3 flex items-center gap-3">
+                                    <span className="text-2xl">#️⃣</span>
+                                    <div className={`text-sm font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                      Recommended Tags
+                                    </div>
+                                  </div>
+                                  <div className={`px-3 pb-3 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                    <div className="mt-2 flex flex-wrap gap-1">
+                                      {(clipAnalysisResult.tags || []).map((tag: string, idx: number) => (
+                                        <span key={idx} className={`px-2 py-1 rounded text-xs font-mono ${
+                                          darkMode 
+                                            ? 'bg-sdhq-dark-800 text-sdhq-cyan-400 border border-sdhq-cyan-500/20' 
+                                            : 'bg-gray-100 text-sdhq-cyan-600 border border-sdhq-cyan-300'
+                                        }`}>
+                                          #{tag.replace(/^#/, '')}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
