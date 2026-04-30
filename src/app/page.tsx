@@ -3634,157 +3634,238 @@ export default function HomePage() {
                               </div>
                             </div>
                             
-                            {/* Title and Description Side by Side */}
-                            <div className="grid grid-cols-2 gap-4 mb-4">
-                              {/* Title Options with Platform Emojis */}
-                              <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 h-full ${
-                                darkMode 
-                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
-                                  : 'bg-white border-sdhq-cyan-200'
-                              }`}>
-                                <div className="p-4 flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-2xl">📝</span>
-                                    <div className={`text-base font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                      Title Options
-                                    </div>
-                                  </div>
-                                  <div className={`text-sm ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                    + emojis
-                                  </div>
-                                </div>
-                                <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-                                  <ul className={`mt-3 space-y-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                    {(clipAnalysisResult.titles || [clipAnalysisResult.title]).filter(Boolean).map((title: string, idx: number) => {
-                                      // Add platform-specific emojis to titles
-                                      const platformEmojis: Record<string, string[]> = {
-                                        tiktok: ['🔥', '✨', '😱', '💯', '🎯'],
-                                        youtube: ['🔴', '🎬', '▶️', '💡', '🚀'],
-                                        instagram: ['📸', '✨', '🔥', '💫', '🌟']
-                                      }
-                                      const emojis = platformEmojis[clipPlatform] || ['✨']
-                                      const randomEmoji = emojis[idx % emojis.length]
-                                      const enhancedTitle = `${randomEmoji} ${title} ${randomEmoji}`
-                                      return (
-                                        <li key={idx} className="flex items-start gap-3 group text-base">
-                                          <span className="text-sdhq-cyan-500 mt-0.5">{idx + 1}.</span>
-                                          <span className="flex-1">{enhancedTitle}</span>
-                                          <button
-                                            onClick={() => {
-                                              navigator.clipboard.writeText(enhancedTitle)
-                                              setCopiedTags(true)
-                                              setTimeout(() => setCopiedTags(false), 1000)
-                                            }}
-                                            className={`opacity-0 group-hover:opacity-100 px-3 py-1 rounded text-xs transition-all ${
-                                              darkMode ? 'bg-sdhq-dark-600 text-sdhq-cyan-400 hover:bg-sdhq-cyan-500/20' : 'bg-gray-100 text-sdhq-cyan-600 hover:bg-sdhq-cyan-50'
-                                            }`}
-                                          >
-                                            Copy
-                                          </button>
-                                        </li>
-                                      )
-                                    })}
-                                  </ul>
-                                </div>
-                              </div>
-
-                              {/* Description with Copy Button & Hashtags */}
-                              {clipAnalysisResult.description && (
-                                <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 h-full ${
+                            {/* YouTube: Separate Title, Description, Tags */}
+                            {clipPlatform === 'youtube' ? (
+                              <>
+                                {/* Title Options */}
+                                <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 mb-4 ${
                                   darkMode 
                                     ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
                                     : 'bg-white border-sdhq-cyan-200'
                                 }`}>
                                   <div className="p-4 flex items-center justify-between">
                                     <div className="flex items-center gap-3">
-                                      <span className="text-2xl">📄</span>
+                                      <span className="text-2xl">📝</span>
                                       <div className={`text-base font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                        Description
+                                        Title Options
                                       </div>
                                     </div>
-                                    <button
-                                      onClick={() => {
-                                        // Build optimized description with hashtags based on platform
-                                        const baseDesc = clipAnalysisResult.description?.replace(/<[^>]*>/g, '') || ''
-                                        const tags = (clipAnalysisResult.tags || []).slice(0, clipPlatform === 'tiktok' ? 4 : clipPlatform === 'youtube' ? 15 : 30)
-                                        const hashtagBlock = tags.map((t: string) => `#${t.replace(/^#/, '')}`).join(' ')
-                                        const fullText = `${baseDesc}\n\n${hashtagBlock}`
-                                        navigator.clipboard.writeText(fullText)
-                                        setCopiedDescription(true)
-                                        setTimeout(() => setCopiedDescription(false), 2000)
-                                      }}
-                                      className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
-                                        copiedDescription
-                                          ? (darkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600')
-                                          : (darkMode ? 'bg-sdhq-dark-600 text-sdhq-cyan-400 hover:bg-sdhq-cyan-500/20' : 'bg-gray-100 text-sdhq-cyan-600 hover:bg-sdhq-cyan-50')
-                                      }`}
-                                    >
-                                      {copiedDescription ? '✓ Copied!' : '📋 Copy + Tags'}
-                                    </button>
                                   </div>
                                   <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-                                    <p className={`mt-3 text-base ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                      {clipAnalysisResult.description?.replace(/<[^>]*>/g, '')}
-                                    </p>
+                                    <ul className={`mt-3 space-y-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      {(clipAnalysisResult.titles || [clipAnalysisResult.title]).filter(Boolean).map((title: string, idx: number) => {
+                                        const platformEmojis: Record<string, string[]> = {
+                                          youtube: ['🔴', '🎬', '▶️', '💡', '🚀']
+                                        }
+                                        const emojis = platformEmojis[clipPlatform] || ['✨']
+                                        const randomEmoji = emojis[idx % emojis.length]
+                                        const enhancedTitle = `${randomEmoji} ${title} ${randomEmoji}`
+                                        return (
+                                          <li key={idx} className="flex items-start gap-3 group text-base">
+                                            <span className="text-sdhq-cyan-500 mt-0.5">{idx + 1}.</span>
+                                            <span className="flex-1">{enhancedTitle}</span>
+                                            <button
+                                              onClick={() => {
+                                                navigator.clipboard.writeText(enhancedTitle)
+                                                setCopiedTags(true)
+                                                setTimeout(() => setCopiedTags(false), 1000)
+                                              }}
+                                              className={`opacity-0 group-hover:opacity-100 px-3 py-1 rounded text-xs transition-all ${
+                                                darkMode ? 'bg-sdhq-dark-600 text-sdhq-cyan-400 hover:bg-sdhq-cyan-500/20' : 'bg-gray-100 text-sdhq-cyan-600 hover:bg-sdhq-cyan-50'
+                                              }`}
+                                            >
+                                              Copy
+                                            </button>
+                                          </li>
+                                        )
+                                      })}
+                                    </ul>
                                   </div>
                                 </div>
-                              )}
-                            </div>
 
-                            {/* Tags - Full Width Below */}
-                            {(clipAnalysisResult.tags || []).length > 0 && (
-                              <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 ${
-                                darkMode 
-                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
-                                  : 'bg-white border-sdhq-cyan-200'
-                              }`}>
-                                <div className="p-4 flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-2xl">#️⃣</span>
-                                    <div className={`text-base font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                      Recommended Tags
+                                {/* Description */}
+                                {clipAnalysisResult.description && (
+                                  <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 mb-4 ${
+                                    darkMode 
+                                      ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
+                                      : 'bg-white border-sdhq-cyan-200'
+                                  }`}>
+                                    <div className="p-4 flex items-center justify-between">
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-2xl">📄</span>
+                                        <div className={`text-base font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                          Description
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(clipAnalysisResult.description?.replace(/<[^>]*>/g, '') || '')
+                                          setCopiedDescription(true)
+                                          setTimeout(() => setCopiedDescription(false), 2000)
+                                        }}
+                                        className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
+                                          copiedDescription
+                                            ? (darkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600')
+                                            : (darkMode ? 'bg-sdhq-dark-600 text-sdhq-cyan-400 hover:bg-sdhq-cyan-500/20' : 'bg-gray-100 text-sdhq-cyan-600 hover:bg-sdhq-cyan-50')
+                                        }`}
+                                      >
+                                        {copiedDescription ? '✓ Copied!' : '📋 Copy'}
+                                      </button>
+                                    </div>
+                                    <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                      <p className={`mt-3 text-base ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        {clipAnalysisResult.description?.replace(/<[^>]*>/g, '')}
+                                      </p>
                                     </div>
                                   </div>
-                                  <button
-                                    onClick={() => {
-                                      const tagsText = (clipAnalysisResult.tags || []).map((t: string) => `#${t.replace(/^#/, '')}`).join(' ')
-                                      navigator.clipboard.writeText(tagsText)
-                                      setCopiedTags(true)
-                                      setTimeout(() => setCopiedTags(false), 2000)
-                                    }}
-                                    className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
-                                      copiedTags
-                                        ? (darkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600')
-                                        : (darkMode ? 'bg-sdhq-dark-600 text-sdhq-cyan-400 hover:bg-sdhq-cyan-500/20' : 'bg-gray-100 text-sdhq-cyan-600 hover:bg-sdhq-cyan-50')
-                                    }`}
-                                  >
-                                    {copiedTags ? '✓ Copied!' : '📋 Copy All'}
-                                  </button>
-                                </div>
-                                <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-                                  <div className="mt-3 flex flex-wrap gap-2">
-                                    {(clipAnalysisResult.tags || []).map((tag: string, idx: number) => (
-                                      <span key={idx} className={`px-3 py-1.5 rounded text-sm font-mono cursor-pointer hover:scale-105 transition-transform ${
-                                        darkMode 
-                                          ? 'bg-sdhq-dark-800 text-sdhq-cyan-400 border border-sdhq-cyan-500/20 hover:bg-sdhq-cyan-500/10' 
-                                          : 'bg-gray-100 text-sdhq-cyan-600 border border-sdhq-cyan-300 hover:bg-sdhq-cyan-50'
-                                      }`}
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(`#${tag.replace(/^#/, '')}`)
-                                        setCopiedTags(true)
-                                        setTimeout(() => setCopiedTags(false), 1000)
-                                      }}
-                                      title="Click to copy"
+                                )}
+
+                                {/* Tags */}
+                                {(clipAnalysisResult.tags || []).length > 0 && (
+                                  <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 ${
+                                    darkMode 
+                                      ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
+                                      : 'bg-white border-sdhq-cyan-200'
+                                  }`}>
+                                    <div className="p-4 flex items-center justify-between">
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-2xl">#️⃣</span>
+                                        <div className={`text-base font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                          Tags (for YouTube)
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={() => {
+                                          const tagsText = (clipAnalysisResult.tags || []).map((t: string) => t.replace(/^#/, '')).join(', ')
+                                          navigator.clipboard.writeText(tagsText)
+                                          setCopiedTags(true)
+                                          setTimeout(() => setCopiedTags(false), 2000)
+                                        }}
+                                        className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
+                                          copiedTags
+                                            ? (darkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600')
+                                            : (darkMode ? 'bg-sdhq-dark-600 text-sdhq-cyan-400 hover:bg-sdhq-cyan-500/20' : 'bg-gray-100 text-sdhq-cyan-600 hover:bg-sdhq-cyan-50')
+                                        }`}
                                       >
-                                        #{tag.replace(/^#/, '')}
-                                      </span>
-                                    ))}
+                                        {copiedTags ? '✓ Copied!' : '📋 Copy All'}
+                                      </button>
+                                    </div>
+                                    <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                      <div className="mt-3 flex flex-wrap gap-2">
+                                        {(clipAnalysisResult.tags || []).map((tag: string, idx: number) => (
+                                          <span key={idx} className={`px-3 py-1.5 rounded text-sm font-mono cursor-pointer hover:scale-105 transition-transform ${
+                                            darkMode 
+                                              ? 'bg-sdhq-dark-800 text-sdhq-cyan-400 border border-sdhq-cyan-500/20 hover:bg-sdhq-cyan-500/10' 
+                                              : 'bg-gray-100 text-sdhq-cyan-600 border border-sdhq-cyan-300 hover:bg-sdhq-cyan-50'
+                                          }`}
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(tag.replace(/^#/, ''))
+                                            setCopiedTags(true)
+                                            setTimeout(() => setCopiedTags(false), 1000)
+                                          }}
+                                          title="Click to copy"
+                                          >
+                                            {tag.replace(/^#/, '')}
+                                          </span>
+                                        ))}
+                                      </div>
+                                      <div className={`mt-3 text-sm ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                        💡 Click any tag to copy individually (comma-separated format)
+                                      </div>
+                                    </div>
                                   </div>
-                                  <div className={`mt-3 text-sm ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                    💡 Click any tag to copy individually, or use "Copy All" for all tags
+                                )}
+                              </>
+                            ) : (
+                              /* TikTok/Instagram/Facebook: Combined Caption Card */
+                              <>
+                                {/* Combined Caption Card */}
+                                {(clipAnalysisResult.description || clipAnalysisResult.titles?.length > 0 || clipAnalysisResult.tags?.length > 0) && (
+                                  <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 mb-4 ${
+                                    darkMode 
+                                      ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
+                                      : 'bg-white border-sdhq-cyan-200'
+                                  }`}>
+                                    <div className="p-4 flex items-center justify-between">
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-2xl">📝</span>
+                                        <div className={`text-base font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                                          {clipPlatform === 'tiktok' ? 'TikTok Caption' : clipPlatform === 'instagram' ? 'Instagram Caption' : 'Caption'}
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={() => {
+                                          // Build complete caption with title, description, and hashtags
+                                          const platformEmojis: Record<string, string[]> = {
+                                            tiktok: ['🔥', '✨', '😱', '💯', '🎯'],
+                                            instagram: ['📸', '✨', '🔥', '💫', '🌟']
+                                          }
+                                          const emojis = platformEmojis[clipPlatform] || ['✨']
+                                          const randomEmoji = emojis[0 % emojis.length]
+                                          
+                                          const title = (clipAnalysisResult.titles?.[0] || clipAnalysisResult.title || '')
+                                          const enhancedTitle = title ? `${randomEmoji} ${title} ${randomEmoji}\n\n` : ''
+                                          
+                                          const desc = clipAnalysisResult.description?.replace(/<[^>]*>/g, '') || ''
+                                          
+                                          // Platform-specific hashtag limits
+                                          const tagCount = clipPlatform === 'tiktok' ? 4 : clipPlatform === 'instagram' ? 30 : 10
+                                          const tags = (clipAnalysisResult.tags || []).slice(0, tagCount)
+                                          const hashtagBlock = tags.map((t: string) => `#${t.replace(/^#/, '')}`).join(' ')
+                                          
+                                          const fullCaption = `${enhancedTitle}${desc}\n\n${hashtagBlock}`
+                                          navigator.clipboard.writeText(fullCaption.trim())
+                                          setCopiedDescription(true)
+                                          setTimeout(() => setCopiedDescription(false), 2000)
+                                        }}
+                                        className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
+                                          copiedDescription
+                                            ? (darkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600')
+                                            : (darkMode ? 'bg-sdhq-dark-600 text-sdhq-cyan-400 hover:bg-sdhq-cyan-500/20' : 'bg-gray-100 text-sdhq-cyan-600 hover:bg-sdhq-cyan-50')
+                                        }`}
+                                      >
+                                        {copiedDescription ? '✓ Copied!' : '📋 Copy Caption'}
+                                      </button>
+                                    </div>
+                                    <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                      <div className={`mt-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        {/* Title with emojis */}
+                                        {(clipAnalysisResult.titles?.[0] || clipAnalysisResult.title) && (() => {
+                                          const platformEmojis: Record<string, string[]> = {
+                                            tiktok: ['🔥', '✨', '😱', '💯', '🎯'],
+                                            instagram: ['📸', '✨', '🔥', '💫', '🌟']
+                                          }
+                                          const emojis = platformEmojis[clipPlatform] || ['✨']
+                                          const randomEmoji = emojis[0 % emojis.length]
+                                          const title = (clipAnalysisResult.titles?.[0] || clipAnalysisResult.title || '')
+                                          return (
+                                            <p className="text-base font-semibold mb-3">
+                                              {randomEmoji} {title} {randomEmoji}
+                                            </p>
+                                          )
+                                        })()}
+                                        
+                                        {/* Description */}
+                                        <p className="text-base mb-3 whitespace-pre-wrap">
+                                          {clipAnalysisResult.description?.replace(/<[^>]*>/g, '')}
+                                        </p>
+                                        
+                                        {/* Hashtags inline */}
+                                        {(clipAnalysisResult.tags || []).length > 0 && (
+                                          <p className="text-base text-sdhq-cyan-500">
+                                            {(clipAnalysisResult.tags || []).slice(0, clipPlatform === 'tiktok' ? 4 : clipPlatform === 'instagram' ? 30 : 10).map((tag: string) => (
+                                              `#${tag.replace(/^#/, '')} `
+                                            ))}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <div className={`mt-3 text-sm ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                        💡 {clipPlatform === 'tiktok' ? 'TikTok: Title + Description + 4 hashtags in caption field' : clipPlatform === 'instagram' ? 'Instagram: Title + Description + up to 30 hashtags' : 'Caption includes title, description, and hashtags'}
+                                      </div>
+                                    </div>
                                   </div>
-                                </div>
-                              </div>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>
