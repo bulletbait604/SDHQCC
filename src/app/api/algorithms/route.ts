@@ -180,8 +180,7 @@ Requirements:
     
     const genAI = new GoogleGenerativeAI(geminiApiKey)
     const model = genAI.getGenerativeModel({
-      model: 'gemini-3.1-pro-preview',
-      apiVersion: 'v1beta'
+      model: 'gemini-1.5-pro-latest'
     })
     
     const result = await model.generateContent(prompt)
