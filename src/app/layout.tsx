@@ -32,6 +32,10 @@ export default function RootLayout({
         {/* Monetag Verification for new URL (sdcreatorcorner.com) */}
         <meta name="monetag" content="36cf25b1528ec69734791ef4c8d8d2e0" />
       </head>
+      {/* Monetag Vignette Ad Script - Zone 10951310 */}
+      <script dangerouslySetInnerHTML={{ __html: `(function(s){s.dataset.zone='10951310',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))` }} />
+      {/* Monetag In-Page Push Ad Script - Zone 10951309 */}
+      <script dangerouslySetInnerHTML={{ __html: `(function(s){s.dataset.zone='10951309',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))` }} />
       <body className={inter.className}>
         <div className="min-h-screen bg-gradient-to-br from-sdhq-cyan-50 via-white to-sdhq-green-50 flex flex-col">
           <Providers>

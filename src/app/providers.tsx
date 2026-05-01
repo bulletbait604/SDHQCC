@@ -16,10 +16,10 @@ export default function Providers({ children }: Props) {
       {/* Only load Monetag scripts after user consent */}
       {hasConsent === true && (
         <>
-          {/* Monetag Vignette Banner Ad */}
-          <Script src="https://cdn.monetag.com/v1/pub.js" data-zone="10950644" strategy="afterInteractive" />
-          {/* Monetag In-Page Push Ad */}
-          <Script src="https://cdn.monetag.com/v1/pub.js" data-zone="10950651" strategy="afterInteractive" />
+          {/* Monetag Vignette Banner Ad - Zone 10951310 */}
+          <Script src="https://cdn.monetag.com/v1/pub.js" data-zone="10951310" strategy="afterInteractive" />
+          {/* Monetag In-Page Push Ad - Zone 10951309 */}
+          <Script src="https://cdn.monetag.com/v1/pub.js" data-zone="10951309" strategy="afterInteractive" />
         </>
       )}
 
