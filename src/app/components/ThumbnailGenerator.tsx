@@ -25,9 +25,24 @@ interface Props {
   platforms: Platform[]
   user?: { username: string } | null
   onLogActivity?: (entry: { action: string; details: string }) => void
+  isDisabled?: boolean // When tab access is restricted
+  usageCount?: number // Current usage count for limited roles
+  maxUsage?: number | 'unlimited' // Max allowed usage
+  onIncrementUsage?: () => void // Callback to increment usage
 }
 
-export default function ThumbnailGenerator({ userId, userType, darkMode = true, platforms, user, onLogActivity }: Props) {
+export default function ThumbnailGenerator({ 
+  userId, 
+  userType, 
+  darkMode = true, 
+  platforms, 
+  user, 
+  onLogActivity,
+  isDisabled = false,
+  usageCount = 0,
+  maxUsage = 'unlimited',
+  onIncrementUsage
+}: Props) {
   const [prompt, setPrompt] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imageBase64, setImageBase64] = useState<string | null>(null)
@@ -54,12 +69,22 @@ export default function ThumbnailGenerator({ userId, userType, darkMode = true, 
     ? 'text-gray-400'
     : 'text-gray-500'
   
-  const inputClasses = darkMode
-    ? 'bg-sdhq-dark-900/80 border-sdhq-cyan-500/30 text-gray-300 focus:border-sdhq-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)]'
-    : 'bg-white/80 border-sdhq-cyan-300 text-gray-800 focus:border-sdhq-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.2)]'
+  const card = darkMode
+    ? 'bg-sdhq-dark-700 border border-sdhq-dark-600'
+    : 'bg-gray-100 border border-gray-200'
   
-  const card = darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-50 border-gray-200'
+  const inputClasses = darkMode
+    ? 'bg-sdhq-dark-900 border-sdhq-dark-600 text-white placeholder-gray-500 focus:border-sdhq-cyan-500 focus:ring-sdhq-cyan-500/20'
+    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-sdhq-cyan-500 focus:ring-sdhq-cyan-500/20'
+  
   const subtle = darkMode ? 'text-gray-400' : 'text-gray-500'
+  const accentText = darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'
+  
+  // Check if usage limit reached
+  const isUsageLimited = maxUsage !== 'unlimited' && usageCount >= maxUsage
+  
+  // Determine if entire component should be disabled
+  const isComponentDisabled = isDisabled || isUsageLimited
 
   // ── Image upload ───────────────────────────────────────────────────────────
   const handleFileChange = (file: File) => {
@@ -130,6 +155,11 @@ export default function ThumbnailGenerator({ userId, userType, darkMode = true, 
           details: `Generated thumbnail with prompt: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`
         })
       }
+      
+      // Increment usage count for limited roles
+      if (onIncrementUsage) {
+        onIncrementUsage()
+      }
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.')
     } finally {
@@ -168,7 +198,42 @@ export default function ThumbnailGenerator({ userId, userType, darkMode = true, 
   ]
 
   return (
-    <div className={`py-8 ${cardClasses}`}>
+    <div className={`relative py-8 ${cardClasses} ${isComponentDisabled ? 'pointer-events-none' : ''}`}>
+      {/* Disabled Overlay */}
+      {isComponentDisabled && (
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 rounded-xl flex flex-col items-center justify-center p-6">
+          <div className="text-center">
+            <p className="text-white text-xl font-bold mb-2">
+              {isDisabled ? '⛔ Access Restricted' : '📊 Usage Limit Reached'}
+            </p>
+            <p className="text-gray-300 text-sm">
+              {isDisabled 
+                ? 'This feature is currently disabled for your account.' 
+                : `You have used ${usageCount} of ${maxUsage} thumbnail generations.\nPlease upgrade to continue.`}
+            </p>
+            {isUsageLimited && (
+              <button 
+                onClick={() => window.open('/subscribe', '_blank')}
+                className="mt-4 px-6 py-2 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold rounded-lg hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 transition-all pointer-events-auto"
+              >
+                Upgrade to Unlimited
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {/* Usage Counter for Limited Roles */}
+      {maxUsage !== 'unlimited' && (
+        <div className={`absolute top-4 right-4 z-10 px-3 py-1 rounded-full text-sm font-medium ${
+          isUsageLimited 
+            ? 'bg-red-500/20 text-red-400 border border-red-500/30' 
+            : 'bg-sdhq-cyan-500/20 text-sdhq-cyan-400 border border-sdhq-cyan-500/30'
+        }`}>
+          {usageCount} / {maxUsage} uses
+        </div>
+      )}
+      
       {/* Platform Logos */}
       <div className="flex justify-center gap-4 mb-6">
         {platforms.map((platform) => (

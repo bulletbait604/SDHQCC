@@ -11,8 +11,8 @@ export function useMonetag(options?: UseMonetagOptions) {
   // Check if user should see ads (free users only)
   const shouldShowAds = () => {
     if (isAdFree) return false
-    // Ad-free roles: subscriber, lifetime, admin, owner
-    const adFreeRoles = ['subscriber', 'subscriber_lifetime', 'admin', 'owner']
+    // Ad-free roles: subscriber, lifetime, admin, owner, tester
+    const adFreeRoles = ['subscriber', 'subscriber_lifetime', 'admin', 'owner', 'tester']
     if (userRole && adFreeRoles.includes(userRole)) return false
     return true
   }

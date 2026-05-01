@@ -238,7 +238,8 @@ const ROLE_HIERARCHY = {
   subscriber: 2,
   subscriber_lifetime: 3,
   admin: 4,
-  owner: 5
+  owner: 5,
+  tester: 6
 } as const;
 
 type Role = keyof typeof ROLE_HIERARCHY;
@@ -248,8 +249,59 @@ const ROLE_CONFIG = {
   admin: { badge: '🛡 Admin', rank: 4, label: 'Admin', badgeClass: 'bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black' },
   subscriber_lifetime: { badge: '💎 Lifetime', rank: 3, label: 'Lifetime Subscriber', badgeClass: 'bg-gradient-to-r from-yellow-500 to-orange-500 text-black' },
   subscriber: { badge: '⭐ Subscriber', rank: 2, label: 'Subscriber', badgeClass: 'bg-gradient-to-r from-sdhq-green-500 to-sdhq-cyan-500 text-black' },
-  free: { badge: '🙂 Free User', rank: 1, label: 'Free User', badgeClass: 'bg-gray-500 text-white' }
+  free: { badge: '🙂 Free User', rank: 1, label: 'Free User', badgeClass: 'bg-gray-500 text-white' },
+  tester: { badge: '🧪 Tester', rank: 6, label: 'Tester', badgeClass: 'bg-gradient-to-r from-blue-500 to-purple-500 text-white' }
 } as const;
+
+// Tab permissions configuration - each role can have specific tabs enabled/disabled
+const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
+  free: {
+    'algorithms-explained': true,
+    'tag-generator-free': true,
+    'thumbnail-generator': true,
+    'clip-analyzer': true
+  },
+  subscriber: {
+    'algorithms-explained': true,
+    'tag-generator-free': true,
+    'thumbnail-generator': true,
+    'clip-analyzer': true
+  },
+  subscriber_lifetime: {
+    'algorithms-explained': true,
+    'tag-generator-free': true,
+    'thumbnail-generator': true,
+    'clip-analyzer': true
+  },
+  admin: {
+    'algorithms-explained': true,
+    'tag-generator-free': true,
+    'thumbnail-generator': true,
+    'clip-analyzer': true
+  },
+  owner: {
+    'algorithms-explained': true,
+    'tag-generator-free': true,
+    'thumbnail-generator': true,
+    'clip-analyzer': true
+  },
+  tester: {
+    'algorithms-explained': true,
+    'tag-generator-free': true,
+    'thumbnail-generator': true,
+    'clip-analyzer': true
+  }
+};
+
+// Usage limits configuration
+const USAGE_LIMITS: Record<Role, { tags: number | 'unlimited'; thumbnails: number | 'unlimited'; clips: number | 'unlimited' }> = {
+  free: { tags: 'unlimited', thumbnails: 'unlimited', clips: 'unlimited' },
+  subscriber: { tags: 'unlimited', thumbnails: 'unlimited', clips: 'unlimited' },
+  subscriber_lifetime: { tags: 'unlimited', thumbnails: 'unlimited', clips: 'unlimited' },
+  admin: { tags: 'unlimited', thumbnails: 'unlimited', clips: 'unlimited' },
+  owner: { tags: 'unlimited', thumbnails: 'unlimited', clips: 'unlimited' },
+  tester: { tags: 'unlimited', thumbnails: 15, clips: 15 } // Tester: unlimited tags, 15 thumbnails, 15 clips
+};
 
 export default function HomePage() {
   const [user, setUser] = useState<KickUser | null>(null)
@@ -264,6 +316,31 @@ export default function HomePage() {
   const [usersWithRoles, setUsersWithRoles] = useState<any[]>([])
   const [roleSearchUsername, setRoleSearchUsername] = useState('')
   const [selectedRole, setSelectedRole] = useState<Role>('free')
+  
+  // Usage tracking for limited roles (tester, etc.)
+  const [usageCounts, setUsageCounts] = useState<{
+    thumbnails: number;
+    clips: number;
+  }>({ thumbnails: 0, clips: 0 })
+  
+  // Helper function to check if user has access to a tab
+  const hasTabAccess = (tabId: string): boolean => {
+    return TAB_PERMISSIONS[userRole]?.[tabId] ?? true
+  }
+  
+  // Helper function to check if user has reached usage limit
+  const checkUsageLimit = (type: 'thumbnails' | 'clips'): boolean => {
+    const limits = USAGE_LIMITS[userRole]
+    if (limits[type] === 'unlimited') return false
+    return usageCounts[type] >= (limits[type] as number)
+  }
+  
+  // Helper function to increment usage count
+  const incrementUsage = (type: 'thumbnails' | 'clips') => {
+    if (USAGE_LIMITS[userRole][type] !== 'unlimited') {
+      setUsageCounts(prev => ({ ...prev, [type]: prev[type] + 1 }))
+    }
+  }
   
   // Legacy state (will be removed after migration)
   const [subscribers, setSubscribers] = useState<Subscriber[]>([])
@@ -566,9 +643,10 @@ export default function HomePage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [isLifetimeMember, setIsLifetimeMember] = useState(false)
+  const [isTester, setIsTester] = useState(false)
 
   // Computed user type for API calls
-  const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetimeMember ? 'lifetime' : isSubscribed ? 'subscribed' : 'free'
+  const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetimeMember ? 'lifetime' : isSubscribed ? 'subscribed' : isTester ? 'tester' : 'free'
 
   // Recalculate roles when user or lists change (legacy)
   useEffect(() => {
@@ -576,11 +654,30 @@ export default function HomePage() {
     const isAdminValue = user ? (isOwner || admins.some(admin => admin.username.toLowerCase() === normalizedUsername)) : false
     const isSubscribedValue = user ? (isVerified || subscribers.some(sub => sub.username.toLowerCase() === normalizedUsername)) : false
     const isLifetimeMemberValue = user ? (isLifetime || lifetimeMembers.some(member => member.username.toLowerCase() === normalizedUsername)) : false
+    // Check if user has tester role from new role system
+    const userWithRole = usersWithRoles.find(u => u.username.toLowerCase() === normalizedUsername)
+    const isTesterValue = userWithRole?.role === 'tester'
     
     setIsAdmin(isAdminValue)
     setIsSubscribed(isSubscribedValue)
     setIsLifetimeMember(isLifetimeMemberValue)
-  }, [user, isOwner, admins, subscribers, lifetimeMembers, isVerified, isLifetime])
+    setIsTester(isTesterValue)
+    
+    // Update new role-based state
+    if (isOwner) {
+      setUserRole('owner')
+    } else if (isAdminValue) {
+      setUserRole('admin')
+    } else if (isLifetimeMemberValue) {
+      setUserRole('subscriber_lifetime')
+    } else if (isSubscribedValue) {
+      setUserRole('subscriber')
+    } else if (isTesterValue) {
+      setUserRole('tester')
+    } else {
+      setUserRole('free')
+    }
+  }, [user, isOwner, admins, subscribers, lifetimeMembers, isVerified, isLifetime, usersWithRoles])
 
   const fetchUserLists = async () => {
     try {
@@ -1193,6 +1290,9 @@ export default function HomePage() {
       setClipAnalysisResult(data)
       setExtractedData(data.extractedData || null)
       setShowReanalysis(true)
+      
+      // Increment usage for limited roles
+      incrementUsage('clips')
       
       // Wait for ad to complete (minimum 5 seconds)
       await adPromise
@@ -2703,6 +2803,10 @@ export default function HomePage() {
                 darkMode={darkMode}
                 platforms={platforms}
                 user={user}
+                isDisabled={!hasTabAccess('thumbnail-generator')}
+                usageCount={usageCounts.thumbnails}
+                maxUsage={USAGE_LIMITS[userRole].thumbnails}
+                onIncrementUsage={() => incrementUsage('thumbnails')}
                 onLogActivity={(entry) => {
                   if (user) {
                     const logEntry: ActivityLogEntry = {
@@ -2730,7 +2834,42 @@ export default function HomePage() {
             </TabsContent>
 
             <TabsContent value="clip-analyzer">
-              <div className={`py-8 ${cardClasses}`}>
+              <div className={`relative py-8 ${cardClasses} ${!hasTabAccess('clip-analyzer') || checkUsageLimit('clips') ? 'pointer-events-none' : ''}`}>
+                {/* Disabled Overlay */}
+                {(!hasTabAccess('clip-analyzer') || checkUsageLimit('clips')) && (
+                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 rounded-xl flex flex-col items-center justify-center p-6">
+                    <div className="text-center">
+                      <p className="text-white text-xl font-bold mb-2">
+                        {!hasTabAccess('clip-analyzer') ? '⛔ Access Restricted' : '📊 Usage Limit Reached'}
+                      </p>
+                      <p className="text-gray-300 text-sm">
+                        {!hasTabAccess('clip-analyzer')
+                          ? 'This feature is currently disabled for your account.'
+                          : `You have used ${usageCounts.clips} of ${USAGE_LIMITS[userRole].clips} clip analyses.\nPlease upgrade to continue.`}
+                      </p>
+                      {checkUsageLimit('clips') && (
+                        <button
+                          onClick={() => window.open('/subscribe', '_blank')}
+                          className="mt-4 px-6 py-2 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold rounded-lg hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 transition-all pointer-events-auto"
+                        >
+                          Upgrade to Unlimited
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Usage Counter for Limited Roles */}
+                {USAGE_LIMITS[userRole].clips !== 'unlimited' && (
+                  <div className={`absolute top-4 right-4 z-10 px-3 py-1 rounded-full text-sm font-medium ${
+                    checkUsageLimit('clips')
+                      ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                      : 'bg-sdhq-cyan-500/20 text-sdhq-cyan-400 border border-sdhq-cyan-500/30'
+                  }`}>
+                    {usageCounts.clips} / {USAGE_LIMITS[userRole].clips} uses
+                  </div>
+                )}
+
                 {/* Platform Logos */}
                 <div className="flex justify-center gap-4 mb-6">
                   {platforms.map((platform) => (
@@ -2785,7 +2924,7 @@ export default function HomePage() {
                   <div className="text-center py-12">
                     <p className={`${subtitleClasses}`}>{t.premiumFeature} - Login required</p>
                   </div>
-                ) : !(userRole === 'owner' || userRole === 'admin' || userRole === 'subscriber' || userRole === 'subscriber_lifetime') ? (
+                ) : !(userRole === 'owner' || userRole === 'admin' || userRole === 'subscriber' || userRole === 'subscriber_lifetime' || userRole === 'tester') ? (
                   <div className="space-y-6">
                     {/* Blurred out content for free tier */}
                     <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-6 blur-sm select-none`}>
