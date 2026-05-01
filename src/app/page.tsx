@@ -2649,7 +2649,7 @@ export default function HomePage() {
                     <ImageIcon className="w-10 h-10 text-sdhq-green-500" />
                     <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorPaid}</h3>
                   </div>
-                  <p className={`${textClasses} text-base`}>Upload an image and describe how you want it edited</p>
+                  <p className={`${textClasses} text-base`}>Describe your thumbnail idea or upload an image to edit</p>
                 </div>
 
                 {thumbnailError && (
@@ -2659,12 +2659,32 @@ export default function HomePage() {
                 )}
 
                 <div className="max-w-3xl mx-auto space-y-6">
-                  {/* Image Upload Area */}
+                  {/* Prompt Input - Always show first */}
                   {!generatedThumbnail && (
-                    <div className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
+                    <div className="space-y-4">
+                      <label className={`block text-sm font-medium ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                        Describe what you want to create (required)
+                      </label>
+                      <textarea
+                        value={thumbnailPrompt}
+                        onChange={(e) => setThumbnailPrompt(e.target.value)}
+                        placeholder="e.g., 'A gaming thumbnail with neon text saying EPIC WIN', 'A cooking video thumbnail with a chef hat and flames'..."
+                        rows={4}
+                        className={`w-full px-4 py-3 rounded-lg border-2 outline-none transition-all resize-none ${
+                          darkMode
+                            ? 'bg-sdhq-dark-600 border-sdhq-dark-500 text-white placeholder-gray-400 focus:border-sdhq-cyan-500'
+                            : 'bg-white border-sdhq-cyan-200 text-gray-900 placeholder-gray-400 focus:border-sdhq-cyan-500'
+                        }`}
+                      />
+                    </div>
+                  )}
+
+                  {/* Optional Image Upload */}
+                  {!generatedThumbnail && (
+                    <div className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
                       darkMode 
-                        ? 'border-sdhq-cyan-500/50 hover:border-sdhq-cyan-400 bg-sdhq-dark-700/50' 
-                        : 'border-sdhq-cyan-300 hover:border-sdhq-cyan-500 bg-sdhq-cyan-50/50'
+                        ? 'border-sdhq-cyan-500/30 hover:border-sdhq-cyan-400 bg-sdhq-dark-700/30' 
+                        : 'border-sdhq-cyan-200 hover:border-sdhq-cyan-400 bg-sdhq-cyan-50/50'
                     }`}>
                       <input
                         type="file"
@@ -2685,13 +2705,13 @@ export default function HomePage() {
                       />
                       <label 
                         htmlFor="thumbnail-upload"
-                        className="cursor-pointer flex flex-col items-center space-y-3"
+                        className="cursor-pointer flex flex-col items-center space-y-2"
                       >
-                        <Upload className={`w-12 h-12 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`} />
-                        <p className={`text-lg font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                          {thumbnailPreview ? 'Change Image' : 'Click to upload an image'}
+                        <Upload className={`w-8 h-8 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`} />
+                        <p className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                          {thumbnailPreview ? 'Change Image' : 'Optional: Upload an image to edit'}
                         </p>
-                        <p className={`text-sm ${subtitleClasses}`}>
+                        <p className={`text-xs ${subtitleClasses}`}>
                           PNG, JPG, GIF up to 10MB
                         </p>
                       </label>
@@ -2700,7 +2720,7 @@ export default function HomePage() {
 
                   {/* Image Preview */}
                   {thumbnailPreview && !generatedThumbnail && (
-                    <div className="relative rounded-xl overflow-hidden max-h-96">
+                    <div className="relative rounded-xl overflow-hidden max-h-96 border-2 border-sdhq-cyan-500/50">
                       <img 
                         src={thumbnailPreview} 
                         alt="Preview" 
@@ -2715,6 +2735,9 @@ export default function HomePage() {
                       >
                         <X className="w-4 h-4" />
                       </button>
+                      <p className={`absolute bottom-2 left-2 px-3 py-1 rounded-full text-xs ${darkMode ? 'bg-sdhq-dark-800 text-white' : 'bg-white text-gray-900'}`}>
+                        Image will be edited based on your prompt
+                      </p>
                     </div>
                   )}
 
@@ -2874,15 +2897,18 @@ export default function HomePage() {
                       />
                       <Button
                         onClick={async () => {
-                          if (!thumbnailImage || !thumbnailPrompt.trim()) return
+                          if (!thumbnailPrompt.trim()) return
                           
                           setIsGeneratingThumbnail(true)
                           setThumbnailError('')
                           
                           try {
                             const formData = new FormData()
-                            formData.append('image', thumbnailImage)
                             formData.append('prompt', thumbnailPrompt)
+                            // Only append image if it exists
+                            if (thumbnailImage) {
+                              formData.append('image', thumbnailImage)
+                            }
                             
                             const response = await fetch('/api/thumbnail-generator', {
                               method: 'POST',
@@ -2908,15 +2934,18 @@ export default function HomePage() {
                         {isGeneratingThumbnail ? (
                           <>
                             <Loader2 className="w-6 h-6 animate-spin" />
-                            <span>Generating Thumbnail...</span>
+                            <span>{thumbnailImage ? 'Editing Image...' : 'Generating Thumbnail...'}</span>
                           </>
                         ) : (
                           <>
                             <Wand2 className="w-6 h-6" />
-                            <span>Generate Thumbnail</span>
+                            <span>{thumbnailImage ? 'Edit Image' : 'Generate Thumbnail'}</span>
                           </>
                         )}
                       </Button>
+                      <p className={`text-sm text-center ${subtitleClasses}`}>
+                        {thumbnailImage ? 'Your uploaded image will be edited' : 'Creating thumbnail from your description'}
+                      </p>
                     </div>
                   )}
                 </div>

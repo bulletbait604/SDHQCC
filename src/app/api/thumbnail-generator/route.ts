@@ -67,12 +67,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!imageFile && !previousImageBase64) {
-      return NextResponse.json(
-        { error: 'Image is required' },
-        { status: 400 }
-      )
-    }
+    // Image is now optional - can generate from text or edit an image
 
     const geminiApiKey = process.env.GEMINI_API
     if (!geminiApiKey) {
@@ -82,31 +77,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Convert image to base64
-    let imageBase64: string
-    let mimeType: string
+    // Convert image to base64 if provided
+    let imageBase64: string | null = null
+    let mimeType: string = 'image/png'
 
     if (imageFile) {
       const bytes = await imageFile.arrayBuffer()
       imageBase64 = Buffer.from(bytes).toString('base64')
       mimeType = imageFile.type
-    } else {
-      imageBase64 = previousImageBase64!
-      mimeType = 'image/png'
+    } else if (previousImageBase64) {
+      imageBase64 = previousImageBase64
     }
 
     const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
 
-    console.log('[Thumbnail] Calling Gemini API with model:', MODEL_NAME)
+    console.log('[Thumbnail] Calling Gemini API with model:', MODEL_NAME, imageBase64 ? '(editing image)' : '(generating from text)')
 
-    const response = await genAI.models.generateContent({
-      model: MODEL_NAME,
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: `You are an expert thumbnail designer and image editor. Edit the provided image according to the user's request.
+    // Build contents based on whether image is provided
+    const parts: any[] = [
+      {
+        text: imageBase64 
+          ? `You are an expert thumbnail designer and image editor. Edit the provided image according to the user's request.
 
 USER REQUEST: "${prompt}"
 
@@ -118,14 +109,35 @@ INSTRUCTIONS:
 5. Use appropriate colors, contrast, and composition
 
 Return the edited image.`
-            },
-            {
-              inlineData: {
-                mimeType: mimeType,
-                data: imageBase64
-              }
-            }
-          ]
+          : `You are an expert thumbnail designer. Create a thumbnail image based on the user's request.
+
+USER REQUEST: "${prompt}"
+
+INSTRUCTIONS:
+1. Create a professional, eye-catching thumbnail
+2. Ensure the image is relevant to the user's description
+3. Use appropriate colors, contrast, and composition
+4. Make it suitable for use as a video thumbnail
+5. Return the generated image.`
+      }
+    ]
+
+    // Add image to parts if provided
+    if (imageBase64) {
+      parts.push({
+        inlineData: {
+          mimeType: mimeType,
+          data: imageBase64
+        }
+      })
+    }
+
+    const response = await genAI.models.generateContent({
+      model: MODEL_NAME,
+      contents: [
+        {
+          role: 'user',
+          parts: parts
         }
       ]
     })
