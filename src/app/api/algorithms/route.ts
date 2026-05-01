@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenAI } from '@google/genai'
 
 const platforms = [
   { id: 'tiktok', name: 'TikTok' },
@@ -178,14 +178,13 @@ Requirements:
   try {
     console.log(`[Algorithms] Trying Gemini 3.1 Pro for ${platform}...`)
     
-    const genAI = new GoogleGenerativeAI(geminiApiKey)
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-pro-latest'
+    const ai = new GoogleGenAI({ apiKey: geminiApiKey })
+    const response = await ai.models.generateContent({
+      model: 'gemini-1.5-pro-latest',
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
     })
     
-    const result = await model.generateContent(prompt)
-    const response = result.response
-    const content = response.text()
+    const content = response.text
     
     console.log(`[Algorithms] Gemini succeeded for ${platform}`)
     
