@@ -1250,8 +1250,11 @@ export default function HomePage() {
     try {
       const { url, codeVerifier } = await createKickAuthURL()
       // Use cookie for better persistence across redirects
-      document.cookie = `kickCodeVerifier=${codeVerifier}; path=/; max-age=300; SameSite=Lax`
-      document.cookie = `kickAuthReturn=${window.location.pathname}; path=/; max-age=300; SameSite=Lax`
+      // Secure flag added for HTTPS, max-age increased to 10 minutes
+      const isSecure = window.location.protocol === 'https:'
+      const secureFlag = isSecure ? '; Secure' : ''
+      document.cookie = `kickCodeVerifier=${codeVerifier}; path=/; max-age=600; SameSite=Lax${secureFlag}`
+      document.cookie = `kickAuthReturn=${window.location.pathname}; path=/; max-age=600; SameSite=Lax${secureFlag}`
       window.location.href = url
     } catch (error) {
       console.error('Failed to create KICK auth URL:', error)
@@ -2112,13 +2115,7 @@ export default function HomePage() {
             </div>
           </div>
         ) : (
-          <Tabs value={activeTab} onValueChange={async (value) => {
-              // Show ad when clicking Tag Generator tab (1 ad for free users)
-              if (value === 'tag-generator-free' && activeTab !== 'tag-generator-free') {
-                await showAd(1)
-              }
-              setActiveTab(value)
-            }} className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className={`grid w-full grid-cols-6 ${tabListClasses}`}>
               <TabsTrigger 
                 value="algorithms-explained" 
@@ -2133,7 +2130,6 @@ export default function HomePage() {
               >
                 <Hash className="w-4 h-4" />
                 <span className="hidden sm:inline">{t.tagGeneratorFree}</span>
-                {userRole === 'free' && <span className="ml-1 text-xs">(ad)</span>}
               </TabsTrigger>
               <TabsTrigger 
                 value="thumbnail-generator"
@@ -2568,22 +2564,28 @@ export default function HomePage() {
                         
                         setIsGeneratingTags(true)
                         try {
-                          // Call API directly (ad shown on tab click)
-                          const res = await fetch('/api/tags', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              description: tagDescription,
-                              platform: tagPlatform,
-                              count: tagCount,
-                              userId: user?.username,
-                              isVerified: true // Free users now have unlimited use with ads
+                          // Show 1 ad while API processes — ad plays while AI works
+                          const [_, res] = await Promise.allSettled([
+                            showAd(1),
+                            fetch('/api/tags', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                description: tagDescription,
+                                platform: tagPlatform,
+                                count: tagCount,
+                                userId: user?.username,
+                                isVerified: true // Free users now have unlimited use with ads
+                              })
                             })
-                          })
+                          ])
                           
-                          if (!res.ok) {
-                            const errorData = await res.json()
-                            if (res.status === 429) {
+                          if (res.status === 'rejected') throw new Error(res.reason)
+                          const response = res.value as Response
+                          
+                          if (!response.ok) {
+                            const errorData = await response.json()
+                            if (response.status === 429) {
                               // Rate limit exceeded - show message but don't block (free users have unlimited with ads)
                               console.log('Rate limit reached, but free users have unlimited use with ads')
                             }
@@ -2591,7 +2593,7 @@ export default function HomePage() {
                             throw new Error(errorMsg)
                           }
                           
-                          const data = await res.json()
+                          const data = await response.json()
                           setGeneratedTags(prev => ({ ...prev, [tagPlatform]: data.tags }))
                           if (data.rateLimit) {
                             setTagRateLimit({ remaining: data.rateLimit.remaining, resetTime: data.rateLimit.resetTime })

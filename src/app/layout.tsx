@@ -17,7 +17,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* Monetag Verification for old URL */}
         <meta name="monetag" content="34c4c861a7b30bd21ab63f47b27e18d8" />
+        {/* Monetag Verification for new URL (sdcreatorcorner.com) */}
+        <meta name="monetag" content="36cf25b1528ec69734791ef4c8d8d2e0" />
         {/* Monetag Vignette Banner Ad */}
         <Script src="https://cdn.monetag.com/v1/pub.js" data-zone="10950644" strategy="afterInteractive" />
         {/* Monetag In-Page Push Ad */}
