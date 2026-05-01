@@ -3341,9 +3341,8 @@ export default function HomePage() {
                                 )}
                               </>
                             ) : (
-                              {/* TikTok/Instagram/Facebook: Combined Caption Card */}
                               <>
-                                {/* Combined Caption Card */}
+                                {/* TikTok/Instagram/Facebook: Combined Caption Card */}
                                 {(clipAnalysisResult.description || clipAnalysisResult.titles?.length > 0 || clipAnalysisResult.tags?.length > 0) && (
                                   <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 mb-4 ${
                                     darkMode 
