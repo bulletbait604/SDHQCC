@@ -2805,15 +2805,17 @@ export default function HomePage() {
                               setThumbnailError('')
                               
                               try {
-                                const formData = new FormData()
-                                formData.append('prompt', thumbnailPrompt)
-                                formData.append('userId', user?.id || '')
-                                formData.append('userType', userType)
-                                formData.append('previousImage', generatedThumbnail!)
-                                
                                 const response = await fetch('/api/thumbnail-generator', {
                                   method: 'POST',
-                                  body: formData
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    prompt: thumbnailPrompt,
+                                    userId: user?.id || '',
+                                    userType: userType,
+                                    imageBase64: generatedThumbnail!,
+                                    mimeType: 'image/png',
+                                    sessionId: user?.id || 'anon'
+                                  })
                                 })
                                 
                                 if (!response.ok) {
@@ -2908,18 +2910,34 @@ export default function HomePage() {
                           setThumbnailError('')
                           
                           try {
-                            const formData = new FormData()
-                            formData.append('prompt', thumbnailPrompt)
-                            formData.append('userId', user?.id || '')
-                            formData.append('userType', userType)
-                            // Only append image if it exists
+                            // Convert image to base64 if provided
+                            let imageBase64: string | undefined
+                            let mimeType: string | undefined
+                            
                             if (thumbnailImage) {
-                              formData.append('image', thumbnailImage)
+                              const reader = new FileReader()
+                              imageBase64 = await new Promise<string>((resolve) => {
+                                reader.onloadend = () => {
+                                  const base64 = reader.result as string
+                                  // Remove data:image/xxx;base64, prefix
+                                  resolve(base64.split(',')[1])
+                                }
+                                reader.readAsDataURL(thumbnailImage)
+                              })
+                              mimeType = thumbnailImage.type
                             }
                             
                             const response = await fetch('/api/thumbnail-generator', {
                               method: 'POST',
-                              body: formData
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                prompt: thumbnailPrompt,
+                                userId: user?.id || '',
+                                userType: userType,
+                                imageBase64,
+                                mimeType,
+                                sessionId: user?.id || 'anon'
+                              })
                             })
                             
                             if (!response.ok) {
