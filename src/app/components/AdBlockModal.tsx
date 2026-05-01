@@ -63,20 +63,20 @@ export default function AdBlockModal({ onClose, darkMode = true }: Props) {
         <div className="space-y-3">
           {/* Monthly Subscribe */}
           <button
-            onClick={() => window.open('https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=P-8UG98407JL9530438N5M7S5Q', '_blank')}
+            onClick={() => window.open('/api/subscribe', '_blank')}
             className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 transition-all flex items-center justify-center gap-2"
           >
             <span>⭐</span>
-            <span>Subscribe Monthly - $4.99/mo</span>
+            <span>Subscribe Monthly - $6.99/mo</span>
           </button>
 
           {/* Lifetime Subscribe */}
           <button
-            onClick={() => window.open('https://www.paypal.com/paypalme/bulletbait604/10', '_blank')}
+            onClick={() => window.open('https://www.paypal.com/paypalme/bulletbait604/99.99', '_blank')}
             className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-semibold hover:from-yellow-600 hover:to-orange-600 transition-all flex items-center justify-center gap-2"
           >
             <span>💎</span>
-            <span>Lifetime Access - $10 one-time</span>
+            <span>Lifetime Access - $99.99 CAD one-time</span>
           </button>
 
           {/* Continue with ads */}
