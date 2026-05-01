@@ -1,17 +1,18 @@
 {
   "data": {
     "youtube-shorts": {
-      "keyChanges": "The YouTube Shorts algorithm now prioritizes content with higher engagement, relevance, and audience retention. It also uses AI-powered video analysis to detect and reward creative, unique, and high-quality content. Additionally, the algorithm now takes into account the viewer's watch history and preferences when recommending Shorts.",
-      "editingTips": "For optimal performance, keep your YouTube Shorts concise (less than 60 seconds), engaging, and visually appealing. Use catchy music, colorful graphics, and a clear call-to-action in the first 5 seconds. Edit your Shorts to have a clear narrative structure, with a hook, a buildup, and a resolution.",
-      "postingTips": "To maximize visibility, post your YouTube Shorts during peak hours (12 pm - 4 pm EST) when audience engagement is highest. Aim for a consistent posting schedule (3-5 times a week) to keep your audience engaged and coming back for more.",
-      "titleTips": "Craft attention-grabbing titles that accurately reflect your content. Use relevant keywords, keep it concise (less than 10 words), and make sure it's mobile-friendly. Avoid clickbait titles that might get your content flagged or penalized.",
-      "descriptionTips": "Write descriptive, keyword-rich descriptions that provide context and value to your viewers. Keep it concise (less than 150 characters) and make sure it's easy to read on mobile devices. Include relevant links, hashtags, or tags to increase discoverability.",
+      "keyChanges": "Algorithm now prioritizes watch time, engagement rate, and content freshness; uses AI to detect relevance; Shorts playlist boosting; shifts from upload date to behavioral signals.",
+      "editingTips": "Keep first 3 seconds hook; vertical 9:16; 15‑60 seconds; use captions; dynamic cuts; sound quality; brand consistency; use trending sounds; frame transitions; add end screens; maintain high bitrate.",
+      "postingTips": "Post 1‑2 times daily; best times 8‑10am or 6‑8pm PST; vary time zones; use analytics to test; aim for 30‑60 sec; consistency is key.",
+      "titleTips": "Include primary keyword; keep under 30 chars; use emojis sparingly; create curiosity; avoid clickbait; keep descriptive.",
+      "descriptionTips": "Add hashtags (#Shorts); include 3‑5 keywords; add link to channel; keep under 100 chars; call to action.",
       "summaries": [
-        "Maximize engagement with attention-grabbing titles and thumbnails!",
-        "Boost your Shorts' visibility with strategic posting and timing!",
-        "Create high-quality, unique content that resonates with your audience!",
-        "Use AI-powered video analysis to optimize your Shorts for better performance!"
-      ]
+        "Hook matters more than length",
+        "AI prioritizes viewer retention",
+        "Consistent uploads build momentum",
+        "Use trending sounds, not just visuals"
+      ],
+      "provider": "pollinations"
     },
     "tiktok": {
       "keyChanges": "Algorithm now prioritizes creator authenticity, engagement depth, and content originality, while penalizing repetitive audio and copyrighted clips.",
@@ -109,6 +110,6 @@
       ]
     }
   },
-  "lastUpdated": "2026-05-01T01:01:50.178Z",
+  "lastUpdated": "2026-05-01T01:02:22.807Z",
   "provider": "pollinations"
 }
