@@ -28,17 +28,18 @@
       "provider": "pollinations"
     },
     "instagram": {
-      "keyChanges": "The Instagram algorithm now prioritizes content from accounts users interact with most, uses AI to predict engagement, and rewards content with high engagement in the first few hours after posting.",
-      "editingTips": "To optimize your posts, edit with the following best practices: use high-quality, visually appealing images; add text overlays with clear, concise captions; and use Instagram's built-in features like Reels and IGTV.",
-      "postingTips": "For optimal posting frequency on Instagram, post at least 3 times per week to maintain user engagement, but avoid overposting as it can lead to fatigue; consider posting during peak hours (12 pm - 4 pm) when user activity is highest.",
-      "titleTips": "Craft effective titles by using: 1) attention-grabbing keywords; 2) short descriptions (under 15 characters); and 3) emojis to add visual appeal and convey emotions.",
-      "descriptionTips": "Write compelling descriptions by: 1) keeping them concise (under 125 characters); 2) including relevant hashtags; and 3) using a clear and direct call-to-action (CTA) to encourage engagement.",
+      "keyChanges": "Algorithm now prioritizes Reels, engagement depth, and real‑time interaction signals; hashtags have diminished influence, and AI-driven content personalization dominates the Explore feed.",
+      "editingTips": "Use vertical 9:16 format, add captions, keep edits under 15 seconds for Reels, apply color grading for mood, include eye‑catching text overlays, and leverage AI tools for automatic sound matching and trend overlays.",
+      "postingTips": "Post 1–2 feed posts per day, 3–5 Reels weekly, daily Stories; schedule around 7–9 am, 12–1 pm, and 7–9 pm local time; monitor analytics for audience peak times and adjust accordingly.",
+      "titleTips": "Use emojis, concise hooks, include keyword, keep under 10 characters, add urgency, and end with a clear CTA.",
+      "descriptionTips": "Start with a strong hook, ask a question, add a CTA, use line breaks for readability, place hashtags at the end, and keep captions under 200 characters for higher algorithm favor.",
       "summaries": [
-        "Boost engagement with Reels in the first hour.",
-        "Use Instagram's built-in features for maximum reach.",
-        "Post consistently to avoid losing followers.",
-        "Leverage hashtags for increased discoverability."
-      ]
+        "Reels dominate algorithmic reach",
+        "Engagement depth beats follower count",
+        "AI personalizes content discovery",
+        "Story Highlights boost profile visibility"
+      ],
+      "provider": "pollinations"
     },
     "youtube-long": {
       "keyChanges": "The YouTube Long algorithm now prioritizes videos with high engagement in the first 10-15 minutes, favoring content that keeps viewers hooked throughout. The algorithm also considers the audience retention curve, rewarding videos that maintain a steady viewership throughout. Additionally, YouTube Long now takes into account the video's overall watch time, rather than just the initial 12-second view count.",
@@ -108,6 +109,6 @@
       ]
     }
   },
-  "lastUpdated": "2026-05-01T01:01:34.671Z",
+  "lastUpdated": "2026-05-01T01:01:50.178Z",
   "provider": "pollinations"
 }
