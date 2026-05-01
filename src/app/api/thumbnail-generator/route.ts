@@ -152,7 +152,7 @@ Requirements:
       })
     )
 
-    const outputUrl = `${PUBLIC_URL}/${key}`
+    const outputUrl = `/api/image?key=${key}`
     const textPart = parts.find((p: any) => p.text)
 
     console.log('[Thumbnail] Success – saved to R2:', key)
