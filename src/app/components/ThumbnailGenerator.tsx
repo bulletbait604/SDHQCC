@@ -1,0 +1,335 @@
+'use client'
+
+import { useState, useRef } from 'react'
+import { Wand2, Upload, X, Download, Loader2, ImageIcon, RotateCcw } from 'lucide-react'
+
+interface ThumbnailResult {
+  imageBase64: string
+  mimeType: string
+  prompt: string
+  key: string
+  description?: string
+}
+
+interface Props {
+  userId?: string
+  userType?: string
+  darkMode?: boolean
+}
+
+export default function ThumbnailGenerator({ userId, userType, darkMode = true }: Props) {
+  const [prompt, setPrompt] = useState('')
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imageBase64, setImageBase64] = useState<string | null>(null)
+  const [imageMime, setImageMime] = useState<string>('image/jpeg')
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [error, setError] = useState('')
+  const [result, setResult] = useState<ThumbnailResult | null>(null)
+  const [history, setHistory] = useState<ThumbnailResult[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const bg = darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'
+  const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
+  const input = darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+  const subtle = darkMode ? 'text-gray-400' : 'text-gray-500'
+
+  // ── Image upload ───────────────────────────────────────────────────────────
+  const handleFileChange = (file: File) => {
+    setImageFile(file)
+    setImageMime(file.type)
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      const base64 = (reader.result as string).split(',')[1]
+      setImageBase64(base64)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files?.[0]
+    if (file && file.type.startsWith('image/')) handleFileChange(file)
+  }
+
+  const clearImage = () => {
+    setImageFile(null)
+    setImageBase64(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  // ── Generate ───────────────────────────────────────────────────────────────
+  const generate = async (base64Override?: string, mimeOverride?: string) => {
+    if (!prompt.trim()) return
+    setIsGenerating(true)
+    setError('')
+
+    try {
+      const response = await fetch('/api/thumbnail-generator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          imageBase64: base64Override ?? imageBase64 ?? undefined,
+          mimeType: mimeOverride ?? imageMime,
+          sessionId: userId || 'anon',
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) throw new Error(data.error || 'Generation failed')
+
+      const newResult: ThumbnailResult = {
+        imageBase64: data.imageBase64,
+        mimeType: data.mimeType || 'image/png',
+        prompt,
+        key: data.key,
+        description: data.description,
+      }
+
+      // Push current result to history before replacing
+      if (result) setHistory(prev => [result, ...prev].slice(0, 8))
+      setResult(newResult)
+
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong. Please try again.')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  // Re-edit: use current result as input image
+  const reEdit = () => {
+    if (!result) return
+    generate(result.imageBase64, result.mimeType)
+  }
+
+  // Restore a history item
+  const restoreHistory = (item: ThumbnailResult, index: number) => {
+    if (result) setHistory(prev => [result, ...prev.filter((_, i) => i !== index)].slice(0, 8))
+    setResult(item)
+  }
+
+  // Download
+  const download = (base64: string, mime: string) => {
+    const ext = mime.split('/')[1]?.split(';')[0] || 'png'
+    const link = document.createElement('a')
+    link.href = `data:${mime};base64,${base64}`
+    link.download = `thumbnail-${Date.now()}.${ext}`
+    link.click()
+  }
+
+  const presets = [
+    { label: '🎮 Gaming', text: 'Explosive gaming thumbnail with dramatic lighting, neon accents, and space for a bold title' },
+    { label: '📚 Tutorial', text: 'Clean professional tutorial thumbnail with clear focal point and space for step number and title' },
+    { label: '🔥 Viral', text: 'Maximum visual impact, high saturation, shocking composition designed to maximise clicks' },
+    { label: '🎨 Cinematic', text: 'Moody cinematic thumbnail with film-grade colour grading and dramatic shadows' },
+    { label: '💼 Business', text: 'Professional modern business thumbnail with clean layout and trustworthy feel' },
+    { label: '⚡ Tech', text: 'Futuristic tech thumbnail with glowing UI elements, circuit patterns, and bold typography space' },
+  ]
+
+  return (
+    <div className={`min-h-screen p-6 ${bg}`}>
+      <div className="max-w-5xl mx-auto space-y-6">
+
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-bold">Thumbnail Generator</h1>
+          <p className={`text-sm mt-1 ${subtle}`}>
+            Powered by Gemini · Images stored on R2
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          {/* ── Left: Controls ─────────────────────────────────────────────── */}
+          <div className="space-y-4">
+
+            {/* Image upload */}
+            <div
+              onDrop={handleDrop}
+              onDragOver={e => e.preventDefault()}
+              className={`border-2 border-dashed rounded-xl p-4 transition-colors ${card} ${imageFile ? 'border-cyan-500' : 'border-gray-600 hover:border-gray-500'}`}
+            >
+              {imageBase64 ? (
+                <div className="space-y-3">
+                  <div className="relative">
+                    <img
+                      src={`data:${imageMime};base64,${imageBase64}`}
+                      alt="Uploaded"
+                      className="w-full max-h-40 object-contain rounded-lg"
+                    />
+                    <button
+                      onClick={clearImage}
+                      className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <p className={`text-xs truncate ${subtle}`}>{imageFile?.name}</p>
+                </div>
+              ) : (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full flex flex-col items-center gap-2 py-4"
+                >
+                  <ImageIcon className={`w-8 h-8 ${subtle}`} />
+                  <p className={`text-sm ${subtle}`}>Drop an image or click to upload</p>
+                  <p className={`text-xs ${subtle}`}>Optional — PNG, JPG, WEBP</p>
+                </button>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleFileChange(f) }}
+              />
+            </div>
+
+            {/* Style presets */}
+            <div className="flex flex-wrap gap-2">
+              {presets.map(p => (
+                <button
+                  key={p.label}
+                  onClick={() => setPrompt(p.text)}
+                  className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${card} hover:border-cyan-500 hover:text-cyan-400`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Prompt */}
+            <textarea
+              value={prompt}
+              onChange={e => setPrompt(e.target.value)}
+              placeholder={imageBase64
+                ? "Describe how to use your image in the thumbnail... (e.g. 'Place me on the left side with a red explosive background and bold white text space on the right')"
+                : "Describe the thumbnail you want... (e.g. 'A dramatic gaming thumbnail for a Minecraft video with lava and a shocked face')"}
+              rows={4}
+              className={`w-full border rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-cyan-500 transition-colors ${input}`}
+            />
+
+            {/* Generate button */}
+            <button
+              onClick={() => generate()}
+              disabled={isGenerating || !prompt.trim()}
+              className="w-full py-3 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-cyan-500 to-green-500 hover:from-cyan-600 hover:to-green-600 text-white disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isGenerating ? (
+                <><Loader2 className="w-5 h-5 animate-spin" /><span>Generating...</span></>
+              ) : (
+                <><Wand2 className="w-5 h-5" /><span>{imageBase64 ? 'Generate with Image' : 'Generate Thumbnail'}</span></>
+              )}
+            </button>
+
+            {error && (
+              <div className="p-3 bg-red-950/50 border border-red-700 rounded-xl text-red-400 text-sm">
+                ⚠️ {error}
+              </div>
+            )}
+          </div>
+
+          {/* ── Right: Output ───────────────────────────────────────────────── */}
+          <div className="space-y-4">
+            {isGenerating ? (
+              <div className={`flex flex-col items-center justify-center h-64 rounded-xl border ${card}`}>
+                <Loader2 className="w-10 h-10 animate-spin text-cyan-400 mb-3" />
+                <p className={`text-sm ${subtle}`}>Generating thumbnail...</p>
+                <p className={`text-xs mt-1 ${subtle}`}>This takes 15–30 seconds</p>
+              </div>
+            ) : result ? (
+              <div className="space-y-3">
+                <div className={`relative rounded-xl overflow-hidden border-2 border-cyan-500`}>
+                  <img
+                    src={`data:${result.mimeType};base64,${result.imageBase64}`}
+                    alt="Generated thumbnail"
+                    className="w-full object-cover"
+                  />
+                  <div className="absolute top-2 right-2 flex gap-2">
+                    <button
+                      onClick={() => download(result.imageBase64, result.mimeType)}
+                      className="p-2 bg-black/60 hover:bg-black/80 text-white rounded-lg transition-colors"
+                      title="Download"
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={reEdit}
+                      disabled={isGenerating}
+                      className="p-2 bg-cyan-600/80 hover:bg-cyan-600 text-white rounded-lg transition-colors disabled:opacity-40"
+                      title="Re-edit this result"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => { setResult(null); setPrompt('') }}
+                      className="p-2 bg-red-600/80 hover:bg-red-600 text-white rounded-lg transition-colors"
+                      title="Start over"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Re-edit controls */}
+                <div className="flex gap-2">
+                  <input
+                    value={prompt}
+                    onChange={e => setPrompt(e.target.value)}
+                    placeholder="Change the prompt and re-edit..."
+                    className={`flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyan-500 ${input}`}
+                  />
+                  <button
+                    onClick={reEdit}
+                    disabled={isGenerating || !prompt.trim()}
+                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-40 flex items-center gap-1.5"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    Re-edit
+                  </button>
+                </div>
+
+                {result.description && (
+                  <p className={`text-xs italic ${subtle}`}>{result.description}</p>
+                )}
+              </div>
+            ) : (
+              <div className={`flex flex-col items-center justify-center h-64 rounded-xl border-2 border-dashed ${card}`}>
+                <Wand2 className={`w-10 h-10 mb-3 ${subtle}`} />
+                <p className={`text-sm ${subtle}`}>Your thumbnail will appear here</p>
+              </div>
+            )}
+
+            {/* History */}
+            {history.length > 0 && (
+              <div className={`p-3 rounded-xl border ${card}`}>
+                <p className={`text-xs font-medium mb-2 ${subtle}`}>Previous versions</p>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {history.map((item, i) => (
+                    <button
+                      key={i}
+                      onClick={() => restoreHistory(item, i)}
+                      className="flex-shrink-0 group relative"
+                      title={item.prompt}
+                    >
+                      <img
+                        src={`data:${item.mimeType};base64,${item.imageBase64}`}
+                        alt={`v${history.length - i}`}
+                        className="w-20 h-12 object-cover rounded-lg border-2 border-transparent group-hover:border-cyan-500 transition-all"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 rounded-lg transition-opacity flex items-center justify-center">
+                        <RotateCcw className="w-4 h-4 text-white" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
