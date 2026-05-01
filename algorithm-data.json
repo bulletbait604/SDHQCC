@@ -14,33 +14,18 @@
       ]
     },
     "tiktok": {
-      "keyChanges": "TikTok's algorithm now prioritizes 'For You' page relevance, considering both video content and user behavior, such as time spent watching and engaging with content. The algorithm also weights videos that perform well in the first few hours after posting, suggesting timely posting is crucial.",
-      "editingTips": [
-        "Use 15-second to 60-second video lengths for maximum engagement.",
-        "Add music from TikTok's vast library to enhance viewer experience and encourage sharing.",
-        "Emphasize vertical video formats, as they account for 70% of all TikTok content."
-      ],
-      "postingTips": [
-        "Post during 'peak hours' (3-5 pm EST) when users are most active.",
-        "Maintain a consistent posting schedule to maintain audience engagement.",
-        "Experiment with 'Batch Posting' to reach wider audiences and track performance."
-      ],
-      "titleTips": [
-        "Use attention-grabbing, descriptive titles that convey the video's content.",
-        "Keep titles concise and under 30 characters for optimal performance.",
-        "Make titles more engaging by asking questions or using emojis."
-      ],
-      "descriptionTips": [
-        "Include relevant hashtags to increase discoverability.",
-        "Write compelling descriptions that encourage users to watch and engage.",
-        "Use the first few words in the description to entice viewers to watch."
-      ],
+      "keyChanges": "Algorithm now prioritizes creator authenticity, engagement depth, and content originality, while penalizing repetitive audio and copyrighted clips.",
+      "editingTips": "Use vertical 9:16 format, keep videos 15‑30 s, add captions, leverage trending sounds, apply quick cuts, use color grading, include a strong hook in first 3 s, keep transitions smooth, add text overlays for emphasis, and test video stability by previewing before posting.",
+      "postingTips": "Post 2–3 times daily, targeting 6‑9 am, 12‑3 pm, and 7‑10 pm local time. Monitor analytics to find personal peak engagement, avoid over‑posting, and schedule during high‑traffic windows on weekdays and weekends.",
+      "titleTips": "Hook in first 3 s, use emojis sparingly, keep under 10 chars, include keyword, reference trend or challenge.",
+      "descriptionTips": "Add 2–3 relevant hashtags, include a CTA, add location if applicable, keep description concise (≤140 chars), and use line breaks to improve readability.",
       "summaries": [
-        "Get seen on TikTok's 'For You' page with timely, engaging content.",
-        "Maximize video performance with vertical formats and catchy music.",
-        "Grow your TikTok audience with consistent, strategic posting schedules.",
-        "Boost engagement with concise, descriptive titles and hashtags."
-      ]
+        "Authenticity drives recommendation scores",
+        "Engagement depth outpaces view count",
+        "Shorter videos retain attention",
+        "Trending audio amplifies reach"
+      ],
+      "provider": "pollinations"
     },
     "instagram": {
       "keyChanges": "The Instagram algorithm now prioritizes content from accounts users interact with most, uses AI to predict engagement, and rewards content with high engagement in the first few hours after posting.",
@@ -123,6 +108,6 @@
       ]
     }
   },
-  "lastUpdated": "2026-04-26T22:14:33.611Z",
-  "provider": "groq"
+  "lastUpdated": "2026-05-01T01:01:34.671Z",
+  "provider": "pollinations"
 }
