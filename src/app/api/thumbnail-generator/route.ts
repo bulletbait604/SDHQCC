@@ -6,7 +6,7 @@ import { r2Client } from '@/lib/r2'
 const BUCKET = process.env.R2_BUCKET_NAME || 'sdhq-uploads'
 const PUBLIC_URL = process.env.R2_PUBLIC_URL || `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${BUCKET}`
 
-// Gemini model
+// Gemini model - Updated for image generation with structural reference support
 const MODEL_NAME = 'gemini-3.1-flash-image-preview'
 
 // Force dynamic rendering
