@@ -1,5 +1,7 @@
 'use client'
 
+import { useState, useEffect } from 'react'
+
 interface UseMonetagOptions {
   userRole?: string
   isAdFree?: boolean
@@ -9,6 +11,32 @@ const AD_WAIT_MS = 6000
 
 export function useMonetag(options?: UseMonetagOptions) {
   const { userRole, isAdFree } = options || {}
+  const [adReady, setAdReady] = useState(false)
+
+  useEffect(() => {
+    // Check if Monetag show function is available
+    const checkAdReady = () => {
+      if (typeof window !== 'undefined') {
+        const fnName = Object.keys(window).find(
+          key => /^show_\d{7,}$/.test(key) && typeof (window as any)[key] === 'function'
+        )
+        if (fnName) {
+          setAdReady(true)
+          console.log('[Monetag] Ad ready:', fnName)
+        }
+      }
+    }
+
+    // Check immediately and then every 500ms for up to 10 seconds
+    checkAdReady()
+    const interval = setInterval(checkAdReady, 500)
+    const timeout = setTimeout(() => clearInterval(interval), 10000)
+
+    return () => {
+      clearInterval(interval)
+      clearTimeout(timeout)
+    }
+  }, [])
 
   const shouldShowAds = (): boolean => {
     if (isAdFree) return false
@@ -58,5 +86,5 @@ export function useMonetag(options?: UseMonetagOptions) {
     })
   }
 
-  return { showAd, shouldShowAds }
+  return { showAd, shouldShowAds, adReady }
 }

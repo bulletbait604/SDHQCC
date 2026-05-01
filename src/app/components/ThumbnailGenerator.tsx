@@ -67,7 +67,7 @@ export default function ThumbnailGenerator({
   ]
   
   // Monetag ad hook - pass userType for ad-free check
-  const { showAd } = useMonetag({ userRole: userType })
+  const { showAd, adReady } = useMonetag({ userRole: userType })
 
   // Theme classes matching other tabs
   const cardClasses = darkMode
@@ -405,10 +405,12 @@ export default function ThumbnailGenerator({
             {/* Generate button */}
             <button
               onClick={() => generate()}
-              disabled={isGenerating || !prompt.trim() || selectedPlatforms.length === 0}
+              disabled={isGenerating || !prompt.trim() || selectedPlatforms.length === 0 || !adReady}
               className="w-full py-4 rounded-xl font-bold text-lg transition-all bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 text-black disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(6,182,212,0.4)]"
             >
-              {isGenerating ? (
+              {!adReady ? (
+                <span>Loading...</span>
+              ) : isGenerating ? (
                 <><Loader2 className="w-5 h-5 animate-spin" /><span>Generating...</span></>
               ) : (
                 <><Wand2 className="w-5 h-5" /><span>{imageBase64 ? 'Generate with Image' : 'Generate Thumbnail'}</span></>

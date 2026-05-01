@@ -405,7 +405,7 @@ export default function HomePage() {
   const [copiedDescription, setCopiedDescription] = useState<boolean>(false)
 
   // Monetag ad hook - pass userRole for ad-free check (subscribers/admins/owners)
-  const { showAd } = useMonetag({ userRole })
+  const { showAd, adReady } = useMonetag({ userRole })
 
   // Helper function to get recommended tag count from algorithm data
   const getRecommendedTagCount = (platformId: string): number => {
@@ -2720,10 +2720,12 @@ export default function HomePage() {
                           setIsGeneratingTags(false)
                         }
                       }}
-                      disabled={isGeneratingTags || !tagDescription.trim() || tagRateLimit.remaining === 0}
+                      disabled={isGeneratingTags || !tagDescription.trim() || tagRateLimit.remaining === 0 || !adReady}
                       className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
                     >
-                      {isGeneratingTags ? (
+                      {!adReady ? (
+                        <span>Loading...</span>
+                      ) : isGeneratingTags ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                           Generating Tags...
@@ -3032,11 +3034,17 @@ export default function HomePage() {
                           />
                           <Button
                             onClick={handleAnalyzeClip}
-                            disabled={isAnalyzingClip || !clipFile}
+                            disabled={isAnalyzingClip || !clipFile || !adReady}
                             className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold px-6 rounded-xl hover:shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all duration-300 flex items-center gap-2"
                           >
-                            <span>Analyze</span>
-                            <span>→</span>
+                            {adReady ? (
+                              <>
+                                <span>Analyze</span>
+                                <span>→</span>
+                              </>
+                            ) : (
+                              <span>Loading...</span>
+                            )}
                           </Button>
                         </div>
                         {clipFile && (
