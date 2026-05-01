@@ -2723,11 +2723,11 @@ export default function HomePage() {
 
                   {/* Image Preview */}
                   {thumbnailPreview && !generatedThumbnail && (
-                    <div className="relative rounded-xl overflow-hidden max-h-48 border-2 border-sdhq-cyan-500/50 mx-auto max-w-md">
+                    <div className="relative rounded-xl overflow-hidden border-2 border-sdhq-cyan-500/50 mx-auto" style={{ maxWidth: '300px', maxHeight: '200px' }}>
                       <img 
                         src={thumbnailPreview} 
                         alt="Preview" 
-                        className="w-full h-full object-contain"
+                        className="w-full h-auto max-h-48 object-contain"
                       />
                       <button
                         onClick={() => {
@@ -2747,11 +2747,11 @@ export default function HomePage() {
                   {/* Generated Image Display */}
                   {generatedThumbnail && (
                     <div className="space-y-4">
-                      <div className="relative rounded-xl overflow-hidden max-h-56 border-2 border-sdhq-green-500 mx-auto max-w-lg">
+                      <div className="relative rounded-xl overflow-hidden border-2 border-sdhq-green-500 mx-auto" style={{ maxWidth: '400px', maxHeight: '250px' }}>
                         <img 
                           src={`data:image/png;base64,${generatedThumbnail}`} 
                           alt="Generated Thumbnail" 
-                          className="w-full h-full object-contain"
+                          className="w-full h-auto max-h-56 object-contain"
                         />
                         <div className="absolute top-2 right-2 flex space-x-2">
                           <button
