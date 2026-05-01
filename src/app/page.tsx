@@ -2644,6 +2644,7 @@ export default function HomePage() {
                 userId={user?.id} 
                 userType={userType}
                 darkMode={darkMode}
+                platforms={platforms}
               />
             </TabsContent>
 

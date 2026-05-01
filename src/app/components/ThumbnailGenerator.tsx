@@ -3,6 +3,12 @@
 import { useState, useRef } from 'react'
 import { Wand2, Upload, X, Download, Loader2, ImageIcon, RotateCcw } from 'lucide-react'
 
+interface Platform {
+  id: string
+  name: string
+  image: string
+}
+
 interface ThumbnailResult {
   imageBase64: string
   mimeType: string
@@ -15,9 +21,10 @@ interface Props {
   userId?: string
   userType?: string
   darkMode?: boolean
+  platforms: Platform[]
 }
 
-export default function ThumbnailGenerator({ userId, userType, darkMode = true }: Props) {
+export default function ThumbnailGenerator({ userId, userType, darkMode = true, platforms }: Props) {
   const [prompt, setPrompt] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imageBase64, setImageBase64] = useState<string | null>(null)
@@ -28,9 +35,24 @@ export default function ThumbnailGenerator({ userId, userType, darkMode = true }
   const [history, setHistory] = useState<ThumbnailResult[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const bg = darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'
-  const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
-  const input = darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+  // Theme classes matching other tabs
+  const cardClasses = darkMode
+    ? 'bg-sdhq-dark-800/90 border border-sdhq-dark-700 rounded-xl shadow-lg'
+    : 'bg-white/80 backdrop-blur-sm border border-sdhq-cyan-200 rounded-xl shadow-lg'
+  
+  const textClasses = darkMode
+    ? 'text-gray-300'
+    : 'text-gray-600'
+  
+  const subtitleClasses = darkMode
+    ? 'text-gray-400'
+    : 'text-gray-500'
+  
+  const inputClasses = darkMode
+    ? 'bg-sdhq-dark-900/80 border-sdhq-cyan-500/30 text-gray-300 focus:border-sdhq-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.3)]'
+    : 'bg-white/80 border-sdhq-cyan-300 text-gray-800 focus:border-sdhq-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.2)]'
+  
+  const card = darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-50 border-gray-200'
   const subtle = darkMode ? 'text-gray-400' : 'text-gray-500'
 
   // ── Image upload ───────────────────────────────────────────────────────────
@@ -129,16 +151,29 @@ export default function ThumbnailGenerator({ userId, userType, darkMode = true }
   ]
 
   return (
-    <div className={`min-h-screen p-6 ${bg}`}>
-      <div className="max-w-5xl mx-auto space-y-6">
+    <div className={`py-8 ${cardClasses}`}>
+      {/* Platform Logos */}
+      <div className="flex justify-center gap-4 mb-6">
+        {platforms.map((platform) => (
+          <img
+            key={platform.id}
+            src={platform.image}
+            alt={platform.name}
+            className="w-10 h-10 rounded-lg object-cover opacity-80 hover:opacity-100 transition-opacity"
+          />
+        ))}
+      </div>
 
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold">Thumbnail Generator</h1>
-          <p className={`text-sm mt-1 ${subtle}`}>
-            Powered by Gemini · Images stored on R2
-          </p>
+      {/* Header */}
+      <div className="flex flex-col items-center mb-6">
+        <div className="flex items-center space-x-4 mb-3">
+          <ImageIcon className="w-10 h-10 text-sdhq-cyan-500" />
+          <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Thumbnail Generator</h3>
         </div>
+        <p className={`${textClasses} text-base`}>Generate AI-powered thumbnails for any platform</p>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-4 space-y-6">
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
@@ -208,14 +243,14 @@ export default function ThumbnailGenerator({ userId, userType, darkMode = true }
                 ? "Describe how to use your image in the thumbnail... (e.g. 'Place me on the left side with a red explosive background and bold white text space on the right')"
                 : "Describe the thumbnail you want... (e.g. 'A dramatic gaming thumbnail for a Minecraft video with lava and a shocked face')"}
               rows={4}
-              className={`w-full border rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-cyan-500 transition-colors ${input}`}
+              className={`w-full border rounded-xl px-4 py-3 text-base resize-none outline-none transition-all duration-300 backdrop-blur-sm ${inputClasses}`}
             />
 
             {/* Generate button */}
             <button
               onClick={() => generate()}
               disabled={isGenerating || !prompt.trim()}
-              className="w-full py-3 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-cyan-500 to-green-500 hover:from-cyan-600 hover:to-green-600 text-white disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-4 rounded-xl font-bold text-lg transition-all bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 text-black disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(6,182,212,0.4)]"
             >
               {isGenerating ? (
                 <><Loader2 className="w-5 h-5 animate-spin" /><span>Generating...</span></>
@@ -232,7 +267,7 @@ export default function ThumbnailGenerator({ userId, userType, darkMode = true }
           </div>
 
           {/* ── Right: Output ───────────────────────────────────────────────── */}
-          <div className="space-y-4">
+          <div className={`p-6 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-300 shadow-md'} space-y-4`}>
             {isGenerating ? (
               <div className={`flex flex-col items-center justify-center h-64 rounded-xl border ${card}`}>
                 <Loader2 className="w-10 h-10 animate-spin text-cyan-400 mb-3" />
@@ -279,7 +314,7 @@ export default function ThumbnailGenerator({ userId, userType, darkMode = true }
                     value={prompt}
                     onChange={e => setPrompt(e.target.value)}
                     placeholder="Change the prompt and re-edit..."
-                    className={`flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyan-500 ${input}`}
+                    className={`flex-1 border rounded-lg px-3 py-2 text-sm outline-none transition-all backdrop-blur-sm ${inputClasses}`}
                   />
                   <button
                     onClick={reEdit}
