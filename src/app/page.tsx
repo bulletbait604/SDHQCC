@@ -2808,7 +2808,8 @@ export default function HomePage() {
                                 
                                 const response = await fetch('/api/thumbnail-generator', {
                                   method: 'POST',
-                                  body: formData
+                                  body: formData,
+                                  credentials: 'include'
                                 })
                                 
                                 if (!response.ok) {
@@ -2912,7 +2913,8 @@ export default function HomePage() {
                             
                             const response = await fetch('/api/thumbnail-generator', {
                               method: 'POST',
-                              body: formData
+                              body: formData,
+                              credentials: 'include'
                             })
                             
                             if (!response.ok) {
