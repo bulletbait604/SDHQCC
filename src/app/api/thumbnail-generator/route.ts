@@ -45,8 +45,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Gemini did not return an image. Try rephrasing your prompt." }, { status: 500 });
     }
 
-    const imgBuffer = Buffer.from(imgPart.inlineData.data, "base64");
-    const ext = imgPart.inlineData.mimeType.split("/")[1]?.split(";")[0] || "png";
+    const imgBuffer = Buffer.from(imgPart.inlineData.data!, "base64");
+    const ext = imgPart.inlineData.mimeType!.split("/")[1]?.split(";")[0] || "png";
     const key = `thumbnails/${sessionId || uuidv4()}/${uuidv4()}.${ext}`;
 
     await r2.send(new PutObjectCommand({
