@@ -38,8 +38,8 @@ export default function ThumbnailGenerator({ userId, userType, darkMode = true, 
   const [history, setHistory] = useState<ThumbnailResult[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   
-  // Monetag ad hook
-  const { showAd } = useMonetag()
+  // Monetag ad hook - pass userType for ad-free check
+  const { showAd } = useMonetag({ userRole: userType })
 
   // Theme classes matching other tabs
   const cardClasses = darkMode
@@ -91,9 +91,9 @@ export default function ThumbnailGenerator({ userId, userType, darkMode = true, 
     setIsGenerating(true)
     setError('')
 
-    // Show ad and call API simultaneously — ad shows while AI works
+    // Show 2 ads back-to-back while AI works
     const [_, data] = await Promise.allSettled([
-      showAd(),
+      showAd(2),
       fetch('/api/thumbnail-generator', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

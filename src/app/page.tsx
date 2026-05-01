@@ -325,8 +325,8 @@ export default function HomePage() {
   const [copiedTags, setCopiedTags] = useState<boolean>(false)
   const [copiedDescription, setCopiedDescription] = useState<boolean>(false)
 
-  // Monetag ad hook
-  const { showAd } = useMonetag()
+  // Monetag ad hook - pass userRole for ad-free check (subscribers/admins/owners)
+  const { showAd } = useMonetag({ userRole })
 
   // Helper function to get recommended tag count from algorithm data
   const getRecommendedTagCount = (platformId: string): number => {
@@ -1058,8 +1058,8 @@ export default function HomePage() {
       console.log('Clip Upload: Starting upload flow...')
       console.log('Clip Upload: File details:', { name: clipFile.name, type: clipFile.type, size: clipFile.size })
       
-      // Show ad while processing (runs simultaneously with upload/analysis)
-      const adPromise = showAd()
+      // Show 2 ads back-to-back while processing (runs simultaneously with upload/analysis)
+      const adPromise = showAd(2)
       
       // Step 1: Get API key from backend
       setLoadingStep(loadingSteps[0])
@@ -2112,7 +2112,13 @@ export default function HomePage() {
             </div>
           </div>
         ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <Tabs value={activeTab} onValueChange={async (value) => {
+              // Show ad when clicking Tag Generator tab (1 ad for free users)
+              if (value === 'tag-generator-free' && activeTab !== 'tag-generator-free') {
+                await showAd(1)
+              }
+              setActiveTab(value)
+            }} className="space-y-6">
             <TabsList className={`grid w-full grid-cols-6 ${tabListClasses}`}>
               <TabsTrigger 
                 value="algorithms-explained" 
@@ -2127,6 +2133,7 @@ export default function HomePage() {
               >
                 <Hash className="w-4 h-4" />
                 <span className="hidden sm:inline">{t.tagGeneratorFree}</span>
+                {userRole === 'free' && <span className="ml-1 text-xs">(ad)</span>}
               </TabsTrigger>
               <TabsTrigger 
                 value="thumbnail-generator"
@@ -2488,7 +2495,7 @@ export default function HomePage() {
                         Content Details
                       </h4>
                       <div className={`text-base font-medium ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                        Uses: {tagRateLimit.remaining === -1 ? 'Unlimited' : tagRateLimit.remaining}
+                        Uses: {userRole === 'free' ? 'Unlimited (Ad-Supported)' : tagRateLimit.remaining === -1 ? 'Unlimited' : tagRateLimit.remaining}
                       </div>
                     </div>
                     
@@ -2561,47 +2568,30 @@ export default function HomePage() {
                         
                         setIsGeneratingTags(true)
                         try {
-                          // Show ad and call API simultaneously — ad shows while AI works
-                          const [_, res] = await Promise.allSettled([
-                            showAd(),
-                            fetch('/api/tags', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                description: tagDescription,
-                                platform: tagPlatform,
-                                count: tagCount,
-                                userId: user?.username,
-                                isVerified: isVerified
-                              })
+                          // Call API directly (ad shown on tab click)
+                          const res = await fetch('/api/tags', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              description: tagDescription,
+                              platform: tagPlatform,
+                              count: tagCount,
+                              userId: user?.username,
+                              isVerified: true // Free users now have unlimited use with ads
                             })
-                          ])
+                          })
                           
-                          if (res.status === 'rejected') throw new Error(res.reason)
-                          const response = res.value as Response
-                          
-                          if (!response.ok) {
-                            const errorData = await response.json()
-                            if (response.status === 429) {
-                              // Rate limit exceeded
-                              setTagRateLimit({ remaining: 0, resetTime: errorData.resetTime })
-                              const resetDate = new Date(errorData.resetTime)
-                              const maxUses = isVerified ? 20 : 5
-                              const diff = resetDate.getTime() - Date.now()
-                              const hours = Math.floor(diff / (1000 * 60 * 60))
-                              const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-                              const timeString = hours > 0 
-                                ? `${hours} hour${hours > 1 ? 's' : ''} and ${minutes} minute${minutes > 1 ? 's' : ''}`
-                                : `${minutes} minute${minutes > 1 ? 's' : ''}`
-                              alert(`Rate limit exceeded. You have used your ${maxUses} tag generations for the day.\n\nYou can generate more tags in ${timeString}.\n\nResets at: ${resetDate.toLocaleString()}`)
-                            } else {
-                              const errorMsg = errorData.details || errorData.error || `API error: ${res.status}`
-                              throw new Error(errorMsg)
+                          if (!res.ok) {
+                            const errorData = await res.json()
+                            if (res.status === 429) {
+                              // Rate limit exceeded - show message but don't block (free users have unlimited with ads)
+                              console.log('Rate limit reached, but free users have unlimited use with ads')
                             }
-                            return
+                            const errorMsg = errorData.details || errorData.error || `API error: ${res.status}`
+                            throw new Error(errorMsg)
                           }
                           
-                          const data = await response.json()
+                          const data = await res.json()
                           setGeneratedTags(prev => ({ ...prev, [tagPlatform]: data.tags }))
                           if (data.rateLimit) {
                             setTagRateLimit({ remaining: data.rateLimit.remaining, resetTime: data.rateLimit.resetTime })
