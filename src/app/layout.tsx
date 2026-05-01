@@ -1,4 +1,5 @@
 import { Inter } from 'next/font/google'
+import Script from 'next/script'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' })
@@ -17,6 +18,10 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <meta name="monetag" content="34c4c861a7b30bd21ab63f47b27e18d8" />
+        {/* Monetag Vignette Banner Ad */}
+        <Script src="https://cdn.monetag.com/v1/pub.js" data-zone="10950644" strategy="afterInteractive" />
+        {/* Monetag In-Page Push Ad */}
+        <Script src="https://cdn.monetag.com/v1/pub.js" data-zone="10950651" strategy="afterInteractive" />
       </head>
       <body className={inter.className}>
         <div className="min-h-screen bg-gradient-to-br from-sdhq-cyan-50 via-white to-sdhq-green-50 flex flex-col">

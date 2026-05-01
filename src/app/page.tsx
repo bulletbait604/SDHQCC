@@ -42,6 +42,7 @@ import {
   Wand2
 } from 'lucide-react'
 import { createKickAuthURL } from '@/lib/kick-oauth'
+import { useMonetag } from '@/hooks/useMonetag'
 
 interface KickUser {
   id: string
@@ -323,6 +324,9 @@ export default function HomePage() {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
   const [copiedTags, setCopiedTags] = useState<boolean>(false)
   const [copiedDescription, setCopiedDescription] = useState<boolean>(false)
+
+  // Monetag ad hook
+  const { showAd } = useMonetag()
 
   // Helper function to get recommended tag count from algorithm data
   const getRecommendedTagCount = (platformId: string): number => {
@@ -1054,6 +1058,9 @@ export default function HomePage() {
       console.log('Clip Upload: Starting upload flow...')
       console.log('Clip Upload: File details:', { name: clipFile.name, type: clipFile.type, size: clipFile.size })
       
+      // Show ad while processing (runs simultaneously with upload/analysis)
+      const adPromise = showAd()
+      
       // Step 1: Get API key from backend
       setLoadingStep(loadingSteps[0])
       
@@ -1186,6 +1193,9 @@ export default function HomePage() {
       setClipAnalysisResult(data)
       setExtractedData(data.extractedData || null)
       setShowReanalysis(true)
+      
+      // Wait for ad to complete (minimum 5 seconds)
+      await adPromise
       
       // Log activity
       if (user) {
@@ -2551,21 +2561,28 @@ export default function HomePage() {
                         
                         setIsGeneratingTags(true)
                         try {
-                          const res = await fetch('/api/tags', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              description: tagDescription,
-                              platform: tagPlatform,
-                              count: tagCount,
-                              userId: user?.username,
-                              isVerified: isVerified
+                          // Show ad and call API simultaneously — ad shows while AI works
+                          const [_, res] = await Promise.allSettled([
+                            showAd(),
+                            fetch('/api/tags', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                description: tagDescription,
+                                platform: tagPlatform,
+                                count: tagCount,
+                                userId: user?.username,
+                                isVerified: isVerified
+                              })
                             })
-                          })
+                          ])
                           
-                          if (!res.ok) {
-                            const errorData = await res.json()
-                            if (res.status === 429) {
+                          if (res.status === 'rejected') throw new Error(res.reason)
+                          const response = res.value as Response
+                          
+                          if (!response.ok) {
+                            const errorData = await response.json()
+                            if (response.status === 429) {
                               // Rate limit exceeded
                               setTagRateLimit({ remaining: 0, resetTime: errorData.resetTime })
                               const resetDate = new Date(errorData.resetTime)
@@ -2584,7 +2601,7 @@ export default function HomePage() {
                             return
                           }
                           
-                          const data = await res.json()
+                          const data = await response.json()
                           setGeneratedTags(prev => ({ ...prev, [tagPlatform]: data.tags }))
                           if (data.rateLimit) {
                             setTagRateLimit({ remaining: data.rateLimit.remaining, resetTime: data.rateLimit.resetTime })

@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { Wand2, Upload, X, Download, Loader2, ImageIcon, RotateCcw } from 'lucide-react'
+import { useMonetag } from '@/hooks/useMonetag'
 
 interface Platform {
   id: string
@@ -36,6 +37,9 @@ export default function ThumbnailGenerator({ userId, userType, darkMode = true, 
   const [result, setResult] = useState<ThumbnailResult | null>(null)
   const [history, setHistory] = useState<ThumbnailResult[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // Monetag ad hook
+  const { showAd } = useMonetag()
 
   // Theme classes matching other tabs
   const cardClasses = darkMode
@@ -87,8 +91,10 @@ export default function ThumbnailGenerator({ userId, userType, darkMode = true, 
     setIsGenerating(true)
     setError('')
 
-    try {
-      const response = await fetch('/api/thumbnail-generator', {
+    // Show ad and call API simultaneously — ad shows while AI works
+    const [_, data] = await Promise.allSettled([
+      showAd(),
+      fetch('/api/thumbnail-generator', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -97,18 +103,20 @@ export default function ThumbnailGenerator({ userId, userType, darkMode = true, 
           mimeType: mimeOverride ?? imageMime,
           sessionId: userId || 'anon',
         }),
-      })
+      }).then(r => r.json())
+    ])
 
-      const data = await response.json()
-
-      if (!response.ok) throw new Error(data.error || 'Generation failed')
+    try {
+      if (data.status === 'rejected') throw new Error(data.reason)
+      const result = data.value as any
+      if (result.error) throw new Error(result.error)
 
       const newResult: ThumbnailResult = {
-        imageBase64: data.imageBase64,
-        mimeType: data.mimeType || 'image/png',
+        imageBase64: result.imageBase64,
+        mimeType: result.mimeType || 'image/png',
         prompt,
-        key: data.key,
-        description: data.description,
+        key: result.key,
+        description: result.description,
       }
 
       // Push current result to history before replacing (keep last 3)
@@ -122,7 +130,6 @@ export default function ThumbnailGenerator({ userId, userType, darkMode = true, 
           details: `Generated thumbnail with prompt: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`
         })
       }
-
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.')
     } finally {
