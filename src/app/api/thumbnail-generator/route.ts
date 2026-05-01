@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       url: `/api/image?key=${key}`,
       key,
+      imageBase64: imgPart.inlineData.data!,
       description: textPart?.text || "",
     });
 
