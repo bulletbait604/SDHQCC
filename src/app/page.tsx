@@ -35,7 +35,10 @@ import {
   Image as ImageIcon,
   Copy,
   Database,
-  RefreshCw
+  RefreshCw,
+  Upload,
+  Download,
+  Wand2
 } from 'lucide-react'
 import { createKickAuthURL } from '@/lib/kick-oauth'
 
@@ -319,6 +322,15 @@ export default function HomePage() {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
   const [copiedTags, setCopiedTags] = useState<boolean>(false)
   const [copiedDescription, setCopiedDescription] = useState<boolean>(false)
+
+  // Thumbnail Generator states
+  const [thumbnailImage, setThumbnailImage] = useState<File | null>(null)
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null)
+  const [thumbnailPrompt, setThumbnailPrompt] = useState<string>('')
+  const [generatedThumbnail, setGeneratedThumbnail] = useState<string | null>(null)
+  const [isGeneratingThumbnail, setIsGeneratingThumbnail] = useState<boolean>(false)
+  const [thumbnailError, setThumbnailError] = useState<string>('')
+  const [thumbnailHistory, setThumbnailHistory] = useState<Array<{image: string, prompt: string}>>([])
 
   const [platforms, setPlatforms] = useState<Platform[]>([
     {
@@ -2637,9 +2649,277 @@ export default function HomePage() {
                     <ImageIcon className="w-10 h-10 text-sdhq-green-500" />
                     <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorPaid}</h3>
                   </div>
-                  <p className={`${textClasses} text-base`}>{t.tagPaidDesc}</p>
+                  <p className={`${textClasses} text-base`}>Upload an image and describe how you want it edited</p>
                 </div>
-                <p className={`text-center ${subtitleClasses}`}>{t.premiumFeature} - {t.comingSoon}</p>
+
+                {thumbnailError && (
+                  <div className="max-w-2xl mx-auto mb-6 p-4 bg-red-500/10 border border-red-500 rounded-lg">
+                    <p className="text-red-500 text-center">{thumbnailError}</p>
+                  </div>
+                )}
+
+                <div className="max-w-3xl mx-auto space-y-6">
+                  {/* Image Upload Area */}
+                  {!generatedThumbnail && (
+                    <div className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
+                      darkMode 
+                        ? 'border-sdhq-cyan-500/50 hover:border-sdhq-cyan-400 bg-sdhq-dark-700/50' 
+                        : 'border-sdhq-cyan-300 hover:border-sdhq-cyan-500 bg-sdhq-cyan-50/50'
+                    }`}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) {
+                            setThumbnailImage(file)
+                            const reader = new FileReader()
+                            reader.onloadend = () => {
+                              setThumbnailPreview(reader.result as string)
+                            }
+                            reader.readAsDataURL(file)
+                          }
+                        }}
+                        className="hidden"
+                        id="thumbnail-upload"
+                      />
+                      <label 
+                        htmlFor="thumbnail-upload"
+                        className="cursor-pointer flex flex-col items-center space-y-3"
+                      >
+                        <Upload className={`w-12 h-12 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`} />
+                        <p className={`text-lg font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                          {thumbnailPreview ? 'Change Image' : 'Click to upload an image'}
+                        </p>
+                        <p className={`text-sm ${subtitleClasses}`}>
+                          PNG, JPG, GIF up to 10MB
+                        </p>
+                      </label>
+                    </div>
+                  )}
+
+                  {/* Image Preview */}
+                  {thumbnailPreview && !generatedThumbnail && (
+                    <div className="relative rounded-xl overflow-hidden max-h-96">
+                      <img 
+                        src={thumbnailPreview} 
+                        alt="Preview" 
+                        className="w-full h-full object-contain"
+                      />
+                      <button
+                        onClick={() => {
+                          setThumbnailImage(null)
+                          setThumbnailPreview(null)
+                        }}
+                        className="absolute top-2 right-2 p-2 bg-red-500/80 hover:bg-red-500 text-white rounded-full transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Generated Image Display */}
+                  {generatedThumbnail && (
+                    <div className="space-y-4">
+                      <div className="relative rounded-xl overflow-hidden max-h-96 border-2 border-sdhq-green-500">
+                        <img 
+                          src={`data:image/png;base64,${generatedThumbnail}`} 
+                          alt="Generated Thumbnail" 
+                          className="w-full h-full object-contain"
+                        />
+                        <div className="absolute top-2 right-2 flex space-x-2">
+                          <button
+                            onClick={() => {
+                              // Download image
+                              const link = document.createElement('a')
+                              link.href = `data:image/png;base64,${generatedThumbnail}`
+                              link.download = 'thumbnail.png'
+                              link.click()
+                            }}
+                            className="p-2 bg-sdhq-green-500/80 hover:bg-sdhq-green-500 text-white rounded-full transition-colors"
+                            title="Download"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setGeneratedThumbnail(null)
+                              setThumbnailPrompt('')
+                            }}
+                            className="p-2 bg-red-500/80 hover:bg-red-500 text-white rounded-full transition-colors"
+                            title="Start Over"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Re-prompt Section */}
+                      <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-100'}`}>
+                        <p className={`text-sm font-medium mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                          Want to make more changes? Enter a new prompt:
+                        </p>
+                        <div className="flex space-x-3">
+                          <input
+                            type="text"
+                            value={thumbnailPrompt}
+                            onChange={(e) => setThumbnailPrompt(e.target.value)}
+                            placeholder="e.g., Add more contrast, change background to blue..."
+                            className={`flex-1 px-4 py-3 rounded-lg border-2 outline-none transition-all ${
+                              darkMode
+                                ? 'bg-sdhq-dark-600 border-sdhq-dark-500 text-white placeholder-gray-400 focus:border-sdhq-cyan-500'
+                                : 'bg-white border-sdhq-cyan-200 text-gray-900 placeholder-gray-400 focus:border-sdhq-cyan-500'
+                            }`}
+                          />
+                          <Button
+                            onClick={async () => {
+                              if (!thumbnailPrompt.trim()) return
+                              
+                              setIsGeneratingThumbnail(true)
+                              setThumbnailError('')
+                              
+                              try {
+                                const formData = new FormData()
+                                formData.append('prompt', thumbnailPrompt)
+                                formData.append('previousImage', generatedThumbnail!)
+                                
+                                const response = await fetch('/api/thumbnail-generator', {
+                                  method: 'POST',
+                                  body: formData
+                                })
+                                
+                                if (!response.ok) {
+                                  const errorData = await response.json()
+                                  throw new Error(errorData.error || 'Failed to generate thumbnail')
+                                }
+                                
+                                const data = await response.json()
+                                
+                                // Save to history
+                                setThumbnailHistory(prev => [...prev, { 
+                                  image: generatedThumbnail!, 
+                                  prompt: thumbnailPrompt 
+                                }])
+                                
+                                setGeneratedThumbnail(data.imageBase64)
+                                setThumbnailPrompt('')
+                              } catch (error: any) {
+                                setThumbnailError(error.message || 'Failed to generate thumbnail. Please try again.')
+                              } finally {
+                                setIsGeneratingThumbnail(false)
+                              }
+                            }}
+                            disabled={isGeneratingThumbnail || !thumbnailPrompt.trim()}
+                            className="px-6 py-3 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 text-white font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                          >
+                            {isGeneratingThumbnail ? (
+                              <>
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                <span>Editing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 className="w-5 h-5" />
+                                <span>Edit Again</span>
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* History */}
+                      {thumbnailHistory.length > 0 && (
+                        <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-700' : 'bg-gray-100'}`}>
+                          <p className={`text-sm font-medium mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                            Previous Versions:
+                          </p>
+                          <div className="flex space-x-3 overflow-x-auto pb-2">
+                            {thumbnailHistory.map((item, index) => (
+                              <button
+                                key={index}
+                                onClick={() => {
+                                  setGeneratedThumbnail(item.image)
+                                  // Truncate history to this point
+                                  setThumbnailHistory(thumbnailHistory.slice(0, index))
+                                }}
+                                className="flex-shrink-0 relative group"
+                              >
+                                <img 
+                                  src={`data:image/png;base64,${item.image}`}
+                                  alt={`Version ${index + 1}`}
+                                  className="w-20 h-20 object-cover rounded-lg border-2 border-transparent group-hover:border-sdhq-cyan-500 transition-all"
+                                />
+                                <p className="text-xs mt-1 truncate max-w-[80px] text-center">{item.prompt}</p>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Initial Generate Button */}
+                  {thumbnailPreview && !generatedThumbnail && (
+                    <div className="space-y-4">
+                      <textarea
+                        value={thumbnailPrompt}
+                        onChange={(e) => setThumbnailPrompt(e.target.value)}
+                        placeholder="Describe how you want to edit the image... (e.g., 'Make it more vibrant', 'Add text overlay saying Subscribe', 'Change background to dark mode')"
+                        rows={3}
+                        className={`w-full px-4 py-3 rounded-lg border-2 outline-none transition-all resize-none ${
+                          darkMode
+                            ? 'bg-sdhq-dark-600 border-sdhq-dark-500 text-white placeholder-gray-400 focus:border-sdhq-cyan-500'
+                            : 'bg-white border-sdhq-cyan-200 text-gray-900 placeholder-gray-400 focus:border-sdhq-cyan-500'
+                        }`}
+                      />
+                      <Button
+                        onClick={async () => {
+                          if (!thumbnailImage || !thumbnailPrompt.trim()) return
+                          
+                          setIsGeneratingThumbnail(true)
+                          setThumbnailError('')
+                          
+                          try {
+                            const formData = new FormData()
+                            formData.append('image', thumbnailImage)
+                            formData.append('prompt', thumbnailPrompt)
+                            
+                            const response = await fetch('/api/thumbnail-generator', {
+                              method: 'POST',
+                              body: formData
+                            })
+                            
+                            if (!response.ok) {
+                              const errorData = await response.json()
+                              throw new Error(errorData.error || 'Failed to generate thumbnail')
+                            }
+                            
+                            const data = await response.json()
+                            setGeneratedThumbnail(data.imageBase64)
+                          } catch (error: any) {
+                            setThumbnailError(error.message || 'Failed to generate thumbnail. Please try again.')
+                          } finally {
+                            setIsGeneratingThumbnail(false)
+                          }
+                        }}
+                        disabled={isGeneratingThumbnail || !thumbnailPrompt.trim()}
+                        className="w-full py-4 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 text-white font-bold text-lg rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-3"
+                      >
+                        {isGeneratingThumbnail ? (
+                          <>
+                            <Loader2 className="w-6 h-6 animate-spin" />
+                            <span>Generating Thumbnail...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Wand2 className="w-6 h-6" />
+                            <span>Generate Thumbnail</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
             </TabsContent>
 
@@ -3971,30 +4251,30 @@ export default function HomePage() {
       </main>
 
       {/* Footer */}
-      <footer className={`border-t ${darkMode ? 'border-sdhq-dark-700 bg-sdhq-dark-800' : 'border-sdhq-cyan-200 bg-white/80'} mt-8`}>
+      <footer className={`border-t-2 ${darkMode ? 'border-sdhq-cyan-500 bg-gradient-to-r from-sdhq-dark-800 via-sdhq-dark-700 to-sdhq-dark-800' : 'border-sdhq-green-500 bg-gradient-to-r from-sdhq-cyan-50 via-white to-sdhq-cyan-50'} mt-8`}>
         <div className="container mx-auto px-4 py-6">
           <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
             <div className="text-center md:text-left">
-              <p className={`text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-base font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                 {t.footerCopyright}
               </p>
-              <p className={`text-sm mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+              <p className={`text-sm mt-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                 {t.footerTagline}
               </p>
-              <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-sm mt-1 font-medium ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}`}>
                 Support: Bulletbait604@gmail.com
               </p>
             </div>
-            <div className="flex space-x-4">
+            <div className="flex space-x-6">
               <button 
                 onClick={() => setShowPrivacyPolicy(true)}
-                className={`text-base hover:underline ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}
+                className={`text-base font-semibold hover:underline transition-colors ${darkMode ? 'text-sdhq-cyan-400 hover:text-sdhq-cyan-300' : 'text-sdhq-cyan-600 hover:text-sdhq-cyan-700'}`}
               >
                 {t.privacyPolicy}
               </button>
               <button 
                 onClick={() => setShowTerms(true)}
-                className={`text-base hover:underline ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}
+                className={`text-base font-semibold hover:underline transition-colors ${darkMode ? 'text-sdhq-cyan-400 hover:text-sdhq-cyan-300' : 'text-sdhq-cyan-600 hover:text-sdhq-cyan-700'}`}
               >
                 {t.termsOfService}
               </button>
