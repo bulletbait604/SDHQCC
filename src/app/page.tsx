@@ -1350,11 +1350,12 @@ export default function HomePage() {
     try {
       const { url, codeVerifier } = await createKickAuthURL()
       // Use cookie for better persistence across redirects
-      // Secure flag added for HTTPS, max-age increased to 10 minutes
+      // SameSite=None required for OAuth cross-site redirect
       const isSecure = window.location.protocol === 'https:'
       const secureFlag = isSecure ? '; Secure' : ''
-      document.cookie = `kickCodeVerifier=${codeVerifier}; path=/; max-age=600; SameSite=Lax${secureFlag}`
-      document.cookie = `kickAuthReturn=${window.location.pathname}; path=/; max-age=600; SameSite=Lax${secureFlag}`
+      const sameSite = isSecure ? 'None' : 'Lax'
+      document.cookie = `kickCodeVerifier=${codeVerifier}; path=/; max-age=600; SameSite=${sameSite}${secureFlag}`
+      document.cookie = `kickAuthReturn=${window.location.pathname}; path=/; max-age=600; SameSite=${sameSite}${secureFlag}`
       window.location.href = url
     } catch (error) {
       console.error('Failed to create KICK auth URL:', error)

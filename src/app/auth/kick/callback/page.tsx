@@ -68,9 +68,11 @@ export default function KickCallbackPage() {
           localStorage.setItem('kickAccessToken', data.accessToken)
         }
 
-        // Clean up cookies
-        document.cookie = 'kickCodeVerifier=; path=/; max-age=0; SameSite=Lax'
-        document.cookie = 'kickAuthReturn=; path=/; max-age=0; SameSite=Lax'
+        // Clean up cookies - use SameSite=None to match how they were set
+        const isSecure = window.location.protocol === 'https:'
+        const secureFlag = isSecure ? '; Secure' : ''
+        document.cookie = `kickCodeVerifier=; path=/; max-age=0; SameSite=None${secureFlag}`
+        document.cookie = `kickAuthReturn=; path=/; max-age=0; SameSite=None${secureFlag}`
 
         setStatus('success')
 
