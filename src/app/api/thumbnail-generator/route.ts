@@ -7,7 +7,7 @@ const BUCKET = process.env.R2_BUCKET_NAME || 'sdhq-uploads'
 const PUBLIC_URL = process.env.R2_PUBLIC_URL || `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${BUCKET}`
 
 // Gemini model
-const MODEL_NAME = 'gemini-2.0-flash-preview-image-generation'
+const MODEL_NAME = 'gemini-3.1-flash-image-preview'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
@@ -129,9 +129,22 @@ INSTRUCTIONS:
 
     let response
     try {
-      // Use direct REST API - simplified for Gemini 2.0 flash
+      // Use direct REST API for full parameter support
       const requestBody: any = {
-        contents: [{ role: 'user', parts: parts }]
+        contents: [{ role: 'user', parts: parts }],
+        generationConfig: {
+          responseModalities: ['image'],
+          outputMimeType: 'image/png',
+          aspectRatio: '16:9'
+        }
+      }
+
+      // Add structural reference if editing an image
+      if (imageBase64) {
+        requestBody.generationConfig.structuralReference = {
+          referenceId: 1,
+          structuralStrength: 0.8
+        }
       }
 
       const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${geminiApiKey}`, {
