@@ -3245,12 +3245,12 @@ export default function HomePage() {
                                 Post Suggestions
                               </h4>
                               <div className={`text-sm px-3 py-1 rounded ${darkMode ? 'bg-sdhq-dark-700 text-sdhq-cyan-400' : 'bg-gray-100 text-sdhq-cyan-600'}`}>
-                                {clipPlatform === 'tiktok' ? '🎵 TikTok' : clipPlatform === 'youtube' ? '▶️ YouTube' : '📸 Instagram'} Optimized
+                                {clipPlatform === 'tiktok' ? '🎵 TikTok' : clipPlatform === 'youtube' || clipPlatform === 'youtube-shorts' || clipPlatform === 'youtube-long' ? '▶️ YouTube' : '📸 Instagram'} Optimized
                               </div>
                             </div>
                             
                             {/* YouTube: Separate Title, Description, Tags */}
-                            {clipPlatform === 'youtube' ? (
+                            {clipPlatform === 'youtube' || clipPlatform === 'youtube-shorts' || clipPlatform === 'youtube-long' ? (
                               <>
                                 {/* Title Options */}
                                 <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 mb-4 ${
@@ -3270,7 +3270,9 @@ export default function HomePage() {
                                     <ul className={`mt-3 space-y-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                       {(clipAnalysisResult.titles || [clipAnalysisResult.title]).filter(Boolean).map((title: string, idx: number) => {
                                         const platformEmojis: Record<string, string[]> = {
-                                          youtube: ['🔴', '🎬', '▶️', '💡', '🚀']
+                                          youtube: ['🔴', '🎬', '▶️', '💡', '🚀'],
+                                          'youtube-shorts': ['🎬', '⚡', '🔴', '📱', '🚀'],
+                                          'youtube-long': ['🔴', '🎬', '▶️', '💡', '🚀']
                                         }
                                         const emojis = platformEmojis[clipPlatform] || ['✨']
                                         const randomEmoji = emojis[idx % emojis.length]
