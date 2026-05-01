@@ -1,6 +1,6 @@
 import { Inter } from 'next/font/google'
-import Script from 'next/script'
 import './globals.css'
+import Providers from './providers'
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' })
 
@@ -31,20 +31,26 @@ export default function RootLayout({
         <meta name="monetag" content="34c4c861a7b30bd21ab63f47b27e18d8" />
         {/* Monetag Verification for new URL (sdcreatorcorner.com) */}
         <meta name="monetag" content="36cf25b1528ec69734791ef4c8d8d2e0" />
-        {/* Monetag Vignette Banner Ad */}
-        <Script src="https://cdn.monetag.com/v1/pub.js" data-zone="10950644" strategy="afterInteractive" />
-        {/* Monetag In-Page Push Ad */}
-        <Script src="https://cdn.monetag.com/v1/pub.js" data-zone="10950651" strategy="afterInteractive" />
       </head>
       <body className={inter.className}>
         <div className="min-h-screen bg-gradient-to-br from-sdhq-cyan-50 via-white to-sdhq-green-50 flex flex-col">
-          <main className="flex-grow">
-            {children}
-          </main>
+          <Providers>
+            <main className="flex-grow">
+              {children}
+            </main>
           <footer className="bg-gradient-to-r from-sdhq-cyan-600 to-sdhq-green-500 text-white py-4 px-6">
             <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm opacity-90">
-                © {new Date().getFullYear()} SDHQ Creator Corner. All rights reserved.
+              <div className="flex items-center gap-4">
+                <span className="text-sm opacity-90">
+                  © {new Date().getFullYear()} SDHQ Creator Corner. All rights reserved.
+                </span>
+                <span className="hidden sm:inline text-white/50">|</span>
+                <a href="/privacy" className="text-sm opacity-90 hover:opacity-100 underline transition-opacity">
+                  Privacy Policy
+                </a>
+                <span className="text-xs opacity-70 bg-white/10 px-2 py-1 rounded">
+                  This site uses advertising to support free access.
+                </span>
               </div>
               <form action="https://www.paypal.com/donate" method="post" target="_blank" className="flex items-center gap-3">
                 <input type="hidden" name="amount" value="5" />
@@ -61,6 +67,7 @@ export default function RootLayout({
               </form>
             </div>
           </footer>
+          </Providers>
         </div>
       </body>
     </html>
