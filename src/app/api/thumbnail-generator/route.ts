@@ -16,30 +16,61 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API! });
 
 export async function POST(req: NextRequest) {
   try {
-    const { imageBase64, mimeType, prompt, sessionId } = await req.json();
+    const { prompt, imageBase64, mimeType, sessionId } = await req.json();
 
-    if (!imageBase64 || !prompt) {
-      return NextResponse.json({ error: "Missing imageBase64 or prompt" }, { status: 400 });
+    if (!prompt) {
+      return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
     }
+
+    const parts: any[] = [];
+
+    // Add image if provided
+    if (imageBase64) {
+      parts.push({
+        inlineData: {
+          data: imageBase64,
+          mimeType: mimeType || "image/jpeg",
+        },
+      });
+    }
+
+    // Add prompt text
+    const promptText = imageBase64
+      ? `You are a professional YouTube thumbnail designer.
+
+An image has been provided. Use it as the main subject/focal point of the thumbnail.
+
+Task: ${prompt}
+
+Design rules:
+- Output a 1280x720 landscape thumbnail
+- High contrast, bold colours that pop on dark and light backgrounds
+- Clear visual hierarchy — the subject should be immediately obvious
+- Leave space for text overlays if the prompt mentions titles or text
+- Professional, eye-catching composition that maximises click-through rate`
+      : `You are a professional YouTube thumbnail designer.
+
+Task: ${prompt}
+
+Design rules:
+- Output a 1280x720 landscape thumbnail
+- High contrast, bold colours that pop on dark and light backgrounds
+- Clear visual hierarchy with an obvious focal point
+- Leave space for text overlays if the prompt mentions titles or text
+- Professional, eye-catching composition that maximises click-through rate`;
+
+    parts.push({ text: promptText });
 
     const response = await ai.models.generateContent({
       model: "gemini-3.1-flash-image-preview",
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { inlineData: { data: imageBase64, mimeType: mimeType || "image/jpeg" } },
-            { text: `You are a professional thumbnail designer. Transform this image into a striking YouTube/social media thumbnail.\n\nInstructions: ${prompt}\n\nRequirements:\n- High contrast, eye-catching composition\n- Bold visual hierarchy\n- Optimised for 1280x720 landscape format\n- Vibrant colours that pop on both dark and light backgrounds` },
-          ],
-        },
-      ],
+      contents: [{ role: "user", parts }],
       config: {
         responseModalities: [Modality.TEXT, Modality.IMAGE],
       },
     });
 
-    const parts = response.candidates?.[0]?.content?.parts ?? [];
-    const imgPart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith("image/"));
+    const responseParts = response.candidates?.[0]?.content?.parts ?? [];
+    const imgPart = responseParts.find((p: any) => p.inlineData?.mimeType?.startsWith("image/"));
 
     if (!imgPart?.inlineData) {
       return NextResponse.json({ error: "Gemini did not return an image. Try rephrasing your prompt." }, { status: 500 });
@@ -57,7 +88,7 @@ export async function POST(req: NextRequest) {
       Metadata: { prompt: prompt.slice(0, 1024) },
     }));
 
-    const textPart = parts.find((p: any) => p.text);
+    const textPart = responseParts.find((p: any) => p.text);
 
     return NextResponse.json({
       url: `/api/image?key=${key}`,
