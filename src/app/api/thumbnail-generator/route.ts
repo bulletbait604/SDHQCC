@@ -74,12 +74,18 @@ Output: 1280x720 landscape thumbnail. High contrast, bold colors, clear visual h
     const ext = imgPart.inlineData.mimeType!.split("/")[1]?.split(";")[0] || "png";
     const key = `thumbnails/${sessionId || uuidv4()}/${uuidv4()}.${ext}`;
 
+    // Sanitize prompt for metadata header (remove newlines, control chars)
+    const sanitizedPrompt = prompt
+      .replace(/[\r\n]+/g, ' ')  // Replace newlines with spaces
+      .replace(/[^\x20-\x7E]/g, '') // Remove non-printable ASCII
+      .slice(0, 512); // Limit length
+
     await r2.send(new PutObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME!,
       Key: key,
       Body: imgBuffer,
       ContentType: imgPart.inlineData.mimeType,
-      Metadata: { prompt: prompt.slice(0, 1024) },
+      Metadata: { prompt: sanitizedPrompt },
     }));
 
     const textPart = responseParts.find((p: any) => p.text);
