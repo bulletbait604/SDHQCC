@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { PutObjectCommand } from '@aws-sdk/client-s3'
+import { r2Client } from '@/lib/r2'
+
+// R2 config
+const BUCKET = process.env.R2_BUCKET_NAME || 'sdhq-uploads'
+const PUBLIC_URL = process.env.R2_PUBLIC_URL || `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${BUCKET}`
+
+// Gemini model
+const MODEL_NAME = 'gemini-2.0-flash-preview-image-generation'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
-
-const MODEL_NAME = 'gemini-3.1-flash-image-preview'
 
 // In-memory rate limit storage
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
@@ -214,9 +221,35 @@ INSTRUCTIONS:
       )
     }
 
+    // Upload generated image to R2 for persistence
+    let r2Url: string | null = null
+    let r2Key: string | null = null
+    try {
+      const imgBuffer = Buffer.from(generatedImageBase64, 'base64')
+      const ext = 'png'
+      const r2Key = `thumbnails/${userId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
+      
+      await r2Client.send(
+        new PutObjectCommand({
+          Bucket: BUCKET,
+          Key: r2Key,
+          Body: imgBuffer,
+          ContentType: 'image/png',
+        })
+      )
+      
+      r2Url = `${PUBLIC_URL}/${r2Key}`
+      console.log('[Thumbnail] Saved to R2:', r2Url)
+    } catch (r2Error) {
+      console.error('[Thumbnail] R2 upload failed:', r2Error)
+      // Continue without R2 URL - base64 still available
+    }
+
     return NextResponse.json({
       success: true,
       imageBase64: generatedImageBase64,
+      url: r2Url,
+      key: r2Key,
       mimeType: 'image/png',
       remaining: rateLimit.remaining,
       resetTime: rateLimit.resetTime
