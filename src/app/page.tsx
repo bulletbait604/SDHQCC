@@ -2720,7 +2720,7 @@ export default function HomePage() {
 
                   {/* Image Preview */}
                   {thumbnailPreview && !generatedThumbnail && (
-                    <div className="relative rounded-xl overflow-hidden max-h-96 border-2 border-sdhq-cyan-500/50">
+                    <div className="relative rounded-xl overflow-hidden max-h-48 border-2 border-sdhq-cyan-500/50 mx-auto max-w-md">
                       <img 
                         src={thumbnailPreview} 
                         alt="Preview" 
@@ -2744,7 +2744,7 @@ export default function HomePage() {
                   {/* Generated Image Display */}
                   {generatedThumbnail && (
                     <div className="space-y-4">
-                      <div className="relative rounded-xl overflow-hidden max-h-96 border-2 border-sdhq-green-500">
+                      <div className="relative rounded-xl overflow-hidden max-h-56 border-2 border-sdhq-green-500 mx-auto max-w-lg">
                         <img 
                           src={`data:image/png;base64,${generatedThumbnail}`} 
                           alt="Generated Thumbnail" 
