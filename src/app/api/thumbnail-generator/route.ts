@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenAI } from '@google/genai'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
-const MODEL_NAME = 'gemini-2.0-flash-exp'
+const MODEL_NAME = 'gemini-3.1-flash-image-preview'
 
 // In-memory rate limit storage
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
@@ -80,8 +79,6 @@ export async function POST(request: NextRequest) {
       imageBase64 = previousImageBase64
     }
 
-    const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
-
     console.log('[Thumbnail] Calling Gemini API with model:', MODEL_NAME, imageBase64 ? '(editing image)' : '(generating from text)')
 
     // Build contents based on whether image is provided
@@ -125,15 +122,36 @@ INSTRUCTIONS:
 
     let response
     try {
-      response = await genAI.models.generateContent({
-        model: MODEL_NAME,
-        contents: [
-          {
-            role: 'user',
-            parts: parts
-          }
-        ]
+      // Use direct REST API for full parameter support
+      const requestBody: any = {
+        contents: [{ role: 'user', parts: parts }],
+        generationConfig: {
+          responseModalities: ['image'],
+          outputMimeType: 'image/png',
+          aspectRatio: '16:9'
+        }
+      }
+
+      // Add structural reference if editing an image
+      if (imageBase64) {
+        requestBody.generationConfig.structuralReference = {
+          referenceId: 1,
+          structuralStrength: 0.8
+        }
+      }
+
+      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${geminiApiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
       })
+
+      if (!geminiResponse.ok) {
+        const errorData = await geminiResponse.json()
+        throw new Error(`Gemini API error: ${geminiResponse.status} - ${JSON.stringify(errorData)}`)
+      }
+
+      response = await geminiResponse.json()
       console.log('[Thumbnail] Gemini API response received')
     } catch (geminiError: any) {
       console.error('[Thumbnail] Gemini API error:', geminiError)
