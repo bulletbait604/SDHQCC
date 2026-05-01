@@ -324,6 +324,41 @@ export default function HomePage() {
   const [copiedTags, setCopiedTags] = useState<boolean>(false)
   const [copiedDescription, setCopiedDescription] = useState<boolean>(false)
 
+  // Helper function to get recommended tag count from algorithm data
+  const getRecommendedTagCount = (platformId: string): number => {
+    const platform = platforms.find(p => p.id === platformId)
+    if (!platform?.data?.descriptionTips) return 10 // Default fallback
+    
+    // Parse descriptionTips for tag count recommendations
+    const tips = platform.data.descriptionTips.toLowerCase()
+    
+    // Look for patterns like "2-3 hashtags", "3–5 keywords", "up to 30 hashtags"
+    const rangeMatch = tips.match(/(\d+)[–-](\d+)\s*(hashtag|keyword|tag)/)
+    if (rangeMatch) {
+      return parseInt(rangeMatch[2]) // Use the upper bound of the range
+    }
+    
+    const upToMatch = tips.match(/up to (\d+)\s*(hashtag|keyword|tag)/)
+    if (upToMatch) {
+      return parseInt(upToMatch[1])
+    }
+    
+    const exactMatch = tips.match(/(\d+)\s*(hashtag|keyword|tag)/)
+    if (exactMatch) {
+      return parseInt(exactMatch[1])
+    }
+    
+    // Platform-specific defaults based on algorithm data patterns
+    if (platformId === 'tiktok') return 3
+    if (platformId === 'instagram') return 30
+    if (platformId === 'youtube-shorts') return 5
+    if (platformId === 'youtube-long') return 10
+    if (platformId === 'youtube') return 10
+    if (platformId === 'facebook-reels') return 5
+    
+    return 10
+  }
+
   // Thumbnail Generator is now a separate component in @/app/components/ThumbnailGenerator
 
   const [platforms, setPlatforms] = useState<Platform[]>([
@@ -3348,12 +3383,13 @@ export default function HomePage() {
                                       <div className="flex items-center gap-3">
                                         <span className="text-2xl">#️⃣</span>
                                         <div className={`text-base font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                          Tags (for YouTube)
+                                          Tags (Recommended: {getRecommendedTagCount(clipPlatform)})
                                         </div>
                                       </div>
                                       <button
                                         onClick={() => {
-                                          const tagsText = (clipAnalysisResult.tags || []).map((t: string) => t.replace(/^#/, '')).join(', ')
+                                          const recommendedCount = getRecommendedTagCount(clipPlatform)
+                                          const tagsText = (clipAnalysisResult.tags || []).slice(0, recommendedCount).map((t: string) => t.replace(/^#/, '')).join(', ')
                                           navigator.clipboard.writeText(tagsText)
                                           setCopiedTags(true)
                                           setTimeout(() => setCopiedTags(false), 2000)
@@ -3369,7 +3405,7 @@ export default function HomePage() {
                                     </div>
                                     <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
                                       <div className="mt-3 flex flex-wrap gap-2">
-                                        {(clipAnalysisResult.tags || []).map((tag: string, idx: number) => (
+                                        {(clipAnalysisResult.tags || []).slice(0, getRecommendedTagCount(clipPlatform)).map((tag: string, idx: number) => (
                                           <span key={idx} className={`px-3 py-1.5 rounded text-sm font-mono cursor-pointer hover:scale-105 transition-transform ${
                                             darkMode 
                                               ? 'bg-sdhq-dark-800 text-sdhq-cyan-400 border border-sdhq-cyan-500/20 hover:bg-sdhq-cyan-500/10' 
@@ -3387,7 +3423,7 @@ export default function HomePage() {
                                         ))}
                                       </div>
                                       <div className={`mt-3 text-sm ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                        💡 Click any tag to copy individually (comma-separated format)
+                                        💡 Showing {Math.min((clipAnalysisResult.tags || []).length, getRecommendedTagCount(clipPlatform))} of {(clipAnalysisResult.tags || []).length} tags (recommended for {clipPlatform})
                                       </div>
                                     </div>
                                   </div>
@@ -3424,8 +3460,8 @@ export default function HomePage() {
                                           
                                           const desc = clipAnalysisResult.description?.replace(/<[^>]*>/g, '') || ''
                                           
-                                          // Platform-specific hashtag limits
-                                          const tagCount = clipPlatform === 'tiktok' ? 4 : clipPlatform === 'instagram' ? 30 : 10
+                                          // Get recommended tag count from algorithm data
+                                          const tagCount = getRecommendedTagCount(clipPlatform)
                                           const tags = (clipAnalysisResult.tags || []).slice(0, tagCount)
                                           const hashtagBlock = tags.map((t: string) => `#${t.replace(/^#/, '')}`).join(' ')
                                           
@@ -3469,14 +3505,14 @@ export default function HomePage() {
                                         {/* Hashtags inline */}
                                         {(clipAnalysisResult.tags || []).length > 0 && (
                                           <p className="text-base text-sdhq-cyan-500">
-                                            {(clipAnalysisResult.tags || []).slice(0, clipPlatform === 'tiktok' ? 4 : clipPlatform === 'instagram' ? 30 : 10).map((tag: string) => (
+                                            {(clipAnalysisResult.tags || []).slice(0, getRecommendedTagCount(clipPlatform)).map((tag: string) => (
                                               `#${tag.replace(/^#/, '')} `
                                             ))}
                                           </p>
                                         )}
                                       </div>
                                       <div className={`mt-3 text-sm ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                        💡 {clipPlatform === 'tiktok' ? 'TikTok: Title + Description + 4 hashtags in caption field' : clipPlatform === 'instagram' ? 'Instagram: Title + Description + up to 30 hashtags' : 'Caption includes title, description, and hashtags'}
+                                        💡 {clipPlatform === 'tiktok' ? `TikTok: Title + Description + ${getRecommendedTagCount('tiktok')} hashtags in caption field` : clipPlatform === 'instagram' ? `Instagram: Title + Description + up to ${getRecommendedTagCount('instagram')} hashtags` : `Caption includes title, description, and ${getRecommendedTagCount(clipPlatform)} hashtags`}
                                       </div>
                                     </div>
                                   </div>
