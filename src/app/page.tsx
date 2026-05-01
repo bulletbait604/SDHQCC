@@ -32,6 +32,7 @@ import {
   ExternalLink,
   Loader2,
   Sparkles,
+  Image as ImageIcon,
   Copy,
   Database,
   RefreshCw
@@ -101,9 +102,10 @@ const translations = {
     loginButton: 'Login with Kick to Get Started',
     algorithmsExplained: 'Algorithms Explained',
     tagGeneratorFree: 'Tag Generator (Free)',
-    tagGeneratorPaid: 'Tag Generator (Paid)',
+    tagGeneratorPaid: 'Thumbnail Generator',
     clipAnalyzer: 'Clip Analyzer (Paid)',
     contentAnalyzer: 'Content Analyzer (Paid)',
+    kickClips: 'KICK Clips',
     settings: 'Settings',
     logout: 'Logout',
     verifySubscription: 'Verify Subscription',
@@ -132,9 +134,10 @@ const translations = {
     loginButton: 'Iniciar sesión con Kick',
     algorithmsExplained: 'Algoritmos Explicados',
     tagGeneratorFree: 'Generador de Etiquetas (Gratis)',
-    tagGeneratorPaid: 'Generador de Etiquetas (Pago)',
+    tagGeneratorPaid: 'Generador de Miniaturas',
     clipAnalyzer: 'Analizador de Clips (Pago)',
     contentAnalyzer: 'Analizador de Contenido (Pago)',
+    kickClips: 'KICK Clips',
     settings: 'Configuración',
     logout: 'Cerrar sesión',
     verifySubscription: 'Verificar Suscripción',
@@ -163,9 +166,10 @@ const translations = {
     loginButton: 'Connexion avec Kick',
     algorithmsExplained: 'Algorithmes Expliqués',
     tagGeneratorFree: 'Générateur de Tags (Gratuit)',
-    tagGeneratorPaid: 'Générateur de Tags (Payant)',
+    tagGeneratorPaid: 'Générateur de Miniatures',
     clipAnalyzer: 'Analyseur de Clips (Payant)',
     contentAnalyzer: 'Analyseur de Contenu (Payant)',
+    kickClips: 'KICK Clips',
     settings: 'Paramètres',
     logout: 'Déconnexion',
     verifySubscription: 'Vérifier Abonnement',
@@ -194,9 +198,10 @@ const translations = {
     loginButton: 'Mit Kick anmelden',
     algorithmsExplained: 'Algorithmen Erklärt',
     tagGeneratorFree: 'Tag Generator (Kostenlos)',
-    tagGeneratorPaid: 'Tag Generator (Bezahlt)',
+    tagGeneratorPaid: 'Thumbnail Generator',
     clipAnalyzer: 'Clip Analyzer (Bezahlt)',
     contentAnalyzer: 'Content Analyzer (Bezahlt)',
+    kickClips: 'KICK Clips',
     settings: 'Einstellungen',
     logout: 'Abmelden',
     verifySubscription: 'Abonnement Verifizieren',
@@ -2070,10 +2075,10 @@ export default function HomePage() {
                 <span className="hidden sm:inline">{t.tagGeneratorFree}</span>
               </TabsTrigger>
               <TabsTrigger 
-                value="tag-generator-paid"
+                value="thumbnail-generator"
                 className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
               >
-                <Hash className="w-4 h-4" />
+                <ImageIcon className="w-4 h-4" />
                 <span className="hidden sm:inline">{t.tagGeneratorPaid}</span>
               </TabsTrigger>
               <TabsTrigger 
@@ -2082,6 +2087,13 @@ export default function HomePage() {
               >
                 <Video className="w-4 h-4" />
                 <span className="hidden sm:inline">{t.clipAnalyzer}</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="kick-clips"
+                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
+              >
+                <Video className="w-4 h-4" />
+                <span className="hidden sm:inline">{t.kickClips}</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="settings"
@@ -2618,11 +2630,11 @@ export default function HomePage() {
               </div>
             </TabsContent>
 
-            <TabsContent value="tag-generator-paid">
+            <TabsContent value="thumbnail-generator">
               <div className={`py-8 ${cardClasses}`}>
                 <div className="flex flex-col items-center mb-6">
                   <div className="flex items-center space-x-4 mb-3">
-                    <Hash className="w-10 h-10 text-sdhq-green-500" />
+                    <ImageIcon className="w-10 h-10 text-sdhq-green-500" />
                     <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorPaid}</h3>
                   </div>
                   <p className={`${textClasses} text-base`}>{t.tagPaidDesc}</p>
@@ -3446,6 +3458,19 @@ export default function HomePage() {
               </div>
             </TabsContent>
 
+
+            <TabsContent value="kick-clips">
+              <div className={`py-8 ${cardClasses}`}>
+                <div className="flex flex-col items-center mb-6">
+                  <div className="flex items-center space-x-4 mb-3">
+                    <Video className="w-10 h-10 text-sdhq-green-500" />
+                    <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.kickClips}</h3>
+                  </div>
+                  <p className={`${textClasses} text-base`}>Browse and download the latest KICK clips</p>
+                </div>
+                <p className={`text-center ${subtitleClasses}`}>{t.comingSoon}</p>
+              </div>
+            </TabsContent>
             <TabsContent value="settings">
               <div className={`py-8 ${cardClasses}`}>
                 <div className="flex flex-col items-center mb-6">
