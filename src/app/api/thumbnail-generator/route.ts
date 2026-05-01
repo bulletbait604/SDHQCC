@@ -129,9 +129,15 @@ INSTRUCTIONS:
 
     let response
     try {
-      // Use simplified request format - Gemini image gen models don't support advanced generationConfig
+      // Use generationConfig with correct parameters for image generation
       const requestBody: any = {
-        contents: [{ role: 'user', parts: parts }]
+        contents: [{ role: 'user', parts: parts }],
+        generationConfig: {
+          aspectRatio: '16:9',
+          temperature: 1.0,
+          topP: 0.95,
+          candidateCount: 1
+        }
       }
 
       const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${geminiApiKey}`, {
