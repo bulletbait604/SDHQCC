@@ -30,18 +30,10 @@ function checkRateLimit(identifier: string, maxUses: number = 10, windowMs: numb
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication via API key or session
-    const apiKey = request.headers.get('x-api-key')
-    const sessionCookie = request.cookies.get('session')?.value
-    
-    if (!apiKey && !sessionCookie) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const identifier = apiKey || sessionCookie || 'anonymous'
+    const formData = await request.formData()
+    const userId = (formData.get('userId') as string) || 'anonymous'
+    const userType = (formData.get('userType') as string) || 'free'
+    const identifier = userId
     const rateLimit = checkRateLimit(identifier)
     
     if (!rateLimit.allowed) {
@@ -55,7 +47,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const formData = await request.formData()
     const imageFile = formData.get('image') as File | null
     const prompt = formData.get('prompt') as string
     const previousImageBase64 = formData.get('previousImage') as string | null

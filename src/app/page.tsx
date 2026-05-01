@@ -534,6 +534,9 @@ export default function HomePage() {
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [isLifetimeMember, setIsLifetimeMember] = useState(false)
 
+  // Computed user type for API calls
+  const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetimeMember ? 'lifetime' : isSubscribed ? 'subscribed' : 'free'
+
   // Recalculate roles when user or lists change (legacy)
   useEffect(() => {
     const normalizedUsername = user?.username?.replace(/^@/, '').toLowerCase() || ''
@@ -1135,7 +1138,7 @@ export default function HomePage() {
           fileSize: clipFile.size,
           platform: clipPlatform,
           userId: user?.id || '',
-          userType: userType
+          userType
         })
       })
 
@@ -2804,12 +2807,13 @@ export default function HomePage() {
                               try {
                                 const formData = new FormData()
                                 formData.append('prompt', thumbnailPrompt)
+                                formData.append('userId', user?.id || '')
+                                formData.append('userType', userType)
                                 formData.append('previousImage', generatedThumbnail!)
                                 
                                 const response = await fetch('/api/thumbnail-generator', {
                                   method: 'POST',
-                                  body: formData,
-                                  credentials: 'include'
+                                  body: formData
                                 })
                                 
                                 if (!response.ok) {
@@ -2906,6 +2910,8 @@ export default function HomePage() {
                           try {
                             const formData = new FormData()
                             formData.append('prompt', thumbnailPrompt)
+                            formData.append('userId', user?.id || '')
+                            formData.append('userType', userType)
                             // Only append image if it exists
                             if (thumbnailImage) {
                               formData.append('image', thumbnailImage)
@@ -2913,8 +2919,7 @@ export default function HomePage() {
                             
                             const response = await fetch('/api/thumbnail-generator', {
                               method: 'POST',
-                              body: formData,
-                              credentials: 'include'
+                              body: formData
                             })
                             
                             if (!response.ok) {
