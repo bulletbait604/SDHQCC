@@ -4,7 +4,6 @@ import { useCookieConsent } from '@/hooks/useCookieConsent'
 import { useAdBlockDetect } from '@/hooks/useAdBlockDetect'
 import CookieConsentBanner from './components/CookieConsentBanner'
 import AdBlockModal from './components/AdBlockModal'
-import Script from 'next/script'
 import { useState, useEffect } from 'react'
 
 interface Props {
@@ -27,14 +26,6 @@ export default function Providers({ children }: Props) {
 
   return (
     <>
-      {/* Only load Monetag scripts after user consent */}
-      {hasConsent === true && (
-        <>
-          {/* Monetag Vignette Banner Ad - Zone 10951310 - Only shows when showAd() is called */}
-          <Script src="https://cdn.monetag.com/v1/pub.js" data-zone="10951310" strategy="afterInteractive" />
-        </>
-      )}
-
       {children}
 
       {/* Cookie Consent Banner */}
