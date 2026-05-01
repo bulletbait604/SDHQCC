@@ -111,8 +111,8 @@ export default function ThumbnailGenerator({ userId, userType, darkMode = true, 
         description: data.description,
       }
 
-      // Push current result to history before replacing
-      if (result) setHistory(prev => [result, ...prev].slice(0, 8))
+      // Push current result to history before replacing (keep last 3)
+      if (result) setHistory(prev => [result, ...prev].slice(0, 3))
       setResult(newResult)
 
       // Log thumbnail generation activity
@@ -138,7 +138,7 @@ export default function ThumbnailGenerator({ userId, userType, darkMode = true, 
 
   // Restore a history item
   const restoreHistory = (item: ThumbnailResult, index: number) => {
-    if (result) setHistory(prev => [result, ...prev.filter((_, i) => i !== index)].slice(0, 8))
+    if (result) setHistory(prev => [result, ...prev.filter((_, i) => i !== index)].slice(0, 3))
     setResult(item)
   }
 
@@ -350,10 +350,10 @@ export default function ThumbnailGenerator({ userId, userType, darkMode = true, 
               </div>
             )}
 
-            {/* History */}
+            {/* History - Last 3 Generated */}
             {history.length > 0 && (
               <div className={`p-3 rounded-xl border ${card}`}>
-                <p className={`text-xs font-medium mb-2 ${subtle}`}>Previous versions</p>
+                <p className={`text-xs font-medium mb-2 ${subtle}`}>Recent Thumbnails (Click to Restore)</p>
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {history.map((item, i) => (
                     <button
