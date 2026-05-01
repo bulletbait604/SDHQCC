@@ -72,7 +72,7 @@ interface ActivityLogEntry {
   id: string
   username: string
   timestamp: string
-  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh' | 'tag_generation' | 'clip_analysis' | 'clip_reanalysis' | 'content_analysis' | 'content_reanalysis' | 'subscriber_added' | 'subscriber_removed' | 'lifetime_added' | 'lifetime_removed' | 'admin_added' | 'admin_removed' | 'sync_completed' | 'role_updated'
+  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh' | 'tag_generation' | 'clip_analysis' | 'clip_reanalysis' | 'content_analysis' | 'content_reanalysis' | 'subscriber_added' | 'subscriber_removed' | 'lifetime_added' | 'lifetime_removed' | 'admin_added' | 'admin_removed' | 'sync_completed' | 'role_updated' | 'thumbnail_generation'
   details?: string
 }
 
@@ -2658,6 +2658,30 @@ export default function HomePage() {
                 userType={userType}
                 darkMode={darkMode}
                 platforms={platforms}
+                user={user}
+                onLogActivity={(entry) => {
+                  if (user) {
+                    const logEntry: ActivityLogEntry = {
+                      id: Date.now().toString(),
+                      username: user.username,
+                      timestamp: new Date().toISOString(),
+                      action: 'thumbnail_generation',
+                      details: entry.details
+                    }
+                    setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
+                    
+                    // Log to backend
+                    fetch('/api/activity-log', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        username: user.username,
+                        action: 'thumbnail_generation',
+                        details: entry.details
+                      })
+                    }).catch(error => console.error('Failed to log to backend:', error))
+                  }
+                }}
               />
             </TabsContent>
 
@@ -4003,6 +4027,9 @@ export default function HomePage() {
               </p>
               <p className={`text-sm mt-1 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                 {t.footerTagline}
+              </p>
+              <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                We use ads to keep this service free. Subscribe to remove them.
               </p>
               <p className={`text-sm mt-1 font-medium ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}`}>
                 Support: Bulletbait604@gmail.com

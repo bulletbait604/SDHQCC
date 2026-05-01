@@ -22,9 +22,11 @@ interface Props {
   userType?: string
   darkMode?: boolean
   platforms: Platform[]
+  user?: { username: string } | null
+  onLogActivity?: (entry: { action: string; details: string }) => void
 }
 
-export default function ThumbnailGenerator({ userId, userType, darkMode = true, platforms }: Props) {
+export default function ThumbnailGenerator({ userId, userType, darkMode = true, platforms, user, onLogActivity }: Props) {
   const [prompt, setPrompt] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imageBase64, setImageBase64] = useState<string | null>(null)
@@ -112,6 +114,14 @@ export default function ThumbnailGenerator({ userId, userType, darkMode = true, 
       // Push current result to history before replacing
       if (result) setHistory(prev => [result, ...prev].slice(0, 8))
       setResult(newResult)
+
+      // Log thumbnail generation activity
+      if (user && onLogActivity) {
+        onLogActivity({
+          action: 'thumbnail_generation',
+          details: `Generated thumbnail with prompt: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`
+        })
+      }
 
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.')
