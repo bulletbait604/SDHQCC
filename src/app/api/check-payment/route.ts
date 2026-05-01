@@ -312,7 +312,9 @@ export async function GET() {
       },
       message: 'Subscriptions are now persisted to MongoDB',
       setup: 'Configure webhook at https://developer.paypal.com/dashboard/applications',
-      webhookUrl: 'https://sdhqcc.vercel.app/api/paypal-webhook'
+      webhookUrl: process.env.VERCEL_URL 
+        ? `https://${process.env.VERCEL_URL}/api/paypal-webhook`
+        : (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000') + '/api/paypal-webhook'
     })
   } catch (error) {
     console.error('Check-payment GET error:', error)

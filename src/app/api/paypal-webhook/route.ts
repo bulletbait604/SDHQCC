@@ -704,10 +704,14 @@ export async function GET(req: NextRequest) {
     const db = client.db('sdhq')
     const subscriptions = await db.collection('subscriptions').find({}).toArray()
     
+    const webhookUrl = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}/api/paypal-webhook`
+      : (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000') + '/api/paypal-webhook'
+    
     return NextResponse.json({ 
       message: 'PayPal webhook endpoint active with MongoDB persistence',
       setup: 'Configure this URL in your PayPal webhook settings',
-      url: 'https://sdhqcc.vercel.app/api/paypal-webhook',
+      url: webhookUrl,
       database: 'MongoDB',
       subscriptions: subscriptions.map(s => ({
         username: s.username,
