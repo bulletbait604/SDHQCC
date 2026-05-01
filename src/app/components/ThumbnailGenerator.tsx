@@ -170,6 +170,9 @@ export default function ThumbnailGenerator({ userId, userType, darkMode = true, 
           <ImageIcon className="w-10 h-10 text-sdhq-cyan-500" />
           <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Thumbnail Generator</h3>
         </div>
+        <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
+          Powered By: Gemini 2.5 Flash
+        </p>
         <p className={`${textClasses} text-base`}>Generate AI-powered thumbnails for any platform</p>
       </div>
 
