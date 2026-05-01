@@ -2093,15 +2093,32 @@ export default function HomePage() {
                     </div>
                   )}
                   <div>
-                    <div className="flex items-center space-x-2">
-                      <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                        {user.display_name}
-                      </p>
-                      <span className={`px-2 py-0.5 text-sm font-bold rounded-full ${ROLE_CONFIG[userRole]?.badgeClass || 'bg-gray-500 text-white'}`}>
-                        {ROLE_CONFIG[userRole]?.badge || '🙂 Free User'}
-                      </span>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                            {user.display_name}
+                          </p>
+                          <span className={`px-2 py-0.5 text-sm font-bold rounded-full ${ROLE_CONFIG[userRole]?.badgeClass || 'bg-gray-500 text-white'}`}>
+                            {ROLE_CONFIG[userRole]?.badge || '🙂 Free User'}
+                          </span>
+                        </div>
+                        <p className={`text-base ${subtitleClasses}`}>@{user.username}</p>
+                      </div>
+                      {/* Donate Button */}
+                      <form action="https://www.paypal.com/donate" method="post" target="_blank" className="flex items-center">
+                        <input type="hidden" name="amount" value="5" />
+                        <button
+                          type="submit"
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-pink-500 to-rose-500 text-white text-sm font-medium hover:from-pink-600 hover:to-rose-600 transition-all"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944 3.72a.77.77 0 0 1 .757-.629h6.713c2.838 0 5.098.835 5.838 2.44.61 1.336.397 2.838-.61 4.384-.983 1.51-2.587 2.537-4.655 2.943l-.034.006h.034c2.948.622 5.098 2.024 6.03 4.66.468 1.28.468 2.54.02 3.686-.92 2.4-3.194 3.725-6.665 3.868l-.034.004H7.076z"/>
+                          </svg>
+                          Donate
+                        </button>
+                      </form>
                     </div>
-                    <p className={`text-base ${subtitleClasses}`}>@{user.username}</p>
                   </div>
                   {userRole === 'free' && (
                     <Button 
