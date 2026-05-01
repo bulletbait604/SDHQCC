@@ -43,38 +43,18 @@
       "provider": "pollinations"
     },
     "youtube-long": {
-      "keyChanges": "The YouTube Long algorithm now prioritizes videos with high engagement in the first 10-15 minutes, favoring content that keeps viewers hooked throughout. The algorithm also considers the audience retention curve, rewarding videos that maintain a steady viewership throughout. Additionally, YouTube Long now takes into account the video's overall watch time, rather than just the initial 12-second view count.",
-      "editingTips": [
-        "Keep your intro concise and engaging, ideally within 0-2 minutes.",
-        "Use a mix of music, visuals, and voiceovers to maintain viewer interest.",
-        "Break up longer content into smaller, more manageable chunks.",
-        "Use annotations, cards, or end screens to encourage viewers to stay engaged.",
-        "Optimize your video's pacing and editing to maintain a steady flow."
-      ],
-      "postingTips": [
-        "Post your YouTube Long video during peak hours (3-5 pm EST) for maximum visibility.",
-        "Space out your uploads to avoid flooding your audience's feed.",
-        "Consider posting on weekdays rather than weekends for better engagement.",
-        "Experiment with different posting frequencies to find what works best for your audience."
-      ],
-      "titleTips": [
-        "Use attention-grabbing words like 'exclusive,' 'insider,' or 'revealed' to entice viewers.",
-        "Keep your title concise, ideally under 60 characters.",
-        "Use keywords relevant to your content, but avoid keyword stuffing.",
-        "Make your title descriptive, yet intriguing, to encourage clicks."
-      ],
-      "descriptionTips": [
-        "Use a clear, concise summary of your content in the first 100-150 characters.",
-        "Include relevant keywords to improve video discoverability.",
-        "Use a mix of short and long sentences to maintain reader interest.",
-        "Avoid including links or calls-to-action in your description, as they may be ignored."
-      ],
+      "keyChanges": "Algorithm now prioritizes viewer retention, contextual relevance, and cross‑format signals, using AI to surface longer content with high engagement and community interaction.",
+      "editingTips": "Use punchy intros, keep pacing brisk, incorporate on‑screen prompts, diversify shots, embed cues for comments.",
+      "postingTips": "Post during peak weekday hours (8‑10 am EST), maintain 2–3 uploads per week, and schedule consistent release slots.",
+      "titleTips": "Include primary keyword, emotion trigger, and CTA; keep under 70 characters.",
+      "descriptionTips": "Add timestamped sections, links to resources, and a question to encourage replies; keep first 100 characters keyword‑rich.",
       "summaries": [
-        "Maximize YouTube Long views with engaging intro content.",
-        "Boost audience retention with a mix of music and visuals.",
-        "Post during peak hours for maximum YouTube Long visibility.",
-        "Craft attention-grabbing titles with relevant keywords."
-      ]
+        "Retention drives discovery more than views.",
+        "Cross‑format signals boost recommendation.",
+        "Short hooks retain early viewers.",
+        "Community replies amplify watch time."
+      ],
+      "provider": "pollinations"
     },
     "facebook-reels": {
       "keyChanges": "The Facebook Reels algorithm now prioritizes content that keeps users engaged for longer periods, with a focus on watch time and audience retention. Algorithm also considers context and relevance of content to the user's interests.",
@@ -110,6 +90,6 @@
       ]
     }
   },
-  "lastUpdated": "2026-05-01T01:02:22.807Z",
+  "lastUpdated": "2026-05-01T01:02:40.872Z",
   "provider": "pollinations"
 }
