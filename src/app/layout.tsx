@@ -34,8 +34,6 @@ export default function RootLayout({
       </head>
       {/* Monetag Interstitial Ad Script - Zone 10950644 (manually triggered) */}
       <script dangerouslySetInnerHTML={{ __html: `(function(){var s=document.createElement('script');s.src='https://n6wxm.com/tag.min.js';s.dataset.zone='10950644';s.async=true;document.head.appendChild(s);})();` }} />
-      {/* Monetag In-Page Push Ad Script - Zone 10950651 (auto, non-intrusive) */}
-      <script dangerouslySetInnerHTML={{ __html: `(function(){var s=document.createElement('script');s.src='https://nap5k.com/tag.min.js';s.dataset.zone='10950651';s.async=true;document.head.appendChild(s);})();` }} />
       <body className={inter.className}>
         <div className="min-h-screen bg-gradient-to-br from-sdhq-cyan-50 via-white to-sdhq-green-50 flex flex-col">
           <Providers>

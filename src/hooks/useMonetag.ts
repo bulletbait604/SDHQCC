@@ -5,7 +5,6 @@ interface UseMonetagOptions {
   isAdFree?: boolean
 }
 
-const MONETAG_SHOW_FN = 'show_9103571'
 const AD_WAIT_MS = 6000
 
 export function useMonetag(options?: UseMonetagOptions) {
@@ -29,10 +28,14 @@ export function useMonetag(options?: UseMonetagOptions) {
         return new Promise<void>((done) => {
           try {
             if (typeof window !== 'undefined') {
-              const fn = (window as any)[MONETAG_SHOW_FN]
-              if (typeof fn === 'function') {
+              // Dynamically find the Monetag show function (e.g., show_1234567)
+              const fnName = Object.keys(window).find(
+                key => /^show_\d{7,}$/.test(key) && typeof (window as any)[key] === 'function'
+              )
+              if (fnName) {
+                const fn = (window as any)[fnName]
                 fn()
-                console.log('[Monetag] Ad triggered via', MONETAG_SHOW_FN)
+                console.log('[Monetag] Ad triggered via', fnName)
               } else {
                 console.warn('[Monetag] show function not ready yet')
               }
