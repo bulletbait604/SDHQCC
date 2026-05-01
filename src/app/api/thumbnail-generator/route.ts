@@ -4,7 +4,7 @@ import { GoogleGenAI } from '@google/genai'
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
-const MODEL_NAME = 'gemini-2.5-flash'
+const MODEL_NAME = 'gemini-2.0-flash-exp'
 
 // In-memory rate limit storage
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
@@ -123,15 +123,25 @@ INSTRUCTIONS:
       })
     }
 
-    const response = await genAI.models.generateContent({
-      model: MODEL_NAME,
-      contents: [
-        {
-          role: 'user',
-          parts: parts
-        }
-      ]
-    })
+    let response
+    try {
+      response = await genAI.models.generateContent({
+        model: MODEL_NAME,
+        contents: [
+          {
+            role: 'user',
+            parts: parts
+          }
+        ]
+      })
+      console.log('[Thumbnail] Gemini API response received')
+    } catch (geminiError: any) {
+      console.error('[Thumbnail] Gemini API error:', geminiError)
+      return NextResponse.json(
+        { error: 'Gemini API error', details: geminiError.message },
+        { status: 500 }
+      )
+    }
 
     // Parse response
     let rawText: string
@@ -143,17 +153,25 @@ INSTRUCTIONS:
       rawText = ''
     }
 
+    console.log('[Thumbnail] Raw text length:', rawText.length)
+
     // Try to extract base64 image from response
     let generatedImageBase64: string | null = null
     
     // Check if response contains inline data
     const candidates = (response as any).candidates
+    console.log('[Thumbnail] Candidates count:', candidates?.length || 0)
+    
     if (candidates && candidates.length > 0) {
-      const parts = candidates[0]?.content?.parts
-      if (parts) {
-        for (const part of parts) {
+      const responseParts = candidates[0]?.content?.parts
+      console.log('[Thumbnail] Response parts count:', responseParts?.length || 0)
+      
+      if (responseParts) {
+        for (const part of responseParts) {
+          console.log('[Thumbnail] Part type:', part.inlineData ? 'inlineData' : 'text')
           if (part.inlineData) {
             generatedImageBase64 = part.inlineData.data
+            console.log('[Thumbnail] Found inlineData, length:', generatedImageBase64?.length)
             break
           }
         }
@@ -162,13 +180,16 @@ INSTRUCTIONS:
 
     // Fallback: try to parse markdown image
     if (!generatedImageBase64 && rawText) {
+      console.log('[Thumbnail] Trying markdown parse...')
       const markdownMatch = rawText.match(/!\[.*?\]\(data:image\/[^;]+;base64,([^\)]+)\)/)
       if (markdownMatch) {
         generatedImageBase64 = markdownMatch[1]
+        console.log('[Thumbnail] Found markdown image, length:', generatedImageBase64.length)
       }
     }
 
     if (!generatedImageBase64) {
+      console.error('[Thumbnail] No image found in response. Raw text preview:', rawText.substring(0, 200))
       return NextResponse.json(
         { error: 'Failed to generate image', details: rawText.substring(0, 500) },
         { status: 500 }
