@@ -105,10 +105,10 @@ const translations = {
     description: 'Optimize long and short form content for ANY platform with AI-powered insights and tools.',
     loginButton: 'Login with Kick to Get Started',
     algorithmsExplained: 'Algorithms Explained',
-    tagGeneratorFree: 'Tag Generator (Free)',
+    tagGeneratorFree: 'Tag Generator',
     tagGeneratorPaid: 'Thumbnail Generator',
-    clipAnalyzer: 'Clip Analyzer (Paid)',
-    contentAnalyzer: 'Content Analyzer (Paid)',
+    clipAnalyzer: 'Clip Analyzer',
+    contentAnalyzer: 'Content Analyzer',
     kickClips: 'KICK Clips',
     settings: 'Settings',
     logout: 'Logout',
@@ -137,10 +137,10 @@ const translations = {
     description: 'Optimiza contenido largo y corto para CUALQUIER plataforma con herramientas e ideas impulsadas por IA.',
     loginButton: 'Iniciar sesión con Kick',
     algorithmsExplained: 'Algoritmos Explicados',
-    tagGeneratorFree: 'Generador de Etiquetas (Gratis)',
+    tagGeneratorFree: 'Generador de Etiquetas',
     tagGeneratorPaid: 'Generador de Miniaturas',
-    clipAnalyzer: 'Analizador de Clips (Pago)',
-    contentAnalyzer: 'Analizador de Contenido (Pago)',
+    clipAnalyzer: 'Analizador de Clips',
+    contentAnalyzer: 'Analizador de Contenido',
     kickClips: 'KICK Clips',
     settings: 'Configuración',
     logout: 'Cerrar sesión',
@@ -169,10 +169,10 @@ const translations = {
     description: 'Optimisez le contenu long et court pour TOUTE plateforme avec des outils et insights IA.',
     loginButton: 'Connexion avec Kick',
     algorithmsExplained: 'Algorithmes Expliqués',
-    tagGeneratorFree: 'Générateur de Tags (Gratuit)',
+    tagGeneratorFree: 'Générateur de Tags',
     tagGeneratorPaid: 'Générateur de Miniatures',
-    clipAnalyzer: 'Analyseur de Clips (Payant)',
-    contentAnalyzer: 'Analyseur de Contenu (Payant)',
+    clipAnalyzer: 'Analyseur de Clips',
+    contentAnalyzer: 'Analyseur de Contenu',
     kickClips: 'KICK Clips',
     settings: 'Paramètres',
     logout: 'Déconnexion',
@@ -201,10 +201,10 @@ const translations = {
     description: 'Optimieren Sie langen und kurzen Content für JEDE Plattform mit KI-gestützten Tools.',
     loginButton: 'Mit Kick anmelden',
     algorithmsExplained: 'Algorithmen Erklärt',
-    tagGeneratorFree: 'Tag Generator (Kostenlos)',
+    tagGeneratorFree: 'Tag Generator',
     tagGeneratorPaid: 'Thumbnail Generator',
-    clipAnalyzer: 'Clip Analyzer (Bezahlt)',
-    contentAnalyzer: 'Content Analyzer (Bezahlt)',
+    clipAnalyzer: 'Clip Analyzer',
+    contentAnalyzer: 'Content Analyzer',
     kickClips: 'KICK Clips',
     settings: 'Einstellungen',
     logout: 'Abmelden',
@@ -2275,6 +2275,9 @@ export default function HomePage() {
                               <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                                 {platform.name}
                               </h3>
+                              <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}`}>
+                                Powered By: Gemini 2.5 Flash
+                              </p>
                               <p className={`text-base ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                 Algorithm Insights
                               </p>
@@ -2396,8 +2399,11 @@ export default function HomePage() {
                   <div className="flex items-center space-x-4 mb-3">
                     <Hash className="w-10 h-10 text-sdhq-cyan-500" />
                     <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorFree}</h3>
+                    <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
+                      Powered By: Gemini 2.5 Flash
+                    </p>
                   </div>
-                  <p className={`${textClasses} text-base text-center max-w-2xl`}>
+                  <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
                     Select a platform, describe your content, and generate optimized tags based on platform-specific algorithm insights.
                   </p>
                 </div>
@@ -2616,24 +2622,6 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* Tag Database Status */}
-                <div className={`mt-6 p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-sdhq-cyan-200 shadow-sm'}`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <p className={`text-base font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Tag Generator Status
-                      </p>
-                      <p className={`text-3xl font-bold text-green-500`}>
-                        ACTIVE
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Powered by Gemini API
-                      </p>
-                    </div>
-                  </div>
-                </div>
               </div>
             </TabsContent>
 
@@ -2664,6 +2652,9 @@ export default function HomePage() {
                   <div className="flex items-center space-x-4 mb-3">
                     <Video className="w-10 h-10 text-sdhq-green-500" />
                     <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.clipAnalyzer}</h3>
+                    <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
+                      Powered By: Gemini 2.5 Flash
+                    </p>
                   </div>
                   <p className={`${textClasses} text-base`}>{t.clipAnalyzerDesc}</p>
                 </div>
@@ -3350,7 +3341,7 @@ export default function HomePage() {
                                 )}
                               </>
                             ) : (
-                              /* TikTok/Instagram/Facebook: Combined Caption Card */
+                              {/* TikTok/Instagram/Facebook: Combined Caption Card */}
                               <>
                                 {/* Combined Caption Card */}
                                 {(clipAnalysisResult.description || clipAnalysisResult.titles?.length > 0 || clipAnalysisResult.tags?.length > 0) && (
@@ -3468,6 +3459,9 @@ export default function HomePage() {
                   <div className="flex items-center space-x-4 mb-3">
                     <Video className="w-10 h-10 text-sdhq-green-500" />
                     <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.kickClips}</h3>
+                    <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
+                      Powered By: Gemini 2.5 Flash
+                    </p>
                   </div>
                   <p className={`${textClasses} text-base`}>Browse and download the latest KICK clips</p>
                 </div>
