@@ -2115,13 +2115,28 @@ export default function HomePage() {
 
             <TabsContent value="algorithms-explained">
               <div className="space-y-6">
+                {/* Platform Logos */}
+                <div className="flex justify-center gap-4 mb-2">
+                  {platforms.map((platform) => (
+                    <img
+                      key={platform.id}
+                      src={platform.image}
+                      alt={platform.name}
+                      className="w-10 h-10 rounded-lg object-cover opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                  ))}
+                </div>
+
                 <div className={`flex flex-col items-center mb-6`}>
-                  <div className="flex items-center space-x-3 mb-3">
+                  <div className="flex items-center space-x-3 mb-1">
                     <TrendingUp className="w-8 h-8 text-sdhq-cyan-500" />
                     <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                       {t.algorithmsExplained}
                     </h3>
                   </div>
+                  <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
+                    Powered By: Gemini 2.5 Flash
+                  </p>
                   <div className="flex items-center gap-3">
                     {isLoadingAlgorithms && (
                       <span className={`${subtitleClasses} text-base`}>Loading...</span>
@@ -2395,14 +2410,26 @@ export default function HomePage() {
 
             <TabsContent value="tag-generator-free">
               <div className={`${cardClasses} p-6`}>
+                {/* Platform Logos */}
+                <div className="flex justify-center gap-4 mb-2">
+                  {platforms.map((platform) => (
+                    <img
+                      key={platform.id}
+                      src={platform.image}
+                      alt={platform.name}
+                      className="w-10 h-10 rounded-lg object-cover opacity-80 hover:opacity-100 transition-opacity"
+                    />
+                  ))}
+                </div>
+
                 <div className="flex flex-col items-center mb-6">
-                  <div className="flex items-center space-x-4 mb-3">
+                  <div className="flex items-center space-x-3 mb-1">
                     <Hash className="w-10 h-10 text-sdhq-cyan-500" />
                     <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorFree}</h3>
-                    <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
-                      Powered By: Gemini 2.5 Flash
-                    </p>
                   </div>
+                  <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
+                    Powered By: Gemini 2.5 Flash
+                  </p>
                   <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
                     Select a platform, describe your content, and generate optimized tags based on platform-specific algorithm insights.
                   </p>
@@ -2649,13 +2676,13 @@ export default function HomePage() {
                 </div>
 
                 <div className="flex flex-col items-center mb-6">
-                  <div className="flex items-center space-x-4 mb-3">
+                  <div className="flex items-center space-x-3 mb-1">
                     <Video className="w-10 h-10 text-sdhq-green-500" />
                     <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.clipAnalyzer}</h3>
-                    <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
-                      Powered By: Gemini 2.5 Flash
-                    </p>
                   </div>
+                  <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
+                    Powered By: Gemini 2.5 Flash
+                  </p>
                   <p className={`${textClasses} text-base`}>{t.clipAnalyzerDesc}</p>
                 </div>
 
