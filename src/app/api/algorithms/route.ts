@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 const platforms = [
   { id: 'tiktok', name: 'TikTok' },
@@ -108,24 +109,123 @@ async function writeData(data: any) {
   }
 }
 
-// Primary: DeepSeek via RapidAPI
-async function researchWithDeepSeek(platform: string, rapidApiKey: string, maxTokens: number = 1000): Promise<any> {
-  const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
+// Primary: Gemini 3.1 Pro for thorough algorithm analysis
+async function researchWithGemini(platform: string, geminiApiKey: string): Promise<any> {
+  const prompt = `You are an expert social media algorithm analyst. Conduct a THOROUGH and COMPREHENSIVE analysis of the current ${platform} algorithm as of 2026.
+
+Your analysis should be based on current industry reports, platform announcements, creator feedback, and observable patterns. Review the following aspects in depth:
+
+1. ALGORITHM MECHANICS:
+   - How the recommendation system works (signals, ranking factors, distribution logic)
+   - Recent algorithm updates and their impact
+   - Content lifecycle (initial test phase, expansion, plateau)
+   - How different content formats are treated (video, carousel, stories, etc.)
+
+2. ENGAGEMENT SIGNALS (in order of priority):
+   - Primary ranking factors and their weights
+   - How different engagement types affect distribution
+   - Watch time/retention benchmarks
+   - Completion rates and their thresholds
+
+3. CONTENT STRATEGY:
+   - Optimal video length ranges for maximum reach
+   - Hook strategies that work on ${platform}
+   - Content format preferences
+   - Trending features to leverage
+
+4. POSTING OPTIMIZATION:
+   - Best times to post (by timezone and audience)
+   - Ideal posting frequency
+   - Content calendar recommendations
+   - Batch posting vs. spaced posting
+
+5. METADATA OPTIMIZATION:
+   - Title/caption strategies
+   - Hashtag usage (count, placement, research methods)
+   - Description best practices
+   - Thumbnail/title optimization
+
+6. ADVANCED TACTICS:
+   - Cross-posting strategies
+   - Series and episodic content
+   - Call-to-action placement
+   - Community engagement techniques
+
+Based on this thorough analysis, provide the following information in valid JSON format:
+
 {
-  "keyChanges": "Summary of key changes in how the algorithm works",
-  "editingTips": "Tips for editing content for ${platform}",
-  "postingTips": "Tips for when to post and posting frequency",
-  "titleTips": "Tips for creating effective titles",
-  "descriptionTips": "Tips for writing descriptions",
+  "keyChanges": "Comprehensive 300-400 word summary of how the ${platform} algorithm currently works, including recent changes and distribution mechanics. Be specific about ranking factors and their relative importance.",
+  "editingTips": "Detailed editing recommendations (250-300 words) including: optimal video lengths, pacing, transitions, on-screen text usage, audio/music choices, and production quality standards.",
+  "postingTips": "Comprehensive posting strategy (250-300 words) covering: best posting times with data, frequency recommendations, batch vs live posting, and content calendar structure.",
+  "titleTips": "Advanced title/caption optimization guide (200-250 words) including: hook formulas, keyword strategies, length optimization, and CTR improvement techniques.",
+  "descriptionTips": "Complete description optimization guide (200-250 words) covering: hashtag strategies (research, count, placement), link usage, and SEO optimization.",
   "summaries": [
-    "First key insight specific to ${platform} - max 6 words",
-    "Second insight about ${platform} algorithm - max 6 words",
-    "Third tip for ${platform} growth - max 6 words",
-    "Fourth strategy for ${platform} - max 6 words"
+    "First actionable insight - max 8 words, specific to ${platform}",
+    "Second actionable insight - max 8 words, specific to ${platform}",
+    "Third actionable insight - max 8 words, specific to ${platform}",
+    "Fourth actionable insight - max 8 words, specific to ${platform}",
+    "Fifth actionable insight - max 8 words, specific to ${platform}"
   ]
 }
 
-Focus on recent changes and best practices as of 2026. Be specific and actionable. The summaries should be punchy, platform-specific takeaways that make users want to click Read More.`
+Requirements:
+- Be EXTREMELY specific and actionable
+- Include concrete numbers, time ranges, and percentages where relevant
+- Focus on what's working NOW in 2026, not outdated advice
+- Use professional tone while remaining accessible
+- Return ONLY valid JSON, no markdown code blocks or explanations outside the JSON structure`
+
+  try {
+    console.log(`[Algorithms] Trying Gemini 3.1 Pro for ${platform}...`)
+    
+    const genAI = new GoogleGenerativeAI(geminiApiKey)
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-3.1-pro-preview',
+      apiVersion: 'v1beta'
+    })
+    
+    const result = await model.generateContent(prompt)
+    const response = result.response
+    const content = response.text()
+    
+    console.log(`[Algorithms] Gemini succeeded for ${platform}`)
+    
+    if (!content) {
+      throw new Error('No content in Gemini response')
+    }
+
+    // Strip markdown code blocks if present
+    let cleanContent = content
+    if (content.includes('```')) {
+      cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    }
+
+    return JSON.parse(cleanContent || '{}')
+  } catch (error) {
+    console.error(`[Algorithms] Gemini failed for ${platform}:`, error)
+    throw error
+  }
+}
+
+// Fallback: DeepSeek via RapidAPI
+async function researchWithDeepSeek(platform: string, rapidApiKey: string, maxTokens: number = 2500): Promise<any> {
+  const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
+{
+  "keyChanges": "Comprehensive 300-400 word analysis of how the ${platform} algorithm currently works, including ranking factors and recent changes",
+  "editingTips": "Detailed editing recommendations (250-300 words) including video length, pacing, and production standards",
+  "postingTips": "Comprehensive posting strategy (250-300 words) covering best times and frequency",
+  "titleTips": "Title optimization guide (200-250 words)",
+  "descriptionTips": "Description and hashtag optimization (200-250 words)",
+  "summaries": [
+    "First actionable insight - max 8 words",
+    "Second actionable insight - max 8 words",
+    "Third actionable insight - max 8 words",
+    "Fourth actionable insight - max 8 words",
+    "Fifth actionable insight - max 8 words"
+  ]
+}
+
+Focus on recent changes and best practices as of 2026. Be EXTREMELY specific and actionable with concrete numbers and strategies.`
 
   const response = await fetch('https://deepseek-r1-zero-ai-model-with-emergent-reasoning-ability.p.rapidapi.com/v1/chat/completions', {
     method: 'POST',
@@ -137,7 +237,7 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
     body: JSON.stringify({
       model: 'deepseek-r1-zero',
       messages: [
-        { role: 'system', content: 'You are an expert in social media algorithms and content optimization. Provide specific, actionable advice based on current best practices. Return only valid JSON without markdown code blocks.' },
+        { role: 'system', content: 'You are an expert in social media algorithms. Return only valid JSON without markdown code blocks.' },
         { role: 'user', content: prompt }
       ],
       temperature: 0.7,
@@ -157,69 +257,6 @@ Focus on recent changes and best practices as of 2026. Be specific and actionabl
   }
 
   // Strip markdown code blocks if present
-  let cleanContent = content
-  if (content.includes('```')) {
-    cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-  }
-
-  return JSON.parse(cleanContent || '{}')
-}
-
-// Fallback: Groq API
-async function researchWithGroq(platform: string, groqApiKey: string, maxTokens: number = 1000): Promise<any> {
-  const modelName = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
-  
-  const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
-{
-  "keyChanges": "Summary of key changes in how the algorithm works",
-  "editingTips": "Tips for editing content for ${platform}",
-  "postingTips": "Tips for when to post and posting frequency",
-  "titleTips": "Tips for creating effective titles",
-  "descriptionTips": "Tips for writing descriptions",
-  "summaries": [
-    "First key insight specific to ${platform} - max 6 words",
-    "Second insight about ${platform} algorithm - max 6 words",
-    "Third tip for ${platform} growth - max 6 words",
-    "Fourth strategy for ${platform} - max 6 words"
-  ]
-}
-
-Focus on recent changes and best practices as of 2026. Be specific and actionable.`
-
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 90000)
-
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${groqApiKey}`
-    },
-    signal: controller.signal,
-    body: JSON.stringify({
-      model: modelName,
-      messages: [
-        { role: 'system', content: 'You are an expert in social media algorithms. Return only valid JSON.' },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.7,
-      max_tokens: maxTokens
-    })
-  })
-
-  clearTimeout(timeout)
-
-  if (!response.ok) {
-    throw new Error(`Groq error: ${response.status}`)
-  }
-
-  const data = await response.json()
-  const content = data.choices?.[0]?.message?.content
-
-  if (!content) {
-    throw new Error('No content in Groq response')
-  }
-
   let cleanContent = content
   if (content.includes('```')) {
     cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
@@ -285,31 +322,31 @@ Focus on recent changes and best practices as of 2026.`
 
 // Main research function with cascading fallbacks
 async function researchAlgorithm(platform: string, maxTokens: number = 1000): Promise<any> {
+  const geminiApiKey = process.env.GEMINI_ALGORITHM_API_KEY
   const rapidApiKey = process.env.RAPID_API_KEY
-  const groqApiKey = process.env.GROQ_API_KEY
   const pollinationsApiKey = process.env.POLLINATIONS_API_KEY
 
-  // Try DeepSeek (RapidAPI) first
+  // Try Gemini 3.1 Pro first (thorough analysis)
+  if (geminiApiKey) {
+    try {
+      console.log(`[Algorithms] Trying Gemini 3.1 Pro for ${platform}...`)
+      const result = await researchWithGemini(platform, geminiApiKey)
+      console.log(`[Algorithms] Gemini succeeded for ${platform}`)
+      return { ...result, provider: 'gemini' }
+    } catch (error) {
+      console.error(`[Algorithms] Gemini failed for ${platform}:`, error)
+    }
+  }
+
+  // Fallback to DeepSeek (RapidAPI)
   if (rapidApiKey) {
     try {
-      console.log(`[Algorithms] Trying DeepSeek for ${platform}...`)
+      console.log(`[Algorithms] Falling back to DeepSeek for ${platform}...`)
       const result = await researchWithDeepSeek(platform, rapidApiKey, maxTokens)
       console.log(`[Algorithms] DeepSeek succeeded for ${platform}`)
       return { ...result, provider: 'deepseek' }
     } catch (error) {
       console.error(`[Algorithms] DeepSeek failed for ${platform}:`, error)
-    }
-  }
-
-  // Fallback to Groq
-  if (groqApiKey) {
-    try {
-      console.log(`[Algorithms] Falling back to Groq for ${platform}...`)
-      const result = await researchWithGroq(platform, groqApiKey, maxTokens)
-      console.log(`[Algorithms] Groq succeeded for ${platform}`)
-      return { ...result, provider: 'groq' }
-    } catch (error) {
-      console.error(`[Algorithms] Groq failed for ${platform}:`, error)
     }
   }
 
