@@ -34,30 +34,24 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Add prompt text
+    // Truncate very long prompts to avoid timeout
+    const maxPromptLength = 500;
+    const truncatedPrompt = prompt.length > maxPromptLength 
+      ? prompt.slice(0, maxPromptLength) + "..." 
+      : prompt;
+
+    // Add prompt text - keep it concise for faster generation
     const promptText = imageBase64
-      ? `You are a professional YouTube thumbnail designer.
+      ? `You are a professional YouTube thumbnail designer. An image is provided - use it as the focal point.
 
-An image has been provided. Use it as the main subject/focal point of the thumbnail.
+Instructions: ${truncatedPrompt}
 
-Task: ${prompt}
-
-Design rules:
-- Output a 1280x720 landscape thumbnail
-- High contrast, bold colours that pop on dark and light backgrounds
-- Clear visual hierarchy — the subject should be immediately obvious
-- Leave space for text overlays if the prompt mentions titles or text
-- Professional, eye-catching composition that maximises click-through rate`
+Output: 1280x720 landscape thumbnail. High contrast, bold colors, clear visual hierarchy, space for text overlays.`
       : `You are a professional YouTube thumbnail designer.
 
-Task: ${prompt}
+Instructions: ${truncatedPrompt}
 
-Design rules:
-- Output a 1280x720 landscape thumbnail
-- High contrast, bold colours that pop on dark and light backgrounds
-- Clear visual hierarchy with an obvious focal point
-- Leave space for text overlays if the prompt mentions titles or text
-- Professional, eye-catching composition that maximises click-through rate`;
+Output: 1280x720 landscape thumbnail. High contrast, bold colors, clear visual hierarchy, space for text overlays.`;
 
     parts.push({ text: promptText });
 
@@ -99,6 +93,18 @@ Design rules:
 
   } catch (err: any) {
     console.error("[Thumbnail] Gemini API error:", err);
+    
+    // Check for timeout or connection errors
+    const isTimeout = err.message?.includes("timeout") || 
+                      err.message?.includes("aborted") ||
+                      err.message?.includes("fetch failed");
+    
+    if (isTimeout) {
+      return NextResponse.json({ 
+        error: "Generation timed out. Try a shorter prompt or try again." 
+      }, { status: 504 });
+    }
+    
     return NextResponse.json({ error: `Gemini error: ${err.message}` }, { status: 500 });
   }
 }
