@@ -2716,15 +2716,15 @@ export default function HomePage() {
                   <ol className={`space-y-2 text-base ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                     <li className="flex items-start gap-2">
                       <span className={`font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>1.</span>
-                      <span>Select your target platform</span>
+                      <span>Select your target platform (TikTok, Instagram, YouTube, etc.)</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className={`font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>2.</span>
-                      <span>Paste a video URL from TikTok, Instagram, YouTube, or other platforms</span>
+                      <span>Upload a video file (MP4, WebM, MOV, or AVI - 100KB to 250MB)</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className={`font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>3.</span>
-                      <span>Click analyze and wait for AI analysis</span>
+                      <span>Click analyze and wait for AI processing</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className={`font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>4.</span>
@@ -2732,7 +2732,7 @@ export default function HomePage() {
                     </li>
                   </ol>
                   <div className={`mt-3 p-2 rounded text-sm ${darkMode ? 'bg-sdhq-dark-900/50 text-sdhq-cyan-300' : 'bg-sdhq-cyan-50 text-sdhq-cyan-700'}`}>
-                    <span className="font-semibold">💡 AI Analysis:</span> Videos up to 150MB are analyzed by Gemini 2.5 Flash with platform-specific insights.
+                    <span className="font-semibold">💡 AI Analysis:</span> Videos up to 250MB are analyzed by Gemini 2.5 Flash with platform-specific insights.
                   </div>
                 </div>
 
