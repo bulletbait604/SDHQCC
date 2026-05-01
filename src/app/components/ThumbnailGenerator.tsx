@@ -360,48 +360,66 @@ export default function ThumbnailGenerator({
               onChange={e => setPrompt(e.target.value)}
               placeholder={imageBase64
                 ? "Describe how to use your image in the thumbnail... (e.g. 'Place me on the left side with a red explosive background and bold white text space on the right')"
-            >
-              Upgrade to Unlimited
-            </button>
-          )}
-        </div>
-      </div>
-    )}
-    
-    {/* Usage Counter for Limited Roles */}
-    {maxUsage !== 'unlimited' && (
-      <div className={`absolute top-4 right-4 z-10 px-3 py-1 rounded-full text-sm font-medium ${
-        isUsageLimited 
-          ? 'bg-red-500/20 text-red-400 border border-red-500/30' 
-          : 'bg-sdhq-cyan-500/20 text-sdhq-cyan-400 border border-sdhq-cyan-500/30'
-      }`}>
-        {usageCount} / {maxUsage} uses
-      </div>
-    )}
-    
-    {/* Platform Logos */}
-    <div className="flex justify-center gap-4 mb-6">
-      {platforms.map((platform) => (
-        <img
-          key={platform.id}
-          src={platform.image}
-          alt={platform.name}
-          className="w-10 h-10 rounded-lg object-cover opacity-80 hover:opacity-100 transition-opacity"
-        />
-      ))}
-    </div>
+                : "Describe the thumbnail you want... (e.g. 'A dramatic gaming thumbnail for a Minecraft video with lava and a shocked face')"}
+              rows={4}
+              className={`w-full border rounded-xl px-4 py-3 text-base resize-none outline-none transition-all duration-300 backdrop-blur-sm ${inputClasses}`}
+            />
 
-    {/* Header */}
-    <div className="flex flex-col items-center mb-6">
-      <div className="flex items-center space-x-4 mb-3">
-        <ImageIcon className="w-10 h-10 text-sdhq-cyan-500" />
-        <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Thumbnail Generator</h3>
-      </div>
-      <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
-        Powered By: Gemini 2.5 Flash
-      </p>
-      <p className={`${textClasses} text-base`}>Generate AI-powered thumbnails for any platform</p>
-    </div>
+            {/* Platform Selection */}
+            <div className={`p-4 rounded-xl border ${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-gray-50 border-gray-200'}`}>
+              <p className={`text-sm font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                📱 Check your platform(s):
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {availablePlatforms.map((platform) => (
+                  <label 
+                    key={platform.id}
+                    className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all ${
+                      selectedPlatforms.includes(platform.id)
+                        ? darkMode 
+                          ? 'bg-sdhq-cyan-500/20 border border-sdhq-cyan-500/50' 
+                          : 'bg-sdhq-cyan-100 border border-sdhq-cyan-300'
+                        : darkMode
+                          ? 'bg-sdhq-dark-700 border border-sdhq-dark-600 hover:bg-sdhq-dark-600'
+                          : 'bg-white border border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedPlatforms.includes(platform.id)}
+                      onChange={() => togglePlatform(platform.id)}
+                      className="w-4 h-4 rounded border-gray-300 text-sdhq-cyan-500 focus:ring-sdhq-cyan-500"
+                    />
+                    <span className="text-lg">{platform.icon}</span>
+                    <span className={`text-sm ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>
+                      {platform.name}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {selectedPlatforms.length === 0 && (
+                <p className="text-red-400 text-sm mt-2">Please select at least one platform</p>
+              )}
+            </div>
+
+            {/* Generate button */}
+            <button
+              onClick={() => generate()}
+              disabled={isGenerating || !prompt.trim() || selectedPlatforms.length === 0}
+              className="w-full py-4 rounded-xl font-bold text-lg transition-all bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 text-black disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(6,182,212,0.4)]"
+            >
+              {isGenerating ? (
+                <><Loader2 className="w-5 h-5 animate-spin" /><span>Generating...</span></>
+              ) : (
+                <><Wand2 className="w-5 h-5" /><span>{imageBase64 ? 'Generate with Image' : 'Generate Thumbnail'}</span></>
+              )}
+            </button>
+
+            {error && (
+              <div className="p-3 bg-red-950/50 border border-red-700 rounded-xl text-red-400 text-sm">
+                ⚠️ {error}
+              </div>
+            )}
           </div>
 
           {/* ── Right: Output ───────────────────────────────────────────────── */}
