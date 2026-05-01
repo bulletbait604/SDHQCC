@@ -1840,31 +1840,6 @@ export default function HomePage() {
     }
   }
 
-  const handleResetTagUsages = async () => {
-    if (!isAdmin) return
-
-    if (!confirm('Are you sure you want to reset all tag generator usages? This will allow all users to generate tags again.')) {
-      return
-    }
-
-    try {
-      const response = await fetch('/api/tags', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user?.username })
-      })
-
-      if (response.ok) {
-        alert('Tag generator usages reset successfully!')
-      } else {
-        alert('Failed to reset tag generator usages.')
-      }
-    } catch (error) {
-      console.error('Error resetting tag usages:', error)
-      alert('Error resetting tag generator usages.')
-    }
-  }
-
   const pollVerificationStatus = (subscriptionId: string) => {
     if (!user) return
     
@@ -4328,27 +4303,6 @@ export default function HomePage() {
                 </div>
               )}
               
-              {isAdmin && (
-                <>
-                  <div className={`p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-dark-600' : 'bg-white border-gray-200'}`}>
-                    <h4 className={`font-semibold mb-3 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      <Hash className="w-4 h-4 mr-2 text-sdhq-cyan-500" />
-                      Tag Generator
-                    </h4>
-                    <Button
-                      onClick={handleResetTagUsages}
-                      className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
-                    >
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Reset Tag Usages
-                    </Button>
-                    <p className={`text-base mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Reset all user tag generator usages (Free: 5/day, Subscribers: 25/day)
-                    </p>
-                  </div>
-
-                </>
-              )}
             </div>
           </div>
         </div>

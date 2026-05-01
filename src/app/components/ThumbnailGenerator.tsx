@@ -53,6 +53,19 @@ export default function ThumbnailGenerator({
   const [history, setHistory] = useState<ThumbnailResult[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   
+  // Platform selection state
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['youtube-shorts', 'youtube-long'])
+  
+  // Available platforms for thumbnails
+  const availablePlatforms = [
+    { id: 'youtube-shorts', name: 'YouTube Shorts', icon: '🔴' },
+    { id: 'youtube-long', name: 'YouTube Horizontal', icon: '🔴' },
+    { id: 'tiktok', name: 'TikTok', icon: '🎵' },
+    { id: 'instagram', name: 'Instagram', icon: '📸' },
+    { id: 'facebook-reels', name: 'Facebook Reels', icon: '📘' },
+    { id: 'twitter', name: 'Twitter/X', icon: '🐦' },
+  ]
+  
   // Monetag ad hook - pass userType for ad-free check
   const { showAd } = useMonetag({ userRole: userType })
 
@@ -110,11 +123,31 @@ export default function ThumbnailGenerator({
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
+  // Toggle platform selection
+  const togglePlatform = (platformId: string) => {
+    setSelectedPlatforms(prev => 
+      prev.includes(platformId)
+        ? prev.filter(id => id !== platformId)
+        : [...prev, platformId]
+    )
+  }
+
   // ── Generate ───────────────────────────────────────────────────────────────
   const generate = async (base64Override?: string, mimeOverride?: string) => {
     if (!prompt.trim()) return
+    if (selectedPlatforms.length === 0) {
+      setError('Please select at least one platform')
+      return
+    }
     setIsGenerating(true)
     setError('')
+
+    // Build platform-specific prompt
+    const platformNames = selectedPlatforms.map(id => 
+      availablePlatforms.find(p => p.id === id)?.name
+    ).filter(Boolean).join(', ')
+    
+    const enhancedPrompt = `Create a thumbnail optimized for ${platformNames}. ${prompt}`
 
     // Show 2 ads back-to-back while AI works
     const [_, data] = await Promise.allSettled([
@@ -123,10 +156,11 @@ export default function ThumbnailGenerator({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt,
+          prompt: enhancedPrompt,
           imageBase64: base64Override ?? imageBase64 ?? undefined,
           mimeType: mimeOverride ?? imageMime,
           sessionId: userId || 'anon',
+          platforms: selectedPlatforms,
         }),
       }).then(r => r.json())
     ])
@@ -326,29 +360,48 @@ export default function ThumbnailGenerator({
               onChange={e => setPrompt(e.target.value)}
               placeholder={imageBase64
                 ? "Describe how to use your image in the thumbnail... (e.g. 'Place me on the left side with a red explosive background and bold white text space on the right')"
-                : "Describe the thumbnail you want... (e.g. 'A dramatic gaming thumbnail for a Minecraft video with lava and a shocked face')"}
-              rows={4}
-              className={`w-full border rounded-xl px-4 py-3 text-base resize-none outline-none transition-all duration-300 backdrop-blur-sm ${inputClasses}`}
-            />
-
-            {/* Generate button */}
-            <button
-              onClick={() => generate()}
-              disabled={isGenerating || !prompt.trim()}
-              className="w-full py-4 rounded-xl font-bold text-lg transition-all bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 text-black disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(6,182,212,0.4)]"
             >
-              {isGenerating ? (
-                <><Loader2 className="w-5 h-5 animate-spin" /><span>Generating...</span></>
-              ) : (
-                <><Wand2 className="w-5 h-5" /><span>{imageBase64 ? 'Generate with Image' : 'Generate Thumbnail'}</span></>
-              )}
+              Upgrade to Unlimited
             </button>
+          )}
+        </div>
+      </div>
+    )}
+    
+    {/* Usage Counter for Limited Roles */}
+    {maxUsage !== 'unlimited' && (
+      <div className={`absolute top-4 right-4 z-10 px-3 py-1 rounded-full text-sm font-medium ${
+        isUsageLimited 
+          ? 'bg-red-500/20 text-red-400 border border-red-500/30' 
+          : 'bg-sdhq-cyan-500/20 text-sdhq-cyan-400 border border-sdhq-cyan-500/30'
+      }`}>
+        {usageCount} / {maxUsage} uses
+      </div>
+    )}
+    
+    {/* Platform Logos */}
+    <div className="flex justify-center gap-4 mb-6">
+      {platforms.map((platform) => (
+        <img
+          key={platform.id}
+          src={platform.image}
+          alt={platform.name}
+          className="w-10 h-10 rounded-lg object-cover opacity-80 hover:opacity-100 transition-opacity"
+        />
+      ))}
+    </div>
 
-            {error && (
-              <div className="p-3 bg-red-950/50 border border-red-700 rounded-xl text-red-400 text-sm">
-                ⚠️ {error}
-              </div>
-            )}
+    {/* Header */}
+    <div className="flex flex-col items-center mb-6">
+      <div className="flex items-center space-x-4 mb-3">
+        <ImageIcon className="w-10 h-10 text-sdhq-cyan-500" />
+        <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Thumbnail Generator</h3>
+      </div>
+      <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
+        Powered By: Gemini 2.5 Flash
+      </p>
+      <p className={`${textClasses} text-base`}>Generate AI-powered thumbnails for any platform</p>
+    </div>
           </div>
 
           {/* ── Right: Output ───────────────────────────────────────────────── */}
