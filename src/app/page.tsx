@@ -2169,9 +2169,7 @@ export default function HomePage() {
                             <h4 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                               {platform.name}
                             </h4>
-                            <p className={`text-sm ${darkMode ? 'text-sdhq-dark-400' : 'text-gray-600'}`}>
-                              Max 500MB direct upload
-                            </p>
+                            {/* Platform subtitle removed */}
                           </div>
                         </div>
                         
@@ -2631,7 +2629,7 @@ export default function HomePage() {
                     </div>
                     <div className="text-right">
                       <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Powered by Groq API
+                        Powered by Gemini API
                       </p>
                     </div>
                   </div>
