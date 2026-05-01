@@ -3996,6 +3996,7 @@ export default function HomePage() {
                             <option value="subscriber">Subscriber</option>
                             <option value="subscriber_lifetime">Lifetime Subscriber</option>
                             <option value="admin">Admin</option>
+                            <option value="tester">Tester</option>
                             <option value="owner">Owner</option>
                           </select>
                           <Button 
@@ -4044,6 +4045,7 @@ export default function HomePage() {
                                   <option value="subscriber">Subscriber</option>
                                   <option value="subscriber_lifetime">Lifetime</option>
                                   <option value="admin">Admin</option>
+                                  <option value="tester">Tester</option>
                                   <option value="owner" disabled={userRole !== 'owner'}>Owner</option>
                                 </select>
                                 <Button 
