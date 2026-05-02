@@ -89,14 +89,15 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
   const userIdRef = useRef(userId)
   const toolRef = useRef(tool)
   const isExemptRef = useRef(userRole ? EXEMPT_ROLES.includes(userRole) : false)
+  const checkCooldownRef = useRef<() => Promise<void>>(async () => {})
   
   // Keep refs current
   userIdRef.current = userId
   toolRef.current = tool
   isExemptRef.current = userRole ? EXEMPT_ROLES.includes(userRole) : false
 
-  // Define checkCooldown as a stable callback that reads from refs
-  const checkCooldown = useCallback(async () => {
+  // Define checkCooldown as a function that uses refs (stored in ref to keep stable)
+  checkCooldownRef.current = async () => {
     const currentUserId = userIdRef.current
     const currentTool = toolRef.current
     const currentIsExempt = isExemptRef.current
@@ -124,7 +125,10 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
       console.error('[Cooldown] Failed to check:', e)
     }
     console.log('[Cooldown] === CHECK COOLDOWN END ===')
-  }, []) // Empty deps - reads from refs
+  }
+  
+  // Stable checkCooldown that always calls through the ref
+  const checkCooldown = useCallback(() => checkCooldownRef.current(), [])
 
   // Log state changes for debugging
   useEffect(() => {
@@ -187,6 +191,12 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
     // Fire and forget - don't wait for response to avoid hanging
     console.log('[Cooldown] POST /api/cooldown - fire and forget')
     
+    // Helper to call checkCooldown via ref (avoids stale closure issues)
+    const callCheckCooldown = () => {
+      console.log('[Cooldown] Invoking checkCooldown via ref...')
+      checkCooldownRef.current()
+    }
+    
     // Send POST request to set cooldown on server
     try {
       fetch('/api/cooldown', {
@@ -195,30 +205,30 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
         body: JSON.stringify({ userId: currentUserId, tool: currentTool })
       }).then(() => {
         console.log('[Cooldown] POST completed, calling checkCooldown...')
-        checkCooldown()
+        callCheckCooldown()
       }).catch((e) => {
         console.error('[Cooldown] POST failed:', e)
-        checkCooldown()
+        callCheckCooldown()
       })
     } catch (e) {
       console.error('[Cooldown] POST error:', e)
-      checkCooldown()
+      callCheckCooldown()
     }
     
     // Also try after a short delay in case fetch hangs
     setTimeout(() => {
       console.log('[Cooldown] Calling checkCooldown after 500ms delay...')
-      checkCooldown()
+      callCheckCooldown()
     }, 500)
     
     // And one more time after a longer delay as fallback
     setTimeout(() => {
       console.log('[Cooldown] Calling checkCooldown after 2s delay...')
-      checkCooldown()
+      callCheckCooldown()
     }, 2000)
     
     console.log('[Cooldown] === START COOLDOWN END (fire and forget) ===')
-  }, [checkCooldown])
+  }, []) // Empty deps - uses refs exclusively
 
   // Call this when user clicks "Watch Ad to Skip"
   const watchAdToSkip = useCallback(async () => {
