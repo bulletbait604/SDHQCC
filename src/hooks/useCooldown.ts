@@ -188,46 +188,38 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
       return
     }
     
-    // Fire and forget - don't wait for response to avoid hanging
-    console.log('[Cooldown] POST /api/cooldown - fire and forget')
+    console.log('[Cooldown] POST /api/cooldown - starting')
     
     // Helper to call checkCooldown via ref (avoids stale closure issues)
-    const callCheckCooldown = () => {
-      console.log('[Cooldown] Invoking checkCooldown via ref...')
+    const callCheckCooldown = (source: string) => {
+      console.log(`[Cooldown] Invoking checkCooldown via ref from: ${source}`)
       checkCooldownRef.current()
     }
     
-    // Send POST request to set cooldown on server
+    // IMMEDIATELY check cooldown (optimistic - server just set it)
+    console.log('[Cooldown] IMMEDIATE checkCooldown call...')
+    callCheckCooldown('immediate')
+    
+    // Send POST request to set cooldown on server - AWAIT it to ensure it completes
     try {
-      fetch('/api/cooldown', {
+      console.log('[Cooldown] Awaiting POST /api/cooldown...')
+      const response = await fetch('/api/cooldown', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: currentUserId, tool: currentTool })
-      }).then(() => {
-        console.log('[Cooldown] POST completed, calling checkCooldown...')
-        callCheckCooldown()
-      }).catch((e) => {
-        console.error('[Cooldown] POST failed:', e)
-        callCheckCooldown()
       })
+      console.log('[Cooldown] POST completed with status:', response.status)
+      callCheckCooldown('post-complete')
     } catch (e) {
-      console.error('[Cooldown] POST error:', e)
-      callCheckCooldown()
+      console.error('[Cooldown] POST failed:', e)
+      callCheckCooldown('post-error')
     }
     
-    // Also try after a short delay in case fetch hangs
-    setTimeout(() => {
-      console.log('[Cooldown] Calling checkCooldown after 500ms delay...')
-      callCheckCooldown()
-    }, 500)
+    // Also check after delays as fallback
+    setTimeout(() => callCheckCooldown('timeout-500ms'), 500)
+    setTimeout(() => callCheckCooldown('timeout-2000ms'), 2000)
     
-    // And one more time after a longer delay as fallback
-    setTimeout(() => {
-      console.log('[Cooldown] Calling checkCooldown after 2s delay...')
-      callCheckCooldown()
-    }, 2000)
-    
-    console.log('[Cooldown] === START COOLDOWN END (fire and forget) ===')
+    console.log('[Cooldown] === START COOLDOWN END ===')
   }, []) // Empty deps - uses refs exclusively
 
   // Call this when user clicks "Watch Ad to Skip"
