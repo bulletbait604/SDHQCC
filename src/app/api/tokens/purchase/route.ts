@@ -47,9 +47,9 @@ export async function POST(req: NextRequest) {
     }
 
     const allowedPackages: Record<string, { tokens: number; price: number }> = {
-      basic: { tokens: 20, price: 5 },
-      standard: { tokens: 50, price: 10 },
-      premium: { tokens: 1250, price: 20 }
+      basic: { tokens: 12, price: 5 },
+      standard: { tokens: 35, price: 10 },
+      premium: { tokens: 100, price: 20 }
     }
 
     const selectedPackage = allowedPackages[packageType]

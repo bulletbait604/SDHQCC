@@ -116,7 +116,7 @@ const translations = {
     kickClips: 'KICK Clips',
     settings: 'Settings',
     logout: 'Logout',
-    verifySubscription: 'Verify Subscription',
+    verifySubscription: 'Subscribe',
     admin: 'Admin',
     subscribers: 'Subscribers',
     addSubscriber: 'Add Subscriber',
@@ -4387,7 +4387,7 @@ export default function HomePage() {
                     Lifetime Pass
                   </h4>
                   <p className={`text-sm mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Get lifetime access to all premium features for a one-time payment of $54.99 CAD.
+                    Get lifetime access to all premium features for a one-time payment of $89.99 CAD.
                   </p>
                   <Button
                     onClick={handleLifetimeSubscription}
@@ -4518,13 +4518,13 @@ export default function HomePage() {
             
             <div className="space-y-4">
               <p className={`text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                Subscribe to unlock all premium features for $6.99 CAD/month.
+                Subscribe to unlock all premium features for $9.50 CAD/month.
               </p>
               
               <div className={`p-4 rounded-lg border ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
                 <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PayPal Subscription:</p>
                 <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  $6.99 CAD / month - Premium Access
+                  $9.50 CAD / month - Premium Access
                 </p>
               </div>
               
@@ -4575,13 +4575,13 @@ export default function HomePage() {
             
             <div className="space-y-4">
               <p className={`text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                Get lifetime access to all current and upcoming features for a one-time payment of $54.99 CAD.
+                Get lifetime access to all current and upcoming features for a one-time payment of $89.99 CAD.
               </p>
               
               <div className={`p-4 rounded-lg border ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
                 <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PayPal One-Time Payment:</p>
                 <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  $54.99 CAD - Lifetime Access
+                  $89.99 CAD - Lifetime Access
                 </p>
               </div>
               
