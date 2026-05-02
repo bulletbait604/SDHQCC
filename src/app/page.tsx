@@ -483,14 +483,11 @@ export default function HomePage() {
       const response = await fetch(`/api/roles?username=${user.username}`)
       if (response.ok) {
         const data = await response.json()
-        console.log('User role response:', data)
         if (data.user && data.user.role) {
           setUserRole(data.user.role)
-          console.log('Set user role to:', data.user.role)
         } else {
           // Default to 'free' if no role found, unless owner
           if (isOwner) {
-            console.log('Owner detected, setting role to owner')
             setUserRole('owner')
             // Auto-create owner in database - use 'owner' directly since state hasn't updated yet
             fetch('/api/roles', {
@@ -504,7 +501,6 @@ export default function HomePage() {
             }).then(() => fetchUsersWithRoles())
           } else {
             setUserRole('free')
-            console.log('No role found, defaulting to free')
           }
         }
       }
@@ -522,7 +518,6 @@ export default function HomePage() {
   // Fetch user role when user changes
   useEffect(() => {
     if (user && user.username) {
-      console.log('Fetching role for user:', user.username)
       fetchUserRole()
     }
   }, [user])
@@ -542,7 +537,6 @@ export default function HomePage() {
 
   // Update user role
   const handleUpdateRole = async (username: string, newRole: Role) => {
-    console.log('handleUpdateRole called:', { username, newRole, currentUserRole: userRole })
     try {
       const response = await fetch('/api/roles', {
         method: 'POST',
@@ -554,17 +548,13 @@ export default function HomePage() {
         })
       })
 
-      console.log('API response status:', response.status)
       const data = await response.json()
-      console.log('API response data:', data)
-      console.log('Verified user role in DB:', data.verified?.role)
 
       if (response.ok) {
         // Refresh users list
         await fetchUsersWithRoles()
         // If updating self, refresh own role
         if (username.toLowerCase() === user?.username.toLowerCase()) {
-          console.log('Updating self, refreshing own role')
           await fetchUserRole()
         }
         
@@ -607,22 +597,18 @@ export default function HomePage() {
       return
     }
 
-    console.log('handleDeleteUser called:', { username })
     try {
       const response = await fetch(`/api/roles?username=${username}`, {
         method: 'DELETE'
       })
 
-      console.log('Delete API response status:', response.status)
       const data = await response.json()
-      console.log('Delete API response data:', data)
 
       if (response.ok) {
         // Refresh users list
         await fetchUsersWithRoles()
         // If deleting self, refresh own role
         if (username.toLowerCase() === user?.username.toLowerCase()) {
-          console.log('Deleting self, refreshing own role')
           await fetchUserRole()
         }
         alert(`${username} removed from role system`)
@@ -682,7 +668,6 @@ export default function HomePage() {
       const response = await fetch('/api/users')
       if (response.ok) {
         const data = await response.json()
-        console.log('Fetched user lists from backend:', data)
         // Update state with backend data (even if empty) - MongoDB only
         if (data.subscribers !== undefined) {
           setSubscribers(data.subscribers || [])
