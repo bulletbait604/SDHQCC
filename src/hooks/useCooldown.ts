@@ -164,23 +164,22 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
       console.log('[Cooldown] Skipped start - user exempt')
       return
     }
-    try {
-      console.log('[Cooldown] POST /api/cooldown')
-      const postRes = await fetch('/api/cooldown', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, tool })
-      })
-      console.log('[Cooldown] POST response status:', postRes.status)
-      const postData = await postRes.json()
-      console.log('[Cooldown] POST response data:', postData)
-      console.log('[Cooldown] About to call checkCooldown()...')
-      await checkCooldown()
-      console.log('[Cooldown] checkCooldown() completed')
-    } catch (e) {
-      console.error('[Cooldown] FAILED:', e)
-    }
-    console.log('[Cooldown] === START COOLDOWN END ===')
+    
+    // Fire and forget - don't wait for response to avoid hanging
+    console.log('[Cooldown] POST /api/cooldown - fire and forget')
+    fetch('/api/cooldown', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, tool })
+    }).then(() => {
+      console.log('[Cooldown] POST completed, now checking...')
+      // Immediately check the cooldown status
+      checkCooldown()
+    }).catch((e) => {
+      console.error('[Cooldown] POST failed:', e)
+    })
+    
+    console.log('[Cooldown] === START COOLDOWN END (fire and forget) ===')
   }, [userId, tool, isExempt])
 
   // Call this when user clicks "Watch Ad to Skip"
