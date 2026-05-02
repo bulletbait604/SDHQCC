@@ -168,27 +168,36 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
     // Fire and forget - don't wait for response to avoid hanging
     console.log('[Cooldown] POST /api/cooldown - fire and forget')
     
-    // Call checkCooldown immediately - don't wait for fetch Promise
-    // The POST sets the cooldown on server, then we check it
-    setTimeout(() => {
-      console.log('[Cooldown] Calling checkCooldown after delay...')
-      checkCooldown()
-    }, 100)
-    
-    // Try to send the POST request (may hang but we don't wait for it)
+    // Send POST request to set cooldown on server
     try {
       fetch('/api/cooldown', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, tool })
       }).then(() => {
-        console.log('[Cooldown] POST completed successfully')
+        console.log('[Cooldown] POST completed, calling checkCooldown...')
+        checkCooldown()
       }).catch((e) => {
         console.error('[Cooldown] POST failed:', e)
+        // Try checkCooldown anyway
+        checkCooldown()
       })
     } catch (e) {
       console.error('[Cooldown] POST error:', e)
+      checkCooldown()
     }
+    
+    // Also try after a short delay in case fetch hangs
+    setTimeout(() => {
+      console.log('[Cooldown] Calling checkCooldown after 500ms delay...')
+      checkCooldown()
+    }, 500)
+    
+    // And one more time after a longer delay as fallback
+    setTimeout(() => {
+      console.log('[Cooldown] Calling checkCooldown after 2s delay...')
+      checkCooldown()
+    }, 2000)
     
     console.log('[Cooldown] === START COOLDOWN END (fire and forget) ===')
   }, [userId, tool, isExempt])
