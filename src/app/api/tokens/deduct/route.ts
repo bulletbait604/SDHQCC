@@ -63,15 +63,15 @@ export async function POST(req: NextRequest) {
       type: 'spend',
       amount: -cost,
       tool,
-      balanceAfter: result?.tokens,
+      balanceAfter: result?.value?.tokens,
       timestamp: new Date().toISOString()
     })
 
-    console.log(`[Tokens] Deducted ${cost} tokens from ${userId} for ${tool}. Remaining: ${result?.tokens}`)
+    console.log(`[Tokens] Deducted ${cost} tokens from ${userId} for ${tool}. Remaining: ${result?.value?.tokens}`)
 
     return NextResponse.json({
       success: true,
-      remainingTokens: result?.tokens,
+      remainingTokens: result?.value?.tokens,
       deducted: cost
     })
 
