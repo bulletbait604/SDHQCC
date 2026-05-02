@@ -2,6 +2,8 @@
 
 import { useState, useRef } from 'react'
 import { Wand2, Upload, X, Download, Loader2, ImageIcon, RotateCcw } from 'lucide-react'
+import { useCooldown } from '@/hooks/useCooldown'
+import CooldownBanner from './CooldownBanner'
 
 interface Platform {
   id: string
@@ -54,6 +56,13 @@ export default function ThumbnailGenerator({
   
   // Platform selection state
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['youtube-shorts', 'youtube-long'])
+
+  // Cooldown hook for free users
+  const { onCooldown, secondsRemaining, watchingAd, adReady, startCooldown, watchAdToSkip, formatTime } = useCooldown({
+    userId: userId || 'anon',
+    tool: 'thumbnail',
+    userRole: userType
+  })
   
   // Available platforms for thumbnails
   const availablePlatforms = [
@@ -172,6 +181,9 @@ export default function ThumbnailGenerator({
       // Push current result to history before replacing (keep last 3)
       if (result) setHistory(prev => [result, ...prev].slice(0, 3))
       setResult(newResult)
+
+      // Start cooldown for free users
+      await startCooldown()
 
       // Log thumbnail generation activity
       if (user && onLogActivity) {
@@ -393,18 +405,30 @@ export default function ThumbnailGenerator({
               )}
             </div>
 
-            {/* Generate button */}
-            <button
-              onClick={() => generate()}
-              disabled={isGenerating || !prompt.trim() || selectedPlatforms.length === 0}
-              className="w-full py-4 rounded-xl font-bold text-lg transition-all bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 text-black disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(6,182,212,0.4)]"
-            >
-              {isGenerating ? (
-                <><Loader2 className="w-5 h-5 animate-spin" /><span>Generating...</span></>
-              ) : (
-                <><Wand2 className="w-5 h-5" /><span>{imageBase64 ? 'Generate with Image' : 'Generate Thumbnail'}</span></>
-              )}
-            </button>
+            {/* Generate button or Cooldown Banner */}
+            {onCooldown ? (
+              <CooldownBanner
+                secondsRemaining={secondsRemaining}
+                watchingAd={watchingAd}
+                adReady={adReady}
+                onWatchAd={watchAdToSkip}
+                tool="thumbnail"
+                darkMode={darkMode}
+                formatTime={formatTime}
+              />
+            ) : (
+              <button
+                onClick={() => generate()}
+                disabled={isGenerating || !prompt.trim() || selectedPlatforms.length === 0}
+                className="w-full py-4 rounded-xl font-bold text-lg transition-all bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 text-black disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(6,182,212,0.4)]"
+              >
+                {isGenerating ? (
+                  <><Loader2 className="w-5 h-5 animate-spin" /><span>Generating...</span></>
+                ) : (
+                  <><Wand2 className="w-5 h-5" /><span>{imageBase64 ? 'Generate with Image' : 'Generate Thumbnail'}</span></>
+                )}
+              </button>
+            )}
 
             {error && (
               <div className="p-3 bg-red-950/50 border border-red-700 rounded-xl text-red-400 text-sm">

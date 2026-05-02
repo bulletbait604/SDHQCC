@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
 import DonateModal from '@/app/components/DonateModal'
+import { useCooldown } from '@/hooks/useCooldown'
+import CooldownBanner from '@/app/components/CooldownBanner'
 import {
   User,
   LogOut,
@@ -402,6 +404,13 @@ export default function HomePage() {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
   const [copiedTags, setCopiedTags] = useState<boolean>(false)
   const [copiedDescription, setCopiedDescription] = useState<boolean>(false)
+
+  // Cooldown hook for Clip Analyzer
+  const clipCooldown = useCooldown({
+    userId: user?.id || user?.username || 'anon',
+    tool: 'clip-analyzer',
+    userRole
+  })
 
   // Helper function to get recommended tag count from algorithm data
   const getRecommendedTagCount = (platformId: string): number => {
@@ -1270,7 +1279,10 @@ export default function HomePage() {
       setClipAnalysisResult(data)
       setExtractedData(data.extractedData || null)
       setShowReanalysis(true)
-      
+
+      // Start cooldown for free users
+      await clipCooldown.startCooldown()
+
       // Increment usage for limited roles
       incrementUsage('clips')
       
@@ -2998,14 +3010,26 @@ export default function HomePage() {
                                 : 'bg-white/80 border-sdhq-cyan-300 text-gray-800 focus:border-sdhq-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.2)]'
                             } border backdrop-blur-sm`}
                           />
-                          <Button
-                            onClick={handleAnalyzeClip}
-                            disabled={isAnalyzingClip || !clipFile}
-                            className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold px-6 rounded-xl hover:shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all duration-300 flex items-center gap-2"
-                          >
-                            <span>Analyze</span>
-                            <span>→</span>
-                          </Button>
+                          {clipCooldown.onCooldown ? (
+                            <CooldownBanner
+                              secondsRemaining={clipCooldown.secondsRemaining}
+                              watchingAd={clipCooldown.watchingAd}
+                              adReady={clipCooldown.adReady}
+                              onWatchAd={clipCooldown.watchAdToSkip}
+                              tool="clip-analyzer"
+                              darkMode={darkMode}
+                              formatTime={clipCooldown.formatTime}
+                            />
+                          ) : (
+                            <Button
+                              onClick={handleAnalyzeClip}
+                              disabled={isAnalyzingClip || !clipFile}
+                              className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold px-6 rounded-xl hover:shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all duration-300 flex items-center gap-2"
+                            >
+                              <span>Analyze</span>
+                              <span>→</span>
+                            </Button>
+                          )}
                         </div>
                         {clipFile && (
                           <div className="mt-3 text-base">
