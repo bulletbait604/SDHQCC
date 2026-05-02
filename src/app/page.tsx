@@ -2069,8 +2069,11 @@ export default function HomePage() {
                           <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                             {user.display_name}
                           </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  {userRole === 'free' && (
+                  {(isSubscribed || isLifetimeMember) && (
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -4469,5 +4472,6 @@ export default function HomePage() {
           </div>
         </div>
       )}
-```
-
+    </div>
+  )
+}
