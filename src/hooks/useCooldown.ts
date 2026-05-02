@@ -88,22 +88,29 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
 
   // Define checkCooldown as a function declaration so it's hoisted
   async function checkCooldown() {
-    console.log('[Cooldown] Checking...', { userId, tool, isExempt })
+    console.log('[Cooldown] === CHECK COOLDOWN START ===', { userId, tool, isExempt })
     if (isExempt || !userId) {
       console.log('[Cooldown] Skipped - exempt or no userId')
       return
     }
     try {
-      const res = await fetch(`/api/cooldown?userId=${userId}&tool=${tool}`)
+      const url = `/api/cooldown?userId=${userId}&tool=${tool}`
+      console.log('[Cooldown] Fetching:', url)
+      const res = await fetch(url)
+      console.log('[Cooldown] Response status:', res.status)
       const data = await res.json()
-      console.log('[Cooldown] API response:', data)
+      console.log('[Cooldown] API response data:', data)
       if (data.onCooldown) {
+        console.log('[Cooldown] Setting onCooldown to TRUE, seconds:', data.secondsRemaining)
         setOnCooldown(true)
         setSecondsRemaining(data.secondsRemaining)
+      } else {
+        console.log('[Cooldown] onCooldown is false, not setting state')
       }
     } catch (e) {
       console.error('[Cooldown] Failed to check:', e)
     }
+    console.log('[Cooldown] === CHECK COOLDOWN END ===')
   }
 
   // Log state changes for debugging
@@ -152,7 +159,7 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
 
   // Call this after a successful use to start the cooldown
   const startCooldown = useCallback(async () => {
-    console.log('[Cooldown] Starting...', { isExempt, userId, tool })
+    console.log('[Cooldown] === START COOLDOWN ===', { isExempt, userId, tool })
     if (isExempt) {
       console.log('[Cooldown] Skipped start - user exempt')
       return
@@ -164,14 +171,17 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, tool })
       })
-      console.log('[Cooldown] POST response:', postRes.status)
-      console.log('[Cooldown] Cooldown set, checking...')
+      console.log('[Cooldown] POST response status:', postRes.status)
+      const postData = await postRes.json()
+      console.log('[Cooldown] POST response data:', postData)
+      console.log('[Cooldown] About to call checkCooldown()...')
       await checkCooldown()
-      console.log('[Cooldown] Check complete, onCooldown should be:', onCooldown)
+      console.log('[Cooldown] checkCooldown() completed')
     } catch (e) {
-      console.error('[Cooldown] Failed to start:', e)
+      console.error('[Cooldown] FAILED:', e)
     }
-  }, [userId, tool, isExempt, onCooldown])
+    console.log('[Cooldown] === START COOLDOWN END ===')
+  }, [userId, tool, isExempt])
 
   // Call this when user clicks "Watch Ad to Skip"
   const watchAdToSkip = useCallback(async () => {
