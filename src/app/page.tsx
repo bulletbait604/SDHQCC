@@ -43,7 +43,6 @@ import {
   Wand2
 } from 'lucide-react'
 import { createKickAuthURL } from '@/lib/kick-oauth'
-import { usePopunder } from '@/hooks/usePopunder'
 
 interface KickUser {
   id: string
@@ -403,9 +402,6 @@ export default function HomePage() {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
   const [copiedTags, setCopiedTags] = useState<boolean>(false)
   const [copiedDescription, setCopiedDescription] = useState<boolean>(false)
-
-  // Popunder ad hook
-  const { showPopunder } = usePopunder()
 
   // Helper function to get recommended tag count from algorithm data
   const getRecommendedTagCount = (platformId: string): number => {
@@ -1126,9 +1122,6 @@ export default function HomePage() {
       setClipError('File size must be less than 250MB.')
       return
     }
-
-    // Trigger popunder ad
-    showPopunder()
 
     setClipError('')
     setIsAnalyzingClip(true)
@@ -2651,9 +2644,6 @@ export default function HomePage() {
                           return
                         }
 
-                        // Trigger popunder ad
-                        showPopunder()
-                        
                         setIsGeneratingTags(true)
                         try {
                           const response = await fetch('/api/tags', {

@@ -2,7 +2,6 @@
 
 import { useState, useRef } from 'react'
 import { Wand2, Upload, X, Download, Loader2, ImageIcon, RotateCcw } from 'lucide-react'
-import { usePopunder } from '@/hooks/usePopunder'
 
 interface Platform {
   id: string
@@ -65,9 +64,6 @@ export default function ThumbnailGenerator({
     { id: 'facebook-reels', name: 'Facebook Reels', icon: '📘' },
     { id: 'twitter', name: 'Twitter/X', icon: '🐦' },
   ]
-
-  // Popunder ad hook
-  const { showPopunder } = usePopunder()
   
   // Theme classes matching other tabs
   const cardClasses = darkMode
@@ -139,9 +135,6 @@ export default function ThumbnailGenerator({
       setError('Please select at least one platform')
       return
     }
-
-    // Trigger popunder ad
-    showPopunder()
 
     setIsGenerating(true)
     setError('')
