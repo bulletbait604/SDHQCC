@@ -3,6 +3,11 @@ import clientPromise from '@/lib/mongodb'
 import { signSessionJwt, getSessionSecret } from '@/lib/auth/sessionJwt'
 import type { UserRole } from '@/lib/auth/verifyAuth'
 import { sessionCookieSecure } from '@/lib/sessionCookie'
+import {
+  normalizeKickUserRow,
+  kickOAuthExtrasFromRow,
+  type NormalizedKickUser,
+} from '@/lib/kickUserProfile'
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,32 +59,14 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    let user: {
-      id: number | string
-      username: string
-      display_name: string
-      profile_image_url?: string
-      email?: string
-    } | null = null
+    let user: NormalizedKickUser | null = null
+    let kickRawRow: Record<string, unknown> | null = null
 
     if (userResponse.ok) {
       const userData = await userResponse.json()
       if (userData.data && userData.data.length > 0) {
-        const kickUser = userData.data[0]
-        const pic =
-          kickUser.profile_picture ||
-          kickUser.profile_picture_url ||
-          kickUser.avatar ||
-          undefined
-        const name = kickUser.name || kickUser.username || ''
-        const loginName = kickUser.username || kickUser.slug || name
-        user = {
-          id: kickUser.user_id,
-          username: String(loginName).replace(/^@/, '').toLowerCase(),
-          display_name: name,
-          profile_image_url: pic,
-          email: kickUser.email,
-        }
+        kickRawRow = userData.data[0] as Record<string, unknown>
+        user = normalizeKickUserRow(kickRawRow)
       }
     }
 
@@ -105,14 +92,30 @@ export async function POST(request: NextRequest) {
       const db = mongoClient.db('sdhq')
       const now = new Date().toISOString()
 
+      const extras = kickRawRow ? kickOAuthExtrasFromRow(kickRawRow) : {}
+      const kickOAuth: Record<string, unknown> = {
+        provider: 'kick',
+        lastSyncedAt: now,
+        userId: String(user.id),
+        loginUsername: user.username,
+        displayName: user.display_name,
+        profileImageUrl: user.profile_image_url ?? null,
+        email: user.email ?? null,
+      }
+      if (Object.keys(extras).length > 0) {
+        kickOAuth.extras = extras
+      }
+
       await db.collection('users').updateOne(
         { username: user.username },
         {
           $set: {
             username: user.username,
             kickId: String(user.id),
+            display_name: user.display_name,
             profile_image_url: user.profile_image_url,
             email: user.email,
+            kickOAuth,
             updatedAt: now,
           },
           $setOnInsert: {

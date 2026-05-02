@@ -9,6 +9,15 @@ type Preferences = {
   darkMode?: boolean
 }
 
+type KickOAuthDb = {
+  provider?: string
+  lastSyncedAt?: string
+  userId?: string
+  displayName?: string
+  profileImageUrl?: string | null
+  extras?: Record<string, string>
+}
+
 export async function GET(req: NextRequest) {
   try {
     const authUser = await verifyAuth(req)
@@ -24,17 +33,35 @@ export async function GET(req: NextRequest) {
     ])
 
     const prefs = (dbUser?.preferences || {}) as Preferences
+    const ko = dbUser?.kickOAuth as KickOAuthDb | undefined
+
+    const displayName =
+      (typeof dbUser?.display_name === 'string' && dbUser.display_name.trim()) ||
+      (typeof ko?.displayName === 'string' && ko.displayName.trim()) ||
+      (typeof dbUser?.displayName === 'string' && dbUser.displayName) ||
+      authUser.username
+
+    const profileUrl =
+      (typeof dbUser?.profile_image_url === 'string' && dbUser.profile_image_url) ||
+      (typeof ko?.profileImageUrl === 'string' && ko.profileImageUrl) ||
+      undefined
 
     const kickUser = {
       id: String(dbUser?.kickId ?? authUser.id),
       username: authUser.username,
-      display_name:
-        (typeof dbUser?.display_name === 'string' && dbUser.display_name) ||
-        (typeof dbUser?.displayName === 'string' && dbUser.displayName) ||
-        authUser.username,
-      profile_image_url:
-        typeof dbUser?.profile_image_url === 'string' ? dbUser.profile_image_url : undefined,
+      display_name: displayName,
+      profile_image_url: profileUrl,
       role: authUser.role,
+      ...(ko?.lastSyncedAt
+        ? {
+            kick: {
+              provider: (ko.provider || 'kick') as 'kick',
+              lastSyncedAt: ko.lastSyncedAt,
+              providerUserId: ko.userId ?? String(dbUser?.kickId ?? authUser.id),
+              ...(ko.extras && Object.keys(ko.extras).length > 0 ? { extras: ko.extras } : {}),
+            },
+          }
+        : {}),
     }
 
     return NextResponse.json({

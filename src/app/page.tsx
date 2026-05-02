@@ -55,6 +55,13 @@ interface KickUser {
   display_name: string
   profile_image_url?: string
   role?: string
+  /** Last OAuth sync metadata from Kick (see GET /api/me) */
+  kick?: {
+    provider?: 'kick'
+    lastSyncedAt?: string
+    providerUserId?: string
+    extras?: Record<string, string>
+  }
 }
 
 interface Subscriber {
