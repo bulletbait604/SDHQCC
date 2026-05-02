@@ -167,17 +167,28 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
     
     // Fire and forget - don't wait for response to avoid hanging
     console.log('[Cooldown] POST /api/cooldown - fire and forget')
-    fetch('/api/cooldown', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, tool })
-    }).then(() => {
-      console.log('[Cooldown] POST completed, now checking...')
-      // Immediately check the cooldown status
+    
+    // Call checkCooldown immediately - don't wait for fetch Promise
+    // The POST sets the cooldown on server, then we check it
+    setTimeout(() => {
+      console.log('[Cooldown] Calling checkCooldown after delay...')
       checkCooldown()
-    }).catch((e) => {
-      console.error('[Cooldown] POST failed:', e)
-    })
+    }, 100)
+    
+    // Try to send the POST request (may hang but we don't wait for it)
+    try {
+      fetch('/api/cooldown', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, tool })
+      }).then(() => {
+        console.log('[Cooldown] POST completed successfully')
+      }).catch((e) => {
+        console.error('[Cooldown] POST failed:', e)
+      })
+    } catch (e) {
+      console.error('[Cooldown] POST error:', e)
+    }
     
     console.log('[Cooldown] === START COOLDOWN END (fire and forget) ===')
   }, [userId, tool, isExempt])
