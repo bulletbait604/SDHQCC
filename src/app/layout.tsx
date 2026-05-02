@@ -27,11 +27,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){var s=document.createElement('script');s.src='https://n6wxm.com/vignette.min.js';s.dataset.zone='10951310';s.async=true;document.head.appendChild(s);})();`
-          }}
-        />
       </head>
       <body className={inter.className}>
         <div className="min-h-screen bg-gradient-to-br from-sdhq-cyan-50 via-white to-sdhq-green-50 flex flex-col">

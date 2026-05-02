@@ -2961,7 +2961,6 @@ export default function HomePage() {
                             <CooldownBanner
                               secondsRemaining={clipCooldown.secondsRemaining}
                               watchingAd={clipCooldown.watchingAd}
-                              adReady={clipCooldown.adReady}
                               onWatchAd={clipCooldown.watchAdToSkip}
                               tool="clip-analyzer"
                               darkMode={darkMode}

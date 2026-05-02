@@ -58,7 +58,7 @@ export default function ThumbnailGenerator({
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['youtube-shorts', 'youtube-long'])
 
   // Cooldown hook for free users
-  const { onCooldown, secondsRemaining, watchingAd, adReady, startCooldown, watchAdToSkip, formatTime } = useCooldown({
+  const { onCooldown, secondsRemaining, watchingAd, startCooldown, watchAdToSkip, formatTime } = useCooldown({
     userId: userId || 'anon',
     tool: 'thumbnail',
     userRole: userType
@@ -410,7 +410,6 @@ export default function ThumbnailGenerator({
               <CooldownBanner
                 secondsRemaining={secondsRemaining}
                 watchingAd={watchingAd}
-                adReady={adReady}
                 onWatchAd={watchAdToSkip}
                 tool="thumbnail"
                 darkMode={darkMode}

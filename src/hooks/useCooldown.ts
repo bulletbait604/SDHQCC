@@ -20,11 +20,69 @@ function findMonetagFn(): (() => void) | null {
   return key ? (window as any)[key] : null
 }
 
+// Load Monetag vignette script dynamically
+function loadVignetteScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') {
+      reject(new Error('Window not available'))
+      return
+    }
+
+    // Check if already loaded
+    if (findMonetagFn()) {
+      resolve()
+      return
+    }
+
+    // Check if script tag already exists
+    const existingScript = document.querySelector('script[data-zone="10951310"]')
+    if (existingScript) {
+      // Wait for it to load
+      const checkInterval = setInterval(() => {
+        if (findMonetagFn()) {
+          clearInterval(checkInterval)
+          resolve()
+        }
+      }, 100)
+      setTimeout(() => {
+        clearInterval(checkInterval)
+        if (findMonetagFn()) resolve()
+        else reject(new Error('Script load timeout'))
+      }, 10000)
+      return
+    }
+
+    // Create and load script
+    const script = document.createElement('script')
+    script.src = 'https://n6wxm.com/vignette.min.js'
+    script.dataset.zone = '10951310'
+    script.async = true
+
+    script.onload = () => {
+      // Wait for show function to be available
+      const checkInterval = setInterval(() => {
+        if (findMonetagFn()) {
+          clearInterval(checkInterval)
+          resolve()
+        }
+      }, 100)
+      setTimeout(() => {
+        clearInterval(checkInterval)
+        if (findMonetagFn()) resolve()
+        else reject(new Error('Show function not available'))
+      }, 5000)
+    }
+
+    script.onerror = () => reject(new Error('Failed to load script'))
+
+    document.head.appendChild(script)
+  })
+}
+
 export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
   const [onCooldown, setOnCooldown] = useState(false)
   const [secondsRemaining, setSecondsRemaining] = useState(0)
   const [watchingAd, setWatchingAd] = useState(false)
-  const [adReady, setAdReady] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const isExempt = userRole ? EXEMPT_ROLES.includes(userRole) : false
 
@@ -42,16 +100,6 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
       console.error('[Cooldown] Failed to check:', e)
     }
   }
-
-  // Poll for Monetag script
-  useEffect(() => {
-    if (findMonetagFn()) { setAdReady(true); return }
-    const interval = setInterval(() => {
-      if (findMonetagFn()) { setAdReady(true); clearInterval(interval) }
-    }, 300)
-    const timeout = setTimeout(() => { clearInterval(interval); setAdReady(true) }, 15000)
-    return () => { clearInterval(interval); clearTimeout(timeout) }
-  }, [])
 
   // Check cooldown from server on mount
   useEffect(() => {
@@ -94,26 +142,47 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
   const watchAdToSkip = useCallback(async () => {
     setWatchingAd(true)
     try {
+      // Load the vignette script dynamically
+      await loadVignetteScript()
+
       // Fire the Monetag vignette ad
       const fn = findMonetagFn()
       if (fn) {
         fn()
         console.log('[Monetag] Vignette ad triggered for cooldown skip')
+      } else {
+        console.warn('[Monetag] Show function not available after loading')
       }
+
       // Wait 6 seconds for ad to play
       await new Promise(r => setTimeout(r, 6000))
+
       // Clear cooldown server-side
       await fetch('/api/cooldown', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, tool, skipWithAd: true })
       })
+
       // Clear client-side state
       if (timerRef.current) clearInterval(timerRef.current)
       setOnCooldown(false)
       setSecondsRemaining(0)
     } catch (e) {
       console.error('[Cooldown] Failed to skip:', e)
+      // Even if ad fails, clear the cooldown as a fallback
+      try {
+        await fetch('/api/cooldown', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, tool, skipWithAd: true })
+        })
+        if (timerRef.current) clearInterval(timerRef.current)
+        setOnCooldown(false)
+        setSecondsRemaining(0)
+      } catch (err) {
+        console.error('[Cooldown] Failed to clear cooldown:', err)
+      }
     } finally {
       setWatchingAd(false)
     }
@@ -135,7 +204,6 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
     onCooldown: isExempt ? false : onCooldown,
     secondsRemaining,
     watchingAd,
-    adReady,
     startCooldown,
     watchAdToSkip,
     formatTime,

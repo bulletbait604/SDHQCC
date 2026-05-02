@@ -5,7 +5,6 @@ import { Loader2 } from 'lucide-react'
 interface Props {
   secondsRemaining: number
   watchingAd: boolean
-  adReady: boolean
   onWatchAd: () => void
   tool: 'thumbnail' | 'clip-analyzer'
   darkMode?: boolean
@@ -15,7 +14,6 @@ interface Props {
 export default function CooldownBanner({
   secondsRemaining,
   watchingAd,
-  adReady,
   onWatchAd,
   tool,
   darkMode = true,
@@ -53,13 +51,11 @@ export default function CooldownBanner({
       {/* Watch Ad button */}
       <button
         onClick={onWatchAd}
-        disabled={watchingAd || !adReady}
+        disabled={watchingAd}
         className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         {watchingAd ? (
           <><Loader2 className="w-4 h-4 animate-spin" /> Playing Ad...</>
-        ) : !adReady ? (
-          <>Loading...</>
         ) : (
           <>▶ Watch Ad to Skip</>
         )}
