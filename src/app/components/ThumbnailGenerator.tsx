@@ -2,8 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { Wand2, Upload, X, Download, Loader2, ImageIcon, RotateCcw } from 'lucide-react'
-import { useCooldown } from '@/hooks/useCooldown'
-import CooldownBanner from './CooldownBanner'
+import { useTokens } from '@/hooks/useTokens'
 
 interface Platform {
   id: string
@@ -57,12 +56,19 @@ export default function ThumbnailGenerator({
   // Platform selection state
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['youtube-shorts', 'youtube-long'])
 
-  // Cooldown hook for free users
-  const { onCooldown, secondsRemaining, watchingAd, startCooldown, watchAdToSkip, formatTime } = useCooldown({
-    userId: userId || 'anon',
-    tool: 'thumbnail',
-    userRole: userType
+  // Token system for free users
+  const { 
+    balance, 
+    deductTokens, 
+    hasEnoughTokens, 
+    hasUnlimitedAccess,
+    loading: tokenLoading 
+  } = useTokens({ 
+    userId: userId || '', 
+    userRole: userType 
   })
+  
+  const TOKEN_COST = 2 // Thumbnail generator costs 2 tokens
   
   // Available platforms for thumbnails
   const availablePlatforms = [
@@ -191,12 +197,15 @@ export default function ThumbnailGenerator({
       // Push current result to history before replacing (keep last 3)
       if (result) setHistory(prev => [result, ...prev].slice(0, 3))
       setResult(newResult)
-      console.log('[Thumbnail] Result set, about to call startCooldown')
+      console.log('[Thumbnail] Result set, about to deduct tokens')
 
-      // Start cooldown for free users
-      console.log('[Thumbnail] Calling startCooldown...')
-      await startCooldown()
-      console.log('[Thumbnail] startCooldown completed')
+      // Deduct tokens for free users
+      const deducted = await deductTokens('thumbnail-generator')
+      if (!deducted) {
+        setError('Insufficient tokens. Purchase more tokens or claim your daily free tokens.')
+        setIsGenerating(false)
+        return
+      }
 
       // Log thumbnail generation activity
       if (user && onLogActivity) {
@@ -378,7 +387,7 @@ export default function ThumbnailGenerator({
                 ? "Describe how to use your image in the thumbnail... (e.g. 'Place me on the left side with a red explosive background and bold white text space on the right')"
                 : "Describe the thumbnail you want... (e.g. 'A dramatic gaming thumbnail for a Minecraft video with lava and a shocked face')"}
               rows={4}
-              className={`w-full border rounded-xl px-4 py-3 text-base resize-none outline-none transition-all duration-300 backdrop-blur-sm ${inputClasses}`}
+              className={`w-full border rounded-xl px-4 py-3 text-base resize-none outline-none transition-all backdrop-blur-sm ${inputClasses}`}
             />
 
             {/* Platform Selection */}
@@ -418,29 +427,30 @@ export default function ThumbnailGenerator({
               )}
             </div>
 
-            {/* Generate button or Cooldown Banner */}
-            {onCooldown ? (
-              <CooldownBanner
-                secondsRemaining={secondsRemaining}
-                watchingAd={watchingAd}
-                onWatchAd={watchAdToSkip}
-                tool="thumbnail"
-                darkMode={darkMode}
-                formatTime={formatTime}
-              />
-            ) : (
-              <button
-                onClick={() => generate()}
-                disabled={isGenerating || !prompt.trim() || selectedPlatforms.length === 0}
-                className="w-full py-4 rounded-xl font-bold text-lg transition-all bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 text-black disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(6,182,212,0.4)]"
-              >
-                {isGenerating ? (
-                  <><Loader2 className="w-5 h-5 animate-spin" /><span>Generating...</span></>
-                ) : (
-                  <><Wand2 className="w-5 h-5" /><span>{imageBase64 ? 'Generate with Image' : 'Generate Thumbnail'}</span></>
-                )}
-              </button>
+            {/* Generate button with token cost */}
+            {!hasUnlimitedAccess && (
+              <div className="text-xs text-gray-500 mb-2">
+                {hasEnoughTokens('thumbnail-generator') 
+                  ? `💎 ${balance} tokens available (costs ${TOKEN_COST} tokens)`
+                  : `❌ Need ${TOKEN_COST} tokens (you have ${balance})`}
+              </div>
             )}
+            {hasUnlimitedAccess && (
+              <div className="text-xs text-green-500 mb-2">
+                ✨ Unlimited access (no token cost)
+              </div>
+            )}
+            <button
+              onClick={() => generate()}
+              disabled={isGenerating || !prompt.trim() || selectedPlatforms.length === 0 || (!hasUnlimitedAccess && !hasEnoughTokens('thumbnail-generator'))}
+              className="w-full py-4 rounded-xl font-bold text-lg transition-all bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 text-black disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(6,182,212,0.4)]"
+            >
+              {isGenerating ? (
+                <><Loader2 className="w-5 h-5 animate-spin" /><span>Generating...</span></>
+              ) : (
+                <><Wand2 className="w-5 h-5" /><span>{imageBase64 ? 'Generate with Image' : 'Generate Thumbnail'} (2 tokens)</span></>
+              )}
+            </button>
 
             {error && (
               <div className="p-3 bg-red-950/50 border border-red-700 rounded-xl text-red-400 text-sm">

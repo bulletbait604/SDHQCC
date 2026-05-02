@@ -507,19 +507,96 @@ export async function POST(req: NextRequest) {
           }
         }
         
-        // Handle one-time payment orders (lifetime membership) - SIMPLE LIKE SUBSCRIPTION
+        // Handle one-time payment orders (token purchases) - MUST CHECK BEFORE LIFETIME
         if (eventType === 'CHECKOUT.ORDER.APPROVED' || eventType === 'CHECKOUT.ORDER.COMPLETED') {
           const orderId = eventData.resource?.id
           const customId = eventData.resource?.purchase_units?.[0]?.custom_id
           const amount = eventData.resource?.purchase_units?.[0]?.amount?.value
           
-          console.log(`💰 Lifetime payment webhook: ${orderId}, custom_id: ${customId}`)
+          console.log(`💰 Order webhook: ${orderId}, custom_id: ${customId}`)
           
-          // Extract username from custom_id (format: username|lifetime)
+          // Check for token purchase FIRST (format: username|tokens|packageType|tokenCount)
+          if (customId && customId.includes('tokens')) {
+            const parts = customId.split('|')
+            const username = parts[0]
+            const packageType = parts[2]
+            const tokenCount = parseInt(parts[3], 10)
+            
+            if (username && !isNaN(tokenCount)) {
+              // Verify order with PayPal
+              const verifiedOrder = await getOrderDetails(orderId)
+              if (!verifiedOrder || verifiedOrder.status !== 'COMPLETED') {
+                console.error(`❌ Token purchase order ${orderId} verification failed or not completed`)
+                return NextResponse.json({ status: 'error', message: 'Order verification failed' }, { status: 400 })
+              }
+              
+              // Update token balance
+              const client = await clientPromise
+              const db = client.db('sdhq')
+              
+              await db.collection('tokenBalances').updateOne(
+                { userId: username.toLowerCase() },
+                {
+                  $inc: {
+                    tokens: tokenCount,
+                    totalPurchased: tokenCount
+                  },
+                  $set: {
+                    updatedAt: new Date().toISOString()
+                  }
+                },
+                { upsert: true }
+              )
+              
+              // Log the purchase
+              await db.collection('tokenTransactions').insertOne({
+                userId: username.toLowerCase(),
+                type: 'purchase',
+                amount: tokenCount,
+                cost: amount,
+                currency: 'CAD',
+                orderId,
+                packageType,
+                timestamp: new Date().toISOString()
+              })
+              
+              // Update purchase record
+              await db.collection('tokenPurchases').updateOne(
+                { orderId },
+                {
+                  $set: {
+                    status: 'completed',
+                    completedAt: new Date().toISOString(),
+                    verifiedWithPayPal: true
+                  }
+                }
+              )
+              
+              await logActivity(username.toLowerCase(), 'token_purchase', `Purchased ${tokenCount} tokens for $${amount} CAD (ID: ${orderId})`)
+              
+              console.log(`✅ ${tokenCount} tokens purchased for ${username}`)
+              return NextResponse.json({ 
+                status: 'success', 
+                username, 
+                tokens: tokenCount, 
+                type: 'token_purchase',
+                verifiedWithPayPal: true 
+              })
+            }
+          }
+          
+          // Handle lifetime membership (format: username|lifetime)
           if (customId && customId.includes('lifetime')) {
             const username = customId.split('|')[0]
             
             if (username) {
+              // Verify order with PayPal
+              const verifiedOrder = await getOrderDetails(orderId)
+              if (!verifiedOrder || verifiedOrder.status !== 'COMPLETED') {
+                console.error(`❌ Lifetime order ${orderId} verification failed or not completed`)
+                return NextResponse.json({ status: 'error', message: 'Order verification failed' }, { status: 400 })
+              }
+              
               // Store with LOWERCASE username to match GET endpoint search
               const subscription = {
                 username: username.toLowerCase(),
