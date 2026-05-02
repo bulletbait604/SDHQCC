@@ -15,10 +15,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 })
     }
 
-    // Check subscription
-    if (userType !== 'owner' && userType !== 'admin' && userType !== 'lifetime' && userType !== 'subscribed') {
-      console.error('[DEBUG] Gemini API Key: Access denied - subscription required')
-      return NextResponse.json({ error: 'Access denied. Subscription required.' }, { status: 403 })
+    // Check subscription - free users can access with cooldowns
+    const allowedTypes = ['owner', 'admin', 'lifetime', 'subscribed', 'free', 'tester']
+    if (!allowedTypes.includes(userType)) {
+      console.error('[DEBUG] Gemini API Key: Access denied - unknown user type:', userType)
+      return NextResponse.json({ error: 'Access denied. Invalid user type.' }, { status: 403 })
     }
 
     // Get API key from environment
