@@ -248,12 +248,12 @@ const ROLE_HIERARCHY = {
 type Role = keyof typeof ROLE_HIERARCHY;
 
 const ROLE_CONFIG = {
-  owner: { badge: '👑 Owner', rank: 5, label: 'Owner', badgeClass: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' },
-  admin: { badge: '🛡 Admin', rank: 4, label: 'Admin', badgeClass: 'bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black' },
-  subscriber_lifetime: { badge: '💎 Lifetime', rank: 3, label: 'Lifetime Subscriber', badgeClass: 'bg-gradient-to-r from-yellow-500 to-orange-500 text-black' },
-  subscriber: { badge: '⭐ Subscriber', rank: 2, label: 'Subscriber', badgeClass: 'bg-gradient-to-r from-sdhq-green-500 to-sdhq-cyan-500 text-black' },
-  free: { badge: '🙂 Free User', rank: 1, label: 'Free User', badgeClass: 'bg-gray-500 text-white' },
-  tester: { badge: '🧪 Tester', rank: 6, label: 'Tester', badgeClass: 'bg-gradient-to-r from-blue-500 to-purple-500 text-white' }
+  owner: { badge: '👑', rank: 5, label: 'Owner', badgeClass: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' },
+  admin: { badge: '🛡', rank: 4, label: 'Admin', badgeClass: 'bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black' },
+  subscriber_lifetime: { badge: '💎', rank: 3, label: 'Lifetime Subscriber', badgeClass: 'bg-gradient-to-r from-yellow-500 to-orange-500 text-black' },
+  subscriber: { badge: '⭐', rank: 2, label: 'Subscriber', badgeClass: 'bg-gradient-to-r from-sdhq-green-500 to-sdhq-cyan-500 text-black' },
+  free: { badge: '🙂', rank: 1, label: 'Free User', badgeClass: 'bg-gray-500 text-white' },
+  tester: { badge: '🧪', rank: 6, label: 'Tester', badgeClass: 'bg-gradient-to-r from-blue-500 to-purple-500 text-white' }
 } as const;
 
 // Tab permissions configuration - each role can have specific tabs enabled/disabled
