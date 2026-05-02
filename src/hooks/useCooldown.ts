@@ -106,18 +106,33 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
     }
   }
 
+  // Log state changes for debugging
+  useEffect(() => {
+    console.log('[Cooldown] State changed:', { onCooldown, secondsRemaining, isExempt, userId, tool })
+  }, [onCooldown, secondsRemaining])
+
   // Check cooldown from server on mount
   useEffect(() => {
-    if (isExempt || !userId) return
+    console.log('[Cooldown] Mount effect running:', { userId, tool, isExempt })
+    if (isExempt || !userId) {
+      console.log('[Cooldown] Skipped check on mount - exempt or no userId')
+      return
+    }
     checkCooldown()
   }, [userId, tool, isExempt])
 
   // Countdown timer - only runs when onCooldown changes, not on every tick
   useEffect(() => {
-    if (!onCooldown) return
+    console.log('[Cooldown] Timer effect running:', { onCooldown })
+    if (!onCooldown) {
+      console.log('[Cooldown] Timer not started - onCooldown is false')
+      return
+    }
 
+    console.log('[Cooldown] Starting timer interval')
     timerRef.current = setInterval(() => {
       setSecondsRemaining(prev => {
+        console.log('[Cooldown] Tick:', prev)
         if (prev <= 1) {
           setOnCooldown(false)
           return 0
@@ -127,6 +142,7 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
     }, 1000)
 
     return () => {
+      console.log('[Cooldown] Cleaning up timer')
       if (timerRef.current) {
         clearInterval(timerRef.current)
         timerRef.current = null
@@ -143,17 +159,19 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
     }
     try {
       console.log('[Cooldown] POST /api/cooldown')
-      await fetch('/api/cooldown', {
+      const postRes = await fetch('/api/cooldown', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, tool })
       })
+      console.log('[Cooldown] POST response:', postRes.status)
       console.log('[Cooldown] Cooldown set, checking...')
       await checkCooldown()
+      console.log('[Cooldown] Check complete, onCooldown should be:', onCooldown)
     } catch (e) {
       console.error('[Cooldown] Failed to start:', e)
     }
-  }, [userId, tool, isExempt])
+  }, [userId, tool, isExempt, onCooldown])
 
   // Call this when user clicks "Watch Ad to Skip"
   const watchAdToSkip = useCallback(async () => {
