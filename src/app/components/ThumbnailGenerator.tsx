@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import Image from 'next/image'
 import { Wand2, Upload, X, Download, Loader2, ImageIcon, RotateCcw } from 'lucide-react'
 import { useCoins } from '@/hooks/useCoins'
 
@@ -301,10 +302,12 @@ export default function ThumbnailGenerator({
       {/* Platform Logos */}
       <div className="flex justify-center gap-4 mb-6">
         {platforms.map((platform) => (
-          <img
+          <Image
             key={platform.id}
             src={platform.image}
             alt={platform.name}
+            width={40}
+            height={40}
             className="w-10 h-10 rounded-lg object-cover opacity-80 hover:opacity-100 transition-opacity"
           />
         ))}
@@ -338,9 +341,12 @@ export default function ThumbnailGenerator({
               {imageBase64 ? (
                 <div className="space-y-3">
                   <div className="relative">
-                    <img
+                    <Image
                       src={`data:${imageMime};base64,${imageBase64}`}
                       alt="Uploaded"
+                      width={400}
+                      height={160}
+                      unoptimized
                       className="w-full max-h-40 object-contain rounded-lg"
                     />
                     <button
@@ -475,9 +481,12 @@ export default function ThumbnailGenerator({
             ) : result ? (
               <div className="space-y-3">
                 <div className={`relative rounded-xl overflow-hidden border-2 border-cyan-500`}>
-                  <img
+                  <Image
                     src={`data:${result.mimeType};base64,${result.imageBase64}`}
                     alt="Generated thumbnail"
+                    width={800}
+                    height={450}
+                    unoptimized
                     className="w-full object-cover"
                   />
                   <div className="absolute top-2 right-2 flex gap-2">
@@ -547,9 +556,12 @@ export default function ThumbnailGenerator({
                       className="flex-shrink-0 group relative"
                       title={item.prompt}
                     >
-                      <img
+                      <Image
                         src={`data:${item.mimeType};base64,${item.imageBase64}`}
                         alt={`v${history.length - i}`}
+                        width={80}
+                        height={48}
+                        unoptimized
                         className="w-20 h-12 object-cover rounded-lg border-2 border-transparent group-hover:border-cyan-500 transition-all"
                       />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 rounded-lg transition-opacity flex items-center justify-center">

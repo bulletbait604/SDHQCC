@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 
 // TypeScript declaration for PayPal
 declare global {
@@ -78,7 +79,7 @@ interface ActivityLogEntry {
   id: string
   username: string
   timestamp: string
-  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh' | 'tag_generation' | 'clip_analysis' | 'clip_reanalysis' | 'content_analysis' | 'content_reanalysis' | 'subscriber_added' | 'subscriber_removed' | 'lifetime_added' | 'lifetime_removed' | 'admin_added' | 'admin_removed' | 'sync_completed' | 'role_updated' | 'thumbnail_generation' | 'token_grant' | 'token_purchase' | 'subscription_payment' | 'lifetime_payment'
+  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh' | 'tag_generation' | 'clip_analysis' | 'clip_reanalysis' | 'content_analysis' | 'content_reanalysis' | 'subscriber_added' | 'subscriber_removed' | 'lifetime_added' | 'lifetime_removed' | 'admin_added' | 'admin_removed' | 'sync_completed' | 'role_updated' | 'thumbnail_generation' | 'token_grant' | 'token_purchase' | 'subscription_payment' | 'lifetime_payment' | 'coin_grant' | 'coin_remove' | 'coin_purchase' | 'donation_initiated' | 'donation_completed'
   details?: string
 }
 
@@ -2176,9 +2177,11 @@ export default function HomePage() {
               {user ? (
                 <div className="flex items-center space-x-3">
                   {user.profile_image_url ? (
-                    <img 
-                      src={user.profile_image_url} 
+                    <Image
+                      src={user.profile_image_url}
                       alt={user.display_name}
+                      width={48}
+                      height={48}
                       className={`w-12 h-12 rounded-full border-2 ${darkMode ? 'border-sdhq-cyan-500' : 'border-sdhq-cyan-300'}`}
                     />
                   ) : (
@@ -2251,9 +2254,11 @@ export default function HomePage() {
                   <div className={`relative p-2 rounded-xl transition-all duration-300 group-hover:scale-110 ${
                     darkMode ? 'bg-sdhq-dark-700 shadow-lg shadow-sdhq-cyan-500/20' : 'bg-white shadow-lg shadow-cyan-500/20'
                   }`}>
-                    <img 
-                      src="https://iili.io/BebhdFf.png" 
+                    <Image
+                      src="https://iili.io/BebhdFf.png"
                       alt="SDHQ Logo"
+                      width={48}
+                      height={48}
                       className="w-12 h-12"
                     />
                   </div>
@@ -2323,10 +2328,12 @@ export default function HomePage() {
         {!user ? (
           <div className={`flex items-center justify-center min-h-[400px] ${cardClasses} mt-4`}>
             <div className="text-center max-w-md p-8">
-              <img 
-                src="https://iili.io/BeYpM5F.md.png" 
-                alt="SDHQ Creator Corner" 
-                className="h-40 mx-auto mb-4"
+              <Image
+                src="https://iili.io/BeYpM5F.md.png"
+                alt="SDHQ Creator Corner"
+                width={192}
+                height={192}
+                className="w-48 h-48 object-contain mb-4 rounded-2xl"
               />
               <h2 className={`text-3xl font-bold gradient-text mb-4 ${darkMode ? 'from-sdhq-cyan-400 to-sdhq-green-400' : ''}`}>
                 {t.welcome}

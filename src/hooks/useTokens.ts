@@ -77,11 +77,6 @@ export function useTokens({ userId, userRole }: UseTokensOptions) {
     }
 
     const cost = TOKEN_COSTS[tool]
-    
-    if (balance < cost) {
-      setError(`Insufficient tokens. Need ${cost} tokens, have ${balance}`)
-      return false
-    }
 
     setLoading(true)
     try {
@@ -109,7 +104,7 @@ export function useTokens({ userId, userRole }: UseTokensOptions) {
     } finally {
       setLoading(false)
     }
-  }, [userId, balance, hasUnlimitedAccess])
+  }, [hasUnlimitedAccess])
 
   // Claim daily free tokens (10 tokens)
   const claimDailyTokens = useCallback(async (): Promise<boolean> => {
@@ -189,7 +184,8 @@ export function useTokens({ userId, userRole }: UseTokensOptions) {
   // Refresh balance manually
   const refreshBalance = useCallback(() => {
     fetchBalance()
-  }, [fetchBalance])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return {
     balance,

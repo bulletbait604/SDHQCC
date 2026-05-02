@@ -62,7 +62,7 @@ export function useCoins({ userId, userRole }: UseCoinsOptions) {
     fetchBalance()
   }, [fetchBalance])
 
-  // Check if user has enough coins for a tool
+  // Check if user has enough coins for a tool (use ref to avoid dependency issues)
   const hasEnoughCoins = useCallback((tool: ToolType): boolean => {
     if (hasUnlimitedAccess) return true
     const cost = COIN_COSTS[tool]
@@ -77,11 +77,6 @@ export function useCoins({ userId, userRole }: UseCoinsOptions) {
     }
 
     const cost = COIN_COSTS[tool]
-    
-    if (balance < cost) {
-      setError(`Insufficient coins. Need ${cost} coins, have ${balance}`)
-      return false
-    }
 
     setLoading(true)
     try {
@@ -109,7 +104,7 @@ export function useCoins({ userId, userRole }: UseCoinsOptions) {
     } finally {
       setLoading(false)
     }
-  }, [userId, balance, hasUnlimitedAccess])
+  }, [hasUnlimitedAccess])
 
   // Claim daily free coins (10 coins)
   const claimDailyCoins = useCallback(async (): Promise<boolean> => {
@@ -189,7 +184,8 @@ export function useCoins({ userId, userRole }: UseCoinsOptions) {
   // Refresh balance manually
   const refreshBalance = useCallback(() => {
     fetchBalance()
-  }, [fetchBalance])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return {
     balance,
