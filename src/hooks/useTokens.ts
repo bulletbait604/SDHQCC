@@ -43,7 +43,9 @@ export function useTokens({ userId, userRole }: UseTokensOptions) {
     }
 
     try {
-      const response = await fetch(`/api/tokens/balance?userId=${userId}`)
+      const response = await fetch('/api/tokens/balance', {
+        credentials: 'include'
+      })
       if (!response.ok) throw new Error('Failed to fetch balance')
       
       const data = await response.json()
@@ -86,7 +88,8 @@ export function useTokens({ userId, userRole }: UseTokensOptions) {
       const response = await fetch('/api/tokens/deduct', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, tool, cost })
+        credentials: 'include',
+        body: JSON.stringify({ tool })
       })
 
       if (!response.ok) {
@@ -120,7 +123,7 @@ export function useTokens({ userId, userRole }: UseTokensOptions) {
       const response = await fetch('/api/tokens/daily', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId })
+        credentials: 'include'
       })
 
       if (!response.ok) {
