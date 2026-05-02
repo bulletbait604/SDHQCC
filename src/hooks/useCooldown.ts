@@ -28,6 +28,21 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const isExempt = userRole ? EXEMPT_ROLES.includes(userRole) : false
 
+  // Define checkCooldown as a function declaration so it's hoisted
+  async function checkCooldown() {
+    if (isExempt || !userId) return
+    try {
+      const res = await fetch(`/api/cooldown?userId=${userId}&tool=${tool}`)
+      const data = await res.json()
+      if (data.onCooldown) {
+        setOnCooldown(true)
+        setSecondsRemaining(data.secondsRemaining)
+      }
+    } catch (e) {
+      console.error('[Cooldown] Failed to check:', e)
+    }
+  }
+
   // Poll for Monetag script
   useEffect(() => {
     if (findMonetagFn()) { setAdReady(true); return }
@@ -59,20 +74,6 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
     }, 1000)
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [onCooldown, secondsRemaining])
-
-  const checkCooldown = async () => {
-    if (isExempt || !userId) return
-    try {
-      const res = await fetch(`/api/cooldown?userId=${userId}&tool=${tool}`)
-      const data = await res.json()
-      if (data.onCooldown) {
-        setOnCooldown(true)
-        setSecondsRemaining(data.secondsRemaining)
-      }
-    } catch (e) {
-      console.error('[Cooldown] Failed to check:', e)
-    }
-  }
 
   // Call this after a successful use to start the cooldown
   const startCooldown = useCallback(async () => {
