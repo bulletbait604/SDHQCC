@@ -39,6 +39,7 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
       const response = await fetch('/api/coins/purchase', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           packageType: pkg.id,
           coins: pkg.coins,

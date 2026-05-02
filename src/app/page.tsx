@@ -31,6 +31,8 @@ import {
   Globe,
   X,
   Plus,
+  Minus,
+  Heart,
   Trash2,
   CheckCircle,
   ExternalLink,
@@ -374,6 +376,8 @@ export default function HomePage() {
   const [subscriptionId, setSubscriptionId] = useState('')
   const [paypalEmail, setPaypalEmail] = useState('')
   const [showLifetimePopup, setShowLifetimePopup] = useState(false)
+  const [showDonatePopup, setShowDonatePopup] = useState(false)
+  const [donateAmount, setDonateAmount] = useState<number>(5)
   const [showTokenPurchase, setShowTokenPurchase] = useState(false)
   
   // Verification states
@@ -644,41 +648,43 @@ export default function HomePage() {
     }
   }
 
-  const handleGrantTokens = async () => {
-    if (!user || !tokenGrantUsername.trim() || tokenGrantAmount <= 0) return
+  const handleGrantTokens = async (amount: number) => {
+    if (!user || !tokenGrantUsername.trim() || amount === 0) return
 
     setIsGrantingTokens(true)
     try {
-      const response = await fetch('/api/tokens/admin-adjust', {
+      const response = await fetch('/api/coins/admin-adjust', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           actorUsername: user.username,
-          targetUsername: tokenGrantUsername.trim(),
-          tokens: tokenGrantAmount
+          targetUsername: tokenGrantUsername.trim().toLowerCase(),
+          coins: amount
         })
       })
 
       const data = await response.json()
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to grant tokens')
+        throw new Error(data.error || 'Failed to adjust coins')
       }
 
       const entry: ActivityLogEntry = {
         id: Date.now().toString(),
         username: user.username,
         timestamp: new Date().toISOString(),
-        action: 'token_grant',
-        details: `Granted ${tokenGrantAmount} tokens to ${tokenGrantUsername.trim().toLowerCase()}`
+        action: amount >= 0 ? 'coin_grant' : 'coin_remove',
+        details: `${amount >= 0 ? 'Granted' : 'Removed'} ${Math.abs(amount)} coins for ${tokenGrantUsername.trim().toLowerCase()}`
       }
       setActivityLog(prev => [entry, ...prev].slice(0, 100))
 
       setTokenGrantUsername('')
       setTokenGrantAmount(10)
-      alert(`Added ${tokenGrantAmount} tokens to ${data.targetUsername}. New balance: ${data.balance}`)
+      const action = amount >= 0 ? 'Added' : 'Removed'
+      alert(`${action} ${Math.abs(amount)} coins for ${data.targetUsername}. New balance: ${data.balance}`)
     } catch (error) {
-      console.error('Error granting tokens:', error)
-      alert(error instanceof Error ? error.message : 'Failed to grant tokens')
+      console.error('Error adjusting coins:', error)
+      alert(error instanceof Error ? error.message : 'Failed to adjust coins')
     } finally {
       setIsGrantingTokens(false)
     }
@@ -1456,7 +1462,36 @@ export default function HomePage() {
 
   const handleLifetimeSubscription = () => {
     setShowLifetimePopup(true)
-    setPaypalLoaded(false)
+    setPaypalLifetimeLoaded(false)
+  }
+
+  const handleDonate = async () => {
+    try {
+      const response = await fetch('/api/donate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          amount: donateAmount,
+          currency: 'CAD'
+        })
+      })
+
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create donation')
+      }
+
+      // Redirect to PayPal
+      if (data.paypalUrl) {
+        window.location.href = data.paypalUrl
+      } else if (data.orderId) {
+        window.location.href = `https://www.paypal.com/checkoutnow?token=${data.orderId}`
+      }
+    } catch (error) {
+      console.error('Donation error:', error)
+      alert('Failed to process donation. Please try again.')
+    }
   }
 
   // Load PayPal SDK and render subscription button
@@ -4058,16 +4093,16 @@ export default function HomePage() {
                         </div>
                       </div>
 
-                      {/* Manual Token Grant */}
+                      {/* Manual Coin Grant */}
                       <div className="space-y-2 mb-4">
                         <p className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                          Manual Token Grant
+                          Manual Coin Grant (+/-)
                         </p>
                         <div className="flex space-x-2">
                           <input
                             type="text"
                             value={tokenGrantUsername}
-                            onChange={(e) => setTokenGrantUsername(e.target.value)}
+                            onChange={(e) => setTokenGrantUsername(e.target.value.toLowerCase())}
                             placeholder="Enter username..."
                             className={`flex-1 px-3 py-2 rounded-md border ${
                               darkMode
@@ -4075,25 +4110,47 @@ export default function HomePage() {
                                 : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
                             }`}
                           />
-                          <input
-                            type="number"
-                            min={1}
-                            value={tokenGrantAmount}
-                            onChange={(e) => setTokenGrantAmount(Math.max(1, parseInt(e.target.value || '1', 10)))}
-                            className={`w-28 px-3 py-2 rounded-md border ${
-                              darkMode
-                                ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white'
-                                : 'bg-white border-gray-300 text-gray-900'
-                            }`}
-                          />
+                          <div className={`flex items-center space-x-1 rounded-md border px-2 ${
+                            darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-300'
+                          }`}>
+                            <button
+                              onClick={() => setTokenGrantAmount(Math.max(-1000, tokenGrantAmount - 1))}
+                              className={`p-1 rounded ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'hover:bg-gray-100 text-gray-700'}`}
+                              type="button"
+                            >
+                              <Minus className="w-4 h-4" />
+                            </button>
+                            <input
+                              type="number"
+                              value={tokenGrantAmount}
+                              onChange={(e) => setTokenGrantAmount(parseInt(e.target.value || '0', 10))}
+                              className={`w-16 text-center bg-transparent border-none focus:outline-none ${
+                                darkMode ? 'text-white' : 'text-gray-900'
+                              }`}
+                            />
+                            <button
+                              onClick={() => setTokenGrantAmount(Math.min(1000, tokenGrantAmount + 1))}
+                              className={`p-1 rounded ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'hover:bg-gray-100 text-gray-700'}`}
+                              type="button"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
                           <Button
-                            onClick={handleGrantTokens}
-                            disabled={!tokenGrantUsername.trim() || tokenGrantAmount <= 0 || isGrantingTokens}
-                            className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
+                            onClick={() => handleGrantTokens(tokenGrantAmount)}
+                            disabled={!tokenGrantUsername.trim() || tokenGrantAmount === 0 || isGrantingTokens}
+                            className={`${
+                              tokenGrantAmount >= 0 
+                                ? 'bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black'
+                                : 'bg-gradient-to-r from-red-500 to-orange-500 text-white'
+                            }`}
                           >
-                            {isGrantingTokens ? 'Adding...' : 'Add Tokens'}
+                            {isGrantingTokens ? 'Processing...' : tokenGrantAmount >= 0 ? 'Add Coins' : 'Remove Coins'}
                           </Button>
                         </div>
+                        <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                          Use + to add coins, - to remove. Username is auto-converted to lowercase.
+                        </p>
                       </div>
                       
                       {/* Users with Roles List */}
@@ -4543,7 +4600,7 @@ export default function HomePage() {
                   className={`w-full ${darkMode ? 'border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10' : 'border-yellow-500 text-yellow-600 hover:bg-yellow-50'}`}
                 >
                   <Crown className="w-4 h-4 mr-2" />
-                  Want Lifetime Access? ($54.99)
+                  Want Lifetime Access? ($89.99)
                 </Button>
               </div>
               
@@ -4624,6 +4681,90 @@ export default function HomePage() {
                 Cancel
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Donate Popup */}
+      {showDonatePopup && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-md w-full p-6 shadow-2xl`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Support SDHQ</h3>
+              <button 
+                onClick={() => setShowDonatePopup(false)}
+                className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'text-gray-600'}`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <p className={`mb-6 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              Your donation helps us keep the lights on and continue improving the Creator Corner for everyone.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Donation Amount (CAD)
+                </label>
+                <div className="flex items-center space-x-2">
+                  <span className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>$</span>
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={donateAmount}
+                    onChange={(e) => setDonateAmount(Math.max(1, parseFloat(e.target.value) || 0))}
+                    className={`flex-1 px-3 py-2 rounded-lg border ${
+                      darkMode
+                        ? 'bg-sdhq-dark-700 border-sdhq-dark-600 text-white'
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                    placeholder="Enter amount"
+                  />
+                </div>
+              </div>
+
+              {/* Quick amounts */}
+              <div className="flex space-x-2">
+                {[5, 10, 25, 50].map((amount) => (
+                  <button
+                    key={amount}
+                    onClick={() => setDonateAmount(amount)}
+                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                      donateAmount === amount
+                        ? 'bg-pink-500 text-white'
+                        : darkMode
+                          ? 'bg-sdhq-dark-700 text-gray-300 hover:bg-sdhq-dark-600'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    ${amount}
+                  </button>
+                ))}
+              </div>
+
+              <Button
+                onClick={handleDonate}
+                className="w-full bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-bold"
+              >
+                <Heart className="w-4 h-4 mr-2" />
+                Donate ${donateAmount} CAD
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => setShowDonatePopup(false)}
+                className={`w-full ${darkMode ? 'border-sdhq-dark-600 text-white' : ''}`}
+              >
+                Cancel
+              </Button>
+            </div>
+
+            <p className={`mt-4 text-xs text-center ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+              Payments processed securely via PayPal. Thank you for your support!
+            </p>
           </div>
         </div>
       )}
