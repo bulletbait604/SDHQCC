@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { sessionCookieSecure } from '@/lib/sessionCookie'
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   const res = NextResponse.json({ ok: true })
   res.cookies.set('session', '', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: sessionCookieSecure(req),
     sameSite: 'lax',
     path: '/',
     maxAge: 0,

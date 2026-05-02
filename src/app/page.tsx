@@ -878,7 +878,15 @@ export default function HomePage() {
 
     void (async () => {
       try {
-        const meRes = await fetch('/api/me', { credentials: 'include' })
+        let meRes = await fetch('/api/me', { credentials: 'include' })
+        if (!meRes.ok && meRes.status === 401) {
+          for (let attempt = 0; attempt < 6; attempt++) {
+            await new Promise(r => setTimeout(r, 50 * (attempt + 1)))
+            meRes = await fetch('/api/me', { credentials: 'include' })
+            if (meRes.ok) break
+            if (meRes.status !== 401) break
+          }
+        }
         if (meRes.ok) {
           const me = await meRes.json()
           if (me.user) {

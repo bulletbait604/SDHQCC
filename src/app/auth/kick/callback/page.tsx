@@ -72,10 +72,9 @@ export default function KickCallbackPage() {
 
         setStatus('success')
 
-        // Short delay to show success message, then force full page reload
         setTimeout(() => {
           window.location.href = '/'
-        }, 1500)
+        }, 400)
       } catch (err: any) {
         setStatus('error')
         setErrorMessage(err.message || 'Authentication failed')

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { signSessionJwt, getSessionSecret } from '@/lib/auth/sessionJwt'
 import type { UserRole } from '@/lib/auth/verifyAuth'
+import { sessionCookieSecure } from '@/lib/sessionCookie'
 
 export async function POST(request: NextRequest) {
   try {
@@ -71,9 +72,10 @@ export async function POST(request: NextRequest) {
           kickUser.avatar ||
           undefined
         const name = kickUser.name || kickUser.username || ''
+        const loginName = kickUser.username || kickUser.slug || name
         user = {
           id: kickUser.user_id,
-          username: String(name).replace(/^@/, '').toLowerCase(),
+          username: String(loginName).replace(/^@/, '').toLowerCase(),
           display_name: name,
           profile_image_url: pic,
           email: kickUser.email,
@@ -125,39 +127,52 @@ export async function POST(request: NextRequest) {
       roleForSession = (dbUser?.role as UserRole) || 'free'
     }
 
+    if (!user) {
+      return NextResponse.json(
+        {
+          error:
+            'Kick API did not return your profile. Ensure the token scope includes user access, then try again.',
+        },
+        { status: 502 }
+      )
+    }
+
+    const secret = getSessionSecret()
+    if (!secret) {
+      console.error('[Kick OAuth] SESSION_SECRET / JWT_SECRET missing — cannot issue session cookie')
+      return NextResponse.json(
+        {
+          error:
+            'Server is missing SESSION_SECRET (or JWT_SECRET). Set it in the deployment environment to enable login.',
+        },
+        { status: 503 }
+      )
+    }
+
+    const jwt = signSessionJwt(
+      {
+        sub: String(user.id),
+        name: user.username,
+        role: roleForSession,
+        provider: 'kick',
+      },
+      secret,
+      60 * 60 * 24 * 30
+    )
+
     const res = NextResponse.json({
       accessToken,
       refreshToken: tokenData.refresh_token,
       user,
     })
 
-    if (user) {
-      const secret = getSessionSecret()
-      if (secret) {
-        const jwt = signSessionJwt(
-          {
-            sub: String(user.id),
-            name: user.username,
-            role: roleForSession,
-            provider: 'kick',
-          },
-          secret,
-          60 * 60 * 24 * 30
-        )
-        const secure = process.env.NODE_ENV === 'production'
-        res.cookies.set('session', jwt, {
-          httpOnly: true,
-          secure: secure,
-          sameSite: 'lax',
-          path: '/',
-          maxAge: 60 * 60 * 24 * 30,
-        })
-      } else {
-        console.error(
-          '[Kick OAuth] SESSION_SECRET / JWT_SECRET missing — authenticated APIs (coins, admin) will return 401'
-        )
-      }
-    }
+    res.cookies.set('session', jwt, {
+      httpOnly: true,
+      secure: sessionCookieSecure(request),
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30,
+    })
 
     return res
   } catch (error: unknown) {
