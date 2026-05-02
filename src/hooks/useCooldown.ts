@@ -171,19 +171,12 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, tool })
-    }).then(async (res) => {
-      console.log('[Cooldown] POST response received, status:', res.status)
-      // Consume the body to ensure connection closes
-      const text = await res.text()
-      console.log('[Cooldown] POST body consumed, length:', text.length)
-      console.log('[Cooldown] Now calling checkCooldown...')
+    }).then(() => {
+      console.log('[Cooldown] POST completed, now checking...')
       // Immediately check the cooldown status
-      await checkCooldown()
-      console.log('[Cooldown] checkCooldown completed')
+      checkCooldown()
     }).catch((e) => {
       console.error('[Cooldown] POST failed:', e)
-    }).finally(() => {
-      console.log('[Cooldown] POST promise chain completed')
     })
     
     console.log('[Cooldown] === START COOLDOWN END (fire and forget) ===')
