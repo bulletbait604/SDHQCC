@@ -84,18 +84,30 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
   const [secondsRemaining, setSecondsRemaining] = useState(0)
   const [watchingAd, setWatchingAd] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
-  const checkCooldownRef = useRef<() => Promise<void>>(async () => {})
-  const isExempt = userRole ? EXEMPT_ROLES.includes(userRole) : false
+  
+  // Store all dependencies in refs to avoid stale closure issues
+  const userIdRef = useRef(userId)
+  const toolRef = useRef(tool)
+  const isExemptRef = useRef(userRole ? EXEMPT_ROLES.includes(userRole) : false)
+  
+  // Keep refs current
+  userIdRef.current = userId
+  toolRef.current = tool
+  isExemptRef.current = userRole ? EXEMPT_ROLES.includes(userRole) : false
 
-  // Define checkCooldown as a function declaration so it's hoisted
-  async function checkCooldown() {
-    console.log('[Cooldown] === CHECK COOLDOWN START ===', { userId, tool, isExempt })
-    if (isExempt || !userId) {
+  // Define checkCooldown as a stable callback that reads from refs
+  const checkCooldown = useCallback(async () => {
+    const currentUserId = userIdRef.current
+    const currentTool = toolRef.current
+    const currentIsExempt = isExemptRef.current
+    
+    console.log('[Cooldown] === CHECK COOLDOWN START ===', { userId: currentUserId, tool: currentTool, isExempt: currentIsExempt })
+    if (currentIsExempt || !currentUserId) {
       console.log('[Cooldown] Skipped - exempt or no userId')
       return
     }
     try {
-      const url = `/api/cooldown?userId=${userId}&tool=${tool}`
+      const url = `/api/cooldown?userId=${currentUserId}&tool=${currentTool}`
       console.log('[Cooldown] Fetching:', url)
       const res = await fetch(url)
       console.log('[Cooldown] Response status:', res.status)
@@ -112,25 +124,24 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
       console.error('[Cooldown] Failed to check:', e)
     }
     console.log('[Cooldown] === CHECK COOLDOWN END ===')
-  }
-
-  // Store checkCooldown in a ref to ensure it's always accessible
-  checkCooldownRef.current = checkCooldown
+  }, []) // Empty deps - reads from refs
 
   // Log state changes for debugging
   useEffect(() => {
-    console.log('[Cooldown] State changed:', { onCooldown, secondsRemaining, isExempt, userId, tool })
+    console.log('[Cooldown] State changed:', { onCooldown, secondsRemaining, isExempt: isExemptRef.current, userId: userIdRef.current, tool: toolRef.current })
   }, [onCooldown, secondsRemaining])
 
   // Check cooldown from server on mount
   useEffect(() => {
-    console.log('[Cooldown] Mount effect running:', { userId, tool, isExempt })
-    if (isExempt || !userId) {
+    const currentIsExempt = isExemptRef.current
+    const currentUserId = userIdRef.current
+    console.log('[Cooldown] Mount effect running:', { userId: currentUserId, tool: toolRef.current, isExempt: currentIsExempt })
+    if (currentIsExempt || !currentUserId) {
       console.log('[Cooldown] Skipped check on mount - exempt or no userId')
       return
     }
     checkCooldown()
-  }, [userId, tool, isExempt])
+  }, [userId, tool, userRole, checkCooldown])
 
   // Countdown timer - only runs when onCooldown changes, not on every tick
   useEffect(() => {
@@ -163,8 +174,12 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
 
   // Call this after a successful use to start the cooldown
   const startCooldown = useCallback(async () => {
-    console.log('[Cooldown] === START COOLDOWN ===', { isExempt, userId, tool })
-    if (isExempt) {
+    const currentUserId = userIdRef.current
+    const currentTool = toolRef.current
+    const currentIsExempt = isExemptRef.current
+    
+    console.log('[Cooldown] === START COOLDOWN ===', { isExempt: currentIsExempt, userId: currentUserId, tool: currentTool })
+    if (currentIsExempt) {
       console.log('[Cooldown] Skipped start - user exempt')
       return
     }
@@ -172,45 +187,38 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
     // Fire and forget - don't wait for response to avoid hanging
     console.log('[Cooldown] POST /api/cooldown - fire and forget')
     
-    // Helper to call checkCooldown via ref (avoids stale closure issues)
-    const callCheckCooldown = () => {
-      console.log('[Cooldown] Invoking checkCooldown via ref...')
-      checkCooldownRef.current()
-    }
-    
     // Send POST request to set cooldown on server
     try {
       fetch('/api/cooldown', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, tool })
+        body: JSON.stringify({ userId: currentUserId, tool: currentTool })
       }).then(() => {
         console.log('[Cooldown] POST completed, calling checkCooldown...')
-        callCheckCooldown()
+        checkCooldown()
       }).catch((e) => {
         console.error('[Cooldown] POST failed:', e)
-        // Try checkCooldown anyway
-        callCheckCooldown()
+        checkCooldown()
       })
     } catch (e) {
       console.error('[Cooldown] POST error:', e)
-      callCheckCooldown()
+      checkCooldown()
     }
     
     // Also try after a short delay in case fetch hangs
     setTimeout(() => {
       console.log('[Cooldown] Calling checkCooldown after 500ms delay...')
-      callCheckCooldown()
+      checkCooldown()
     }, 500)
     
     // And one more time after a longer delay as fallback
     setTimeout(() => {
       console.log('[Cooldown] Calling checkCooldown after 2s delay...')
-      callCheckCooldown()
+      checkCooldown()
     }, 2000)
     
     console.log('[Cooldown] === START COOLDOWN END (fire and forget) ===')
-  }, [userId, tool, isExempt])
+  }, [checkCooldown])
 
   // Call this when user clicks "Watch Ad to Skip"
   const watchAdToSkip = useCallback(async () => {
@@ -281,12 +289,12 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
   }
 
   return {
-    onCooldown: isExempt ? false : onCooldown,
+    onCooldown: isExemptRef.current ? false : onCooldown,
     secondsRemaining,
     watchingAd,
     startCooldown,
     watchAdToSkip,
     formatTime,
-    isExempt
+    isExempt: isExemptRef.current
   }
 }
