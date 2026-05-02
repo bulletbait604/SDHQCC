@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      balance: balance.tokens,
+      tokens: balance.tokens,
       lastDailyReset: balance.lastDailyReset,
       totalPurchased: balance.totalPurchased || 0,
       totalEarned: balance.totalEarned || 0,
