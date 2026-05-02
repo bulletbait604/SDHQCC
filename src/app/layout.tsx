@@ -28,14 +28,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-      </head>
-      <body className={inter.className}>
         <Script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8352204611358668"
           crossOrigin="anonymous"
-          strategy="afterInteractive"
+          strategy="lazyOnload"
         />
+      </head>
+      <body className={inter.className}>
         <div className="min-h-screen bg-gradient-to-br from-sdhq-cyan-50 via-white to-sdhq-green-50 flex flex-col">
           <Providers>
             <main className="flex-grow">
