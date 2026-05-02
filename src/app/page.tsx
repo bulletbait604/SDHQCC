@@ -13,9 +13,7 @@ declare global {
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
-import DonateModal from '@/app/components/DonateModal'
-import { useCooldown } from '@/hooks/useCooldown'
-import CooldownBanner from '@/app/components/CooldownBanner'
+import { useTokens } from '@/hooks/useTokens'
 import {
   User,
   LogOut,
@@ -25,6 +23,7 @@ import {
   Video,
   Brain,
   TrendingUp,
+  Coins,
   Crown,
   Moon,
   Sun,
@@ -405,11 +404,18 @@ export default function HomePage() {
   const [copiedTags, setCopiedTags] = useState<boolean>(false)
   const [copiedDescription, setCopiedDescription] = useState<boolean>(false)
 
-  // Cooldown hook for Clip Analyzer
-  const clipCooldown = useCooldown({
-    userId: user?.id || user?.username || 'anon',
-    tool: 'clip-analyzer',
-    userRole
+  const [usageCount, setUsageCount] = useState(0)
+
+  // Token system
+  const { 
+    balance, 
+    deductTokens, 
+    hasEnoughTokens, 
+    hasUnlimitedAccess,
+    loading: tokenLoading 
+  } = useTokens({ 
+    userId: user?.username || '', 
+    userRole: user?.role 
   })
 
   // Helper function to get recommended tag count from algorithm data
@@ -1280,8 +1286,8 @@ export default function HomePage() {
       setExtractedData(data.extractedData || null)
       setShowReanalysis(true)
 
-      // Start cooldown for free users
-      await clipCooldown.startCooldown()
+      // Token system - no cooldown needed
+      const clipTokens = useTokens({})
 
       // Increment usage for limited roles
       incrementUsage('clips')
@@ -2063,23 +2069,6 @@ export default function HomePage() {
                           <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                             {user.display_name}
                           </p>
-                          <span className={`px-2 py-0.5 text-sm font-bold rounded-full ${ROLE_CONFIG[userRole]?.badgeClass || 'bg-gray-500 text-white'}`}>
-                            {ROLE_CONFIG[userRole]?.badge || '🙂 Free User'}
-                          </span>
-                        </div>
-                        <p className={`text-base ${subtitleClasses}`}>@{user.username}</p>
-                      </div>
-                      {/* Donate Button */}
-                      <button
-                        onClick={() => setShowDonateModal(true)}
-                        className="ml-8 flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-pink-500 to-rose-500 text-gray-900 text-sm font-bold hover:from-pink-600 hover:to-rose-600 transition-all shadow-md"
-                      >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944 3.72a.77.77 0 0 1 .757-.629h6.713c2.838 0 5.098.835 5.838 2.44.61 1.336.397 2.838-.61 4.384-.983 1.51-2.587 2.537-4.655 2.943l-.034.006h.034c2.948.622 5.098 2.024 6.03 4.66.468 1.28.468 2.54.02 3.686-.92 2.4-3.194 3.725-6.665 3.868l-.034.004H7.076z"/>
-                        </svg>
-                        Donate
-                      </button>
-                    </div>
                   </div>
                   {userRole === 'free' && (
                     <Button 
@@ -2957,25 +2946,14 @@ export default function HomePage() {
                                 : 'bg-white/80 border-sdhq-cyan-300 text-gray-800 focus:border-sdhq-cyan-500 focus:shadow-[0_0_20px_rgba(6,182,212,0.2)]'
                             } border backdrop-blur-sm`}
                           />
-                          {clipCooldown.onCooldown ? (
-                            <CooldownBanner
-                              secondsRemaining={clipCooldown.secondsRemaining}
-                              watchingAd={clipCooldown.watchingAd}
-                              onWatchAd={clipCooldown.watchAdToSkip}
-                              tool="clip-analyzer"
-                              darkMode={darkMode}
-                              formatTime={clipCooldown.formatTime}
-                            />
-                          ) : (
-                            <Button
-                              onClick={handleAnalyzeClip}
-                              disabled={isAnalyzingClip || !clipFile}
-                              className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold px-6 rounded-xl hover:shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all duration-300 flex items-center gap-2"
-                            >
-                              <span>Analyze</span>
-                              <span>→</span>
-                            </Button>
-                          )}
+                          <Button
+                            onClick={handleAnalyzeClip}
+                            disabled={isAnalyzingClip || !clipFile}
+                            className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold px-6 rounded-xl hover:shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all duration-300 flex items-center gap-2"
+                          >
+                            <span>Analyze</span>
+                            <span>→</span>
+                          </Button>
                         </div>
                         {clipFile && (
                           <div className="mt-3 text-base">
@@ -3315,7 +3293,7 @@ export default function HomePage() {
                                         <ol className={`space-y-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                           {content.details.map((step, sIdx) => (
                                             <li key={sIdx} className="flex items-start gap-2">
-                                              <span className="text-sdhq-cyan-500 mt-1 font-mono">{sIdx + 1}.</span>
+                                              <span className="text-sdhq-cyan-500 mt-0.5 font-mono">{sIdx + 1}.</span>
                                               <span>{step}</span>
                                             </li>
                                           ))}
@@ -4447,7 +4425,7 @@ export default function HomePage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-sm w-full p-6 shadow-2xl`}>
             <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Clear Activity Log?</h3>
-            <p className={`text-base mb-6 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            <p className={`text-base mb-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
               Are you sure you want to clear all activity log entries? This action cannot be undone.
             </p>
             <div className="flex space-x-2">
@@ -4491,16 +4469,5 @@ export default function HomePage() {
           </div>
         </div>
       )}
-
-      {/* Donate Modal */}
-      {showDonateModal && (
-        <DonateModal
-          onClose={() => setShowDonateModal(false)}
-          darkMode={darkMode}
-          defaultAmount={5}
-        />
-      )}
-    </div>
-  )
-}
+```
 
