@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import clientPromise from '@/lib/mongodb'
+import { signSessionJwt, getSessionSecret } from '@/lib/auth/sessionJwt'
+import type { UserRole } from '@/lib/auth/verifyAuth'
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +19,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing KICK OAuth configuration' }, { status: 500 })
     }
 
-    // Correct KICK token endpoint: https://id.kick.com/oauth/token
     const tokenResponse = await fetch('https://id.kick.com/oauth/token', {
       method: 'POST',
       headers: {
@@ -45,56 +47,122 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No access token received' }, { status: 400 })
     }
 
-    // Fetch user data using the access token - correct endpoint is /users (not /user)
     const userResponse = await fetch('https://api.kick.com/public/v1/users', {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
     })
 
-    let user = null
+    let user: {
+      id: number | string
+      username: string
+      display_name: string
+      profile_image_url?: string
+      email?: string
+    } | null = null
+
     if (userResponse.ok) {
       const userData = await userResponse.json()
-      // Kick returns { data: [ { user_id, name, email, profile_picture } ] }
       if (userData.data && userData.data.length > 0) {
         const kickUser = userData.data[0]
-        // Map Kick fields to our interface
+        const pic =
+          kickUser.profile_picture ||
+          kickUser.profile_picture_url ||
+          kickUser.avatar ||
+          undefined
+        const name = kickUser.name || kickUser.username || ''
         user = {
           id: kickUser.user_id,
-          username: kickUser.name,
-          display_name: kickUser.name,
-          profile_image_url: kickUser.profile_picture,
-          email: kickUser.email
+          username: String(name).replace(/^@/, '').toLowerCase(),
+          display_name: name,
+          profile_image_url: pic,
+          email: kickUser.email,
         }
       }
     }
 
-    // Log the login to backend
+    let roleForSession: UserRole = 'free'
+
     if (user) {
       console.log(`User login: ${user.username} (ID: ${user.id}) at ${new Date().toISOString()}`)
-      
-      // Log to activity log API
+
       try {
         await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/activity-log`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             username: user.username,
-            action: 'login'
-          })
+            action: 'login',
+          }),
         })
       } catch (error) {
         console.error('Failed to log login to activity log:', error)
       }
+
+      const mongoClient = await clientPromise
+      const db = mongoClient.db('sdhq')
+      const now = new Date().toISOString()
+
+      await db.collection('users').updateOne(
+        { username: user.username },
+        {
+          $set: {
+            username: user.username,
+            kickId: String(user.id),
+            profile_image_url: user.profile_image_url,
+            email: user.email,
+            updatedAt: now,
+          },
+          $setOnInsert: {
+            role: 'free',
+            createdAt: now,
+          },
+        },
+        { upsert: true }
+      )
+
+      const dbUser = await db.collection('users').findOne({ username: user.username })
+      roleForSession = (dbUser?.role as UserRole) || 'free'
     }
 
-    return NextResponse.json({
-      accessToken: accessToken,
+    const res = NextResponse.json({
+      accessToken,
       refreshToken: tokenData.refresh_token,
-      user: user,
+      user,
     })
-  } catch (error: any) {
+
+    if (user) {
+      const secret = getSessionSecret()
+      if (secret) {
+        const jwt = signSessionJwt(
+          {
+            sub: String(user.id),
+            name: user.username,
+            role: roleForSession,
+            provider: 'kick',
+          },
+          secret,
+          60 * 60 * 24 * 30
+        )
+        const secure = process.env.NODE_ENV === 'production'
+        res.cookies.set('session', jwt, {
+          httpOnly: true,
+          secure: secure,
+          sameSite: 'lax',
+          path: '/',
+          maxAge: 60 * 60 * 24 * 30,
+        })
+      } else {
+        console.error(
+          '[Kick OAuth] SESSION_SECRET / JWT_SECRET missing — authenticated APIs (coins, admin) will return 401'
+        )
+      }
+    }
+
+    return res
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal server error'
     console.error('KICK OAuth callback error:', error)
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

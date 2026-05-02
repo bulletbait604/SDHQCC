@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { verifyAuth, hasUnlimitedAccess } from '@/lib/auth/verifyAuth'
+import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
 
 // Valid tool costs - server defined, cannot be manipulated by client
 const VALID_TOOL_COSTS: Record<string, number> = {
@@ -14,7 +15,6 @@ export async function POST(req: NextRequest) {
   try {
     // Authenticate user from server-side session
     const user = await verifyAuth(req)
-    const userId = user.username
 
     // Read tool name from body (only field we trust from client)
     const body = await req.json()
@@ -36,13 +36,16 @@ export async function POST(req: NextRequest) {
     const client = await clientPromise
     const db = client.db('sdhq')
 
+    const balanceUserId = await resolveCoinBalanceUserId(db, user)
+
     // Check if user has unlimited access (subscribers get free usage)
     if (hasUnlimitedAccess(user)) {
-      console.log(`[Coins] Unlimited access for ${userId}, no deduction for ${tool}`)
+      console.log(`[Coins] Unlimited access for ${user.username}, no deduction for ${tool}`)
       
       // Log the free usage for analytics
       await db.collection('coinTransactions').insertOne({
-        userId: userId.toLowerCase(),
+        userId: user.username.toLowerCase(),
+        username: user.username,
         type: 'spend',
         amount: 0,
         tool,
@@ -52,6 +55,8 @@ export async function POST(req: NextRequest) {
         timestamp: new Date().toISOString()
       })
       
+      console.log(`[Coins] Unlimited access user ${user.username} used ${tool}`)
+
       return NextResponse.json({
         success: true,
         remainingCoins: 999999,
@@ -61,7 +66,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Free user: Get current coin balance from database
-    const coinBalance = await db.collection('coinBalances').findOne({ userId: userId.toLowerCase() })
+    const coinBalance = await db.collection('coinBalances').findOne({ userId: balanceUserId })
 
     if (!coinBalance) {
       return NextResponse.json({ error: 'No coin balance found' }, { status: 404 })
@@ -79,7 +84,7 @@ export async function POST(req: NextRequest) {
 
     // Deduct coins atomically
     const result = await db.collection('coinBalances').findOneAndUpdate(
-      { userId: userId.toLowerCase() },
+      { userId: balanceUserId },
       {
         $inc: {
           coins: -cost,
@@ -94,7 +99,8 @@ export async function POST(req: NextRequest) {
 
     // Log the transaction
     await db.collection('coinTransactions').insertOne({
-      userId: userId.toLowerCase(),
+      userId: balanceUserId,
+      username: user.username,
       type: 'spend',
       amount: -cost,
       tool,
@@ -103,7 +109,7 @@ export async function POST(req: NextRequest) {
       timestamp: new Date().toISOString()
     })
 
-    console.log(`[Coins] Deducted ${cost} coins from ${userId} for ${tool}. Remaining: ${result?.value?.coins}`)
+    console.log(`[Coins] Deducted ${cost} coins from ${user.username} (${balanceUserId}) for ${tool}. Remaining: ${result?.value?.coins}`)
 
     return NextResponse.json({
       success: true,

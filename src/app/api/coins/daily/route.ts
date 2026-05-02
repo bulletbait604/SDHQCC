@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { verifyAuth, hasUnlimitedAccess } from '@/lib/auth/verifyAuth'
+import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
 
 const DAILY_FREE_COINS = 10
 const DAILY_COOLDOWN_HOURS = 24
@@ -9,10 +10,11 @@ export async function POST(req: NextRequest) {
   try {
     // Authenticate user from server-side session
     const user = await verifyAuth(req)
-    const userId = user.username
 
     const client = await clientPromise
     const db = client.db('sdhq')
+
+    const balanceUserId = await resolveCoinBalanceUserId(db, user)
 
     // Check if user has unlimited access (they don't need daily coins)
     if (hasUnlimitedAccess(user)) {
@@ -25,7 +27,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get user's coin balance
-    let coinBalance = await db.collection('coinBalances').findOne({ userId: userId.toLowerCase() })
+    let coinBalance = await db.collection('coinBalances').findOne({ userId: balanceUserId })
 
     // Check if daily coins were already claimed within cooldown period
     if (coinBalance?.lastDailyClaim) {
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest) {
       // Create new balance with daily coins
       const now = new Date()
       await db.collection('coinBalances').insertOne({
-        userId: userId.toLowerCase(),
+        userId: balanceUserId,
         coins: DAILY_FREE_COINS,
         lastDailyClaim: now.toISOString(),
         lastDailyReset: now.toISOString(),
@@ -61,10 +63,10 @@ export async function POST(req: NextRequest) {
     } else {
       // Update existing balance
       await db.collection('coinBalances').updateOne(
-        { userId: userId.toLowerCase() },
+        { userId: balanceUserId },
         {
           $inc: { coins: DAILY_FREE_COINS, totalEarned: DAILY_FREE_COINS },
-          $set: { 
+          $set: {
             lastDailyClaim: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           }
@@ -73,18 +75,19 @@ export async function POST(req: NextRequest) {
     }
 
     // Get updated balance
-    const updatedBalance = await db.collection('coinBalances').findOne({ userId: userId.toLowerCase() })
+    const updatedBalance = await db.collection('coinBalances').findOne({ userId: balanceUserId })
 
     // Log the transaction
     await db.collection('coinTransactions').insertOne({
-      userId: userId.toLowerCase(),
+      userId: balanceUserId,
+      username: user.username,
       type: 'daily',
       amount: DAILY_FREE_COINS,
       balanceAfter: updatedBalance?.coins,
       timestamp: new Date().toISOString()
     })
 
-    console.log(`[Coins] Daily claim for ${userId}: +${DAILY_FREE_COINS} coins. Balance: ${updatedBalance?.coins}`)
+    console.log(`[Coins] Daily claim for ${user.username} (${balanceUserId}): +${DAILY_FREE_COINS} coins. Balance: ${updatedBalance?.coins}`)
 
     return NextResponse.json({
       success: true,

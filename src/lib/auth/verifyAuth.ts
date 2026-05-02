@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
+import { verifySessionJwt, getSessionSecret } from '@/lib/auth/sessionJwt'
 
 export type UserRole = 'free' | 'subscriber' | 'subscriber_lifetime' | 'admin' | 'owner' | 'tester'
 
@@ -37,36 +38,27 @@ function extractSessionToken(req: NextRequest): string | null {
 }
 
 /**
- * Decode and verify JWT token
- * Note: In production, verify signature with JWT_SECRET
+ * Verify signed session JWT (HS256). Unsigned legacy decode removed for security.
  */
 async function verifyToken(token: string): Promise<VerifiedUser | null> {
   try {
-    // For now, decode without verification (Next-Auth handles signing)
-    // In production, add: jwt.verify(token, process.env.JWT_SECRET)
-    const base64Payload = token.split('.')[1]
-    if (!base64Payload) return null
-    
-    const payload = JSON.parse(
-      Buffer.from(base64Payload, 'base64url').toString('utf-8')
-    )
-    
-    // Validate token structure
-    if (!payload.sub || !payload.name) {
+    const secret = getSessionSecret()
+    if (!secret) {
+      console.error('[Auth] SESSION_SECRET or JWT_SECRET is not set')
       return null
     }
-    
-    // Check expiration
-    if (payload.exp && Date.now() >= payload.exp * 1000) {
+
+    const payload = verifySessionJwt(token, secret)
+    if (!payload || typeof payload.sub !== 'string' || typeof payload.name !== 'string') {
       return null
     }
-    
+
     return {
       id: payload.sub,
       username: payload.name.toLowerCase(),
-      role: (payload.role as UserRole) || 'free',
-      email: payload.email,
-      provider: payload.provider || 'kick'
+      role: ((payload.role as UserRole) || 'free') as UserRole,
+      email: typeof payload.email === 'string' ? payload.email : undefined,
+      provider: (payload.provider as VerifiedUser['provider']) || 'kick',
     }
   } catch (error) {
     console.error('[Auth] Token verification failed:', error)

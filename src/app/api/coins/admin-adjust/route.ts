@@ -1,37 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
+import { verifyAuth } from '@/lib/auth/verifyAuth'
 
 export async function POST(req: NextRequest) {
   try {
-    const { actorUsername, targetUsername, coins } = await req.json()
+    const actor = await verifyAuth(req)
 
-    // Validate input
-    if (!actorUsername || !targetUsername || typeof coins !== 'number') {
-      return NextResponse.json(
-        { error: 'Missing required fields: actorUsername, targetUsername, coins' },
-        { status: 400 }
-      )
-    }
-
-    // Connect to database
-    const client = await clientPromise
-    const db = client.db('sdhq')
-
-    // Normalize usernames to lowercase
-    const normalizedActor = actorUsername.toLowerCase().trim()
-    const normalizedTarget = targetUsername.toLowerCase().trim()
-
-    // Check if actor exists and has admin privileges
-    const actor = await db.collection('users').findOne({ username: normalizedActor })
-    
-    if (!actor) {
-      return NextResponse.json({ error: 'Actor user not found' }, { status: 404 })
-    }
-
-    // Check if actor has admin role
     const allowedRoles = ['admin', 'owner']
     const actorRole = actor.role || 'free'
-    
+
     if (!allowedRoles.includes(actorRole)) {
       return NextResponse.json(
         { error: 'Unauthorized: Only admins can adjust coin balances' },
@@ -39,88 +16,103 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Check if target user exists
+    const { targetUsername, coins } = await req.json()
+
+    if (!targetUsername || typeof coins !== 'number') {
+      return NextResponse.json(
+        { error: 'Missing required fields: targetUsername, coins' },
+        { status: 400 }
+      )
+    }
+
+    const normalizedTarget = String(targetUsername).trim().replace(/^@/, '').toLowerCase()
+    if (!normalizedTarget) {
+      return NextResponse.json({ error: 'Invalid target username' }, { status: 400 })
+    }
+
+    const client = await clientPromise
+    const db = client.db('sdhq')
+
     const targetUser = await db.collection('users').findOne({ username: normalizedTarget })
-    
     if (!targetUser) {
       return NextResponse.json({ error: 'Target user not found' }, { status: 404 })
     }
 
-    // Get or create coin balance for target user
-    const coinBalance = await db.collection('coinBalances').findOne({ 
-      userId: normalizedTarget 
-    })
+    /** Same key as /api/coins/balance — lowercase Kick username */
+    const balanceUserId = normalizedTarget
+
+    const coinBalance = await db.collection('coinBalances').findOne({ userId: balanceUserId })
 
     let newBalance: number
     const now = new Date().toISOString()
 
     if (!coinBalance) {
-      // Create new balance record
-      newBalance = Math.max(0, coins) // Ensure balance doesn't go below 0
+      newBalance = Math.max(0, coins)
       await db.collection('coinBalances').insertOne({
-        userId: normalizedTarget,
+        userId: balanceUserId,
         coins: newBalance,
         totalPurchased: coins > 0 ? coins : 0,
         totalEarned: coins > 0 ? coins : 0,
         totalSpent: coins < 0 ? Math.abs(coins) : 0,
+        lastDailyReset: now,
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
       })
     } else {
-      // Update existing balance
       newBalance = Math.max(0, (coinBalance.coins || 0) + coins)
-      
-      const updateFields: any = {
+
+      const updateFields: Record<string, number | string> = {
         coins: newBalance,
-        updatedAt: now
+        updatedAt: now,
       }
 
-      // Update totals based on operation
       if (coins > 0) {
         updateFields.totalEarned = (coinBalance.totalEarned || 0) + coins
       } else if (coins < 0) {
         updateFields.totalSpent = (coinBalance.totalSpent || 0) + Math.abs(coins)
       }
 
-      await db.collection('coinBalances').updateOne(
-        { userId: normalizedTarget },
-        { $set: updateFields }
-      )
+      await db.collection('coinBalances').updateOne({ userId: balanceUserId }, { $set: updateFields })
     }
 
-    // Log the adjustment
     await db.collection('coinTransactions').insertOne({
-      userId: normalizedTarget,
+      userId: balanceUserId,
       type: coins >= 0 ? 'admin_grant' : 'admin_remove',
       amount: coins,
       balanceAfter: newBalance,
-      actor: normalizedActor,
-      timestamp: now
+      actorUserId: actor.id,
+      actorUsername: actor.username,
+      timestamp: now,
     })
 
-    // Log to activity logs
     await db.collection('activity-logs').insertOne({
       id: Date.now().toString(),
-      username: normalizedActor,
+      userId: actor.id,
+      username: actor.username,
       timestamp: now,
       action: coins >= 0 ? 'coin_grant' : 'coin_remove',
-      details: `${coins >= 0 ? 'Granted' : 'Removed'} ${Math.abs(coins)} coins for ${normalizedTarget}. New balance: ${newBalance}`
+      details: `${coins >= 0 ? 'Granted' : 'Removed'} ${Math.abs(coins)} coins for ${normalizedTarget}. New balance: ${newBalance}`,
     })
 
-    console.log(`[Admin] ${normalizedActor} ${coins >= 0 ? 'granted' : 'removed'} ${Math.abs(coins)} coins for ${normalizedTarget}. Balance: ${newBalance}`)
+    console.log(
+      `[Admin] ${actor.username} ${coins >= 0 ? 'granted' : 'removed'} ${Math.abs(coins)} coins for ${normalizedTarget}. Balance: ${newBalance}`
+    )
 
     return NextResponse.json({
       success: true,
       targetUsername: normalizedTarget,
-      coins: coins,
+      coins,
       balance: newBalance,
-      action: coins >= 0 ? 'grant' : 'remove'
+      action: coins >= 0 ? 'grant' : 'remove',
     })
-
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[Admin Adjust] Error:', error)
+    const err = error as { statusCode?: number; message?: string }
+    if (err.statusCode === 401) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     return NextResponse.json(
-      { error: error.message || 'Failed to adjust coins' },
+      { error: err.message || 'Failed to adjust coins' },
       { status: 500 }
     )
   }

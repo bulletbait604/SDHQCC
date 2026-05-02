@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
+import { paypalApiBase, paypalClientCredentials } from '@/lib/paypalEnv'
 
 // Legacy in-memory storage - kept for backwards compatibility
 declare global {
@@ -125,44 +126,32 @@ async function cancelSubscription(subscriptionId: string) {
 
 // Helper function to get PayPal access token
 async function getPayPalAccessToken(): Promise<string | null> {
-  // PRODUCTION MODE - Live PayPal APIs
-  const isSandbox = false
-  const clientId = process.env.PAYPAL_CLIENT_ID
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET
-  
+  const { clientId, clientSecret } = paypalClientCredentials()
+
   if (!clientId || !clientSecret) {
-    console.error('PayPal credentials not configured', { isSandbox, hasClientId: !!clientId, hasSecret: !!clientSecret })
+    console.error('PayPal credentials not configured')
     return null
   }
-  
+
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
-  
+  const paypalUrl = `${paypalApiBase()}/v1/oauth2/token`
+
   try {
-    const paypalUrl = 'https://api-m.paypal.com/v1/oauth2/token'
-    
-    console.log(`PayPal: Using LIVE mode for token`)
-    
     const response = await fetch(paypalUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${auth}`,
+        Authorization: `Basic ${auth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: 'grant_type=client_credentials',
     })
-    
+
     if (!response.ok) {
       const errorText = await response.text()
       console.error('PayPal token request failed:', response.status, errorText)
-      console.error('PayPal credentials check:', { 
-        isSandbox, 
-        clientIdPrefix: clientId?.substring(0, 10) + '...',
-        secretLength: clientSecret?.length,
-        url: paypalUrl 
-      })
       return null
     }
-    
+
     const data = await response.json()
     return data.access_token
   } catch (error) {
@@ -181,9 +170,9 @@ async function captureOrder(orderId: string): Promise<any | null> {
       return null
     }
     
-    const paypalUrl = `https://api-m.paypal.com/v2/checkout/orders/${orderId}/capture`
-    
-    console.log(`PayPal: Capturing order ${orderId} in LIVE mode`)
+    const paypalUrl = `${paypalApiBase()}/v2/checkout/orders/${orderId}/capture`
+
+    console.log(`PayPal: Capturing order ${orderId}`)
     
     const response = await fetch(paypalUrl, {
       method: 'POST',
@@ -219,9 +208,9 @@ async function getOrderDetails(orderId: string): Promise<any | null> {
       return null
     }
     
-    const paypalUrl = `https://api-m.paypal.com/v2/checkout/orders/${orderId}`
-    
-    console.log(`PayPal: Getting order ${orderId} details in LIVE mode`)
+    const paypalUrl = `${paypalApiBase()}/v2/checkout/orders/${orderId}`
+
+    console.log(`PayPal: Getting order ${orderId} details`)
     
     const response = await fetch(paypalUrl, {
       method: 'GET',
@@ -245,6 +234,20 @@ async function getOrderDetails(orderId: string): Promise<any | null> {
   }
 }
 
+/** Capture APPROVED checkout orders so coin/lifetime credits only run after payment settles */
+async function ensureCheckoutOrderCaptured(orderId: string): Promise<boolean> {
+  let order = await getOrderDetails(orderId)
+  if (!order) return false
+  if (order.status === 'COMPLETED') return true
+  if (order.status === 'APPROVED') {
+    const cap = await captureOrder(orderId)
+    if (!cap) return false
+    order = await getOrderDetails(orderId)
+    return order?.status === 'COMPLETED'
+  }
+  return false
+}
+
 // Helper function to verify subscription with PayPal API
 async function verifySubscriptionWithPayPal(subscriptionId: string): Promise<any | null> {
   try {
@@ -255,9 +258,9 @@ async function verifySubscriptionWithPayPal(subscriptionId: string): Promise<any
       return null
     }
     
-    const paypalUrl = `https://api-m.paypal.com/v1/billing/subscriptions/${subscriptionId}`
-    
-    console.log(`PayPal: Verifying subscription in LIVE mode`)
+    const paypalUrl = `${paypalApiBase()}/v1/billing/subscriptions/${subscriptionId}`
+
+    console.log(`PayPal: Verifying subscription`)
     
     const response = await fetch(paypalUrl, {
       method: 'GET',
@@ -515,72 +518,88 @@ export async function POST(req: NextRequest) {
           
           console.log(`💰 Order webhook: ${orderId}, custom_id: ${customId}`)
           
-          // Check for COIN purchase FIRST (format: username|coins|packageType|coinCount|price)
+          // Check for COIN purchase FIRST (format: usernameLower|coins|packageType|coinCount|price)
           if (customId && customId.includes('coins')) {
             const parts = customId.split('|')
-            const username = parts[0]
+            const username = parts[0]?.toLowerCase()
             const packageType = parts[2]
             const coinCount = parseInt(parts[3], 10)
-            
+            const pricePart = parts[4]
+
             if (username && !isNaN(coinCount)) {
-              // Verify order with PayPal
-              const verifiedOrder = await getOrderDetails(orderId)
-              if (!verifiedOrder || verifiedOrder.status !== 'COMPLETED') {
-                console.error(`❌ Coin purchase order ${orderId} verification failed or not completed`)
+              const completedOk = await ensureCheckoutOrderCaptured(orderId)
+              if (!completedOk) {
+                console.error(`❌ Coin purchase order ${orderId} verification/capture failed`)
                 return NextResponse.json({ status: 'error', message: 'Order verification failed' }, { status: 400 })
               }
-              
-              // Update coin balance
+
               const client = await clientPromise
               const db = client.db('sdhq')
-              
+
+              const alreadyDone = await db.collection('coinPurchases').findOne({
+                orderId,
+                status: 'completed',
+              })
+              if (alreadyDone) {
+                return NextResponse.json({ status: 'success', duplicate: true, orderId })
+              }
+
               await db.collection('coinBalances').updateOne(
-                { userId: username.toLowerCase() },
+                { userId: username },
                 {
                   $inc: {
                     coins: coinCount,
-                    totalPurchased: coinCount
+                    totalPurchased: coinCount,
                   },
                   $set: {
-                    updatedAt: new Date().toISOString()
-                  }
+                    updatedAt: new Date().toISOString(),
+                  },
+                  $setOnInsert: {
+                    userId: username,
+                    lastDailyReset: new Date().toISOString(),
+                    totalEarned: 0,
+                    totalSpent: 0,
+                    createdAt: new Date().toISOString(),
+                  },
                 },
                 { upsert: true }
               )
-              
-              // Log the purchase
-              await db.collection('coinTransactions').insertOne({
-                userId: username.toLowerCase(),
-                type: 'purchase',
-                amount: coinCount,
-                cost: amount,
-                currency: 'CAD',
-                orderId,
-                packageType,
-                timestamp: new Date().toISOString()
-              })
-              
-              // Update purchase record
+
               await db.collection('coinPurchases').updateOne(
                 { orderId },
                 {
                   $set: {
                     status: 'completed',
                     completedAt: new Date().toISOString(),
-                    verifiedWithPayPal: true
-                  }
+                    verifiedWithPayPal: true,
+                  },
                 }
               )
-              
-              await logActivity(username.toLowerCase(), 'coin_purchase', `Purchased ${coinCount} coins for $${amount} CAD (ID: ${orderId})`)
-              
-              console.log(`✅ ${coinCount} coins purchased for ${username}`)
-              return NextResponse.json({ 
-                status: 'success', 
-                username, 
-                coins: coinCount, 
+
+              await db.collection('coinTransactions').insertOne({
+                userId: username,
+                type: 'purchase',
+                amount: coinCount,
+                cost: amount,
+                currency: 'CAD',
+                orderId,
+                packageType,
+                timestamp: new Date().toISOString(),
+              })
+
+              await logActivity(
+                username,
+                'coin_purchase',
+                `Purchased ${coinCount} coins ($${pricePart ?? amount} CAD) — order ${orderId}`
+              )
+
+              console.log(`✅ ${coinCount} coins credited to ${username}`)
+              return NextResponse.json({
+                status: 'success',
+                username,
+                coins: coinCount,
                 type: 'coin_purchase',
-                verifiedWithPayPal: true 
+                verifiedWithPayPal: true,
               })
             }
           }

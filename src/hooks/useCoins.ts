@@ -160,6 +160,7 @@ export function useCoins({ userId, userRole }: UseCoinsOptions) {
       const response = await fetch('/api/coins/purchase', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ packageType, ...pkg })
       })
 
@@ -181,11 +182,9 @@ export function useCoins({ userId, userRole }: UseCoinsOptions) {
     }
   }, [userId])
 
-  // Refresh balance manually
   const refreshBalance = useCallback(() => {
-    fetchBalance()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    void fetchBalance()
+  }, [fetchBalance])
 
   return {
     balance,

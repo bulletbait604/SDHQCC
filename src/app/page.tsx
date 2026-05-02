@@ -10,7 +10,6 @@ declare global {
   }
 }
 
-// Deployment trigger for owner role fix
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
@@ -506,7 +505,7 @@ export default function HomePage() {
   const fetchUserRole = async () => {
     if (!user) return
     try {
-      const response = await fetch(`/api/roles?username=${user.username}`)
+      const response = await fetch(`/api/roles?username=${user.username}`, { credentials: 'include' })
       if (response.ok) {
         const data = await response.json()
         if (data.user && data.user.role) {
@@ -519,9 +518,10 @@ export default function HomePage() {
             fetch('/api/roles', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                username: user.username, 
-                role: 'owner', 
+              credentials: 'include',
+              body: JSON.stringify({
+                username: user.username,
+                role: 'owner',
                 currentAdminRole: 'owner'
               })
             }).then(() => fetchUsersWithRoles())
@@ -551,7 +551,7 @@ export default function HomePage() {
   // Fetch all users with roles
   const fetchUsersWithRoles = async () => {
     try {
-      const response = await fetch('/api/roles')
+      const response = await fetch('/api/roles', { credentials: 'include' })
       if (response.ok) {
         const data = await response.json()
         setUsersWithRoles(data.users || [])
@@ -567,10 +567,11 @@ export default function HomePage() {
       const response = await fetch('/api/roles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          username, 
-          role: newRole, 
-          currentAdminRole: userRole 
+        credentials: 'include',
+        body: JSON.stringify({
+          username,
+          role: newRole,
+          currentAdminRole: userRole
         })
       })
 
@@ -625,7 +626,8 @@ export default function HomePage() {
 
     try {
       const response = await fetch(`/api/roles?username=${username}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        credentials: 'include'
       })
 
       const data = await response.json()
@@ -659,7 +661,6 @@ export default function HomePage() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          actorUsername: user.username,
           targetUsername: tokenGrantUsername.trim().toLowerCase(),
           coins: amount
         })
@@ -733,7 +734,7 @@ export default function HomePage() {
 
   const fetchUserLists = async () => {
     try {
-      const response = await fetch('/api/users')
+      const response = await fetch('/api/users', { credentials: 'include' })
       if (response.ok) {
         const data = await response.json()
         // Update state with backend data (even if empty) - MongoDB only
@@ -794,7 +795,7 @@ export default function HomePage() {
             const rolePoll = setInterval(async () => {
               rolePollCount++
               
-              const response = await fetch(`/api/roles?username=${parsedUser.username}`)
+              const response = await fetch(`/api/roles?username=${parsedUser.username}`, { credentials: 'include' })
               if (response.ok) {
                 const data = await response.json()
                 
@@ -890,7 +891,7 @@ export default function HomePage() {
       // Always fetch fresh data from API (or trigger auto-refresh on Sundays)
       if (shouldAutoRefresh()) {
         // Trigger server-side refresh first
-        fetch('/api/algorithms', { method: 'POST' })
+        fetch('/api/algorithms', { method: 'POST', credentials: 'include' })
           .then(res => {
             if (!res.ok) throw new Error(`API error: ${res.status}`)
             return res.json()
@@ -913,7 +914,7 @@ export default function HomePage() {
           })
           .finally(() => setIsLoadingAlgorithms(false))
       } else {
-        fetch('/api/algorithms')
+        fetch('/api/algorithms', { credentials: 'include' })
           .then(res => {
             if (!res.ok) throw new Error(`API error: ${res.status}`)
             return res.json()
@@ -940,7 +941,7 @@ export default function HomePage() {
     }
 
     // Fetch tag database status
-    fetch('/api/tags')
+    fetch('/api/tags', { credentials: 'include' })
       .then(res => {
         if (!res.ok) throw new Error(`API error: ${res.status}`)
         return res.json()
@@ -997,7 +998,7 @@ export default function HomePage() {
   // Fetch activity logs from backend for admins
   useEffect(() => {
     if (isAdmin && user) {
-      fetch('/api/activity-log')
+      fetch('/api/activity-log', { credentials: 'include' })
         .then(res => res.json())
         .then(data => {
           if (data.logs) {
@@ -1013,7 +1014,7 @@ export default function HomePage() {
   // Refresh activity logs
   const refreshActivityLog = () => {
     if (isAdmin && user) {
-      fetch('/api/activity-log')
+      fetch('/api/activity-log', { credentials: 'include' })
         .then(res => res.json())
         .then(data => {
           if (data.logs) {
@@ -1047,6 +1048,7 @@ export default function HomePage() {
       fetch('/api/activity-log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           username: user.username,
           action: 'login'
@@ -1217,6 +1219,7 @@ export default function HomePage() {
       const tokenRes = await fetch('/api/gemini-api-key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           userId: user?.id || '',
           userType: userType
@@ -1317,6 +1320,7 @@ export default function HomePage() {
       const analyzeRes = await fetch('/api/clip-analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           fileUri: fileUri,
           mimeType: clipFile.type,
@@ -1450,6 +1454,7 @@ export default function HomePage() {
     
     setUser(null)
     if (typeof window !== 'undefined') {
+      fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {})
       localStorage.removeItem('kickUser')
       localStorage.removeItem('kickAccessToken')
       window.location.href = '/'
@@ -1675,7 +1680,7 @@ export default function HomePage() {
     
     // Clear from backend
     try {
-      await fetch('/api/activity-log', { method: 'DELETE' })
+      await fetch('/api/activity-log', { method: 'DELETE', credentials: 'include' })
     } catch (error) {
       console.error('Failed to clear activity logs from backend:', error)
     }
@@ -1699,6 +1704,7 @@ export default function HomePage() {
         const response = await fetch('/api/subscribers', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ username, action: 'add' })
         })
         
@@ -1738,6 +1744,7 @@ export default function HomePage() {
       const response = await fetch('/api/subscribers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ username: subscriber.username, action: 'remove' })
       })
       
@@ -1783,6 +1790,7 @@ export default function HomePage() {
         const response = await fetch('/api/lifetime', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ username, action: 'add' })
         })
         
@@ -1822,6 +1830,7 @@ export default function HomePage() {
       const response = await fetch('/api/lifetime', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ username: member.username, action: 'remove' })
       })
       
@@ -1867,6 +1876,7 @@ export default function HomePage() {
         const response = await fetch('/api/admins', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ username, action: 'add' })
         })
         
@@ -1906,6 +1916,7 @@ export default function HomePage() {
       const response = await fetch('/api/admins', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ username: admin.username, action: 'remove' })
       })
       
@@ -2177,12 +2188,14 @@ export default function HomePage() {
               {user ? (
                 <div className="flex items-center space-x-3">
                   {user.profile_image_url ? (
-                    <Image
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
                       src={user.profile_image_url}
-                      alt={user.display_name}
+                      alt=""
                       width={48}
                       height={48}
-                      className={`w-12 h-12 rounded-full border-2 ${darkMode ? 'border-sdhq-cyan-500' : 'border-sdhq-cyan-300'}`}
+                      referrerPolicy="no-referrer"
+                      className={`w-12 h-12 rounded-full border-2 object-cover ${darkMode ? 'border-sdhq-cyan-500' : 'border-sdhq-cyan-300'}`}
                     />
                   ) : (
                     <div className="w-12 h-12 rounded-full bg-gradient-to-r from-sdhq-cyan-400 to-sdhq-green-400 flex items-center justify-center">
@@ -2210,7 +2223,7 @@ export default function HomePage() {
                               <span className="leading-none">{ROLE_CONFIG[userRole]?.label ?? userRole}</span>
                               <span className="opacity-70">•</span>
                               <Coins className="w-3.5 h-3.5" />
-                              <span>{balance} tokens</span>
+                              <span>{balance} coins</span>
                               <Plus className="w-3 h-3" />
                             </button>
                           ) : (
@@ -2933,7 +2946,7 @@ export default function HomePage() {
 
             <TabsContent value="thumbnail-generator">
               <ThumbnailGenerator 
-                userId={user?.id} 
+                userId={user?.username} 
                 userType={userType}
                 darkMode={darkMode}
                 platforms={platforms}

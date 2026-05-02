@@ -176,6 +176,7 @@ export default function ThumbnailGenerator({
     const result = await fetch('/api/thumbnail-generator', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({
         prompt: enhancedPrompt,
         imageBase64: base64Override ?? imageBase64 ?? undefined,
