@@ -14,11 +14,39 @@ const EXEMPT_ROLES = ['subscriber', 'subscriber_lifetime', 'admin', 'owner', 'te
 // Finds the Monetag vignette show function on window
 function findMonetagFn(): (() => void) | null {
   if (typeof window === 'undefined') return null
-  const key = Object.keys(window).find(
-    k => /^show_\d{7,}$/.test(k) && typeof (window as any)[k] === 'function'
+  
+  // Log all window keys for debugging
+  const allKeys = Object.keys(window)
+  const possibleFns = allKeys.filter(k => 
+    (k.startsWith('show_') || k.includes('show')) && 
+    typeof (window as any)[k] === 'function'
   )
-  return key ? (window as any)[key] : null
+  console.log('[Monetag] Window functions found:', possibleFns.slice(0, 20))
+  
+  // Try multiple patterns
+  const patterns = [
+    /^show_\d{7,}$/,
+    /^show_\d+$/,
+    /^show[a-zA-Z0-9_]+$/,
+    /show/i
+  ]
+  
+  for (const pattern of patterns) {
+    const key = allKeys.find(
+      k => pattern.test(k) && typeof (window as any)[k] === 'function'
+    )
+    if (key) {
+      console.log('[Monetag] Found function:', key)
+      return (window as any)[key]
+    }
+  }
+  
+  return null
 }
+
+// Track if we're already loading to prevent duplicates
+let isLoadingScript = false
+let scriptLoadCallbacks: Array<{ resolve: () => void; reject: (e: Error) => void }> = []
 
 // Load Monetag vignette script dynamically
 function loadVignetteScript(): Promise<void> {
@@ -29,7 +57,9 @@ function loadVignetteScript(): Promise<void> {
     }
 
     // Check if already loaded
-    if (findMonetagFn()) {
+    const fn = findMonetagFn()
+    if (fn) {
+      console.log('[Monetag] Script already loaded, function available')
       resolve()
       return
     }
@@ -37,43 +67,85 @@ function loadVignetteScript(): Promise<void> {
     // Check if script tag already exists
     const existingScript = document.querySelector('script[data-zone="10951310"]')
     if (existingScript) {
-      // Wait for it to load
+      console.log('[Monetag] Script tag exists, waiting for function...')
+      // If already loading, queue this callback
+      if (isLoadingScript) {
+        scriptLoadCallbacks.push({ resolve, reject })
+        return
+      }
+      
+      isLoadingScript = true
       const checkInterval = setInterval(() => {
         if (findMonetagFn()) {
           clearInterval(checkInterval)
+          isLoadingScript = false
           resolve()
+          // Resolve any queued callbacks
+          scriptLoadCallbacks.forEach(cb => cb.resolve())
+          scriptLoadCallbacks = []
         }
       }, 100)
       setTimeout(() => {
         clearInterval(checkInterval)
-        if (findMonetagFn()) resolve()
-        else reject(new Error('Script load timeout'))
+        isLoadingScript = false
+        if (findMonetagFn()) {
+          resolve()
+          scriptLoadCallbacks.forEach(cb => cb.resolve())
+        } else {
+          const err = new Error('Script load timeout - function not found after 10s')
+          reject(err)
+          scriptLoadCallbacks.forEach(cb => cb.reject(err))
+        }
+        scriptLoadCallbacks = []
       }, 10000)
       return
     }
 
     // Create and load script
+    console.log('[Monetag] Creating new script tag...')
+    isLoadingScript = true
     const script = document.createElement('script')
     script.src = 'https://n6wxm.com/vignette.min.js'
     script.dataset.zone = '10951310'
     script.async = true
 
     script.onload = () => {
+      console.log('[Monetag] Script loaded, waiting for show function...')
       // Wait for show function to be available
       const checkInterval = setInterval(() => {
         if (findMonetagFn()) {
           clearInterval(checkInterval)
+          isLoadingScript = false
+          console.log('[Monetag] Show function is now available')
           resolve()
+          scriptLoadCallbacks.forEach(cb => cb.resolve())
+          scriptLoadCallbacks = []
         }
       }, 100)
       setTimeout(() => {
         clearInterval(checkInterval)
-        if (findMonetagFn()) resolve()
-        else reject(new Error('Show function not available'))
+        isLoadingScript = false
+        if (findMonetagFn()) {
+          console.log('[Monetag] Show function found after timeout')
+          resolve()
+          scriptLoadCallbacks.forEach(cb => cb.resolve())
+        } else {
+          console.error('[Monetag] Show function not available after 5s')
+          const err = new Error('Show function not available')
+          reject(err)
+          scriptLoadCallbacks.forEach(cb => cb.reject(err))
+        }
+        scriptLoadCallbacks = []
       }, 5000)
     }
 
-    script.onerror = () => reject(new Error('Failed to load script'))
+    script.onerror = (e) => {
+      isLoadingScript = false
+      console.error('[Monetag] Script failed to load:', e)
+      reject(new Error('Failed to load script'))
+      scriptLoadCallbacks.forEach(cb => cb.reject(new Error('Failed to load script')))
+      scriptLoadCallbacks = []
+    }
 
     document.head.appendChild(script)
   })
@@ -238,57 +310,58 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
 
   // Call this when user clicks "Watch Ad to Skip"
   const watchAdToSkip = useCallback(async () => {
+    console.log('[Cooldown] watchAdToSkip started')
     setWatchingAd(true)
+    let adStarted = false
+    
     try {
       // Load the vignette script dynamically
+      console.log('[Cooldown] Loading vignette script...')
       await loadVignetteScript()
+      console.log('[Cooldown] Vignette script loaded successfully')
 
       // Fire the Monetag vignette ad
       const fn = findMonetagFn()
       if (fn) {
+        console.log('[Cooldown] Firing vignette ad...')
         fn()
+        adStarted = true
         console.log('[Monetag] Vignette ad triggered for cooldown skip')
       } else {
         console.warn('[Monetag] Show function not available after loading')
+        throw new Error('Ad show function not available')
       }
 
       // Wait 6 seconds for ad to play
+      console.log('[Cooldown] Waiting 6 seconds for ad to play...')
       await new Promise(r => setTimeout(r, 6000))
+      console.log('[Cooldown] Ad wait complete')
 
-      // Clear cooldown server-side
-      await fetch('/api/cooldown', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, tool, skipWithAd: true })
-      })
-
-      // Clear client-side state
-      if (timerRef.current) {
-        clearInterval(timerRef.current)
-        timerRef.current = null
-      }
-      setOnCooldown(false)
-      setSecondsRemaining(0)
-    } catch (e) {
-      console.error('[Cooldown] Failed to skip:', e)
-      // Even if ad fails, clear the cooldown as a fallback
-      try {
+      // Clear cooldown server-side ONLY if ad actually started
+      if (adStarted) {
+        console.log('[Cooldown] Clearing cooldown after successful ad view')
         await fetch('/api/cooldown', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId, tool, skipWithAd: true })
         })
+
+        // Clear client-side state
         if (timerRef.current) {
           clearInterval(timerRef.current)
           timerRef.current = null
         }
         setOnCooldown(false)
         setSecondsRemaining(0)
-      } catch (err) {
-        console.error('[Cooldown] Failed to clear cooldown:', err)
+        console.log('[Cooldown] Cooldown cleared successfully')
       }
+    } catch (e) {
+      console.error('[Cooldown] Failed to skip:', e)
+      // DO NOT clear cooldown on error - user needs to try again or wait
+      // This prevents abuse and ensures ads are actually watched
     } finally {
       setWatchingAd(false)
+      console.log('[Cooldown] watchAdToSkip finished, adStarted:', adStarted)
     }
   }, [userId, tool])
 
