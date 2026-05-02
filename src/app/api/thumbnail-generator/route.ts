@@ -56,7 +56,7 @@ Output: 1280x720 landscape thumbnail. High contrast, bold colors, clear visual h
     parts.push({ text: promptText });
 
     const response = await ai.models.generateContent({
-      model: "imagen-4.0-fast-generate-001",
+      model: "gemini-3.1-flash-image-preview",
       contents: [{ role: "user", parts }],
       config: {
         responseModalities: [Modality.TEXT, Modality.IMAGE],
