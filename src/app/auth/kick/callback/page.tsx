@@ -58,16 +58,11 @@ export default function KickCallbackPage() {
         const data = await response.json()
         console.log('Token API response:', data)
 
-        if (data.user) {
-          localStorage.setItem('kickUser', JSON.stringify(data.user))
-          console.log('User stored in localStorage:', data.user)
-        } else {
+        if (!data.user) {
           console.error('No user data in response')
         }
 
-        if (data.accessToken) {
-          localStorage.setItem('kickAccessToken', data.accessToken)
-        }
+        // Session JWT is httpOnly — profile loads via GET /api/me on the home page.
 
         // Clean up cookies - use SameSite=None to match how they were set
         const isSecure = window.location.protocol === 'https:'

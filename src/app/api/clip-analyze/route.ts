@@ -203,7 +203,7 @@ CRITICAL ANALYSIS REQUIREMENTS:
 - Visual/audio quality: 15 points
 - Platform-specific optimization: 20 points
 - Metadata quality (title/description/tags): 20 points
-8. **TAG REQUIREMENTS (15-20 tags total):
+8. **TAG REQUIREMENTS (minimum 8 entries in "tags"; aim for 15-20 when relevant):
 Include a comprehensive mix of:
 1. Platform-specific trending tags (e.g., #fyp, #foryou, #reels, #shorts)
 2. Content-specific tags (what the video is actually about)
@@ -243,7 +243,7 @@ Return this exact JSON structure:
     "<optimized title option 3: 50-60 chars max, strong hook + keywords>"
   ],
   "description": "<optimized description: 150-200 characters, keywords + call to action, platform-optimized - NO abbreviations>",
-  "tags": ["<15-20 specific, relevant hashtags for platform - mix of platform, content, game, context, and streaming tags>"]
+  "tags": ["<at least 8; ideally 15-20 specific, relevant hashtags for platform - mix of platform, content, game, context, and streaming tags>"]
 }
 IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside of JSON.
 `

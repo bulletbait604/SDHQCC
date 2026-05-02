@@ -1,12 +1,22 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { getClientCookie, setClientCookie, deleteClientCookie } from '@/lib/clientCookies'
 
-const CONSENT_KEY = 'sdhq-cookie-consent'
+const CONSENT_COOKIE = 'sdhq_cookie_consent'
 
 interface CookieConsent {
   accepted: boolean
   timestamp: string
+}
+
+function parseConsent(raw: string | null): CookieConsent | null {
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as CookieConsent
+  } catch {
+    return null
+  }
 }
 
 export function useCookieConsent() {
@@ -14,14 +24,11 @@ export function useCookieConsent() {
   const [showBanner, setShowBanner] = useState(false)
 
   useEffect(() => {
-    // Check for existing consent
-    const stored = localStorage.getItem(CONSENT_KEY)
+    const stored = parseConsent(getClientCookie(CONSENT_COOKIE))
     if (stored) {
-      const consent: CookieConsent = JSON.parse(stored)
-      setHasConsent(consent.accepted)
+      setHasConsent(stored.accepted)
       setShowBanner(false)
     } else {
-      // First visit - show banner
       setHasConsent(false)
       setShowBanner(true)
     }
@@ -32,7 +39,7 @@ export function useCookieConsent() {
       accepted: true,
       timestamp: new Date().toISOString(),
     }
-    localStorage.setItem(CONSENT_KEY, JSON.stringify(consent))
+    setClientCookie(CONSENT_COOKIE, JSON.stringify(consent))
     setHasConsent(true)
     setShowBanner(false)
   }, [])
@@ -42,13 +49,13 @@ export function useCookieConsent() {
       accepted: false,
       timestamp: new Date().toISOString(),
     }
-    localStorage.setItem(CONSENT_KEY, JSON.stringify(consent))
+    setClientCookie(CONSENT_COOKIE, JSON.stringify(consent))
     setHasConsent(false)
     setShowBanner(false)
   }, [])
 
   const resetConsent = useCallback(() => {
-    localStorage.removeItem(CONSENT_KEY)
+    deleteClientCookie(CONSENT_COOKIE)
     setHasConsent(null)
     setShowBanner(true)
   }, [])

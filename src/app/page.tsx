@@ -47,6 +47,7 @@ import {
   Wand2
 } from 'lucide-react'
 import { createKickAuthURL } from '@/lib/kick-oauth'
+import { getClientCookie, setClientCookie } from '@/lib/clientCookies'
 
 interface KickUser {
   id: string
@@ -454,7 +455,7 @@ export default function HomePage() {
     }
     
     // Platform-specific defaults based on algorithm data patterns
-    if (platformId === 'tiktok') return 3
+    if (platformId === 'tiktok') return 8
     if (platformId === 'instagram') return 30
     if (platformId === 'youtube-shorts') return 5
     if (platformId === 'youtube-long') return 10
@@ -463,6 +464,17 @@ export default function HomePage() {
     
     return 10
   }
+
+  /** Clip analyzer “Overlay & Edit Suggestions”: show at least 8 tags when the model returns enough */
+  const getEditSuggestionsTagSlice = (platformId: string, tags: string[] | undefined): string[] => {
+    const list = tags || []
+    if (!list.length) return []
+    const cap = Math.min(list.length, Math.max(8, getRecommendedTagCount(platformId)))
+    return list.slice(0, cap)
+  }
+
+  const clipEditSuggestionTags =
+    clipAnalysisResult != null ? getEditSuggestionsTagSlice(clipPlatform, clipAnalysisResult.tags) : []
 
   // Thumbnail Generator is now a separate component in @/app/components/ThumbnailGenerator
 
@@ -673,7 +685,13 @@ export default function HomePage() {
 
       const data = await response.json()
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to adjust coins')
+        const base = data.error || 'Failed to adjust coins'
+        if (response.status === 401 || String(base).includes('authentication token')) {
+          throw new Error(
+            `${base} Sign out and sign in with Kick again — your browser needs a fresh session cookie for admin actions.`
+          )
+        }
+        throw new Error(base)
       }
 
       const entry: ActivityLogEntry = {
@@ -762,243 +780,188 @@ export default function HomePage() {
 
   useEffect(() => {
     setMounted(true)
-    
-    // Check for existing user session
-    if (typeof window !== 'undefined') {
-      // Check if this is a post-verification reload
-      const urlParams = new URLSearchParams(window.location.search)
-      const isPostVerification = urlParams.has('verified')
-      
-      const storedUser = localStorage.getItem('kickUser')
-      const storedLanguage = localStorage.getItem('sdhq-language') as Language
-      const storedDarkMode = localStorage.getItem('sdhq-darkmode')
-      const storedVerified = localStorage.getItem('isVerified')
-      const storedLifetime = localStorage.getItem('isLifetime')
-      
-      if (storedVerified) {
-        setIsVerified(storedVerified === 'true')
+
+    if (typeof window === 'undefined') return
+
+    const urlParams = new URLSearchParams(window.location.search)
+    const isPostVerification = urlParams.has('verified')
+
+    const applyAnonymousUiFromCookies = () => {
+      const lang = getClientCookie('sdhq_language')
+      if (lang && translations[lang as Language]) {
+        setLanguage(lang as Language)
       }
-      
-      if (storedLifetime) {
-        setIsLifetime(storedLifetime === 'true')
-      }
-      
-      if (storedUser) {
+      const dark = getClientCookie('sdhq_dark')
+      if (dark === '1') setDarkMode(true)
+      else if (dark === '0') setDarkMode(false)
+    }
+
+    const runRestOfInit = () => {
+      fetchUsersWithRoles()
+      fetchUserLists()
+
+      setIsLoadingAlgorithms(true)
+      setAlgorithmError(null)
+
+      void (async () => {
         try {
-          const parsedUser = JSON.parse(storedUser)
-          setUser(parsedUser)
-          
-          // If post-verification, poll for role update (webhook may still be processing)
-          if (isPostVerification) {
+          const getRes = await fetch('/api/algorithms', { credentials: 'include' })
+          if (!getRes.ok) throw new Error(`API error: ${getRes.status}`)
+          const getData = await getRes.json()
+          const lastFromApi = getData.lastUpdated as string | undefined
+
+          const needsSundayRefresh = (): boolean => {
+            const now = new Date()
+            if (now.getDay() !== 0) return false
+            if (!lastFromApi) return true
+            const lu = new Date(lastFromApi)
+            const daysSince = Math.floor((now.getTime() - lu.getTime()) / (1000 * 60 * 60 * 24))
+            return daysSince >= 6
+          }
+
+          if (needsSundayRefresh()) {
+            const postRes = await fetch('/api/algorithms', {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({}),
+            })
+            if (!postRes.ok) throw new Error(`API error: ${postRes.status}`)
+            const data = await postRes.json()
+            if (data.data) {
+              setLastUpdated(data.lastUpdated)
+              setPlatforms(prevPlatforms =>
+                prevPlatforms.map(p => ({
+                  ...p,
+                  data: data.data[p.id] || null,
+                }))
+              )
+            }
+          } else if (getData.data) {
+            setLastUpdated(getData.lastUpdated)
+            setPlatforms(prevPlatforms =>
+              prevPlatforms.map(p => ({
+                ...p,
+                data: getData.data[p.id] || null,
+              }))
+            )
+          }
+        } catch (error) {
+          console.error('Error loading algorithm data:', error)
+          setAlgorithmError('Failed to load algorithm data.')
+        } finally {
+          setIsLoadingAlgorithms(false)
+        }
+      })()
+
+      fetch('/api/tags', { credentials: 'include' })
+        .then(res => {
+          if (!res.ok) throw new Error(`API error: ${res.status}`)
+          return res.json()
+        })
+        .then(data => {
+          if (data.lastUpdated) {
+            const totalTags = Object.keys(data.data || {}).reduce((acc: number, key: string) => {
+              const tags = data.data[key]
+              return acc + (Array.isArray(tags) ? tags.length : 0)
+            }, 0)
+            setTagDatabaseStatus({
+              lastUpdated: data.lastUpdated,
+              totalTags,
+            })
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching tag database status:', error)
+        })
+    }
+
+    void (async () => {
+      try {
+        const meRes = await fetch('/api/me', { credentials: 'include' })
+        if (meRes.ok) {
+          const me = await meRes.json()
+          if (me.user) {
+            setUser(me.user as KickUser)
+          }
+          if (me.preferences?.language && translations[me.preferences.language as Language]) {
+            setLanguage(me.preferences.language as Language)
+          }
+          if (typeof me.preferences?.darkMode === 'boolean') {
+            setDarkMode(me.preferences.darkMode)
+          }
+          setIsVerified(!!me.subscription?.isVerified)
+          setIsLifetime(!!me.subscription?.isLifetime)
+
+          if (isPostVerification && me.user?.username) {
             console.log('Post-verification reload detected, polling for role update...')
-            // Clear URL param
             urlParams.delete('verified')
             window.history.replaceState({}, '', `${window.location.pathname}?${urlParams}`)
-            
-            // Poll for role update faster (webhook might still be processing)
+
             let rolePollCount = 0
             const rolePoll = setInterval(async () => {
               rolePollCount++
-              
-              const response = await fetch(`/api/roles?username=${parsedUser.username}`, { credentials: 'include' })
+
+              const response = await fetch(`/api/roles?username=${me.user.username}`, {
+                credentials: 'include',
+              })
               if (response.ok) {
                 const data = await response.json()
-                
+
                 if (data.user && data.user.role && data.user.role !== 'free') {
-                  // Role updated!
                   clearInterval(rolePoll)
                   setUserRole(data.user.role)
                   console.log(`✅ Role updated to ${data.user.role} after ${rolePollCount} polls`)
                 }
               }
-              
-              // Stop after 30 attempts (6 seconds total at 200ms each)
+
               if (rolePollCount >= 30) {
                 clearInterval(rolePoll)
                 console.log('Role poll timeout, final role will be shown')
               }
             }, 200)
           }
-        } catch (error) {
-          console.error('Error loading stored user:', error)
+        } else {
+          applyAnonymousUiFromCookies()
         }
+      } catch (err) {
+        console.error('Error loading session:', err)
+        applyAnonymousUiFromCookies()
+      } finally {
+        runRestOfInit()
       }
-      
-      if (storedLanguage && translations[storedLanguage]) {
-        setLanguage(storedLanguage)
-      }
-      
-      if (storedDarkMode !== null) {
-        setDarkMode(storedDarkMode === 'true')
-      }
-      
-      // Fetch role-based data
-      fetchUsersWithRoles()
-      
-      // Legacy: Sync with backend (MongoDB) to get latest data
-      fetchUserLists()
-
-      // Load algorithm data from API on every page load
-      setIsLoadingAlgorithms(true)
-      setAlgorithmError(null)
-      
-      // First, try to load cached data for immediate display
-      const storedAlgorithmData = localStorage.getItem('sdhq-algorithm-data')
-      const storedLastUpdated = localStorage.getItem('sdhq-algorithm-updated')
-      
-      if (storedLastUpdated) {
-        setLastUpdated(storedLastUpdated)
-      }
-      
-      if (storedAlgorithmData) {
-        try {
-          const algorithmData = JSON.parse(storedAlgorithmData)
-          // Show cached data immediately while fetching fresh data
-          setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
-            ...p,
-            data: algorithmData[p.id] || null
-          })))
-        } catch (error) {
-          console.error('Error loading cached algorithm data:', error)
-        }
-      }
-      
-      // Check if it's Sunday and data hasn't been updated this week
-      const shouldAutoRefresh = () => {
-        const now = new Date()
-        const dayOfWeek = now.getDay()
-        
-        if (dayOfWeek !== 0) return false // Not Sunday
-        
-        if (!storedLastUpdated) return true
-        
-        const lastUpdated = new Date(storedLastUpdated)
-        const daysSinceUpdate = Math.floor((now.getTime() - lastUpdated.getTime()) / (1000 * 60 * 60 * 24))
-        
-        // If it's been more than 6 days since last update, trigger refresh
-        return daysSinceUpdate >= 6
-      }
-
-      // Function to log algorithm refresh
-      const logAlgorithmRefresh = (provider?: string, isAuto: boolean = false) => {
-        if (user && isAdmin) {
-          const refreshEntry: ActivityLogEntry = {
-            id: Date.now().toString(),
-            username: user.username,
-            timestamp: new Date().toISOString(),
-            action: 'algorithm_refresh',
-            details: `${isAuto ? 'Auto' : 'Manual'} algorithm refresh${provider ? ` via ${provider}` : ''}`
-          }
-          setActivityLog(prev => [refreshEntry, ...prev].slice(0, 100))
-        }
-      }
-
-      // Always fetch fresh data from API (or trigger auto-refresh on Sundays)
-      if (shouldAutoRefresh()) {
-        // Trigger server-side refresh first
-        fetch('/api/algorithms', { method: 'POST', credentials: 'include' })
-          .then(res => {
-            if (!res.ok) throw new Error(`API error: ${res.status}`)
-            return res.json()
-          })
-          .then(data => {
-            if (data.data) {
-              localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
-              localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
-              setLastUpdated(data.lastUpdated)
-              setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
-                ...p,
-                data: data.data[p.id] || null
-              })))
-              // Log the auto-refresh
-              logAlgorithmRefresh(data.provider, true)
-            }
-          })
-          .catch(error => {
-            console.error('Error auto-refreshing algorithm data:', error)
-          })
-          .finally(() => setIsLoadingAlgorithms(false))
-      } else {
-        fetch('/api/algorithms', { credentials: 'include' })
-          .then(res => {
-            if (!res.ok) throw new Error(`API error: ${res.status}`)
-            return res.json()
-          })
-          .then(data => {
-            if (data.data) {
-              localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
-              localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
-              setLastUpdated(data.lastUpdated)
-              setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
-                ...p,
-                data: data.data[p.id] || null
-              })))
-            }
-          })
-          .catch(error => {
-            console.error('Error fetching algorithm data:', error)
-            if (!storedAlgorithmData) {
-              setAlgorithmError('Failed to load algorithm data.')
-            }
-          })
-          .finally(() => setIsLoadingAlgorithms(false))
-      }
-    }
-
-    // Fetch tag database status
-    fetch('/api/tags', { credentials: 'include' })
-      .then(res => {
-        if (!res.ok) throw new Error(`API error: ${res.status}`)
-        return res.json()
-      })
-      .then(data => {
-        if (data.lastUpdated) {
-          const totalTags = Object.keys(data.data || {}).reduce((acc: number, key: string) => {
-            const tags = data.data[key]
-            return acc + (Array.isArray(tags) ? tags.length : 0)
-          }, 0)
-          setTagDatabaseStatus({
-            lastUpdated: data.lastUpdated,
-            totalTags
-          })
-        }
-      })
-      .catch(error => {
-        console.error('Error fetching tag database status:', error)
-      })
+    })()
   }, [])
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('sdhq-language', language)
+    if (!mounted || typeof window === 'undefined') return
+    if (user) {
+      fetch('/api/me', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferences: { language } }),
+      }).catch(() => {})
+    } else {
+      setClientCookie('sdhq_language', language)
     }
-  }, [language])
+  }, [language, user, mounted])
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('sdhq-darkmode', darkMode.toString())
+    if (!mounted || typeof window === 'undefined') return
+    if (user) {
+      fetch('/api/me', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferences: { darkMode } }),
+      }).catch(() => {})
+    } else {
+      setClientCookie('sdhq_dark', darkMode ? '1' : '0')
     }
-  }, [darkMode])
+  }, [darkMode, user, mounted])
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('sdhq-subscribers', JSON.stringify(subscribers))
-    }
-  }, [subscribers])
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('sdhq-lifetime-members', JSON.stringify(lifetimeMembers))
-    }
-  }, [lifetimeMembers])
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('sdhq-admins', JSON.stringify(admins))
-    }
-  }, [admins])
-
-  // Activity logs are now persisted server-side via backend API, no localStorage needed
+  // Activity logs are persisted server-side via /api/activity-log
 
   // Fetch activity logs from backend for admins
   useEffect(() => {
@@ -1031,12 +994,6 @@ export default function HomePage() {
         })
     }
   }
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('isLifetime', isLifetime.toString())
-    }
-  }, [isLifetime])
 
   // Track user login
   useEffect(() => {
@@ -1460,8 +1417,6 @@ export default function HomePage() {
     setUser(null)
     if (typeof window !== 'undefined') {
       fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {})
-      localStorage.removeItem('kickUser')
-      localStorage.removeItem('kickAccessToken')
       window.location.href = '/'
     }
   }
@@ -1968,17 +1923,7 @@ export default function HomePage() {
         if (data.verified) {
           console.log('✅ VERIFIED on poll', pollCount, '- reloading...')
           clearInterval(poll)
-          
-          // Store data in localStorage
-          if (data.isLifetime) {
-            localStorage.setItem('isLifetime', 'true')
-          } else {
-            localStorage.setItem('isVerified', 'true')
-            localStorage.setItem('verificationExpiry', (Date.now() + 30 * 24 * 60 * 60 * 1000).toString())
-          }
-          localStorage.setItem('verifiedUsername', user.username)
-          localStorage.setItem('subscriptionId', data.subscriptionId)
-          
+
           // Close modal and reload
           setIsVerifying(false)
           
@@ -2051,18 +1996,9 @@ export default function HomePage() {
         const isLifetimePurchase = data.customId && data.customId.includes('lifetime')
         
         if (isLifetimePurchase) {
-          // Lifetime membership - no expiry
           setIsLifetime(true)
-          localStorage.setItem('isLifetime', 'true')
-          localStorage.setItem('verifiedUsername', user.username)
-          localStorage.setItem('subscriptionId', data.subscriptionId)
         } else {
-          // Regular subscription - unlock premium features
           setIsVerified(true)
-          localStorage.setItem('isVerified', 'true')
-          localStorage.setItem('verifiedUsername', user.username)
-          localStorage.setItem('verificationExpiry', (Date.now() + 30 * 24 * 60 * 60 * 1000).toString()) // 30 days
-          localStorage.setItem('subscriptionId', data.subscriptionId)
         }
         
         // Add to subscribers list for admin visibility
@@ -2344,19 +2280,20 @@ export default function HomePage() {
       {/* Main Content */}
       <main className="container mx-auto px-4 pt-2 pb-8">
         {!user ? (
-          <div className={`flex items-center justify-center min-h-[400px] ${cardClasses} mt-4`}>
-            <div className="text-center max-w-md p-8">
+          <div className={`flex flex-col items-center justify-center min-h-[420px] ${cardClasses} mt-4`}>
+            <div className="flex flex-col items-center text-center w-full max-w-lg px-5 py-6">
               <Image
                 src="https://iili.io/BeYpM5F.md.png"
                 alt="SDHQ Creator Corner"
-                width={192}
-                height={192}
-                className="w-48 h-48 object-contain mb-4 rounded-2xl"
+                width={320}
+                height={320}
+                priority
+                className="w-56 h-56 sm:w-64 sm:h-64 md:w-72 md:h-72 object-contain mb-2 rounded-2xl mx-auto"
               />
-              <h2 className={`text-3xl font-bold gradient-text mb-4 ${darkMode ? 'from-sdhq-cyan-400 to-sdhq-green-400' : ''}`}>
+              <h2 className={`text-3xl font-bold gradient-text mb-3 mt-0 ${darkMode ? 'from-sdhq-cyan-400 to-sdhq-green-400' : ''}`}>
                 {t.welcome}
               </h2>
-              <p className={`${textClasses} mb-8`}>
+              <p className={`${textClasses} mb-8 max-w-md mx-auto`}>
                 {t.description}
               </p>
               <Button onClick={handleLogin} className="sdhq-button text-xl px-8 py-3">
@@ -3384,11 +3321,48 @@ export default function HomePage() {
                               ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
                               : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
                           }`}>
-                            <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center justify-between mb-3">
                               <h4 className={`text-base font-semibold tracking-wider uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                                 Overlay & Edit Suggestions
                               </h4>
                             </div>
+
+                            {clipEditSuggestionTags.length > 0 && (
+                              <div className={`mb-4 rounded-xl p-3 ${darkMode ? 'bg-sdhq-dark-800/80 border border-sdhq-cyan-500/25' : 'bg-white border border-sdhq-cyan-200'}`}>
+                                <div className={`text-xs font-semibold uppercase tracking-wide mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-700'}`}>
+                                  Recommended hashtags for captions & edits
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {clipEditSuggestionTags.map((tag: string, tagIdx: number) => {
+                                    const clean = tag.replace(/^#/, '')
+                                    return (
+                                      <button
+                                        key={`edit-tag-${tagIdx}`}
+                                        type="button"
+                                        title="Copy hashtag"
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(clean)
+                                          setCopiedTags(true)
+                                          setTimeout(() => setCopiedTags(false), 1200)
+                                        }}
+                                        className={`px-2.5 py-1 rounded-md text-xs font-mono transition-transform hover:scale-[1.02] ${
+                                          darkMode
+                                            ? 'bg-sdhq-dark-700 text-sdhq-cyan-300 border border-sdhq-cyan-500/30 hover:bg-sdhq-cyan-500/15'
+                                            : 'bg-gray-100 text-sdhq-cyan-800 border border-sdhq-cyan-300 hover:bg-sdhq-cyan-50'
+                                        }`}
+                                      >
+                                        #{clean}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                                <p className={`mt-2 text-xs ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
+                                  Showing {clipEditSuggestionTags.length} hashtag{clipEditSuggestionTags.length !== 1 ? 's' : ''}
+                                  {clipEditSuggestionTags.length >= 8 ? ' — full set for this platform' : ' — add more in Post Suggestions if listed'}
+                                </p>
+                              </div>
+                            )}
+
                             <div className="grid grid-cols-2 gap-4">
                               {(clipAnalysisResult.overlays || []).map((overlay: any, idx: number) => {
                                 const iconMap: Record<string, string> = {
@@ -3632,13 +3606,12 @@ export default function HomePage() {
                                       <div className="flex items-center gap-3">
                                         <span className="text-2xl">#️⃣</span>
                                         <div className={`text-base font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                          Tags (Recommended: {getRecommendedTagCount(clipPlatform)})
+                                          Tags (≥8 when analysis includes enough · cap {Math.max(8, getRecommendedTagCount(clipPlatform))})
                                         </div>
                                       </div>
                                       <button
                                         onClick={() => {
-                                          const recommendedCount = getRecommendedTagCount(clipPlatform)
-                                          const tagsText = (clipAnalysisResult.tags || []).slice(0, recommendedCount).map((t: string) => t.replace(/^#/, '')).join(', ')
+                                          const tagsText = clipEditSuggestionTags.map((t: string) => t.replace(/^#/, '')).join(', ')
                                           navigator.clipboard.writeText(tagsText)
                                           setCopiedTags(true)
                                           setTimeout(() => setCopiedTags(false), 2000)
@@ -3652,9 +3625,9 @@ export default function HomePage() {
                                         {copiedTags ? '✓ Copied!' : '📋 Copy All'}
                                       </button>
                                     </div>
-                                    <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
+                                      <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
                                       <div className="mt-3 flex flex-wrap gap-2">
-                                        {(clipAnalysisResult.tags || []).slice(0, getRecommendedTagCount(clipPlatform)).map((tag: string, idx: number) => (
+                                        {clipEditSuggestionTags.map((tag: string, idx: number) => (
                                           <span key={idx} className={`px-3 py-1.5 rounded text-sm font-mono cursor-pointer hover:scale-105 transition-transform ${
                                             darkMode 
                                               ? 'bg-sdhq-dark-800 text-sdhq-cyan-400 border border-sdhq-cyan-500/20 hover:bg-sdhq-cyan-500/10' 
@@ -3672,7 +3645,7 @@ export default function HomePage() {
                                         ))}
                                       </div>
                                       <div className={`mt-3 text-sm ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                        💡 Showing {Math.min((clipAnalysisResult.tags || []).length, getRecommendedTagCount(clipPlatform))} of {(clipAnalysisResult.tags || []).length} tags (recommended for {clipPlatform})
+                                        💡 Showing {clipEditSuggestionTags.length} of {(clipAnalysisResult.tags || []).length} tags for {clipPlatform}
                                       </div>
                                     </div>
                                   </div>
@@ -3709,10 +3682,7 @@ export default function HomePage() {
                                           
                                           const desc = clipAnalysisResult.description?.replace(/<[^>]*>/g, '') || ''
                                           
-                                          // Get recommended tag count from algorithm data
-                                          const tagCount = getRecommendedTagCount(clipPlatform)
-                                          const tags = (clipAnalysisResult.tags || []).slice(0, tagCount)
-                                          const hashtagBlock = tags.map((t: string) => `#${t.replace(/^#/, '')}`).join(' ')
+                                          const hashtagBlock = clipEditSuggestionTags.map((t: string) => `#${t.replace(/^#/, '')}`).join(' ')
                                           
                                           const fullCaption = `${enhancedTitle}${desc}\n\n${hashtagBlock}`
                                           navigator.clipboard.writeText(fullCaption.trim())
@@ -3752,16 +3722,16 @@ export default function HomePage() {
                                         </p>
                                         
                                         {/* Hashtags inline */}
-                                        {(clipAnalysisResult.tags || []).length > 0 && (
+                                        {clipEditSuggestionTags.length > 0 && (
                                           <p className="text-base text-sdhq-cyan-500">
-                                            {(clipAnalysisResult.tags || []).slice(0, getRecommendedTagCount(clipPlatform)).map((tag: string) => (
+                                            {clipEditSuggestionTags.map((tag: string) => (
                                               `#${tag.replace(/^#/, '')} `
                                             ))}
                                           </p>
                                         )}
                                       </div>
                                       <div className={`mt-3 text-sm ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                        💡 {clipPlatform === 'tiktok' ? `TikTok: Title + Description + ${getRecommendedTagCount('tiktok')} hashtags in caption field` : clipPlatform === 'instagram' ? `Instagram: Title + Description + up to ${getRecommendedTagCount('instagram')} hashtags` : `Caption includes title, description, and ${getRecommendedTagCount(clipPlatform)} hashtags`}
+                                        💡 {clipPlatform === 'tiktok' ? `TikTok: Title + Description + ${clipEditSuggestionTags.length} hashtags (≥8 when analysis includes enough)` : clipPlatform === 'instagram' ? `Instagram: Title + Description + up to ${clipEditSuggestionTags.length} hashtags shown` : `Caption includes title, description, and ${clipEditSuggestionTags.length} hashtags`}
                                       </div>
                                     </div>
                                   </div>
@@ -4264,8 +4234,6 @@ export default function HomePage() {
                                 
                                 const data = await res.json()
                                 if (data.data) {
-                                  localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
-                                  localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
                                   setLastUpdated(data.lastUpdated)
                                   setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
                                     ...p,
@@ -4321,8 +4289,6 @@ export default function HomePage() {
                                   
                                   const data = await res.json()
                                   if (data.data) {
-                                    localStorage.setItem('sdhq-algorithm-data', JSON.stringify(data.data))
-                                    localStorage.setItem('sdhq-algorithm-updated', data.lastUpdated)
                                     setLastUpdated(data.lastUpdated)
                                     setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
                                       ...p,
