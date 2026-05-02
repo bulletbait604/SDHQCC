@@ -2891,63 +2891,10 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* Access Control */}
+                {/* Access Control - All logged-in users can access, free users have cooldowns */}
                 {!user ? (
                   <div className="text-center py-12">
-                    <p className={`${subtitleClasses}`}>{t.premiumFeature} - Login required</p>
-                  </div>
-                ) : !(userRole === 'owner' || userRole === 'admin' || userRole === 'subscriber' || userRole === 'subscriber_lifetime' || userRole === 'tester') ? (
-                  <div className="space-y-6">
-                    {/* Blurred out content for free tier */}
-                    <div className={`${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-100 border-gray-200'} border rounded-xl p-6 blur-sm select-none`}>
-                      <label className={`block text-sm font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Target Platform
-                      </label>
-                      <div className="grid grid-cols-5 gap-3 mb-6">
-                        {platforms.map((platform) => (
-                          <div
-                            key={platform.id}
-                            className={`relative rounded-xl p-4 ${darkMode ? 'bg-sdhq-dark-900' : 'bg-white'}`}
-                          >
-                            <img
-                              src={platform.image}
-                              alt={platform.name}
-                              className="w-12 h-12 mx-auto mb-2 rounded-lg object-cover opacity-50"
-                            />
-                            <span className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                              {platform.name}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-
-                      <label className={`block text-sm font-semibold tracking-wider uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Video URL
-                      </label>
-                      <div className="flex gap-3">
-                        <input
-                          type="text"
-                          disabled
-                          placeholder="https://www.tiktok.com/@user/video/..."
-                          className={`flex-1 px-4 py-3 rounded-lg text-base font-mono outline-none ${
-                            darkMode 
-                              ? 'bg-sdhq-dark-900 border-sdhq-dark-700 text-gray-300' 
-                              : 'bg-white border-gray-300 text-gray-800'
-                          } border`}
-                        />
-                        <Button disabled className="sdhq-button flex items-center gap-2 opacity-50">
-                          <span>Analyze</span>
-                          <span>→</span>
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="text-center py-12">
-                      <p className={`${subtitleClasses}`}>{t.premiumFeature} - Subscribe to access</p>
-                      <Button onClick={handleVerifySubscription} className="sdhq-button mt-4">
-                        Subscribe Now
-                      </Button>
-                    </div>
+                    <p className={`${subtitleClasses}`}>Login required to analyze clips</p>
                   </div>
                 ) : (
                   <div className="space-y-6">
