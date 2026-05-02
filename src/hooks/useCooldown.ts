@@ -84,6 +84,7 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
   const [secondsRemaining, setSecondsRemaining] = useState(0)
   const [watchingAd, setWatchingAd] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const hasMountedRef = useRef(false)
   
   // Store all dependencies in refs to avoid stale closure issues
   const userIdRef = useRef(userId)
@@ -102,11 +103,13 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
     const currentTool = toolRef.current
     const currentIsExempt = isExemptRef.current
     
-    console.log('[Cooldown] === CHECK COOLDOWN START ===', { userId: currentUserId, tool: currentTool, isExempt: currentIsExempt })
-    if (currentIsExempt || !currentUserId) {
-      console.log('[Cooldown] Skipped - exempt or no userId')
+    // Block anon users and exempt users
+    if (currentIsExempt || !currentUserId || currentUserId === 'anon') {
+      console.log('[Cooldown] Skipped check - exempt, no userId, or anon')
       return
     }
+    
+    console.log('[Cooldown] === CHECK COOLDOWN START ===', { userId: currentUserId, tool: currentTool, isExempt: currentIsExempt })
     try {
       const url = `/api/cooldown?userId=${currentUserId}&tool=${currentTool}`
       console.log('[Cooldown] Fetching:', url)
@@ -114,13 +117,11 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
       console.log('[Cooldown] Response status:', res.status)
       const data = await res.json()
       console.log('[Cooldown] API response data:', data)
-      if (data.onCooldown) {
-        console.log('[Cooldown] Setting onCooldown to TRUE, seconds:', data.secondsRemaining)
-        setOnCooldown(true)
-        setSecondsRemaining(data.secondsRemaining)
-      } else {
-        console.log('[Cooldown] onCooldown is false, not setting state')
-      }
+      
+      // ALWAYS set state from server (don't early return)
+      setOnCooldown(data.onCooldown || false)
+      setSecondsRemaining(data.secondsRemaining || 0)
+      console.log('[Cooldown] State updated:', { onCooldown: data.onCooldown, secondsRemaining: data.secondsRemaining })
     } catch (e) {
       console.error('[Cooldown] Failed to check:', e)
     }
@@ -135,35 +136,56 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
     console.log('[Cooldown] State changed:', { onCooldown, secondsRemaining, isExempt: isExemptRef.current, userId: userIdRef.current, tool: toolRef.current })
   }, [onCooldown, secondsRemaining])
 
-  // Check cooldown from server on mount
+  // Check cooldown from server on mount (with guard to prevent duplicate calls)
   useEffect(() => {
     const currentIsExempt = isExemptRef.current
     const currentUserId = userIdRef.current
-    console.log('[Cooldown] Mount effect running:', { userId: currentUserId, tool: toolRef.current, isExempt: currentIsExempt })
-    if (currentIsExempt || !currentUserId) {
-      console.log('[Cooldown] Skipped check on mount - exempt or no userId')
+    
+    // Prevent duplicate mount calls
+    if (hasMountedRef.current) {
+      console.log('[Cooldown] Mount effect skipped - already mounted')
       return
     }
+    hasMountedRef.current = true
+    
+    console.log('[Cooldown] Mount effect running:', { userId: currentUserId, tool: toolRef.current, isExempt: currentIsExempt })
+    
+    // Block anon users, exempt users, and users not yet loaded
+    if (currentIsExempt || !currentUserId || currentUserId === 'anon') {
+      console.log('[Cooldown] Skipped check on mount - exempt, no userId, or anon')
+      return
+    }
+    
     checkCooldown()
-  }, [userId, tool, userRole, checkCooldown])
+  }, []) // Empty deps - only run once on mount
 
-  // Countdown timer - only runs when onCooldown changes, not on every tick
+  // Countdown timer - runs when onCooldown becomes true
   useEffect(() => {
-    console.log('[Cooldown] Timer effect running:', { onCooldown })
+    console.log('[Cooldown] Timer effect running:', { onCooldown, secondsRemaining })
+    
     if (!onCooldown) {
       console.log('[Cooldown] Timer not started - onCooldown is false')
       return
     }
 
     console.log('[Cooldown] Starting timer interval')
+    
+    // Clear any existing timer before starting new one
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+    }
+    
     timerRef.current = setInterval(() => {
       setSecondsRemaining(prev => {
-        console.log('[Cooldown] Tick:', prev)
-        if (prev <= 1) {
+        const next = prev - 1
+        console.log('[Cooldown] Tick:', { prev, next })
+        
+        if (next <= 0) {
+          console.log('[Cooldown] Timer reached 0, clearing cooldown')
           setOnCooldown(false)
           return 0
         }
-        return prev - 1
+        return next
       })
     }, 1000)
 
@@ -174,7 +196,7 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
         timerRef.current = null
       }
     }
-  }, [onCooldown])
+  }, [onCooldown]) // Only re-run when onCooldown changes
 
   // Call this after a successful use to start the cooldown
   const startCooldown = useCallback(async () => {
@@ -183,41 +205,33 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
     const currentIsExempt = isExemptRef.current
     
     console.log('[Cooldown] === START COOLDOWN ===', { isExempt: currentIsExempt, userId: currentUserId, tool: currentTool })
-    if (currentIsExempt) {
-      console.log('[Cooldown] Skipped start - user exempt')
+    
+    // Block anon users and exempt users
+    if (currentIsExempt || !currentUserId || currentUserId === 'anon') {
+      console.log('[Cooldown] Skipped start - exempt, no userId, or anon')
       return
     }
     
-    console.log('[Cooldown] POST /api/cooldown - starting')
+    // OPTIMISTIC: Set state immediately for instant UI feedback
+    console.log('[Cooldown] Setting optimistic cooldown state')
+    setOnCooldown(true)
+    setSecondsRemaining(60)
     
-    // Helper to call checkCooldown via ref (avoids stale closure issues)
-    const callCheckCooldown = (source: string) => {
-      console.log(`[Cooldown] Invoking checkCooldown via ref from: ${source}`)
-      checkCooldownRef.current()
-    }
-    
-    // IMMEDIATELY check cooldown (optimistic - server just set it)
-    console.log('[Cooldown] IMMEDIATE checkCooldown call...')
-    callCheckCooldown('immediate')
-    
-    // Send POST request to set cooldown on server - AWAIT it to ensure it completes
+    // Send POST request to set cooldown on server (fire-and-forget)
+    console.log('[Cooldown] POST /api/cooldown - fire and forget')
     try {
-      console.log('[Cooldown] Awaiting POST /api/cooldown...')
-      const response = await fetch('/api/cooldown', {
+      fetch('/api/cooldown', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: currentUserId, tool: currentTool })
+      }).then(() => {
+        console.log('[Cooldown] POST completed')
+      }).catch((e) => {
+        console.error('[Cooldown] POST failed:', e)
       })
-      console.log('[Cooldown] POST completed with status:', response.status)
-      callCheckCooldown('post-complete')
     } catch (e) {
-      console.error('[Cooldown] POST failed:', e)
-      callCheckCooldown('post-error')
+      console.error('[Cooldown] POST error:', e)
     }
-    
-    // Also check after delays as fallback
-    setTimeout(() => callCheckCooldown('timeout-500ms'), 500)
-    setTimeout(() => callCheckCooldown('timeout-2000ms'), 2000)
     
     console.log('[Cooldown] === START COOLDOWN END ===')
   }, []) // Empty deps - uses refs exclusively
