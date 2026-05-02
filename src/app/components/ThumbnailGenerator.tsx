@@ -146,13 +146,10 @@ export default function ThumbnailGenerator({
 
   // ── Generate ───────────────────────────────────────────────────────────────
   const generate = async (base64Override?: string, mimeOverride?: string) => {
-    console.log('[Thumbnail] generate() called')
     if (!prompt.trim()) {
-      console.log('[Thumbnail] No prompt, returning')
       return
     }
     if (selectedPlatforms.length === 0) {
-      console.log('[Thumbnail] No platforms selected, returning')
       setError('Please select at least one platform')
       return
     }
@@ -171,8 +168,6 @@ export default function ThumbnailGenerator({
     ).filter(Boolean).join(', ')
     
     const enhancedPrompt = `Create a thumbnail optimized for ${platformNames}. ${prompt}`
-    console.log('[Thumbnail] Sending request to /api/thumbnail-generator')
-
     const result = await fetch('/api/thumbnail-generator', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -185,11 +180,9 @@ export default function ThumbnailGenerator({
         platforms: selectedPlatforms,
       }),
     }).then(r => r.json())
-    console.log('[Thumbnail] API response received:', { hasError: !!result.error, hasImage: !!result.imageBase64 })
 
     try {
       if (result.error) {
-        console.log('[Thumbnail] API returned error:', result.error)
         throw new Error(result.error)
       }
 
@@ -204,7 +197,6 @@ export default function ThumbnailGenerator({
       // Push current result to history before replacing (keep last 3)
       if (result) setHistory(prev => [result, ...prev].slice(0, 3))
       setResult(newResult)
-      console.log('[Thumbnail] Result set, about to deduct coins')
 
       // Deduct coins for free users
       const deducted = await deductCoins('thumbnail-generator')

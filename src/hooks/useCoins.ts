@@ -82,11 +82,8 @@ export function useCoins({ userId, userRole }: UseCoinsOptions) {
   // Deduct coins for tool usage
   const deductCoins = useCallback(async (tool: ToolType): Promise<boolean> => {
     if (hasUnlimitedAccess) {
-      console.log(`[Coins] Unlimited access - no deduction for ${tool}`)
       return true
     }
-
-    const cost = COIN_COSTS[tool]
 
     setLoading(true)
     try {
@@ -97,6 +94,11 @@ export function useCoins({ userId, userRole }: UseCoinsOptions) {
         body: JSON.stringify({ tool })
       })
 
+      if (response.status === 401) {
+        setError('Session not synced — sign out and sign in with Kick again.')
+        return false
+      }
+
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || 'Failed to deduct coins')
@@ -105,10 +107,9 @@ export function useCoins({ userId, userRole }: UseCoinsOptions) {
       const data = await response.json()
       setBalance(data.remainingCoins)
       setError(null)
-      console.log(`[Coins] Deducted ${cost} coins for ${tool}. Remaining: ${data.remainingCoins}`)
       return true
     } catch (err: any) {
-      console.error('[Coins] Deduction failed:', err)
+      console.warn('[Coins] Deduction failed:', err)
       setError(err.message || 'Failed to deduct coins')
       return false
     } finally {

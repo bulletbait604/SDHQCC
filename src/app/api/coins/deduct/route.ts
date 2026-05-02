@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { verifyAuth, hasUnlimitedAccess } from '@/lib/auth/verifyAuth'
+import { verifyAuth, hasUnlimitedAccess, AuthError } from '@/lib/auth/verifyAuth'
 import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
 
 // Valid tool costs - server defined, cannot be manipulated by client
@@ -119,9 +119,9 @@ export async function POST(req: NextRequest) {
       unlimited: false
     })
 
-  } catch (error: any) {
-    if (error.statusCode === 401) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  } catch (error: unknown) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode })
     }
     console.error('[Coins] Deduct error:', error)
     return NextResponse.json({ error: 'Failed to deduct coins' }, { status: 500 })

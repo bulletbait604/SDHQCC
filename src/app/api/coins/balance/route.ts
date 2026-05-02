@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+
+export const dynamic = 'force-dynamic'
 import clientPromise from '@/lib/mongodb'
-import { verifyAuth, hasUnlimitedAccess } from '@/lib/auth/verifyAuth'
+import { verifyAuth, hasUnlimitedAccess, AuthError } from '@/lib/auth/verifyAuth'
 import { Document, WithId } from 'mongodb'
 import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
 
@@ -80,6 +82,23 @@ export async function GET(req: NextRequest) {
         balance.lastDailyReset = now.toISOString()
         console.log(`[Coins] Daily reset for ${user.username} (${balanceKey}): added ${DAILY_FREE_COINS} coins`)
       }
+
+      // Restore starter pool if stranded (0 coins, never spent or purchased — e.g. bad migration / no session earlier)
+      const ts = balance.totalSpent || 0
+      const tp = balance.totalPurchased || 0
+      if (balance.coins === 0 && ts === 0 && tp === 0) {
+        await db.collection('coinBalances').updateOne(
+          { userId: balanceKey },
+          {
+            $set: {
+              coins: DAILY_FREE_COINS,
+              updatedAt: new Date().toISOString(),
+            },
+            ...(balance.totalEarned ? {} : { $inc: { totalEarned: DAILY_FREE_COINS } }),
+          }
+        )
+        balance.coins = DAILY_FREE_COINS
+      }
     }
 
     return NextResponse.json({
@@ -91,9 +110,8 @@ export async function GET(req: NextRequest) {
       unlimited: false,
     })
   } catch (error: unknown) {
-    const err = error as { statusCode?: number }
-    if (err.statusCode === 401) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode })
     }
     console.error('[Coins] Balance fetch error:', error)
     return NextResponse.json({ error: 'Failed to fetch coin balance' }, { status: 500 })

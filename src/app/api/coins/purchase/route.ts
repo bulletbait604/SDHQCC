@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { verifyAuth } from '@/lib/auth/verifyAuth'
+import { verifyAuth, AuthError } from '@/lib/auth/verifyAuth'
 import { paypalApiBase, paypalClientCredentials } from '@/lib/paypalEnv'
 
 async function getPayPalAccessToken(): Promise<string | null> {
@@ -157,10 +157,10 @@ export async function POST(req: NextRequest) {
     })
   } catch (error: unknown) {
     console.error('[Coins] Purchase creation error:', error)
-    const err = error as { statusCode?: number; message?: string }
-    if (err.statusCode === 401) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode })
     }
+    const err = error as { message?: string }
     return NextResponse.json(
       { error: err.message || 'Failed to create purchase' },
       { status: 500 }

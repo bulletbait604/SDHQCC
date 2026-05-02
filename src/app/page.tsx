@@ -236,7 +236,8 @@ const translations = {
   }
 };
 
-const OWNER_USERNAMES = ['bulletbait604', 'Bulletbait604'];
+/** Case-insensitive match in isOwner; server uses OWNER_USERNAMES env for admin APIs */
+const OWNER_USERNAMES = ['bulletbait604']
 
 const ROLE_HIERARCHY = {
   free: 1,
@@ -499,7 +500,11 @@ export default function HomePage() {
   ])
 
   const t = translations[language]
-  const isOwner = user ? OWNER_USERNAMES.includes(user.username.replace(/^@/, '')) : false
+  const isOwner = user
+    ? OWNER_USERNAMES.some(
+        (o) => o.toLowerCase() === user.username.replace(/^@/, '').toLowerCase()
+      )
+    : false
 
   // Fetch user's role from MongoDB
   const fetchUserRole = async () => {
@@ -2817,6 +2822,7 @@ export default function HomePage() {
                           const response = await fetch('/api/tags', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
                             body: JSON.stringify({
                               description: tagDescription,
                               platform: tagPlatform,
@@ -2887,7 +2893,7 @@ export default function HomePage() {
                       ) : (
                         <>
                           <Sparkles className="w-4 h-4 mr-2" />
-                          {hasUnlimitedAccess ? 'Generate Tags' : 'Generate Tags (1 token)'}
+                          {hasUnlimitedAccess ? 'Generate Tags' : 'Generate Tags (1 coin)'}
                         </>
                       )}
                     </Button>

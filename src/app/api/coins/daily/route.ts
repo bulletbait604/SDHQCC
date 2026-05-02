@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { verifyAuth, hasUnlimitedAccess } from '@/lib/auth/verifyAuth'
+import { verifyAuth, hasUnlimitedAccess, AuthError } from '@/lib/auth/verifyAuth'
 import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
 
 const DAILY_FREE_COINS = 10
@@ -96,9 +96,9 @@ export async function POST(req: NextRequest) {
       nextClaimTime: new Date(Date.now() + DAILY_COOLDOWN_HOURS * 60 * 60 * 1000).toISOString()
     })
 
-  } catch (error: any) {
-    if (error.statusCode === 401) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  } catch (error: unknown) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode })
     }
     console.error('[Coins] Daily claim error:', error)
     return NextResponse.json({ error: 'Failed to claim daily coins' }, { status: 500 })

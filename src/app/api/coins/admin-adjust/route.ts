@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { verifyAuth } from '@/lib/auth/verifyAuth'
+import { verifyAuth, AuthError } from '@/lib/auth/verifyAuth'
+import { isAllowlistedOwner } from '@/lib/ownerAllowlist'
 
 export async function POST(req: NextRequest) {
   try {
     const actor = await verifyAuth(req)
 
-    const allowedRoles = ['admin', 'owner']
-    const actorRole = actor.role || 'free'
+    const privileged =
+      ['admin', 'owner'].includes(actor.role || 'free') ||
+      isAllowlistedOwner(actor.username)
 
-    if (!allowedRoles.includes(actorRole)) {
+    if (!privileged) {
       return NextResponse.json(
-        { error: 'Unauthorized: Only admins can adjust coin balances' },
+        { error: 'Forbidden: only admins, owners, or allowlisted owners can adjust coins' },
         { status: 403 }
       )
     }
@@ -107,10 +109,10 @@ export async function POST(req: NextRequest) {
     })
   } catch (error: unknown) {
     console.error('[Admin Adjust] Error:', error)
-    const err = error as { statusCode?: number; message?: string }
-    if (err.statusCode === 401) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode })
     }
+    const err = error as { message?: string }
     return NextResponse.json(
       { error: err.message || 'Failed to adjust coins' },
       { status: 500 }
