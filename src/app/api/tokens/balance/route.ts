@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
+import { verifyAuth, AuthError, hasUnlimitedAccess } from '@/lib/auth/verifyAuth'
 import { WithId, Document } from 'mongodb'
 
 const DAILY_FREE_TOKENS = 10
-const UNLIMITED_ROLES = ['subscriber', 'subscriber_lifetime', 'admin', 'owner', 'tester']
 
 interface TokenBalance {
   userId: string
@@ -18,21 +18,15 @@ interface TokenBalance {
 
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url)
-    const userId = searchParams.get('userId')
-
-    if (!userId || userId === 'anon') {
-      return NextResponse.json({ tokens: 0, isGuest: true })
-    }
+    // CRITICAL: Authenticate user from server-side session only
+    const user = await verifyAuth(req)
+    const userId = user.username
 
     const client = await clientPromise
     const db = client.db('sdhq')
 
-    // Get user to check role
-    const user = await db.collection('users').findOne({ username: userId.toLowerCase() })
-    
     // Unlimited access users don't need tokens
-    if (user?.role && UNLIMITED_ROLES.includes(user.role)) {
+    if (hasUnlimitedAccess(user)) {
       return NextResponse.json({ 
         tokens: 999999, 
         unlimited: true,
@@ -98,6 +92,10 @@ export async function GET(req: NextRequest) {
     })
 
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode })
+    }
+    
     console.error('[Tokens] Balance fetch error:', error)
     return NextResponse.json({ error: 'Failed to fetch token balance' }, { status: 500 })
   }
