@@ -46,13 +46,23 @@ export function useCoins({ userId, userRole }: UseCoinsOptions) {
       const response = await fetch('/api/coins/balance', {
         credentials: 'include'
       })
-      if (!response.ok) throw new Error('Failed to fetch balance')
-      
+
+      if (response.status === 401) {
+        setBalance(0)
+        setError('Session not synced — sign out and sign in with Kick again.')
+        return
+      }
+
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}))
+        throw new Error((errBody as { error?: string }).error || 'Failed to fetch balance')
+      }
+
       const data = await response.json()
       setBalance(data.coins || 0)
       setError(null)
     } catch (err) {
-      console.error('[Coins] Failed to fetch balance:', err)
+      console.warn('[Coins] Balance fetch failed:', err)
       setError('Failed to load coin balance')
     }
   }, [userId])

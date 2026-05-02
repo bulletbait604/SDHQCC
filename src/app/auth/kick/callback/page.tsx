@@ -46,6 +46,7 @@ export default function KickCallbackPage() {
         const response = await fetch('/api/auth/kick/token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ code, codeVerifier }),
         })
 
