@@ -84,6 +84,7 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
   const [secondsRemaining, setSecondsRemaining] = useState(0)
   const [watchingAd, setWatchingAd] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const checkCooldownRef = useRef<() => Promise<void>>(async () => {})
   const isExempt = userRole ? EXEMPT_ROLES.includes(userRole) : false
 
   // Define checkCooldown as a function declaration so it's hoisted
@@ -112,6 +113,9 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
     }
     console.log('[Cooldown] === CHECK COOLDOWN END ===')
   }
+
+  // Store checkCooldown in a ref to ensure it's always accessible
+  checkCooldownRef.current = checkCooldown
 
   // Log state changes for debugging
   useEffect(() => {
@@ -168,6 +172,12 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
     // Fire and forget - don't wait for response to avoid hanging
     console.log('[Cooldown] POST /api/cooldown - fire and forget')
     
+    // Helper to call checkCooldown via ref (avoids stale closure issues)
+    const callCheckCooldown = () => {
+      console.log('[Cooldown] Invoking checkCooldown via ref...')
+      checkCooldownRef.current()
+    }
+    
     // Send POST request to set cooldown on server
     try {
       fetch('/api/cooldown', {
@@ -176,27 +186,27 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
         body: JSON.stringify({ userId, tool })
       }).then(() => {
         console.log('[Cooldown] POST completed, calling checkCooldown...')
-        checkCooldown()
+        callCheckCooldown()
       }).catch((e) => {
         console.error('[Cooldown] POST failed:', e)
         // Try checkCooldown anyway
-        checkCooldown()
+        callCheckCooldown()
       })
     } catch (e) {
       console.error('[Cooldown] POST error:', e)
-      checkCooldown()
+      callCheckCooldown()
     }
     
     // Also try after a short delay in case fetch hangs
     setTimeout(() => {
       console.log('[Cooldown] Calling checkCooldown after 500ms delay...')
-      checkCooldown()
+      callCheckCooldown()
     }, 500)
     
     // And one more time after a longer delay as fallback
     setTimeout(() => {
       console.log('[Cooldown] Calling checkCooldown after 2s delay...')
-      checkCooldown()
+      callCheckCooldown()
     }, 2000)
     
     console.log('[Cooldown] === START COOLDOWN END (fire and forget) ===')
