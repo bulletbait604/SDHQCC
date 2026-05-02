@@ -88,10 +88,15 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
 
   // Define checkCooldown as a function declaration so it's hoisted
   async function checkCooldown() {
-    if (isExempt || !userId) return
+    console.log('[Cooldown] Checking...', { userId, tool, isExempt })
+    if (isExempt || !userId) {
+      console.log('[Cooldown] Skipped - exempt or no userId')
+      return
+    }
     try {
       const res = await fetch(`/api/cooldown?userId=${userId}&tool=${tool}`)
       const data = await res.json()
+      console.log('[Cooldown] API response:', data)
       if (data.onCooldown) {
         setOnCooldown(true)
         setSecondsRemaining(data.secondsRemaining)
@@ -131,13 +136,19 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
 
   // Call this after a successful use to start the cooldown
   const startCooldown = useCallback(async () => {
-    if (isExempt) return
+    console.log('[Cooldown] Starting...', { isExempt, userId, tool })
+    if (isExempt) {
+      console.log('[Cooldown] Skipped start - user exempt')
+      return
+    }
     try {
+      console.log('[Cooldown] POST /api/cooldown')
       await fetch('/api/cooldown', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, tool })
       })
+      console.log('[Cooldown] Cooldown set, checking...')
       await checkCooldown()
     } catch (e) {
       console.error('[Cooldown] Failed to start:', e)
