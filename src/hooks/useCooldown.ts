@@ -107,21 +107,27 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
     checkCooldown()
   }, [userId, tool, isExempt])
 
-  // Countdown timer
+  // Countdown timer - only runs when onCooldown changes, not on every tick
   useEffect(() => {
-    if (!onCooldown || secondsRemaining <= 0) return
+    if (!onCooldown) return
+
     timerRef.current = setInterval(() => {
       setSecondsRemaining(prev => {
         if (prev <= 1) {
           setOnCooldown(false)
-          if (timerRef.current) clearInterval(timerRef.current)
           return 0
         }
         return prev - 1
       })
     }, 1000)
-    return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [onCooldown, secondsRemaining])
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+    }
+  }, [onCooldown])
 
   // Call this after a successful use to start the cooldown
   const startCooldown = useCallback(async () => {
@@ -165,7 +171,10 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
       })
 
       // Clear client-side state
-      if (timerRef.current) clearInterval(timerRef.current)
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
       setOnCooldown(false)
       setSecondsRemaining(0)
     } catch (e) {
@@ -177,7 +186,10 @@ export function useCooldown({ userId, tool, userRole }: UseCooldownOptions) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId, tool, skipWithAd: true })
         })
-        if (timerRef.current) clearInterval(timerRef.current)
+        if (timerRef.current) {
+          clearInterval(timerRef.current)
+          timerRef.current = null
+        }
         setOnCooldown(false)
         setSecondsRemaining(0)
       } catch (err) {
