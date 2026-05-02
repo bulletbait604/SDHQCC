@@ -50,6 +50,7 @@ interface KickUser {
   username: string
   display_name: string
   profile_image_url?: string
+  role?: string
 }
 
 interface Subscriber {
@@ -1285,9 +1286,6 @@ export default function HomePage() {
       setClipAnalysisResult(data)
       setExtractedData(data.extractedData || null)
       setShowReanalysis(true)
-
-      // Token system - no cooldown needed
-      const clipTokens = useTokens({})
 
       // Increment usage for limited roles
       incrementUsage('clips')
