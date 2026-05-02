@@ -565,15 +565,27 @@ export async function POST(req: NextRequest) {
                 { upsert: true }
               )
 
+              /** Upsert: coins may be bought via PayPal JS SDK (no prior row from /api/coins/purchase). */
               await db.collection('coinPurchases').updateOne(
                 { orderId },
                 {
                   $set: {
+                    userId: username,
+                    username,
+                    packageType,
+                    coins: coinCount,
+                    price: pricePart,
+                    currency: 'CAD',
                     status: 'completed',
                     completedAt: new Date().toISOString(),
                     verifiedWithPayPal: true,
                   },
-                }
+                  $setOnInsert: {
+                    orderId,
+                    createdAt: new Date().toISOString(),
+                  },
+                },
+                { upsert: true }
               )
 
               await db.collection('coinTransactions').insertOne({

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Coins, X, Loader2 } from 'lucide-react'
 
@@ -11,61 +11,127 @@ interface CoinPackage {
   label: string
 }
 
-// Coin packages: $5=12, $10=35, $20=100
+/** Must match /api/coins/purchase COIN_PACKAGES and paypal-webhook custom_id parsing */
 const COIN_PACKAGES: CoinPackage[] = [
-  { id: 'small', coins: 12, price: 5, label: 'Starter Pack' },      // $5 = 12 coins
-  { id: 'medium', coins: 35, price: 10, label: 'Value Pack' },     // $10 = 35 coins
-  { id: 'large', coins: 100, price: 20, label: 'Pro Pack' },        // $20 = 100 coins
+  { id: 'small', coins: 12, price: 5, label: 'Starter Pack' },
+  { id: 'medium', coins: 35, price: 10, label: 'Value Pack' },
+  { id: 'large', coins: 100, price: 20, label: 'Pro Pack' },
 ]
 
 interface CoinPurchaseProps {
   isOpen: boolean
   onClose: () => void
+  /** Kick login username — used in PayPal custom_id (must match webhook + coinBalances userId) */
   userId: string
   darkMode?: boolean
 }
 
+/**
+ * Coin checkout uses the same PayPal JS SDK flow as Lifetime membership:
+ * only NEXT_PUBLIC_PAYPAL_CLIENT_ID is required in the browser (no server secret for order creation).
+ * Webhook credits coins using custom_id: usernameLower|coins|packageType|coinCount|price
+ */
 export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false }: CoinPurchaseProps) {
   const [selectedPackage, setSelectedPackage] = useState<CoinPackage | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [sdkReady, setSdkReady] = useState(false)
+  const paypalContainerRef = useRef<HTMLDivElement>(null)
 
-  const handlePurchase = async (pkg: CoinPackage) => {
-    setLoading(true)
-    setError('')
-    
-    try {
-      // Call the coins purchase API (NOT PayPal directly)
-      const response = await fetch('/api/coins/purchase', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          packageType: pkg.id,
-          coins: pkg.coins,
-          price: pkg.price
-        })
-      })
+  // Load PayPal SDK once (same pattern as lifetime membership on page.tsx)
+  useEffect(() => {
+    if (!isOpen) return
 
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to create purchase')
-      }
-
-      const data = await response.json()
-      
-      // Redirect to PayPal for payment
-      if (data.paypalUrl) {
-        window.location.href = data.paypalUrl
-      } else if (data.orderId) {
-        // Fallback to direct PayPal checkout URL
-        window.location.href = `https://www.paypal.com/checkoutnow?token=${data.orderId}`
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to initiate purchase')
-      setLoading(false)
+    const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+    if (!clientId) {
+      setError('PayPal is not configured (NEXT_PUBLIC_PAYPAL_CLIENT_ID).')
+      return
     }
-  }
+
+    if (typeof window !== 'undefined' && window.paypal) {
+      setSdkReady(true)
+      return
+    }
+
+    const existing = document.querySelector<HTMLScriptElement>('script[data-sdhq-paypal-sdk]')
+    if (existing) {
+      if (window.paypal) setSdkReady(true)
+      else existing.addEventListener('load', () => setSdkReady(true), { once: true })
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=CAD`
+    script.setAttribute('data-sdhq-paypal-sdk', '1')
+    script.setAttribute('data-sdk-integration-source', 'button-factory')
+    script.onload = () => setSdkReady(true)
+    script.onerror = () => setError('Failed to load PayPal.')
+    document.body.appendChild(script)
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen || !sdkReady || !selectedPackage || !userId.trim()) return
+    const container = paypalContainerRef.current
+    if (!container || !window.paypal) return
+
+    container.innerHTML = ''
+    setError('')
+
+    const uid = userId.replace(/^@/, '').toLowerCase()
+    /** Mirrors src/app/api/coins/purchase/route.ts custom_id */
+    const customId = `${uid}|coins|${selectedPackage.id}|${selectedPackage.coins}|${selectedPackage.price}`
+
+    const buttons = window.paypal.Buttons({
+      style: {
+        shape: 'pill',
+        color: 'gold',
+        layout: 'vertical',
+        label: 'pay',
+      },
+      createOrder: (_data: unknown, actions: { order: { create: (o: unknown) => Promise<string> } }) => {
+        return actions.order.create({
+          purchase_units: [
+            {
+              amount: {
+                currency_code: 'CAD',
+                value: Number(selectedPackage.price).toFixed(2),
+              },
+              description: `${selectedPackage.coins} SDHQ Coins — ${selectedPackage.label}`,
+              custom_id: customId,
+            },
+          ],
+        })
+      },
+      onApprove: async (_data: { orderID?: string }, actions: { order: { capture: () => Promise<unknown> } }) => {
+        try {
+          setLoading(true)
+          await actions.order.capture()
+          onClose()
+          window.location.reload()
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : 'Payment capture failed'
+          setError(msg)
+          setLoading(false)
+        }
+      },
+      onError: (err: { message?: string }) => {
+        setError(err?.message || 'PayPal error')
+        setLoading(false)
+      },
+      onCancel: () => {
+        setLoading(false)
+      },
+    })
+
+    buttons.render(container).catch((err: unknown) => {
+      console.error('PayPal coin buttons render failed:', err)
+      setError('Could not start PayPal checkout.')
+    })
+
+    return () => {
+      container.innerHTML = ''
+    }
+  }, [isOpen, sdkReady, selectedPackage, userId, onClose])
 
   if (!isOpen) return null
 
@@ -75,12 +141,11 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <Coins className={`w-6 h-6 ${darkMode ? 'text-yellow-400' : 'text-yellow-500'}`} />
-            <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-              Buy Coins
-            </h3>
+            <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Buy Coins</h3>
           </div>
-          <button 
-            onClick={onClose}
+          <button
+            type="button"
+            onClick={() => !loading && onClose()}
             className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'text-gray-600'}`}
           >
             <X className="w-5 h-5" />
@@ -88,19 +153,19 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
         </div>
 
         <p className={`text-sm mb-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-          Purchase coins to use our AI-powered tools. Coins never expire!
+          Purchase coins to use our AI-powered tools. Coins are credited after PayPal confirms payment (same flow as lifetime
+          membership).
         </p>
 
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-red-500/20 text-red-400 text-sm">
-            {error}
-          </div>
+          <div className="mb-4 p-3 rounded-lg bg-red-500/20 text-red-400 text-sm">{error}</div>
         )}
 
         <div className="space-y-3">
           {COIN_PACKAGES.map((pkg) => (
             <button
               key={pkg.id}
+              type="button"
               onClick={() => setSelectedPackage(pkg)}
               disabled={loading}
               className={`w-full p-4 rounded-lg border-2 transition-all ${
@@ -117,60 +182,57 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
                     <Coins className={`w-5 h-5 ${darkMode ? 'text-yellow-400' : 'text-yellow-500'}`} />
                   </div>
                   <div className="text-left">
-                    <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {pkg.coins} Coins
-                    </p>
-                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {pkg.label}
-                    </p>
+                    <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{pkg.coins} Coins</p>
+                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{pkg.label}</p>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className={`text-xl font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                     ${pkg.price}
                   </p>
-                  <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                    CAD
-                  </p>
+                  <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>CAD</p>
                 </div>
               </div>
             </button>
           ))}
         </div>
 
-        <div className="mt-6 space-y-3">
-          <Button
-            onClick={() => selectedPackage && handlePurchase(selectedPackage)}
-            disabled={!selectedPackage || loading}
-            className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <Coins className="w-4 h-4 mr-2" />
-                {selectedPackage 
-                  ? `Buy ${selectedPackage.coins} Coins for $${selectedPackage.price}` 
-                  : 'Select a Package'}
-              </>
-            )}
-          </Button>
+        <div className="mt-6 min-h-[120px]">
+          {!process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID && (
+            <p className={`text-sm ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>
+              Missing NEXT_PUBLIC_PAYPAL_CLIENT_ID — add it in Vercel (same as lifetime checkout).
+            </p>
+          )}
 
-          <Button
-            variant="outline"
-            onClick={onClose}
-            disabled={loading}
-            className={`w-full ${darkMode ? 'border-sdhq-dark-600 text-white' : ''}`}
-          >
-            Cancel
-          </Button>
+          {selectedPackage && sdkReady && (
+            <>
+              <p className={`text-xs mb-3 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                Pay with PayPal — {selectedPackage.coins} coins for ${selectedPackage.price} CAD
+              </p>
+              <div ref={paypalContainerRef} className="flex flex-col items-stretch" />
+            </>
+          )}
+
+          {selectedPackage && !sdkReady && !error && (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Loading PayPal…
+            </div>
+          )}
         </div>
 
+        <Button
+          variant="outline"
+          type="button"
+          onClick={() => onClose()}
+          disabled={loading}
+          className={`w-full mt-4 ${darkMode ? 'border-sdhq-dark-600 text-white' : ''}`}
+        >
+          Cancel
+        </Button>
+
         <p className={`mt-4 text-xs text-center ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-          Payments processed securely via PayPal. Coins are added to your account immediately after payment confirmation.
+          Uses the same PayPal client ID as lifetime membership. Server secrets are only needed for webhooks capturing orders.
         </p>
       </div>
     </div>
