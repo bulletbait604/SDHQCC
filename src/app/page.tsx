@@ -13,8 +13,8 @@ declare global {
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
-import TokenPurchase from '@/app/components/TokenPurchase'
-import { useTokens } from '@/hooks/useTokens'
+import TokenPurchase from '@/app/components/CoinPurchase'
+import { useCoins, COIN_COSTS } from '@/hooks/useCoins'
 import {
   User,
   LogOut,
@@ -412,14 +412,14 @@ export default function HomePage() {
 
   const [usageCount, setUsageCount] = useState(0)
 
-  // Token system
+  // Coin system
   const { 
     balance, 
-    deductTokens, 
-    hasEnoughTokens, 
+    deductCoins, 
+    hasEnoughCoins, 
     hasUnlimitedAccess,
-    loading: tokenLoading 
-  } = useTokens({ 
+    loading: coinLoading 
+  } = useCoins({ 
     userId: user?.username || '', 
     userRole
   })
@@ -1169,8 +1169,8 @@ export default function HomePage() {
       return
     }
 
-    if (!hasEnoughTokens('clip-analyzer')) {
-      setClipError('Not enough tokens to run Clip Analyzer. Please purchase more tokens or upgrade for unlimited access.')
+    if (!hasEnoughCoins('clip-analyzer')) {
+      setClipError('Not enough coins to run Clip Analyzer. Please purchase more coins or upgrade for unlimited access.')
       return
     }
 
@@ -1337,9 +1337,9 @@ export default function HomePage() {
       setExtractedData(data.extractedData || null)
       setShowReanalysis(true)
 
-      const deducted = await deductTokens('clip-analyzer')
+      const deducted = await deductCoins('clip-analyzer')
       if (!deducted) {
-        throw new Error('Clip analyzed, but token deduction failed. Please refresh and check your token balance.')
+        throw new Error('Clip analyzed, but coin deduction failed. Please refresh and check your coin balance.')
       }
 
       // Increment usage for limited roles
@@ -2752,8 +2752,8 @@ export default function HomePage() {
                           return
                         }
 
-                        if (!hasEnoughTokens('tag-generator')) {
-                          alert('Not enough tokens to generate tags. Please purchase more tokens or upgrade for unlimited access.')
+                        if (!hasEnoughCoins('tag-generator')) {
+                          alert('Not enough coins to generate tags. Please purchase more coins or upgrade for unlimited access.')
                           return
                         }
 
@@ -2787,9 +2787,9 @@ export default function HomePage() {
                             setTagRateLimit({ remaining: data.rateLimit.remaining, resetTime: data.rateLimit.resetTime })
                           }
 
-                          const deducted = await deductTokens('tag-generator')
+                          const deducted = await deductCoins('tag-generator')
                           if (!deducted) {
-                            throw new Error('Tags generated, but token deduction failed. Please refresh and check your token balance.')
+                            throw new Error('Tags generated, but coin deduction failed. Please refresh and check your coin balance.')
                           }
                           // Log tag generation activity
                           if (user) {
@@ -2821,7 +2821,7 @@ export default function HomePage() {
                           setIsGeneratingTags(false)
                         }
                       }}
-                      disabled={isGeneratingTags || tokenLoading || !tagDescription.trim() || tagRateLimit.remaining === 0 || (!hasUnlimitedAccess && !hasEnoughTokens('tag-generator'))}
+                      disabled={isGeneratingTags || coinLoading || !tagDescription.trim() || tagRateLimit.remaining === 0 || (!hasUnlimitedAccess && !hasEnoughCoins('tag-generator'))}
                       className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
                     >
                       {isGeneratingTags ? (
@@ -3080,10 +3080,10 @@ export default function HomePage() {
                           />
                           <Button
                             onClick={handleAnalyzeClip}
-                            disabled={isAnalyzingClip || !clipFile || (!hasUnlimitedAccess && !hasEnoughTokens('clip-analyzer'))}
+                            disabled={isAnalyzingClip || !clipFile || (!hasUnlimitedAccess && !hasEnoughCoins('clip-analyzer'))}
                             className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold px-6 rounded-xl hover:shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all duration-300 flex items-center gap-2"
                           >
-                            <span>{hasUnlimitedAccess ? 'Analyze' : 'Analyze (2 tokens)'}</span>
+                            <span>{hasUnlimitedAccess ? 'Analyze' : 'Analyze (2 coins)'}</span>
                             <span>→</span>
                           </Button>
                         </div>

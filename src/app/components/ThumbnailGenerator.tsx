@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { Wand2, Upload, X, Download, Loader2, ImageIcon, RotateCcw } from 'lucide-react'
-import { useTokens } from '@/hooks/useTokens'
+import { useCoins } from '@/hooks/useCoins'
 
 interface Platform {
   id: string
@@ -56,19 +56,19 @@ export default function ThumbnailGenerator({
   // Platform selection state
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['youtube-shorts', 'youtube-long'])
 
-  // Token system for free users
+  // Coin system for free users
   const { 
     balance, 
-    deductTokens, 
-    hasEnoughTokens, 
+    deductCoins, 
+    hasEnoughCoins, 
     hasUnlimitedAccess,
-    loading: tokenLoading 
-  } = useTokens({ 
+    loading: coinLoading 
+  } = useCoins({ 
     userId: userId || '', 
     userRole: userType 
   })
   
-  const TOKEN_COST = 2 // Thumbnail generator costs 2 tokens
+  const COIN_COST = 2 // Thumbnail generator costs 2 coins
   
   // Available platforms for thumbnails
   const availablePlatforms = [
@@ -156,8 +156,8 @@ export default function ThumbnailGenerator({
       return
     }
 
-    if (!hasUnlimitedAccess && !hasEnoughTokens('thumbnail-generator')) {
-      setError('Insufficient tokens. Thumbnail generation costs 2 tokens for free users.')
+    if (!hasUnlimitedAccess && !hasEnoughCoins('thumbnail-generator')) {
+      setError('Insufficient coins. Thumbnail generation costs 2 coins for free users.')
       return
     }
 
@@ -202,12 +202,12 @@ export default function ThumbnailGenerator({
       // Push current result to history before replacing (keep last 3)
       if (result) setHistory(prev => [result, ...prev].slice(0, 3))
       setResult(newResult)
-      console.log('[Thumbnail] Result set, about to deduct tokens')
+      console.log('[Thumbnail] Result set, about to deduct coins')
 
-      // Deduct tokens for free users
-      const deducted = await deductTokens('thumbnail-generator')
+      // Deduct coins for free users
+      const deducted = await deductCoins('thumbnail-generator')
       if (!deducted) {
-        setError('Insufficient tokens. Purchase more tokens or claim your daily free tokens.')
+        setError('Insufficient coins. Purchase more coins or claim your daily free coins.')
         setIsGenerating(false)
         return
       }
@@ -432,28 +432,28 @@ export default function ThumbnailGenerator({
               )}
             </div>
 
-            {/* Generate button with token cost */}
+            {/* Generate button with coin cost */}
             {!hasUnlimitedAccess && (
               <div className="text-xs text-gray-500 mb-2">
-                {hasEnoughTokens('thumbnail-generator') 
-                  ? `💎 ${balance} tokens available (costs ${TOKEN_COST} tokens)`
-                  : `❌ Need ${TOKEN_COST} tokens (you have ${balance})`}
+                {hasEnoughCoins('thumbnail-generator') 
+                  ? `🪙 ${balance} coins available (costs ${COIN_COST} coins)`
+                  : `⚠️ Need ${COIN_COST} coins (you have ${balance})`}
               </div>
             )}
             {hasUnlimitedAccess && (
               <div className="text-xs text-green-500 mb-2">
-                ✨ Unlimited access (no token cost)
+                ✨✨ Unlimited access (no coin cost)
               </div>
             )}
             <button
               onClick={() => generate()}
-              disabled={isGenerating || !prompt.trim() || selectedPlatforms.length === 0 || (!hasUnlimitedAccess && !hasEnoughTokens('thumbnail-generator'))}
+              disabled={isGenerating || !prompt.trim() || selectedPlatforms.length === 0 || (!hasUnlimitedAccess && !hasEnoughCoins('thumbnail-generator'))}
               className="w-full py-4 rounded-xl font-bold text-lg transition-all bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 text-black disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(6,182,212,0.4)]"
             >
               {isGenerating ? (
                 <><Loader2 className="w-5 h-5 animate-spin" /><span>Generating...</span></>
               ) : (
-                <><Wand2 className="w-5 h-5" /><span>{imageBase64 ? 'Generate with Image' : 'Generate Thumbnail'} (2 tokens)</span></>
+                <><Wand2 className="w-5 h-5" /><span>{imageBase64 ? 'Generate with Image' : 'Generate Thumbnail'} (2 coins)</span></>
               )}
             </button>
 

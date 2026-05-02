@@ -507,7 +507,7 @@ export async function POST(req: NextRequest) {
           }
         }
         
-        // Handle one-time payment orders (token purchases) - MUST CHECK BEFORE LIFETIME
+        // Handle one-time payment orders (coin purchases) - MUST CHECK BEFORE LIFETIME
         if (eventType === 'CHECKOUT.ORDER.APPROVED' || eventType === 'CHECKOUT.ORDER.COMPLETED') {
           const orderId = eventData.resource?.id
           const customId = eventData.resource?.purchase_units?.[0]?.custom_id
@@ -515,7 +515,77 @@ export async function POST(req: NextRequest) {
           
           console.log(`💰 Order webhook: ${orderId}, custom_id: ${customId}`)
           
-          // Check for token purchase FIRST (format: username|tokens|packageType|tokenCount)
+          // Check for COIN purchase FIRST (format: username|coins|packageType|coinCount|price)
+          if (customId && customId.includes('coins')) {
+            const parts = customId.split('|')
+            const username = parts[0]
+            const packageType = parts[2]
+            const coinCount = parseInt(parts[3], 10)
+            
+            if (username && !isNaN(coinCount)) {
+              // Verify order with PayPal
+              const verifiedOrder = await getOrderDetails(orderId)
+              if (!verifiedOrder || verifiedOrder.status !== 'COMPLETED') {
+                console.error(`❌ Coin purchase order ${orderId} verification failed or not completed`)
+                return NextResponse.json({ status: 'error', message: 'Order verification failed' }, { status: 400 })
+              }
+              
+              // Update coin balance
+              const client = await clientPromise
+              const db = client.db('sdhq')
+              
+              await db.collection('coinBalances').updateOne(
+                { userId: username.toLowerCase() },
+                {
+                  $inc: {
+                    coins: coinCount,
+                    totalPurchased: coinCount
+                  },
+                  $set: {
+                    updatedAt: new Date().toISOString()
+                  }
+                },
+                { upsert: true }
+              )
+              
+              // Log the purchase
+              await db.collection('coinTransactions').insertOne({
+                userId: username.toLowerCase(),
+                type: 'purchase',
+                amount: coinCount,
+                cost: amount,
+                currency: 'CAD',
+                orderId,
+                packageType,
+                timestamp: new Date().toISOString()
+              })
+              
+              // Update purchase record
+              await db.collection('coinPurchases').updateOne(
+                { orderId },
+                {
+                  $set: {
+                    status: 'completed',
+                    completedAt: new Date().toISOString(),
+                    verifiedWithPayPal: true
+                  }
+                }
+              )
+              
+              await logActivity(username.toLowerCase(), 'coin_purchase', `Purchased ${coinCount} coins for $${amount} CAD (ID: ${orderId})`)
+              
+              console.log(`✅ ${coinCount} coins purchased for ${username}`)
+              return NextResponse.json({ 
+                status: 'success', 
+                username, 
+                coins: coinCount, 
+                type: 'coin_purchase',
+                verifiedWithPayPal: true 
+              })
+            }
+          }
+          
+          // LEGACY: Check for token purchase (format: username|tokens|packageType|tokenCount)
           if (customId && customId.includes('tokens')) {
             const parts = customId.split('|')
             const username = parts[0]
@@ -530,7 +600,7 @@ export async function POST(req: NextRequest) {
                 return NextResponse.json({ status: 'error', message: 'Order verification failed' }, { status: 400 })
               }
               
-              // Update token balance
+              // Update token balance (legacy - migrate to coins)
               const client = await clientPromise
               const db = client.db('sdhq')
               
