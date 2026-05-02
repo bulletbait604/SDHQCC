@@ -46,6 +46,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
+    const allowedPackages: Record<string, { tokens: number; price: number }> = {
+      basic: { tokens: 20, price: 5 },
+      standard: { tokens: 50, price: 10 },
+      premium: { tokens: 1250, price: 20 }
+    }
+
+    const selectedPackage = allowedPackages[packageType]
+    if (!selectedPackage) {
+      return NextResponse.json({ error: 'Invalid token package' }, { status: 400 })
+    }
+
+    if (selectedPackage.tokens !== Number(tokens) || selectedPackage.price !== Number(price)) {
+      return NextResponse.json({ error: 'Token package mismatch' }, { status: 400 })
+    }
+
     const accessToken = await getPayPalAccessToken()
     if (!accessToken) {
       return NextResponse.json({ error: 'PayPal not configured' }, { status: 500 })
@@ -95,6 +110,14 @@ export async function POST(req: NextRequest) {
       currency: 'CAD',
       status: 'pending',
       createdAt: new Date().toISOString()
+    })
+
+    await db.collection('activity-logs').insertOne({
+      id: Date.now().toString(),
+      username: userId.toLowerCase(),
+      timestamp: new Date().toISOString(),
+      action: 'token_purchase',
+      details: `Token purchase initiated: ${tokens} tokens for $${price} CAD (order: ${order.id})`
     })
 
     console.log(`[Tokens] Created purchase order for ${userId}: ${tokens} tokens for $${price} CAD`)

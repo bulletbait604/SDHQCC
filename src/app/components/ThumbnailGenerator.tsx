@@ -156,6 +156,11 @@ export default function ThumbnailGenerator({
       return
     }
 
+    if (!hasUnlimitedAccess && !hasEnoughTokens('thumbnail-generator')) {
+      setError('Insufficient tokens. Thumbnail generation costs 2 tokens for free users.')
+      return
+    }
+
     setIsGenerating(true)
     setError('')
 

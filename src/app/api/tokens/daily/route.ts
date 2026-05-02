@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 
-const DAILY_FREE_TOKENS = 8
+const DAILY_FREE_TOKENS = 10
 const UNLIMITED_ROLES = ['subscriber', 'subscriber_lifetime', 'admin', 'owner', 'tester']
 
 export async function POST(req: NextRequest) {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 interface UseTokensOptions {
   userId: string
@@ -32,7 +32,6 @@ export function useTokens({ userId, userRole }: UseTokensOptions) {
   const [balance, setBalance] = useState<number>(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const hasCheckedRef = useRef(false)
   
   const hasUnlimitedAccess = userRole ? UNLIMITED_ROLES.includes(userRole) : false
 
@@ -56,10 +55,8 @@ export function useTokens({ userId, userRole }: UseTokensOptions) {
     }
   }, [userId])
 
-  // Check balance on mount
+  // Refresh balance whenever the active user changes
   useEffect(() => {
-    if (hasCheckedRef.current) return
-    hasCheckedRef.current = true
     fetchBalance()
   }, [fetchBalance])
 
@@ -111,7 +108,7 @@ export function useTokens({ userId, userRole }: UseTokensOptions) {
     }
   }, [userId, balance, hasUnlimitedAccess])
 
-  // Claim daily free tokens (8 tokens)
+  // Claim daily free tokens (10 tokens)
   const claimDailyTokens = useCallback(async (): Promise<boolean> => {
     if (!userId || userId === 'anon') {
       setError('Must be logged in to claim daily tokens')
@@ -155,7 +152,7 @@ export function useTokens({ userId, userRole }: UseTokensOptions) {
     const packages = {
       small: { tokens: 20, price: 5 },
       medium: { tokens: 50, price: 10 },
-      large: { tokens: 125, price: 20 }
+      large: { tokens: 1250, price: 20 }
     }
 
     const pkg = packages[packageType]

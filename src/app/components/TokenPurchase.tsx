@@ -14,7 +14,7 @@ interface TokenPackage {
 const TOKEN_PACKAGES: TokenPackage[] = [
   { id: 'basic', tokens: 20, price: 5, label: 'Starter' },
   { id: 'standard', tokens: 50, price: 10, label: 'Popular' },
-  { id: 'premium', tokens: 125, price: 20, label: 'Best Value' },
+  { id: 'premium', tokens: 1250, price: 20, label: 'Best Value' },
 ]
 
 interface TokenPurchaseProps {

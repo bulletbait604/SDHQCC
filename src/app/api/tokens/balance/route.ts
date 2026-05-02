@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { WithId, Document } from 'mongodb'
 
-const DAILY_FREE_TOKENS = 8
+const DAILY_FREE_TOKENS = 10
 const UNLIMITED_ROLES = ['subscriber', 'subscriber_lifetime', 'admin', 'owner', 'tester']
 
 interface TokenBalance {

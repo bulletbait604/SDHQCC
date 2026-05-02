@@ -76,7 +76,7 @@ interface ActivityLogEntry {
   id: string
   username: string
   timestamp: string
-  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh' | 'tag_generation' | 'clip_analysis' | 'clip_reanalysis' | 'content_analysis' | 'content_reanalysis' | 'subscriber_added' | 'subscriber_removed' | 'lifetime_added' | 'lifetime_removed' | 'admin_added' | 'admin_removed' | 'sync_completed' | 'role_updated' | 'thumbnail_generation'
+  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh' | 'tag_generation' | 'clip_analysis' | 'clip_reanalysis' | 'content_analysis' | 'content_reanalysis' | 'subscriber_added' | 'subscriber_removed' | 'lifetime_added' | 'lifetime_removed' | 'admin_added' | 'admin_removed' | 'sync_completed' | 'role_updated' | 'thumbnail_generation' | 'token_grant' | 'token_purchase' | 'subscription_payment' | 'lifetime_payment'
   details?: string
 }
 
@@ -320,6 +320,9 @@ export default function HomePage() {
   const [usersWithRoles, setUsersWithRoles] = useState<any[]>([])
   const [roleSearchUsername, setRoleSearchUsername] = useState('')
   const [selectedRole, setSelectedRole] = useState<Role>('free')
+  const [tokenGrantUsername, setTokenGrantUsername] = useState('')
+  const [tokenGrantAmount, setTokenGrantAmount] = useState<number>(10)
+  const [isGrantingTokens, setIsGrantingTokens] = useState(false)
   
   // Usage tracking for limited roles (tester, etc.)
   const [usageCounts, setUsageCounts] = useState<{
@@ -638,6 +641,46 @@ export default function HomePage() {
     } catch (error) {
       console.error('Error deleting user:', error)
       alert('Failed to delete user')
+    }
+  }
+
+  const handleGrantTokens = async () => {
+    if (!user || !tokenGrantUsername.trim() || tokenGrantAmount <= 0) return
+
+    setIsGrantingTokens(true)
+    try {
+      const response = await fetch('/api/tokens/admin-adjust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminUsername: user.username,
+          targetUsername: tokenGrantUsername.trim(),
+          tokens: tokenGrantAmount
+        })
+      })
+
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to grant tokens')
+      }
+
+      const entry: ActivityLogEntry = {
+        id: Date.now().toString(),
+        username: user.username,
+        timestamp: new Date().toISOString(),
+        action: 'token_grant',
+        details: `Granted ${tokenGrantAmount} tokens to ${tokenGrantUsername.trim().toLowerCase()}`
+      }
+      setActivityLog(prev => [entry, ...prev].slice(0, 100))
+
+      setTokenGrantUsername('')
+      setTokenGrantAmount(10)
+      alert(`Added ${tokenGrantAmount} tokens to ${data.targetUsername}. New balance: ${data.balance}`)
+    } catch (error) {
+      console.error('Error granting tokens:', error)
+      alert(error instanceof Error ? error.message : 'Failed to grant tokens')
+    } finally {
+      setIsGrantingTokens(false)
     }
   }
 
@@ -1312,6 +1355,15 @@ export default function HomePage() {
           details: `Analyzed clip for ${clipPlatform} (score: ${data.score})`
         }
         setActivityLog(prev => [entry, ...prev].slice(0, 100))
+        fetch('/api/activity-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: user.username,
+            action: 'clip_analysis',
+            details: `Analyzed clip for ${clipPlatform} (score: ${data.score})`
+          })
+        }).catch(error => console.error('Failed to log clip analysis to backend:', error))
       }
       
       // Update rate limit
@@ -1917,6 +1969,15 @@ export default function HomePage() {
       details: `Subscription verification attempt - PayPal Email: ${paypalEmail}, Subscription ID: ${subscriptionId || 'Not provided'}`
     }
     setActivityLog(prev => [attemptEntry, ...prev].slice(0, 100))
+    fetch('/api/activity-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: user.username,
+        action: 'verification_attempt',
+        details: `Subscription verification attempt - PayPal Email: ${paypalEmail}, Subscription ID: ${subscriptionId || 'Not provided'}`
+      })
+    }).catch(error => console.error('Failed to log verification attempt:', error))
     
     try {
       const response = await fetch('/api/check-payment', {
@@ -1972,6 +2033,15 @@ export default function HomePage() {
           details: `Subscription verified - Subscription ID: ${data.subscriptionId}, Status: ${data.status}`
         }
         setActivityLog(prev => [successEntry, ...prev].slice(0, 100))
+        fetch('/api/activity-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: user.username,
+            action: 'payment_success',
+            details: `Subscription verified - Subscription ID: ${data.subscriptionId}, Status: ${data.status}`
+          })
+        }).catch(error => console.error('Failed to log payment success:', error))
         
         alert(`Subscription verified! Subscription ID: ${data.subscriptionId}\nStatus: ${data.status}\n\nPremium features unlocked for 30 days!`)
         setShowSubscribePopup(false)
@@ -1988,6 +2058,15 @@ export default function HomePage() {
           details: `Subscription verification failed - PayPal Email: ${paypalEmail}`
         }
         setActivityLog(prev => [failedEntry, ...prev].slice(0, 100))
+        fetch('/api/activity-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: user.username,
+            action: 'payment_failed',
+            details: `Subscription verification failed - PayPal Email: ${paypalEmail}`
+          })
+        }).catch(error => console.error('Failed to log payment failure:', error))
         
         alert(data.message || 'Subscription not found. Make sure you:\n1. Completed the PayPal subscription\n2. The subscription is active\n3. The PayPal email matches the one you entered')
       }
@@ -2079,18 +2158,7 @@ export default function HomePage() {
                           <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                             {user.display_name}
                           </p>
-                          <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
-                              darkMode
-                                ? 'bg-sdhq-dark-700/60 border-sdhq-cyan-500/30 text-sdhq-cyan-300'
-                                : 'bg-cyan-50 border-sdhq-cyan-200 text-sdhq-cyan-700'
-                            }`}
-                            title={`Role: ${ROLE_CONFIG[userRole]?.label ?? userRole}`}
-                          >
-                            <span className="text-sm leading-none">{ROLE_CONFIG[userRole]?.badge ?? '❓'}</span>
-                            <span className="leading-none">{ROLE_CONFIG[userRole]?.label ?? userRole}</span>
-                          </span>
-                          {userRole === 'free' && (
+                          {userRole === 'free' ? (
                             <button
                               onClick={() => setShowTokenPurchase(true)}
                               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border transition-all ${
@@ -2098,12 +2166,27 @@ export default function HomePage() {
                                   ? 'bg-yellow-500/15 border-yellow-500/40 text-yellow-300 hover:bg-yellow-500/25'
                                   : 'bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100'
                               }`}
-                              title="Buy more tokens"
+                              title="Role and token balance"
                             >
+                              <span className="text-sm leading-none">{ROLE_CONFIG[userRole]?.badge ?? '❓'}</span>
+                              <span className="leading-none">{ROLE_CONFIG[userRole]?.label ?? userRole}</span>
+                              <span className="opacity-70">•</span>
                               <Coins className="w-3.5 h-3.5" />
                               <span>{balance} tokens</span>
                               <Plus className="w-3 h-3" />
                             </button>
+                          ) : (
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
+                                darkMode
+                                  ? 'bg-sdhq-dark-700/60 border-sdhq-cyan-500/30 text-sdhq-cyan-300'
+                                  : 'bg-cyan-50 border-sdhq-cyan-200 text-sdhq-cyan-700'
+                              }`}
+                              title={`Role: ${ROLE_CONFIG[userRole]?.label ?? userRole}`}
+                            >
+                              <span className="text-sm leading-none">{ROLE_CONFIG[userRole]?.badge ?? '❓'}</span>
+                              <span className="leading-none">{ROLE_CONFIG[userRole]?.label ?? userRole}</span>
+                            </span>
                           )}
                         </div>
                       </div>
@@ -2119,11 +2202,7 @@ export default function HomePage() {
                       <Shield className="w-4 h-4 mr-1" />
                       {t.verifySubscription}
                     </Button>
-                  ) : (
-                    <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded bg-gradient-to-r from-yellow-500 to-amber-500 text-white`}>
-                      Unlimited
-                    </span>
-                  )}
+                  ) : null}
                 </div>
               ) : (
                 <div />
@@ -2753,7 +2832,7 @@ export default function HomePage() {
                       ) : (
                         <>
                           <Sparkles className="w-4 h-4 mr-2" />
-                          Generate Tags
+                          {hasUnlimitedAccess ? 'Generate Tags' : 'Generate Tags (1 token)'}
                         </>
                       )}
                     </Button>
@@ -3001,10 +3080,10 @@ export default function HomePage() {
                           />
                           <Button
                             onClick={handleAnalyzeClip}
-                            disabled={isAnalyzingClip || !clipFile}
+                            disabled={isAnalyzingClip || !clipFile || (!hasUnlimitedAccess && !hasEnoughTokens('clip-analyzer'))}
                             className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold px-6 rounded-xl hover:shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all duration-300 flex items-center gap-2"
                           >
-                            <span>Analyze</span>
+                            <span>{hasUnlimitedAccess ? 'Analyze' : 'Analyze (2 tokens)'}</span>
                             <span>→</span>
                           </Button>
                         </div>
@@ -3975,6 +4054,44 @@ export default function HomePage() {
                           >
                             <CheckCircle className="w-4 h-4 mr-1" />
                             Assign
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Manual Token Grant */}
+                      <div className="space-y-2 mb-4">
+                        <p className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                          Manual Token Grant
+                        </p>
+                        <div className="flex space-x-2">
+                          <input
+                            type="text"
+                            value={tokenGrantUsername}
+                            onChange={(e) => setTokenGrantUsername(e.target.value)}
+                            placeholder="Enter username..."
+                            className={`flex-1 px-3 py-2 rounded-md border ${
+                              darkMode
+                                ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500'
+                                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                            }`}
+                          />
+                          <input
+                            type="number"
+                            min={1}
+                            value={tokenGrantAmount}
+                            onChange={(e) => setTokenGrantAmount(Math.max(1, parseInt(e.target.value || '1', 10)))}
+                            className={`w-28 px-3 py-2 rounded-md border ${
+                              darkMode
+                                ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white'
+                                : 'bg-white border-gray-300 text-gray-900'
+                            }`}
+                          />
+                          <Button
+                            onClick={handleGrantTokens}
+                            disabled={!tokenGrantUsername.trim() || tokenGrantAmount <= 0 || isGrantingTokens}
+                            className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
+                          >
+                            {isGrantingTokens ? 'Adding...' : 'Add Tokens'}
                           </Button>
                         </div>
                       </div>
