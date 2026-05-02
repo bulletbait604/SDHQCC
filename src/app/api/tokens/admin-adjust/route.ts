@@ -4,9 +4,9 @@ import clientPromise from '@/lib/mongodb'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { adminUsername, targetUsername, tokens } = body
+    const { actorUsername, targetUsername, tokens } = body
 
-    if (!adminUsername || !targetUsername || typeof tokens !== 'number') {
+    if (!actorUsername || !targetUsername || typeof tokens !== 'number') {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
@@ -18,12 +18,22 @@ export async function POST(req: NextRequest) {
     const client = await clientPromise
     const db = client.db('sdhq')
 
-    const normalizedAdmin = adminUsername.toLowerCase()
+    const normalizedAdmin = actorUsername.toLowerCase()
     const normalizedTarget = targetUsername.toLowerCase()
     const adminUser = await db.collection('users').findOne({ username: normalizedAdmin })
 
     if (!adminUser || adminUser.role !== 'owner') {
       return NextResponse.json({ error: 'Only owners can grant tokens' }, { status: 403 })
+    }
+
+    // Optional hardening: require owner username to be in allowlist if configured.
+    const ownerAllowlistRaw = process.env.OWNER_USERNAMES || ''
+    const ownerAllowlist = ownerAllowlistRaw
+      .split(',')
+      .map(name => name.trim().toLowerCase())
+      .filter(Boolean)
+    if (ownerAllowlist.length > 0 && !ownerAllowlist.includes(normalizedAdmin)) {
+      return NextResponse.json({ error: 'Owner is not allowlisted for token grants' }, { status: 403 })
     }
 
     const now = new Date().toISOString()

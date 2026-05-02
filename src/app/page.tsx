@@ -653,7 +653,7 @@ export default function HomePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          adminUsername: user.username,
+          actorUsername: user.username,
           targetUsername: tokenGrantUsername.trim(),
           tokens: tokenGrantAmount
         })

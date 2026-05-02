@@ -276,48 +276,5 @@ export async function POST(req: NextRequest) {
 
 // GET endpoint for debugging - shows stored subscriptions from MongoDB
 export async function GET() {
-  try {
-    // Initialize if not exists
-    if (!global.verifiedPayments) {
-      global.verifiedPayments = new Map()
-    }
-
-    // Get subscriptions from MongoDB
-    const client = await clientPromise
-    const db = client.db('sdhq')
-    const dbSubscriptions = await db.collection('subscriptions').find({}).toArray()
-
-    // Convert Map to array for JSON response
-    const payments = Array.from(global.verifiedPayments.entries()).map(([code, payment]) => ({
-      code,
-      ...payment
-    }))
-
-    return NextResponse.json({
-      system: 'MongoDB + Webhook hybrid',
-      database: {
-        totalSubscriptions: dbSubscriptions.length,
-        subscriptions: dbSubscriptions.map(s => ({
-          username: s.username,
-          subscriptionId: s.subscriptionId,
-          status: s.status,
-          paypalEmail: s.paypalEmail,
-          createdAt: s.createdAt,
-          updatedAt: s.updatedAt
-        }))
-      },
-      legacy: {
-        totalPayments: global.verifiedPayments.size,
-        storedPayments: payments
-      },
-      message: 'Subscriptions are now persisted to MongoDB',
-      setup: 'Configure webhook at https://developer.paypal.com/dashboard/applications',
-      webhookUrl: process.env.VERCEL_URL 
-        ? `https://${process.env.VERCEL_URL}/api/paypal-webhook`
-        : (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000') + '/api/paypal-webhook'
-    })
-  } catch (error) {
-    console.error('Check-payment GET error:', error)
-    return NextResponse.json({ error: 'Failed to fetch subscriptions' }, { status: 500 })
-  }
+  return NextResponse.json({ error: 'Not found' }, { status: 404 })
 }

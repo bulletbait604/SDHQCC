@@ -735,6 +735,10 @@ export async function POST(req: NextRequest) {
 
 // Handle GET for testing and checking verification status
 export async function GET(req: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
   const { searchParams } = new URL(req.url)
   const username = searchParams.get('username')
   
