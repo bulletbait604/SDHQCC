@@ -13,6 +13,7 @@ declare global {
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
+import TokenPurchase from '@/app/components/TokenPurchase'
 import { useTokens } from '@/hooks/useTokens'
 import {
   User,
@@ -370,6 +371,7 @@ export default function HomePage() {
   const [subscriptionId, setSubscriptionId] = useState('')
   const [paypalEmail, setPaypalEmail] = useState('')
   const [showLifetimePopup, setShowLifetimePopup] = useState(false)
+  const [showTokenPurchase, setShowTokenPurchase] = useState(false)
   
   // Verification states
   const [isVerified, setIsVerified] = useState<boolean>(false)
@@ -416,7 +418,7 @@ export default function HomePage() {
     loading: tokenLoading 
   } = useTokens({ 
     userId: user?.username || '', 
-    userRole: user?.role 
+    userRole
   })
 
   // Helper function to get recommended tag count from algorithm data
@@ -646,7 +648,7 @@ export default function HomePage() {
   const [isTester, setIsTester] = useState(false)
 
   // Computed user type for API calls
-  const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetimeMember ? 'lifetime' : isSubscribed ? 'subscribed' : isTester ? 'tester' : 'free'
+  const userType = userRole
 
   // Recalculate roles when user or lists change (legacy)
   useEffect(() => {
@@ -1124,6 +1126,11 @@ export default function HomePage() {
       return
     }
 
+    if (!hasEnoughTokens('clip-analyzer')) {
+      setClipError('Not enough tokens to run Clip Analyzer. Please purchase more tokens or upgrade for unlimited access.')
+      return
+    }
+
     setClipError('')
     setIsAnalyzingClip(true)
     setClipAnalysisResult(null)
@@ -1149,7 +1156,7 @@ export default function HomePage() {
     }, 2000)
 
     try {
-      const userType = isOwner ? 'owner' : isAdmin ? 'admin' : isLifetimeMember ? 'lifetime' : isSubscribed ? 'subscribed' : 'free'
+      const userType = userRole
       
       console.log('Clip Upload: Starting upload flow...')
       console.log('Clip Upload: File details:', { name: clipFile.name, type: clipFile.type, size: clipFile.size })
@@ -1286,6 +1293,11 @@ export default function HomePage() {
       setClipAnalysisResult(data)
       setExtractedData(data.extractedData || null)
       setShowReanalysis(true)
+
+      const deducted = await deductTokens('clip-analyzer')
+      if (!deducted) {
+        throw new Error('Clip analyzed, but token deduction failed. Please refresh and check your token balance.')
+      }
 
       // Increment usage for limited roles
       incrementUsage('clips')
@@ -2063,15 +2075,41 @@ export default function HomePage() {
                   <div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-2 flex-wrap">
                           <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                             {user.display_name}
                           </p>
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
+                              darkMode
+                                ? 'bg-sdhq-dark-700/60 border-sdhq-cyan-500/30 text-sdhq-cyan-300'
+                                : 'bg-cyan-50 border-sdhq-cyan-200 text-sdhq-cyan-700'
+                            }`}
+                            title={`Role: ${ROLE_CONFIG[userRole]?.label ?? userRole}`}
+                          >
+                            <span className="text-sm leading-none">{ROLE_CONFIG[userRole]?.badge ?? '❓'}</span>
+                            <span className="leading-none">{ROLE_CONFIG[userRole]?.label ?? userRole}</span>
+                          </span>
+                          {userRole === 'free' && (
+                            <button
+                              onClick={() => setShowTokenPurchase(true)}
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border transition-all ${
+                                darkMode
+                                  ? 'bg-yellow-500/15 border-yellow-500/40 text-yellow-300 hover:bg-yellow-500/25'
+                                  : 'bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100'
+                              }`}
+                              title="Buy more tokens"
+                            >
+                              <Coins className="w-3.5 h-3.5" />
+                              <span>{balance} tokens</span>
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
                   </div>
-                  {(isSubscribed || isLifetimeMember) && (
+                  {userRole === 'free' ? (
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -2079,8 +2117,12 @@ export default function HomePage() {
                       className="ml-2"
                     >
                       <Shield className="w-4 h-4 mr-1" />
-                      Upgrade
+                      {t.verifySubscription}
                     </Button>
+                  ) : (
+                    <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded bg-gradient-to-r from-yellow-500 to-amber-500 text-white`}>
+                      Unlimited
+                    </span>
                   )}
                 </div>
               ) : (
@@ -2631,6 +2673,11 @@ export default function HomePage() {
                           return
                         }
 
+                        if (!hasEnoughTokens('tag-generator')) {
+                          alert('Not enough tokens to generate tags. Please purchase more tokens or upgrade for unlimited access.')
+                          return
+                        }
+
                         setIsGeneratingTags(true)
                         try {
                           const response = await fetch('/api/tags', {
@@ -2659,6 +2706,11 @@ export default function HomePage() {
                           setGeneratedTags(prev => ({ ...prev, [tagPlatform]: data.tags }))
                           if (data.rateLimit) {
                             setTagRateLimit({ remaining: data.rateLimit.remaining, resetTime: data.rateLimit.resetTime })
+                          }
+
+                          const deducted = await deductTokens('tag-generator')
+                          if (!deducted) {
+                            throw new Error('Tags generated, but token deduction failed. Please refresh and check your token balance.')
                           }
                           // Log tag generation activity
                           if (user) {
@@ -2690,7 +2742,7 @@ export default function HomePage() {
                           setIsGeneratingTags(false)
                         }
                       }}
-                      disabled={isGeneratingTags || !tagDescription.trim() || tagRateLimit.remaining === 0}
+                      disabled={isGeneratingTags || tokenLoading || !tagDescription.trim() || tagRateLimit.remaining === 0 || (!hasUnlimitedAccess && !hasEnoughTokens('tag-generator'))}
                       className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
                     >
                       {isGeneratingTags ? (
@@ -4113,6 +4165,15 @@ export default function HomePage() {
           </Tabs>
         )}
       </main>
+
+      {user && (
+        <TokenPurchase
+          isOpen={showTokenPurchase}
+          onClose={() => setShowTokenPurchase(false)}
+          userId={user.username}
+          darkMode={darkMode}
+        />
+      )}
 
       {/* Footer */}
       <footer className={`border-t-2 ${darkMode ? 'border-sdhq-cyan-500 bg-gradient-to-r from-sdhq-dark-800 via-sdhq-dark-700 to-sdhq-dark-800' : 'border-sdhq-green-500 bg-gradient-to-r from-sdhq-cyan-50 via-white to-sdhq-cyan-50'} mt-8`}>
