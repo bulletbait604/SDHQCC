@@ -2,7 +2,6 @@
 
 import { useState, useRef } from 'react'
 import { Wand2, Upload, X, Download, Loader2, ImageIcon, RotateCcw } from 'lucide-react'
-import { useMonetag } from '@/hooks/useMonetag'
 
 interface Platform {
   id: string
@@ -66,9 +65,6 @@ export default function ThumbnailGenerator({
     { id: 'twitter', name: 'Twitter/X', icon: '🐦' },
   ]
   
-  // Monetag ad hook - pass userType for ad-free check
-  const { showAd, adReady } = useMonetag({ userRole: userType })
-
   // Theme classes matching other tabs
   const cardClasses = darkMode
     ? 'bg-sdhq-dark-800/90 border border-sdhq-dark-700 rounded-xl shadow-lg'
@@ -149,25 +145,19 @@ export default function ThumbnailGenerator({
     
     const enhancedPrompt = `Create a thumbnail optimized for ${platformNames}. ${prompt}`
 
-    // Show 2 ads back-to-back while AI works
-    const [_, data] = await Promise.allSettled([
-      showAd(2),
-      fetch('/api/thumbnail-generator', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: enhancedPrompt,
-          imageBase64: base64Override ?? imageBase64 ?? undefined,
-          mimeType: mimeOverride ?? imageMime,
-          sessionId: userId || 'anon',
-          platforms: selectedPlatforms,
-        }),
-      }).then(r => r.json())
-    ])
+    const result = await fetch('/api/thumbnail-generator', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: enhancedPrompt,
+        imageBase64: base64Override ?? imageBase64 ?? undefined,
+        mimeType: mimeOverride ?? imageMime,
+        sessionId: userId || 'anon',
+        platforms: selectedPlatforms,
+      }),
+    }).then(r => r.json())
 
     try {
-      if (data.status === 'rejected') throw new Error(data.reason)
-      const result = data.value as any
       if (result.error) throw new Error(result.error)
 
       const newResult: ThumbnailResult = {
@@ -405,12 +395,10 @@ export default function ThumbnailGenerator({
             {/* Generate button */}
             <button
               onClick={() => generate()}
-              disabled={isGenerating || !prompt.trim() || selectedPlatforms.length === 0 || !adReady}
+              disabled={isGenerating || !prompt.trim() || selectedPlatforms.length === 0}
               className="w-full py-4 rounded-xl font-bold text-lg transition-all bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 text-black disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(6,182,212,0.4)]"
             >
-              {!adReady ? (
-                <span>Loading...</span>
-              ) : isGenerating ? (
+              {isGenerating ? (
                 <><Loader2 className="w-5 h-5 animate-spin" /><span>Generating...</span></>
               ) : (
                 <><Wand2 className="w-5 h-5" /><span>{imageBase64 ? 'Generate with Image' : 'Generate Thumbnail'}</span></>

@@ -43,7 +43,6 @@ import {
   Wand2
 } from 'lucide-react'
 import { createKickAuthURL } from '@/lib/kick-oauth'
-import { useMonetag } from '@/hooks/useMonetag'
 
 interface KickUser {
   id: string
@@ -403,9 +402,6 @@ export default function HomePage() {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
   const [copiedTags, setCopiedTags] = useState<boolean>(false)
   const [copiedDescription, setCopiedDescription] = useState<boolean>(false)
-
-  // Monetag ad hook - pass userRole for ad-free check (subscribers/admins/owners)
-  const { showAd, adReady } = useMonetag({ userRole })
 
   // Helper function to get recommended tag count from algorithm data
   const getRecommendedTagCount = (platformId: string): number => {
@@ -1157,9 +1153,6 @@ export default function HomePage() {
       console.log('Clip Upload: Starting upload flow...')
       console.log('Clip Upload: File details:', { name: clipFile.name, type: clipFile.type, size: clipFile.size })
       
-      // Show 2 ads back-to-back while processing (runs simultaneously with upload/analysis)
-      const adPromise = showAd(2)
-      
       // Step 1: Get API key from backend
       setLoadingStep(loadingSteps[0])
       
@@ -1295,9 +1288,6 @@ export default function HomePage() {
       
       // Increment usage for limited roles
       incrementUsage('clips')
-      
-      // Wait for ad to complete (minimum 5 seconds)
-      await adPromise
       
       // Log activity
       if (user) {
@@ -2656,24 +2646,17 @@ export default function HomePage() {
                         
                         setIsGeneratingTags(true)
                         try {
-                          // Show 1 ad while API processes — ad plays while AI works
-                          const [_, res] = await Promise.allSettled([
-                            showAd(1),
-                            fetch('/api/tags', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                description: tagDescription,
-                                platform: tagPlatform,
-                                count: tagCount,
-                                userId: user?.username,
-                                isVerified: true // Free users now have unlimited use with ads
-                              })
+                          const response = await fetch('/api/tags', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              description: tagDescription,
+                              platform: tagPlatform,
+                              count: tagCount,
+                              userId: user?.username,
+                              isVerified: true
                             })
-                          ])
-                          
-                          if (res.status === 'rejected') throw new Error(res.reason)
-                          const response = res.value as Response
+                          })
                           
                           if (!response.ok) {
                             const errorData = await response.json()
@@ -2681,7 +2664,7 @@ export default function HomePage() {
                               // Rate limit exceeded - show message but don't block (free users have unlimited with ads)
                               console.log('Rate limit reached, but free users have unlimited use with ads')
                             }
-                            const errorMsg = errorData.details || errorData.error || `API error: ${res.status}`
+                            const errorMsg = errorData.details || errorData.error || `API error: ${response.status}`
                             throw new Error(errorMsg)
                           }
                           
@@ -2720,12 +2703,10 @@ export default function HomePage() {
                           setIsGeneratingTags(false)
                         }
                       }}
-                      disabled={isGeneratingTags || !tagDescription.trim() || tagRateLimit.remaining === 0 || !adReady}
+                      disabled={isGeneratingTags || !tagDescription.trim() || tagRateLimit.remaining === 0}
                       className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
                     >
-                      {!adReady ? (
-                        <span>Loading...</span>
-                      ) : isGeneratingTags ? (
+                      {isGeneratingTags ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                           Generating Tags...
@@ -3034,17 +3015,11 @@ export default function HomePage() {
                           />
                           <Button
                             onClick={handleAnalyzeClip}
-                            disabled={isAnalyzingClip || !clipFile || !adReady}
+                            disabled={isAnalyzingClip || !clipFile}
                             className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold px-6 rounded-xl hover:shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all duration-300 flex items-center gap-2"
                           >
-                            {adReady ? (
-                              <>
-                                <span>Analyze</span>
-                                <span>→</span>
-                              </>
-                            ) : (
-                              <span>Loading...</span>
-                            )}
+                            <span>Analyze</span>
+                            <span>→</span>
                           </Button>
                         </div>
                         {clipFile && (

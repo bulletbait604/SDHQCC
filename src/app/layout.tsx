@@ -31,8 +31,12 @@ export default function RootLayout({
         <meta name="monetag" content="34c4c861a7b30bd21ab63f47b27e18d8" />
         {/* Monetag Verification for new URL (sdcreatorcorner.com) */}
         <meta name="monetag" content="36cf25b1528ec69734791ef4c8d8d2e0" />
-        {/* Monetag Interstitial Ad Script - Zone 10950644 (manually triggered) */}
-        <script dangerouslySetInnerHTML={{ __html: `(function(){var s=document.createElement('script');s.src='https://n6wxm.com/tag.min.js';s.dataset.zone='10950644';s.async=true;document.head.appendChild(s);})();` }} />
+        {/* Monetag Popunder Ad Script - Zone 10951698 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var s=document.createElement('script');s.src='https://n6wxm.com/tag.min.js';s.dataset.zone='10951698';s.async=true;document.head.appendChild(s);})();`
+          }}
+        />
       </head>
       <body className={inter.className}>
         <div className="min-h-screen bg-gradient-to-br from-sdhq-cyan-50 via-white to-sdhq-green-50 flex flex-col">
