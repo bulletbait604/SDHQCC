@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 
 export type PayPalPublicConfig = {
   sandbox: boolean
+  paypalMode: 'sandbox' | 'live'
   clientId: string | null
   planId: string | null
   /** null if no planId; false if ID doesn’t look like PayPal Billing Plan `P-…` */

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import {
   isPayPalSandbox,
   paypalClientCredentials,
+  paypalMode,
   paypalSandboxUsingGenericPlanFallback,
   paypalSdkClientId,
   paypalSdkPlanId,
@@ -86,6 +87,8 @@ export async function GET() {
 
   return NextResponse.json({
     sandbox,
+    /** Explicit label — check this on Vercel: production must be `live` */
+    paypalMode: paypalMode(),
     clientId,
     planId,
     /** false when planId looks like PROD-xxx / wrong shape — Subscribe will fail at PayPal */

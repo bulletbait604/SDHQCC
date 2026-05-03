@@ -30,9 +30,14 @@ export function paypalSubscriptionPlanIdFormatOk(planId: string | undefined | nu
   return /^P-[A-Za-z0-9_-]+$/.test(id)
 }
 
+/** True only when mode is exactly `sandbox` (case-insensitive). Any other value — including `live` or unset — uses production PayPal APIs. */
 export function isPayPalSandbox(): boolean {
   const m = envTrim(process.env.NEXT_PUBLIC_PAYPAL_MODE) || envTrim(process.env.PAYPAL_MODE)
   return m.toLowerCase() === 'sandbox'
+}
+
+export function paypalMode(): 'sandbox' | 'live' {
+  return isPayPalSandbox() ? 'sandbox' : 'live'
 }
 
 export function paypalApiBase(): string {
