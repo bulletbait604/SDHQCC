@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 import { buildTagGeneratorPrompt } from '@/lib/tagGeneratorPrompt'
+import { estimateTagGenerationUsd } from '@/lib/estimatedInferenceCost'
 
 // Force dynamic rendering to prevent static optimization
 export const dynamic = 'force-dynamic'
@@ -280,6 +281,8 @@ export async function POST(request: Request) {
     }
 
     const { tags, provider } = await generateTags(description, platform, count)
+    const backend = tagGeneratorBackend()
+    const tagCost = estimateTagGenerationUsd({ backend })
 
     const response = NextResponse.json({
       tags,
@@ -288,6 +291,8 @@ export async function POST(request: Request) {
       provider,
       rateLimit: { remaining: -1, resetTime: null },
       generatedAt: new Date().toISOString(),
+      estimatedCostUsd: tagCost.estimatedCostUsd,
+      estimatedCostNote: tagCost.estimatedCostNote,
     })
 
     response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')

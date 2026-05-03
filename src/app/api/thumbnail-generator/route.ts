@@ -7,6 +7,7 @@ import {
   deleteFileFromR2,
   generatePresignedReadUrl,
 } from "@/lib/r2";
+import { estimateThumbnailGenerationUsd } from "@/lib/estimatedInferenceCost";
 
 /** Same stack as `src/app/api/tags/route.ts` — Flash is cheap and fast for short rewrite. */
 const THUMBNAIL_GEMINI_MODEL_DEFAULT = "gemini-2.5-flash";
@@ -804,6 +805,7 @@ type ThumbnailGenResult = {
   mimeType: string;
   description: string;
   falModel: string;
+  geminiEnrichUsed: boolean;
 };
 
 async function generateThumbnailSchnell(params: {
@@ -821,6 +823,7 @@ async function generateThumbnailSchnell(params: {
       ? params.prompt.slice(0, maxPromptLength) + "..."
       : params.prompt;
 
+  let geminiEnrichUsed = false;
   let instructionPrompt = truncatedPrompt;
   if (thumbnailGeminiEnrichEnabled()) {
     const enriched = await enrichThumbnailBriefWithGemini({
@@ -828,6 +831,7 @@ async function generateThumbnailSchnell(params: {
       platforms: params.platforms,
     });
     if (enriched) {
+      geminiEnrichUsed = true;
       instructionPrompt =
         enriched.length > maxPromptLength
           ? enriched.slice(0, maxPromptLength) + "..."
@@ -1036,6 +1040,7 @@ async function generateThumbnailSchnell(params: {
     mimeType: contentType,
     description,
     falModel,
+    geminiEnrichUsed,
   };
 }
 
@@ -1059,6 +1064,13 @@ export async function POST(req: NextRequest) {
       sessionId,
     });
 
+    const estimate = estimateThumbnailGenerationUsd({
+      falModel: out.falModel,
+      platforms,
+      hadReferenceImage: !!imageBase64,
+      geminiEnrichUsed: out.geminiEnrichUsed,
+    });
+
     return NextResponse.json({
       url: `/api/image?key=${out.key}`,
       key: out.key,
@@ -1066,6 +1078,8 @@ export async function POST(req: NextRequest) {
       description: out.description,
       provider: "fal",
       falModel: out.falModel,
+      estimatedCostUsd: estimate.estimatedCostUsd,
+      estimatedCostNote: estimate.estimatedCostNote,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

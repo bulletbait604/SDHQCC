@@ -27,6 +27,22 @@ async function getDb(): Promise<Db> {
 
 const MAX_LOGS = 500
 
+const MAX_COST_USD = 499
+const COST_NOTE_MAX = 600
+
+function clampEstimatedCost(raw: unknown): number | undefined {
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 0 || raw > MAX_COST_USD) {
+    return undefined
+  }
+  return Math.round(raw * 100_000) / 100_000
+}
+
+function sanitizeCostNote(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined
+  const s = raw.trim().slice(0, COST_NOTE_MAX)
+  return s.length > 0 ? s : undefined
+}
+
 function canViewAllActivity(role: string, username: string): boolean {
   return ['admin', 'owner'].includes(role) || isAllowlistedOwner(username)
 }
@@ -95,7 +111,16 @@ export async function POST(request: NextRequest) {
       username = user.username
     }
 
-    console.log('Activity log received:', { username, action, details })
+    const estimatedCostUsd = clampEstimatedCost(body.estimatedCostUsd)
+    const estimatedCostNote = sanitizeCostNote(body.estimatedCostNote)
+
+    console.log('Activity log received:', {
+      username,
+      action,
+      details,
+      estimatedCostUsd,
+      hasCostNote: !!estimatedCostNote,
+    })
 
     const newLog = {
       id: Date.now().toString(),
@@ -103,6 +128,8 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
       action,
       details,
+      ...(estimatedCostUsd !== undefined ? { estimatedCostUsd } : {}),
+      ...(estimatedCostNote !== undefined ? { estimatedCostNote } : {}),
     }
 
     const database = await getDb()

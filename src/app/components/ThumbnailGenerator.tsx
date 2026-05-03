@@ -25,7 +25,12 @@ interface Props {
   darkMode?: boolean
   platforms: Platform[]
   user?: { username: string } | null
-  onLogActivity?: (entry: { action: string; details: string }) => void
+  onLogActivity?: (entry: {
+    action: string
+    details: string
+    estimatedCostUsd?: number
+    estimatedCostNote?: string
+  }) => void
   /** Sync parent header coin display (ThumbnailGenerator uses its own useCoins for deduct) */
   onBalanceRefresh?: () => void
   isDisabled?: boolean // When tab access is restricted
@@ -188,9 +193,20 @@ export default function ThumbnailGenerator({
 
       // Log thumbnail generation activity
       if (user && onLogActivity) {
+        const est =
+          typeof result.estimatedCostUsd === 'number' &&
+          Number.isFinite(result.estimatedCostUsd)
+            ? result.estimatedCostUsd
+            : undefined
+        const note =
+          typeof result.estimatedCostNote === 'string'
+            ? result.estimatedCostNote
+            : undefined
         onLogActivity({
           action: 'thumbnail_generation',
-          details: `Generated thumbnail with prompt: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`
+          details: `${result.falModel ? `[${result.falModel}] ` : ''}Generated thumbnail with prompt: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
+          ...(est !== undefined ? { estimatedCostUsd: est } : {}),
+          ...(note !== undefined ? { estimatedCostNote: note } : {}),
         })
       }
       

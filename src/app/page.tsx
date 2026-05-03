@@ -94,6 +94,9 @@ interface ActivityLogEntry {
   timestamp: string
   action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh' | 'tag_generation' | 'clip_analysis' | 'clip_reanalysis' | 'content_analysis' | 'content_reanalysis' | 'subscriber_added' | 'subscriber_removed' | 'lifetime_added' | 'lifetime_removed' | 'admin_added' | 'admin_removed' | 'sync_completed' | 'role_updated' | 'thumbnail_generation' | 'token_grant' | 'token_purchase' | 'subscription_payment' | 'lifetime_payment' | 'coin_grant' | 'coin_remove' | 'coin_purchase' | 'donation_initiated' | 'donation_completed'
   details?: string
+  /** Approximate USD (not invoicing); set by server-assisted features. */
+  estimatedCostUsd?: number
+  estimatedCostNote?: string
 }
 
 /** Display labels: legacy stored actions still use token_* keys in MongoDB */
@@ -101,6 +104,47 @@ function formatActivityActionLabel(action: ActivityLogEntry['action']): string {
   if (action === 'token_grant') return 'coin grant'
   if (action === 'token_purchase') return 'coin purchase'
   return action.replace(/_/g, ' ')
+}
+
+function formatEstimatedUsd(usd: number): string {
+  if (!Number.isFinite(usd)) return '—'
+  if (usd < 0.01) return `$${usd.toFixed(4)}`
+  return `$${usd.toFixed(3)}`
+}
+
+function normalizeActivityLogEntry(
+  row: Record<string, unknown>
+): ActivityLogEntry | null {
+  const username = typeof row.username === 'string' ? row.username : null
+  const action = typeof row.action === 'string' ? row.action : null
+  if (!username || !action) return null
+  const id =
+    typeof row.id === 'string'
+      ? row.id
+      : row._id != null
+        ? String(row._id)
+        : `${Date.now()}`
+  const timestamp =
+    typeof row.timestamp === 'string' ? row.timestamp : new Date().toISOString()
+  const details = typeof row.details === 'string' ? row.details : undefined
+  let estimatedCostUsd: number | undefined
+  if (
+    typeof row.estimatedCostUsd === 'number' &&
+    Number.isFinite(row.estimatedCostUsd)
+  ) {
+    estimatedCostUsd = row.estimatedCostUsd
+  }
+  const estimatedCostNote =
+    typeof row.estimatedCostNote === 'string' ? row.estimatedCostNote : undefined
+  return {
+    id,
+    username,
+    timestamp,
+    action: action as ActivityLogEntry['action'],
+    ...(details !== undefined ? { details } : {}),
+    ...(estimatedCostUsd !== undefined ? { estimatedCostUsd } : {}),
+    ...(estimatedCostNote !== undefined ? { estimatedCostNote } : {}),
+  }
 }
 
 type Language = 'en' | 'es' | 'fr' | 'de';
@@ -1028,8 +1072,12 @@ export default function HomePage() {
       fetch('/api/activity-log', { credentials: 'include' })
         .then(res => res.json())
         .then(data => {
-          if (data.logs) {
-            setActivityLog(data.logs)
+          if (data.logs && Array.isArray(data.logs)) {
+            setActivityLog(
+              (data.logs as Record<string, unknown>[])
+                .map(normalizeActivityLogEntry)
+                .filter((e): e is ActivityLogEntry => e !== null)
+            )
           }
         })
         .catch(error => {
@@ -1044,8 +1092,12 @@ export default function HomePage() {
       fetch('/api/activity-log', { credentials: 'include' })
         .then(res => res.json())
         .then(data => {
-          if (data.logs) {
-            setActivityLog(data.logs)
+          if (data.logs && Array.isArray(data.logs)) {
+            setActivityLog(
+              (data.logs as Record<string, unknown>[])
+                .map(normalizeActivityLogEntry)
+                .filter((e): e is ActivityLogEntry => e !== null)
+            )
           }
         })
         .catch(error => {
@@ -1233,12 +1285,24 @@ export default function HomePage() {
 
       // Log activity
       if (user) {
+        const detailLine = `Analyzed clip for ${clipPlatform} (score: ${data.score})`
+        const clipEstUsd =
+          typeof data.estimatedCostUsd === 'number' &&
+          Number.isFinite(data.estimatedCostUsd)
+            ? data.estimatedCostUsd
+            : undefined
+        const clipCostNote =
+          typeof data.estimatedCostNote === 'string'
+            ? data.estimatedCostNote
+            : undefined
         const entry: ActivityLogEntry = {
           id: Date.now().toString(),
           username: user.username,
           timestamp: new Date().toISOString(),
           action: 'clip_analysis',
-          details: `Analyzed clip for ${clipPlatform} (score: ${data.score})`
+          details: detailLine,
+          ...(clipEstUsd !== undefined ? { estimatedCostUsd: clipEstUsd } : {}),
+          ...(clipCostNote !== undefined ? { estimatedCostNote: clipCostNote } : {}),
         }
         setActivityLog(prev => [entry, ...prev].slice(0, 100))
         fetch('/api/activity-log', {
@@ -1248,7 +1312,9 @@ export default function HomePage() {
           body: JSON.stringify({
             username: user.username,
             action: 'clip_analysis',
-            details: `Analyzed clip for ${clipPlatform} (score: ${data.score})`
+            details: detailLine,
+            ...(clipEstUsd !== undefined ? { estimatedCostUsd: clipEstUsd } : {}),
+            ...(clipCostNote !== undefined ? { estimatedCostNote: clipCostNote } : {}),
           })
         }).catch(error => console.error('Failed to log clip analysis to backend:', error))
       }
@@ -3038,12 +3104,24 @@ export default function HomePage() {
                           refreshBalance()
                           // Log tag generation activity
                           if (user) {
+                            const detailLine = `Generated ${data.tags.length} tags for ${platforms.find(p => p.id === tagPlatform)?.name}`
+                            const estUsd =
+                              typeof data.estimatedCostUsd === 'number' &&
+                              Number.isFinite(data.estimatedCostUsd)
+                                ? data.estimatedCostUsd
+                                : undefined
+                            const costNote =
+                              typeof data.estimatedCostNote === 'string'
+                                ? data.estimatedCostNote
+                                : undefined
                             const tagEntry: ActivityLogEntry = {
                               id: Date.now().toString(),
                               username: user.username,
                               timestamp: new Date().toISOString(),
                               action: 'tag_generation',
-                              details: `Generated ${data.tags.length} tags for ${platforms.find(p => p.id === tagPlatform)?.name}`
+                              details: detailLine,
+                              ...(estUsd !== undefined ? { estimatedCostUsd: estUsd } : {}),
+                              ...(costNote !== undefined ? { estimatedCostNote: costNote } : {}),
                             }
                             setActivityLog(prev => [tagEntry, ...prev].slice(0, 100))
                             
@@ -3055,7 +3133,9 @@ export default function HomePage() {
                               body: JSON.stringify({
                                 username: user.username,
                                 action: 'tag_generation',
-                                details: `Generated ${data.tags.length} tags for ${platforms.find(p => p.id === tagPlatform)?.name}`
+                                details: detailLine,
+                                ...(estUsd !== undefined ? { estimatedCostUsd: estUsd } : {}),
+                                ...(costNote !== undefined ? { estimatedCostNote: costNote } : {}),
                               })
                             }).catch(error => console.error('Failed to log to backend:', error))
                           }
@@ -3151,7 +3231,14 @@ export default function HomePage() {
                       username: user.username,
                       timestamp: new Date().toISOString(),
                       action: 'thumbnail_generation',
-                      details: entry.details
+                      details: entry.details,
+                      ...(entry.estimatedCostUsd !== undefined &&
+                      Number.isFinite(entry.estimatedCostUsd)
+                        ? { estimatedCostUsd: entry.estimatedCostUsd }
+                        : {}),
+                      ...(entry.estimatedCostNote
+                        ? { estimatedCostNote: entry.estimatedCostNote }
+                        : {}),
                     }
                     setActivityLog(prev => [logEntry, ...prev].slice(0, 100))
                     
@@ -3163,7 +3250,14 @@ export default function HomePage() {
                       body: JSON.stringify({
                         username: user.username,
                         action: 'thumbnail_generation',
-                        details: entry.details
+                        details: entry.details,
+                        ...(entry.estimatedCostUsd !== undefined &&
+                        Number.isFinite(entry.estimatedCostUsd)
+                          ? { estimatedCostUsd: entry.estimatedCostUsd }
+                          : {}),
+                        ...(entry.estimatedCostNote
+                          ? { estimatedCostNote: entry.estimatedCostNote }
+                          : {}),
                       })
                     }).catch(error => console.error('Failed to log to backend:', error))
                   }
@@ -4135,12 +4229,12 @@ export default function HomePage() {
                   {/* Activity Feed - Admin and Owner only */}
                   {(userRole === 'admin' || userRole === 'owner') && (
                     <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
-                      <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center justify-between mb-2">
                         <h4 className={`font-semibold flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                           <TrendingUp className="w-5 h-5 mr-2 text-sdhq-green-500" />
                           Activity Feed
                         </h4>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 shrink-0">
                           <Button
                             variant="outline"
                             size="sm"
@@ -4162,6 +4256,13 @@ export default function HomePage() {
                           )}
                         </div>
                       </div>
+                      <p className={`text-xs mb-4 ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
+                        API cost hints (USD) are approximate for thumbnails, tags, and clip analysis. Tune with{' '}
+                        <code className={darkMode ? 'text-gray-400' : 'text-gray-700'}>ESTIMATE_*</code>{' '}
+                        env vars (see{' '}
+                        <code className={darkMode ? 'text-gray-400' : 'text-gray-700'}>estimatedInferenceCost.ts</code>
+                        ).
+                      </p>
                       
                       {/* Filters */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
@@ -4185,6 +4286,8 @@ export default function HomePage() {
                             <option value="access_expired">Access Expired</option>
                             <option value="algorithm_refresh">Algorithm Refresh</option>
                             <option value="tag_generation">Tag Generation</option>
+                            <option value="thumbnail_generation">Thumbnail Generation</option>
+                            <option value="clip_analysis">Clip Analysis</option>
                           </select>
                         </div>
                         <div>
@@ -4257,6 +4360,9 @@ export default function HomePage() {
                                 case 'access_expired': return 'text-orange-500'
                                 case 'algorithm_refresh': return 'text-cyan-400'
                                 case 'tag_generation': return 'text-pink-400'
+                                case 'thumbnail_generation': return 'text-amber-400'
+                                case 'clip_analysis': return 'text-violet-400'
+                                case 'clip_reanalysis': return 'text-violet-300'
                                 default: return 'text-sdhq-cyan-500'
                               }
                             }
@@ -4296,6 +4402,21 @@ export default function HomePage() {
                                     {entry.details}
                                   </p>
                                 )}
+                                {entry.estimatedCostUsd !== undefined &&
+                                  Number.isFinite(entry.estimatedCostUsd) && (
+                                    <p
+                                      className={`text-xs mt-1 pl-6 ${darkMode ? 'text-amber-200/90' : 'text-amber-900'}`}
+                                    >
+                                      ≈{' '}
+                                      <span className="font-medium">
+                                        {formatEstimatedUsd(entry.estimatedCostUsd)} USD
+                                      </span>{' '}
+                                      <span className="opacity-80">(estimated API)</span>
+                                      {entry.estimatedCostNote
+                                        ? ` — ${entry.estimatedCostNote}`
+                                        : ''}
+                                    </p>
+                                  )}
                               </div>
                             )
                           })

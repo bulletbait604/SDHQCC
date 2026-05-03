@@ -14,6 +14,7 @@ import {
   pollGeminiFileUntilActive,
   deleteGeminiUploadedFile,
 } from '@/lib/geminiFiles'
+import { estimateClipAnalysisUsd } from '@/lib/estimatedInferenceCost'
 
 // Force dynamic rendering to prevent static optimization
 export const dynamic = 'force-dynamic'
@@ -538,10 +539,14 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
       extractedDataSize: JSON.stringify(extractedData).length
     })
 
+    const clipCost = estimateClipAnalysisUsd()
+
     const response = NextResponse.json({
       ...analysisResult,
       extractedData: extractedData,
-      analysisSource: analysisSource
+      analysisSource: analysisSource,
+      estimatedCostUsd: clipCost.estimatedCostUsd,
+      estimatedCostNote: clipCost.estimatedCostNote,
     })
 
     // Add cache-busting headers
