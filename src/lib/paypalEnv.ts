@@ -41,25 +41,9 @@ export function paypalApiBase(): string {
     : 'https://api-m.paypal.com'
 }
 
-export function paypalClientCredentials(): { clientId: string | undefined; clientSecret: string | undefined } {
-  if (isPayPalSandbox()) {
-    return {
-      clientId:
-        envTrim(process.env.PAYPAL_CLIENT_ID_SANDBOX) ||
-        envTrim(process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID_SANDBOX),
-      clientSecret: envTrim(process.env.PAYPAL_CLIENT_SECRET_SANDBOX) || undefined,
-    }
-  }
-  return {
-    clientId: envTrim(process.env.PAYPAL_CLIENT_ID) || undefined,
-    clientSecret: envTrim(process.env.PAYPAL_CLIENT_SECRET) || undefined,
-  }
-}
-
 /**
- * Client ID for PayPal JS SDK.
+ * Client ID for PayPal JS SDK and REST OAuth (must be identical — same PayPal app).
  * Sandbox: ONLY sandbox app IDs — never fall back to live (that forced production checkout).
- * Server may expose PAYPAL_CLIENT_ID_SANDBOX via /api/paypal-public-config for the browser.
  */
 export function paypalSdkClientId(): string | undefined {
   if (isPayPalSandbox()) {
@@ -68,8 +52,26 @@ export function paypalSdkClientId(): string | undefined {
       envTrim(process.env.PAYPAL_CLIENT_ID_SANDBOX)
     return sid || undefined
   }
-  const live = envTrim(process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID)
+  const live =
+    envTrim(process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID) || envTrim(process.env.PAYPAL_CLIENT_ID)
   return live || undefined
+}
+
+/**
+ * REST OAuth uses the same Client ID as `paypalSdkClientId()` so server and browser always agree.
+ */
+export function paypalClientCredentials(): { clientId: string | undefined; clientSecret: string | undefined } {
+  const clientId = paypalSdkClientId()
+  if (isPayPalSandbox()) {
+    return {
+      clientId,
+      clientSecret: envTrim(process.env.PAYPAL_CLIENT_SECRET_SANDBOX) || undefined,
+    }
+  }
+  return {
+    clientId,
+    clientSecret: envTrim(process.env.PAYPAL_CLIENT_SECRET) || undefined,
+  }
 }
 
 /**

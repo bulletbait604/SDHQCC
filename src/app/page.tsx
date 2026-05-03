@@ -4798,12 +4798,35 @@ export default function HomePage() {
                 <p className={`text-sm ${darkMode ? 'text-red-400' : 'text-red-700'}`}>
                   {paypalCfg?.planVerifyIssue === 'oauth' ? (
                     <>
-                      PayPal could not verify your subscription plan: <strong>OAuth failed</strong>. Check that{' '}
-                      <span className="font-mono text-[11px]">PAYPAL_CLIENT_ID_SANDBOX</span> and{' '}
-                      <span className="font-mono text-[11px]">PAYPAL_CLIENT_SECRET_SANDBOX</span> (sandbox) or live{' '}
-                      <span className="font-mono text-[11px]">PAYPAL_CLIENT_ID</span> /{' '}
-                      <span className="font-mono text-[11px]">PAYPAL_CLIENT_SECRET</span> match the app in PayPal
-                      Developer Dashboard and match <span className="font-mono text-[11px]">NEXT_PUBLIC_PAYPAL_MODE</span>.
+                      {paypalCfg?.oauthFailureDetail === 'unauthorized' ? (
+                        <>
+                          PayPal rejected the server credentials (401/403). The Secret must belong to the{' '}
+                          <em>same</em> Developer Dashboard app as the Client ID. Regenerate the app secret in the
+                          dashboard and update <span className="font-mono text-[11px]">PAYPAL_CLIENT_SECRET_SANDBOX</span>{' '}
+                          (or live <span className="font-mono text-[11px]">PAYPAL_CLIENT_SECRET</span>) in Vercel.
+                        </>
+                      ) : paypalCfg?.oauthFailureDetail === 'missing_secret' ? (
+                        <>
+                          Add the server-only secret:{' '}
+                          <span className="font-mono text-[11px]">PAYPAL_CLIENT_SECRET_SANDBOX</span> for sandbox or{' '}
+                          <span className="font-mono text-[11px]">PAYPAL_CLIENT_SECRET</span> for live in your deployment
+                          env (Production + Preview). It is required for OAuth but never sent to the browser.
+                        </>
+                      ) : paypalCfg?.oauthFailureDetail === 'missing_client' ? (
+                        <>
+                          No Client ID for REST OAuth on the server. Set{' '}
+                          <span className="font-mono text-[11px]">NEXT_PUBLIC_PAYPAL_CLIENT_ID_SANDBOX</span> and/or{' '}
+                          <span className="font-mono text-[11px]">PAYPAL_CLIENT_ID_SANDBOX</span> (sandbox) so they match
+                          the PayPal app you use for Subscribe.
+                        </>
+                      ) : (
+                        <>
+                          PayPal OAuth failed. Confirm <span className="font-mono text-[11px]">NEXT_PUBLIC_PAYPAL_MODE</span>{' '}
+                          matches sandbox vs live, and that{' '}
+                          <span className="font-mono text-[11px]">PAYPAL_CLIENT_SECRET_*</span> pairs with the same app as
+                          your Client ID.
+                        </>
+                      )}
                     </>
                   ) : (
                     <>

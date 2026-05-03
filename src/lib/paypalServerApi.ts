@@ -6,12 +6,22 @@
 
 import { paypalApiBase, paypalClientCredentials } from '@/lib/paypalEnv'
 
-export async function getPayPalAccessToken(): Promise<string | null> {
+type OAuthFailure =
+  | { kind: 'missing_client' | 'missing_secret' }
+  | { kind: 'token_rejected'; httpStatus: number }
+
+async function fetchPayPalAccessTokenDetailed(): Promise<
+  { ok: true; accessToken: string } | { ok: false; failure: OAuthFailure }
+> {
   const { clientId, clientSecret } = paypalClientCredentials()
 
-  if (!clientId || !clientSecret) {
-    console.error('PayPal credentials not configured')
-    return null
+  if (!clientId) {
+    console.error('PayPal credentials not configured (missing Client ID for current mode)')
+    return { ok: false, failure: { kind: 'missing_client' } }
+  }
+  if (!clientSecret) {
+    console.error('PayPal credentials not configured (missing Client Secret for current mode)')
+    return { ok: false, failure: { kind: 'missing_secret' } }
   }
 
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
@@ -30,15 +40,22 @@ export async function getPayPalAccessToken(): Promise<string | null> {
     if (!response.ok) {
       const errorText = await response.text()
       console.error('PayPal token request failed:', response.status, errorText)
-      return null
+      return { ok: false, failure: { kind: 'token_rejected', httpStatus: response.status } }
     }
 
     const data = await response.json()
-    return data.access_token
+    const accessToken = data.access_token as string | undefined
+    if (!accessToken) return { ok: false, failure: { kind: 'token_rejected', httpStatus: response.status } }
+    return { ok: true, accessToken }
   } catch (error) {
     console.error('Error getting PayPal access token:', error)
-    return null
+    return { ok: false, failure: { kind: 'token_rejected', httpStatus: 0 } }
   }
+}
+
+export async function getPayPalAccessToken(): Promise<string | null> {
+  const r = await fetchPayPalAccessTokenDetailed()
+  return r.ok ? r.accessToken : null
 }
 
 export async function getPayPalCheckoutOrder(orderId: string): Promise<Record<string, unknown> | null> {
@@ -119,13 +136,27 @@ export async function getPayPalBillingPlan(planId: string): Promise<{
   httpStatus?: number
   /** True when OAuth failed — wrong/missing client ID or secret for current mode, not necessarily a bad plan ID */
   oauthFailed?: boolean
+  /** Narrow OAuth failure for UI copy (no secrets) */
+  oauthFailureDetail?: 'missing_client' | 'missing_secret' | 'unauthorized' | 'other'
 }> {
   const trimmed = typeof planId === 'string' ? planId.trim() : ''
   if (!trimmed) return { ok: false }
 
   try {
-    const accessToken = await getPayPalAccessToken()
-    if (!accessToken) return { ok: false, oauthFailed: true }
+    const authResult = await fetchPayPalAccessTokenDetailed()
+    if (!authResult.ok) {
+      const f = authResult.failure
+      if (f.kind === 'missing_client') return { ok: false, oauthFailed: true, oauthFailureDetail: 'missing_client' }
+      if (f.kind === 'missing_secret') return { ok: false, oauthFailed: true, oauthFailureDetail: 'missing_secret' }
+      const unauthorized =
+        f.kind === 'token_rejected' && (f.httpStatus === 401 || f.httpStatus === 403)
+      return {
+        ok: false,
+        oauthFailed: true,
+        oauthFailureDetail: unauthorized ? 'unauthorized' : 'other',
+      }
+    }
+    const accessToken = authResult.accessToken
 
     const id = encodeURIComponent(trimmed)
     const paypalUrl = `${paypalApiBase()}/v1/billing/plans/${id}`

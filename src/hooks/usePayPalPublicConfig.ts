@@ -12,6 +12,7 @@ export type PayPalPublicConfig = {
   planResolvedOnPayPal?: boolean | null
   /** Set when planResolvedOnPayPal === false after server verification attempt */
   planVerifyIssue?: 'oauth' | 'not_found' | 'http' | null
+  oauthFailureDetail?: 'missing_client' | 'missing_secret' | 'unauthorized' | 'other' | null
   /** All warnings (e.g. Subscribe popup). */
   warning: string | null
   /** SDK/client issues only — use in coin & donation flows (no subscription plan noise). */
