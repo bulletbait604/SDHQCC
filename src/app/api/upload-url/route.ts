@@ -6,11 +6,16 @@ const isProd = process.env.NODE_ENV === 'production'
 
 export async function POST(request: NextRequest) {
   try {
-    await verifyAuth(request)
+    const user = await verifyAuth(request)
 
     console.log('Upload URL API: Request received')
-    const { filename, contentType } = await request.json()
-    console.log('Upload URL API: Request body:', { filename, contentType })
+    const body = await request.json()
+    const { filename, contentType, purpose } = body as {
+      filename?: string
+      contentType?: string
+      purpose?: string
+    }
+    console.log('Upload URL API: Request body:', { filename, contentType, purpose })
 
     if (!filename || !contentType) {
       console.error('Upload URL API: Missing filename or contentType')
@@ -56,7 +61,9 @@ export async function POST(request: NextRequest) {
 
     let result
     try {
-      result = await generateUploadUrl(filename, contentType)
+      result = await generateUploadUrl(filename, contentType, {
+        clipUsername: purpose === 'clip-analyzer' ? user.username : undefined,
+      })
     } catch (generateError: unknown) {
       console.error('Upload URL API: Error in generateUploadUrl:', generateError)
       const genErrorMessage = generateError instanceof Error ? generateError.message : 'Unknown generate error'

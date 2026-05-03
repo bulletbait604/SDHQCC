@@ -3,6 +3,12 @@ import { GoogleGenAI } from '@google/genai'
 import clientPromise from '@/lib/mongodb'
 import { verifyAuth, hasUnlimitedAccess, AuthError } from '@/lib/auth/verifyAuth'
 import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
+import { getFileFromR2, deleteFileFromR2 } from '@/lib/r2'
+import {
+  uploadBufferToGeminiFilesApi,
+  pollGeminiFileUntilActive,
+  deleteGeminiUploadedFile,
+} from '@/lib/geminiFiles'
 
 // Force dynamic rendering to prevent static optimization
 export const dynamic = 'force-dynamic'
@@ -78,35 +84,28 @@ export async function POST(request: NextRequest) {
 
     console.log('[DEBUG] Clip Analyze API: Parsing request body...')
     const body = await request.json()
-    const { fileUri, mimeType, fileName, fileSize, platform } = body
+    const { fileUri, r2FileKey, mimeType, fileName, fileSize, platform } = body as {
+      fileUri?: string
+      r2FileKey?: string
+      mimeType?: string
+      fileName?: string
+      fileSize?: number
+      platform?: string
+    }
 
-    console.log('[DEBUG] Clip Analyze API: Request data:', { 
-      hasFileUri: !!fileUri, 
+    console.log('[DEBUG] Clip Analyze API: Request data:', {
+      hasR2Key: !!r2FileKey,
+      hasFileUri: !!fileUri,
       fileUriPreview: fileUri ? fileUri.substring(0, 60) : 'none',
-      mimeType, 
+      mimeType,
       fileName,
       fileSizeMB: fileSize ? (fileSize / (1024 * 1024)).toFixed(2) : 'unknown',
-      platform, 
+      platform,
       username: user.username,
       role: user.role,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     })
 
-    // Validate required fields
-    if (!fileUri) {
-      console.error('[DEBUG] Clip Analyze API: fileUri is required')
-      return NextResponse.json({ error: 'fileUri is required' }, { status: 400 })
-    }
-    
-    // Validate fileUri format - must be a Google Files API URI
-    if (!fileUri.startsWith('https://generativelanguage.googleapis.com/')) {
-      console.error('[DEBUG] Clip Analyze API: Invalid fileUri format')
-      return NextResponse.json({ 
-        error: 'Invalid fileUri format',
-        details: 'fileUri must be a Google Files API URI'
-      }, { status: 400 })
-    }
-    
     if (!platform) {
       console.error('[DEBUG] Clip Analyze API: platform is required')
       return NextResponse.json({ error: 'Platform is required' }, { status: 400 })
@@ -168,6 +167,60 @@ export async function POST(request: NextRequest) {
       }, { status: 503 })
     }
 
+    let analysisFileUri: string
+    let cleanupGeminiName: string | null = null
+    let cleanupR2Key: string | null = null
+    const clipFromR2 = typeof r2FileKey === 'string' && r2FileKey.length > 0
+    const storageUser = user.username.replace(/^@/, '').toLowerCase()
+
+    if (clipFromR2) {
+      const prefix = `uploads/clips/${storageUser}/`
+      if (!r2FileKey!.startsWith(prefix) || r2FileKey!.includes('..') || r2FileKey!.length > 500) {
+        return NextResponse.json({ error: 'Invalid clip file key' }, { status: 400 })
+      }
+      console.log('[DEBUG] Clip Analyze: Loading from R2', r2FileKey)
+      const buffer = await getFileFromR2(r2FileKey!)
+      if (!buffer) {
+        return NextResponse.json(
+          {
+            error: 'Clip not found',
+            userMessage: 'Could not load your upload. Try uploading again.',
+          },
+          { status: 404 }
+        )
+      }
+      const maxBytes = 250 * 1024 * 1024
+      if (buffer.length > maxBytes) {
+        return NextResponse.json({ error: 'File too large (max 250MB)' }, { status: 400 })
+      }
+      cleanupR2Key = r2FileKey!
+      console.log('[DEBUG] Clip Analyze: Uploading', buffer.length, 'bytes to Gemini Files API (server)')
+      const uploaded = await uploadBufferToGeminiFilesApi({
+        apiKey: geminiApiKey,
+        buffer,
+        mimeType: mimeType || 'video/mp4',
+        displayName: typeof fileName === 'string' ? fileName : 'clip.mp4',
+      })
+      cleanupGeminiName = uploaded.name
+      await pollGeminiFileUntilActive(geminiApiKey, uploaded.uri)
+      analysisFileUri = uploaded.uri
+    } else if (
+      typeof fileUri === 'string' &&
+      fileUri.startsWith('https://generativelanguage.googleapis.com/')
+    ) {
+      analysisFileUri = fileUri
+      console.log('[DEBUG] Clip Analyze: Using client-provided Gemini fileUri (legacy)')
+    } else {
+      return NextResponse.json(
+        {
+          error: 'Missing clip source',
+          details: 'Provide r2FileKey after R2 upload, or fileUri for legacy flow',
+        },
+        { status: 400 }
+      )
+    }
+
+    try {
     // Create basic extracted data from file metadata
     const extractedData = {
       fileName: fileName || 'Unknown',
@@ -179,7 +232,7 @@ export async function POST(request: NextRequest) {
       audioAnalysis: 'Video file uploaded for analysis',
       topics: [],
       keyPoints: [],
-      source: 'direct-upload-gemini'
+      source: clipFromR2 ? 'r2-then-gemini' : 'direct-upload-gemini',
     }
 
     console.log('[DEBUG] Clip Analyze API: Starting Gemini analysis with file URI...')
@@ -200,7 +253,7 @@ export async function POST(request: NextRequest) {
         setTimeout(() => reject(new Error('Gemini API timeout after 52 seconds')), 52000)
       })
       
-      console.log('[DEBUG] Analyzing file URI:', fileUri)
+      console.log('[DEBUG] Analyzing file URI:', analysisFileUri)
       
       const geminiResponse = await Promise.race([
         genAI.models.generateContent({
@@ -212,7 +265,7 @@ export async function POST(request: NextRequest) {
                 {
                   fileData: {
                     mimeType: mimeType || 'video/mp4',
-                    fileUri: fileUri
+                    fileUri: analysisFileUri
                   }
                 },
                 {
@@ -439,6 +492,18 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
     response.headers.set('X-Deploy-Hash', 'f3366cc')
 
     return response
+    } finally {
+      if (cleanupGeminiName && geminiApiKey) {
+        await deleteGeminiUploadedFile(geminiApiKey, cleanupGeminiName).catch((e) =>
+          console.warn('[clip-analyze] Gemini temp file cleanup:', e)
+        )
+      }
+      if (cleanupR2Key) {
+        await deleteFileFromR2(cleanupR2Key).catch((e) =>
+          console.warn('[clip-analyze] R2 clip cleanup:', e)
+        )
+      }
+    }
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode })

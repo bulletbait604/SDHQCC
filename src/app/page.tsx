@@ -1235,8 +1235,8 @@ export default function HomePage() {
     setShowReanalysis(false)
 
     const loadingSteps = [
-      'Requesting upload authorization...',
-      'Uploading video to Gemini...',
+      'Requesting secure upload...',
+      'Uploading video to storage...',
       'Processing video with AI...',
       'Analyzing visual and audio elements...',
       'Cross-referencing with platform algorithm...',
@@ -1256,105 +1256,46 @@ export default function HomePage() {
       console.log('Clip Upload: Starting upload flow...')
       console.log('Clip Upload: File details:', { name: clipFile.name, type: clipFile.type, size: clipFile.size })
       
-      // Step 1: Get API key from backend
+      // Step 1–2: Presigned R2 upload (cheap storage) — analysis pulls from R2 and uses server GEMINI_API
       setLoadingStep(loadingSteps[0])
-      
-      const tokenRes = await fetch('/api/gemini-api-key', {
+
+      const presignRes = await fetch('/api/upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          filename: clipFile.name,
+          contentType: clipFile.type,
+          purpose: 'clip-analyzer',
+        }),
       })
 
-      if (!tokenRes.ok) {
-        const errorData = await tokenRes.json()
-        throw new Error(errorData.userMessage || errorData.error || 'Failed to get upload authorization')
-      }
-
-      const { apiKey } = await tokenRes.json()
-      console.log('Clip Upload: API key received')
-
-      // Step 2: Upload file directly to Gemini
-      setLoadingStep(loadingSteps[1])
-      console.log('Clip Upload: Uploading to Gemini...')
-
-      // Start resumable upload
-      const uploadUrlRes = await fetch('https://generativelanguage.googleapis.com/upload/v1beta/files', {
-        method: 'POST',
-        headers: {
-          'x-goog-api-key': apiKey,
-          'X-Goog-Upload-Protocol': 'resumable',
-          'X-Goog-Upload-Command': 'start',
-          'X-Goog-Upload-Header-Content-Length': clipFile.size.toString(),
-          'X-Goog-Upload-Header-Content-Type': clipFile.type,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ file: { display_name: clipFile.name } })
-      })
-
-      if (!uploadUrlRes.ok) {
-        throw new Error('Failed to start upload session')
-      }
-
-      const uploadUrl = uploadUrlRes.headers.get('X-Goog-Upload-URL')
-      if (!uploadUrl) {
-        throw new Error('Upload URL not received')
-      }
-
-      // Upload file bytes
-      const uploadRes = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: {
-          'x-goog-api-key': apiKey,
-          'Content-Type': clipFile.type,
-          'X-Goog-Upload-Protocol': 'resumable',
-          'X-Goog-Upload-Command': 'upload, finalize',
-          'X-Goog-Upload-Offset': '0'
-        },
-        body: clipFile
-      })
-
-      if (!uploadRes.ok) {
-        throw new Error('Failed to upload video')
-      }
-
-      const uploadData = await uploadRes.json()
-      const fileUri = uploadData.file?.uri
-      
-      if (!fileUri) {
-        throw new Error('File URI not received')
-      }
-
-      console.log('Clip Upload: File uploaded, URI:', fileUri)
-
-      // Step 3: Poll for ACTIVE state
-      setLoadingStep('Waiting for file processing...')
-      const fileId = fileUri.split('/').pop()
-      const maxRetries = 30
-      const retryDelay = 2000
-      let fileState = uploadData.file?.state ?? 'PROCESSING'
-      let retryCount = 0
-
-      while (fileState !== 'ACTIVE' && fileState !== 'FAILED' && retryCount < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, retryDelay))
-        retryCount++
-        
-        const statusRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/files/${fileId}?key=${apiKey}`,
-          { method: 'GET' }
+      if (!presignRes.ok) {
+        const errBody = await presignRes.json().catch(() => ({}))
+        throw new Error(
+          (errBody as { error?: string }).error ||
+            'Could not get upload URL. Check R2 credentials on the server.'
         )
-        
-        if (statusRes.ok) {
-          const statusData = await statusRes.json()
-          fileState = statusData.state ?? statusData.file?.state ?? fileState
-        }
       }
 
-      if (fileState !== 'ACTIVE') {
-        throw new Error(`File did not become ACTIVE. State: ${fileState}`)
+      const { uploadUrl, fileKey } = (await presignRes.json()) as {
+        uploadUrl: string
+        fileKey: string
       }
 
-      // Step 4: Analyze
+      setLoadingStep(loadingSteps[1])
+      const putRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': clipFile.type },
+        body: clipFile,
+      })
+
+      if (!putRes.ok) {
+        throw new Error('Failed to upload clip to storage. Please try again.')
+      }
+
+      console.log('Clip Upload: Stored in R2:', fileKey)
+
       setLoadingStep(loadingSteps[2])
 
       const analyzeRes = await fetch('/api/clip-analyze', {
@@ -1362,14 +1303,14 @@ export default function HomePage() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          fileUri: fileUri,
+          r2FileKey: fileKey,
           mimeType: clipFile.type,
           fileName: clipFile.name,
           fileSize: clipFile.size,
           platform: clipPlatform,
           userId: user?.id || '',
-          userType
-        })
+          userType,
+        }),
       })
 
       clearInterval(stepInterval)

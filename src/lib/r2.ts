@@ -20,15 +20,37 @@ export const r2Client = new S3Client({
   },
 })
 
+function sanitizePathSegment(s: string): string {
+  return s.replace(/^@/, '').toLowerCase().replace(/[^a-z0-9_-]/g, '_').slice(0, 64) || 'user'
+}
+
+/** Safe filename for object key (no path separators) */
+function sanitizeFilename(filename: string): string {
+  const base = filename.split(/[/\\]/).pop() || 'video.mp4'
+  return base.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 160)
+}
+
+export type GenerateUploadUrlOpts = {
+  /** Clip analyzer: `uploads/clips/<user>/<ts>-<file>` so the analyze API can authorize deletes */
+  clipUsername?: string
+}
+
 // Generate presigned URL for upload (valid for 5 minutes)
-export async function generateUploadUrl(filename: string, contentType: string): Promise<{ uploadUrl: string; fileKey: string; publicUrl: string } | null> {
+export async function generateUploadUrl(
+  filename: string,
+  contentType: string,
+  opts?: GenerateUploadUrlOpts
+): Promise<{ uploadUrl: string; fileKey: string; publicUrl: string } | null> {
   if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
     console.error('R2 credentials not configured')
     return null
   }
 
   const timestamp = Date.now()
-  const fileKey = `uploads/${timestamp}-${filename}`
+  const safeName = sanitizeFilename(filename)
+  const fileKey = opts?.clipUsername
+    ? `uploads/clips/${sanitizePathSegment(opts.clipUsername)}/${timestamp}-${safeName}`
+    : `uploads/${timestamp}-${filename}`
 
   try {
     const command = new PutObjectCommand({
