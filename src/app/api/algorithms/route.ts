@@ -318,21 +318,57 @@ Focus on recent changes and best practices as of 2026.`
   return JSON.parse(cleanContent || '{}')
 }
 
+/** Shown when Gemini is unavailable for algorithm research (client uses userMessage). */
+const GEMINI_VACATION_USER_MESSAGE =
+  "Oops! Looks like the Gemini API went on vacation. Please email our staff and we'll correct this as soon as possible. Include your username and we can credit you some free coins!"
+
+class GeminiAlgorithmUnavailableError extends Error {
+  readonly userMessage = GEMINI_VACATION_USER_MESSAGE
+  constructor() {
+    super('GEMINI_UNAVAILABLE')
+    this.name = 'GeminiAlgorithmUnavailableError'
+  }
+}
+
+/** Dedicated algo key, or shared keys used elsewhere (match Vercel naming). */
+function resolveGeminiAlgorithmApiKey(): string | undefined {
+  return (
+    process.env.GEMINI_ALGORITHM_API_KEY ||
+    process.env.GEMINI_ALGO_API ||
+    process.env.GEMINI_API ||
+    undefined
+  )
+}
+
+function hasAlgorithmAiProviderConfigured(): boolean {
+  return !!(
+    resolveGeminiAlgorithmApiKey() ||
+    process.env.RAPID_API_KEY ||
+    process.env.POLLINATIONS_API_KEY
+  )
+}
+
 // Main research function with cascading fallbacks
 async function researchAlgorithm(platform: string, maxTokens: number = 1000): Promise<any> {
-  const geminiApiKey = process.env.GEMINI_ALGORITHM_API_KEY
+  const geminiApiKey = resolveGeminiAlgorithmApiKey()
   const rapidApiKey = process.env.RAPID_API_KEY
   const pollinationsApiKey = process.env.POLLINATIONS_API_KEY
 
-  // Try Gemini 3.1 Pro first (thorough analysis)
+  let geminiFailed = false
+
+  // Try Gemini first (thorough analysis)
   if (geminiApiKey) {
     try {
-      console.log(`[Algorithms] Trying Gemini 3.1 Pro for ${platform}...`)
+      console.log(`[Algorithms] Trying Gemini for ${platform}...`)
       const result = await researchWithGemini(platform, geminiApiKey)
       console.log(`[Algorithms] Gemini succeeded for ${platform}`)
       return { ...result, provider: 'gemini' }
     } catch (error) {
+      geminiFailed = true
       console.error(`[Algorithms] Gemini failed for ${platform}:`, error)
+      if (!rapidApiKey && !pollinationsApiKey) {
+        throw new GeminiAlgorithmUnavailableError()
+      }
     }
   }
 
@@ -358,6 +394,10 @@ async function researchAlgorithm(platform: string, maxTokens: number = 1000): Pr
     } catch (error) {
       console.error(`[Algorithms] Pollinations failed for ${platform}:`, error)
     }
+  }
+
+  if (geminiFailed) {
+    throw new GeminiAlgorithmUnavailableError()
   }
 
   throw new Error(`All AI providers failed for ${platform}`)
@@ -447,11 +487,14 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  // Check that at least one AI provider is configured
-  const hasProvider = process.env.RAPID_API_KEY || process.env.GROQ_API_KEY || process.env.POLLINATIONS_API_KEY
-  
-  if (!hasProvider) {
-    return NextResponse.json({ error: 'No AI API key configured. Please set RAPID_API_KEY, GROQ_API_KEY, or POLLINATIONS_API_KEY' }, { status: 500 })
+  if (!hasAlgorithmAiProviderConfigured()) {
+    return NextResponse.json(
+      {
+        error:
+          'No AI API key configured for algorithm research. Set GEMINI_ALGORITHM_API_KEY (or GEMINI_ALGO_API / GEMINI_API), and/or RAPID_API_KEY, and/or POLLINATIONS_API_KEY.',
+      },
+      { status: 500 }
+    )
   }
 
   const body = await request.json()
@@ -485,6 +528,15 @@ export async function POST(request: Request) {
         errors.push(`${platform.name}: No data returned`)
       }
     } catch (error) {
+      if (error instanceof GeminiAlgorithmUnavailableError) {
+        return NextResponse.json(
+          {
+            error: 'GEMINI_UNAVAILABLE',
+            userMessage: error.userMessage,
+          },
+          { status: 503 }
+        )
+      }
       const errorMsg = error instanceof Error ? error.message : 'Unknown error'
       errors.push(`${platform.name}: ${errorMsg}`)
     }

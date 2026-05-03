@@ -43,6 +43,7 @@ import {
   Database,
   RefreshCw,
   Upload,
+  Mail,
   Download,
   Wand2
 } from 'lucide-react'
@@ -387,6 +388,9 @@ export default function HomePage() {
   const [showLifetimePopup, setShowLifetimePopup] = useState(false)
   const [showDonatePopup, setShowDonatePopup] = useState(false)
   const [donateAmount, setDonateAmount] = useState<number>(5)
+  const [feedbackReplyEmail, setFeedbackReplyEmail] = useState('')
+  const [feedbackMessage, setFeedbackMessage] = useState('')
+  const [feedbackSending, setFeedbackSending] = useState(false)
   const [showTokenPurchase, setShowTokenPurchase] = useState(false)
   
   // Verification states
@@ -565,10 +569,11 @@ export default function HomePage() {
     }
   }
 
-  // Fetch user role when user changes
+  // Fetch user role and role directory when user changes (needed for DB subscriber/lifetime display)
   useEffect(() => {
     if (user && user.username) {
-      fetchUserRole()
+      void fetchUserRole()
+      void fetchUsersWithRoles()
     }
   }, [user])
 
@@ -746,17 +751,21 @@ export default function HomePage() {
     setIsLifetimeMember(isLifetimeMemberValue)
     setIsTester(isTesterValue)
     
-    // Update new role-based state
+    // Prefer MongoDB role from /api/roles so manual subscriber/lifetime updates are not overwritten by PayPal lists
+    const dbRole = userWithRole?.role as Role | undefined
+
     if (isOwner) {
       setUserRole('owner')
     } else if (isAdminValue) {
       setUserRole('admin')
-    } else if (isLifetimeMemberValue) {
+    } else if (dbRole === 'subscriber_lifetime' || isLifetimeMemberValue) {
       setUserRole('subscriber_lifetime')
-    } else if (isSubscribedValue) {
+    } else if (dbRole === 'subscriber' || isSubscribedValue) {
       setUserRole('subscriber')
-    } else if (isTesterValue) {
+    } else if (dbRole === 'tester' || isTesterValue) {
       setUserRole('tester')
+    } else if (dbRole && dbRole !== 'free') {
+      setUserRole(dbRole)
     } else {
       setUserRole('free')
     }
@@ -978,9 +987,9 @@ export default function HomePage() {
 
   // Activity logs are persisted server-side via /api/activity-log
 
-  // Fetch activity logs from backend for admins
+  // Fetch activity logs from backend for admins / owners (role from DB, not only legacy admins list)
   useEffect(() => {
-    if (isAdmin && user) {
+    if (user && (userRole === 'admin' || userRole === 'owner')) {
       fetch('/api/activity-log', { credentials: 'include' })
         .then(res => res.json())
         .then(data => {
@@ -992,11 +1001,11 @@ export default function HomePage() {
           console.error('Error fetching activity logs from backend:', error)
         })
     }
-  }, [isAdmin, user])
+  }, [userRole, user])
 
   // Refresh activity logs
   const refreshActivityLog = () => {
-    if (isAdmin && user) {
+    if (user && (userRole === 'admin' || userRole === 'owner')) {
       fetch('/api/activity-log', { credentials: 'include' })
         .then(res => res.json())
         .then(data => {
@@ -1317,7 +1326,7 @@ export default function HomePage() {
           setClipRateLimit({ remaining: 0, resetTime: errorData.resetTime })
           throw new Error('Rate limit exceeded')
         }
-        throw new Error(errorData.error || 'Analysis failed')
+        throw new Error(errorData.userMessage || errorData.error || 'Analysis failed')
       }
 
       const data = await analyzeRes.json()
@@ -1407,7 +1416,7 @@ export default function HomePage() {
     }
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     // Log logout activity
     if (user && isAdmin) {
       const logoutEntry: ActivityLogEntry = {
@@ -1431,8 +1440,121 @@ export default function HomePage() {
     
     setUser(null)
     if (typeof window !== 'undefined') {
-      fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {})
-      window.location.href = '/'
+      // Must finish clearing the httpOnly session cookie before navigating, or the next
+      // page load still has the old cookie and /api/me logs the user back in immediately.
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          credentials: 'include',
+          cache: 'no-store',
+        })
+      } catch {
+        /* still navigate */
+      }
+      // Drop Kick OAuth helper cookies so no stale PKCE state after logout
+      document.cookie = 'kickCodeVerifier=; path=/; max-age=0'
+      document.cookie = 'kickAuthReturn=; path=/; max-age=0'
+      window.location.replace('/')
+    }
+  }
+
+  /** Admin: refresh algorithm JSON from AI (same API as Settings → Admin Tools). */
+  const handleRefreshAlgorithms = async (platformId?: string) => {
+    if (!user || !isAdmin) return
+    setIsLoadingAlgorithms(true)
+    try {
+      const res = await fetch('/api/algorithms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(platformId ? { platformId } : {}),
+      })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        const msg =
+          typeof payload.userMessage === 'string'
+            ? payload.userMessage
+            : typeof payload.error === 'string'
+              ? payload.error
+              : `Request failed (${res.status})`
+        throw new Error(msg)
+      }
+      if (payload.data) {
+        setLastUpdated(payload.lastUpdated)
+        setPlatforms((prev) =>
+          prev.map((p) => ({
+            ...p,
+            data: payload.data[p.id] ?? p.data,
+          }))
+        )
+        const platformName = platformId
+          ? platforms.find((p) => p.id === platformId)?.name
+          : null
+        const refreshEntry: ActivityLogEntry = {
+          id: Date.now().toString(),
+          username: user.username,
+          timestamp: new Date().toISOString(),
+          action: 'algorithm_refresh',
+          details: platformName
+            ? `Manual ${platformName} algorithm refresh${payload.provider ? ` via ${payload.provider}` : ''}`
+            : `Manual algorithm refresh${payload.provider ? ` via ${payload.provider}` : ''}`,
+        }
+        setActivityLog((prev) => [refreshEntry, ...prev].slice(0, 100))
+        fetch('/api/activity-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: user.username,
+            action: 'algorithm_refresh',
+            details: refreshEntry.details,
+          }),
+        }).catch(() => {})
+        alert(
+          platformName
+            ? `${platformName} algorithm refreshed successfully!`
+            : 'Algorithms refreshed successfully!'
+        )
+      }
+    } catch (error) {
+      console.error('Algorithm refresh error:', error)
+      alert(error instanceof Error ? error.message : 'Failed to refresh algorithms.')
+    } finally {
+      setIsLoadingAlgorithms(false)
+    }
+  }
+
+  const handleSubmitStaffFeedback = async () => {
+    if (!user || userRole === 'owner' || isOwner) return
+    const email = feedbackReplyEmail.trim()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      alert('Please enter a valid email address so we can reply.')
+      return
+    }
+    const msg = feedbackMessage.trim()
+    if (msg.length < 5) {
+      alert('Please write a short message.')
+      return
+    }
+    setFeedbackSending(true)
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ replyEmail: email, message: msg }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(typeof data.error === 'string' ? data.error : 'Could not send feedback.')
+      }
+      setFeedbackMessage('')
+      alert(
+        `Thanks! Your message was saved for staff (${data.staffEmail || 'bulletbait604@gmail.com'}). You can also email that address directly if needed.`
+      )
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Could not send feedback.')
+    } finally {
+      setFeedbackSending(false)
     }
   }
 
@@ -1496,7 +1618,7 @@ export default function HomePage() {
       console.log(`PayPal: Loading SDK in LIVE mode`)
       
       const script = document.createElement('script')
-      script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&vault=true&intent=subscription`
+      script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&vault=true&intent=subscription&disable-funding=paylater`
       script.setAttribute('data-sdk-integration-source', 'button-factory')
       script.onload = () => {
         console.log('PayPal SDK loaded successfully')
@@ -1607,7 +1729,7 @@ export default function HomePage() {
       console.log(`PayPal Lifetime: Loading SDK in LIVE mode`)
       
       const script = document.createElement('script')
-      script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=CAD`
+      script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=CAD&disable-funding=paylater`
       script.setAttribute('data-sdk-integration-source', 'button-factory')
       script.onload = () => {
         if (window.paypal && user) {
@@ -1622,7 +1744,7 @@ export default function HomePage() {
               return actions.order.create({
                 purchase_units: [{
                   amount: {
-                    value: '54.99',
+                    value: '89.99',
                     currency_code: 'CAD'
                   },
                   description: 'SDHQ Creator Corner Lifetime Membership',
@@ -1648,6 +1770,23 @@ export default function HomePage() {
       }
     }
   }, [showLifetimePopup, user, paypalLifetimeLoaded])
+
+  // Reset PayPal embed state when modals close so buttons render again on next open
+  useEffect(() => {
+    if (!showLifetimePopup) {
+      setPaypalLifetimeLoaded(false)
+      const el = document.getElementById('paypal-lifetime-button-container')
+      if (el) el.innerHTML = ''
+    }
+  }, [showLifetimePopup])
+
+  useEffect(() => {
+    if (!showSubscribePopup) {
+      setPaypalLoaded(false)
+      const el = document.getElementById('paypal-button-container')
+      if (el) el.innerHTML = ''
+    }
+  }, [showSubscribePopup])
 
   const handleClearActivityLog = async () => {
     setActivityLog([])
@@ -2195,20 +2334,33 @@ export default function HomePage() {
                               <span className="leading-none">{ROLE_CONFIG[userRole]?.label ?? userRole}</span>
                             </span>
                           )}
+                          {userRole !== 'free' ? (
+                            <button
+                              type="button"
+                              onClick={() => setShowDonatePopup(true)}
+                              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-semibold h-9 px-3 bg-blue-600 hover:bg-blue-700 text-black border-2 border-blue-800 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
+                            >
+                              Donate
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     </div>
                   </div>
                   {userRole === 'free' ? (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={handleVerifySubscription}
-                      className="ml-2"
-                    >
-                      <Shield className="w-4 h-4 mr-1" />
-                      {t.verifySubscription}
-                    </Button>
+                    <div className="flex items-center gap-2 ml-2 shrink-0">
+                      <Button variant="outline" size="sm" onClick={handleVerifySubscription}>
+                        <Shield className="w-4 h-4 mr-1" />
+                        {t.verifySubscription}
+                      </Button>
+                      <button
+                        type="button"
+                        onClick={() => setShowDonatePopup(true)}
+                        className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-semibold h-9 px-3 bg-blue-600 hover:bg-blue-700 text-black border-2 border-blue-800 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
+                      >
+                        Donate
+                      </button>
+                    </div>
                   ) : null}
                 </div>
               ) : (
@@ -2398,6 +2550,49 @@ export default function HomePage() {
                       Last updated: {lastUpdated}
                     </p>
                   </div>
+
+                  {isAdmin && user && (
+                    <div
+                      className={`w-full max-w-2xl mt-4 p-4 rounded-xl border-2 ${
+                        darkMode
+                          ? 'bg-sdhq-dark-800/80 border-sdhq-cyan-500/40'
+                          : 'bg-cyan-50/80 border-sdhq-cyan-200'
+                      }`}
+                    >
+                      <p
+                        className={`text-sm font-medium mb-3 text-center ${
+                          darkMode ? 'text-sdhq-cyan-300' : 'text-sdhq-cyan-800'
+                        }`}
+                      >
+                        Admin: research &amp; update algorithm data (one platform at a time or all)
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRefreshAlgorithms()}
+                        disabled={isLoadingAlgorithms}
+                        className="w-full mb-3"
+                      >
+                        <TrendingUp className="w-4 h-4 mr-2" />
+                        {isLoadingAlgorithms ? 'Refreshing…' : 'Refresh all platforms'}
+                      </Button>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {platforms.map((p) => (
+                          <Button
+                            key={p.id}
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRefreshAlgorithms(p.id)}
+                            disabled={isLoadingAlgorithms}
+                            className="text-xs"
+                          >
+                            <TrendingUp className="w-3 h-3 mr-1 shrink-0" />
+                            {p.name}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -2688,13 +2883,10 @@ export default function HomePage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Input Section */}
                   <div className={`p-6 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-300 shadow-md'}`}>
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="mb-4">
                       <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                         Content Details
                       </h4>
-                      <div className={`text-base font-medium ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                        Uses: {userRole === 'free' ? 'Unlimited (Ad-Supported)' : tagRateLimit.remaining === -1 ? 'Unlimited' : tagRateLimit.remaining}
-                      </div>
                     </div>
                     
                     {/* Platform Selection */}
@@ -3846,6 +4038,71 @@ export default function HomePage() {
                     </div>
                   </div>
 
+                  {/* Staff feedback — everyone except owner */}
+                  {user && userRole !== 'owner' && !isOwner && (
+                    <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-200 shadow-sm'}`}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Mail className="w-5 h-5 text-sdhq-cyan-500 shrink-0" />
+                        <div>
+                          <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                            Contact staff
+                          </span>
+                          <p className={`text-xs mt-0.5 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            Send a note to our team at bulletbait604@gmail.com. Your Kick username is included automatically.
+                          </p>
+                        </div>
+                      </div>
+                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Your email <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        autoComplete="email"
+                        value={feedbackReplyEmail}
+                        onChange={(e) => setFeedbackReplyEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        className={`w-full px-3 py-2 rounded-md border mb-3 text-base ${
+                          darkMode
+                            ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500'
+                            : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                        }`}
+                      />
+                      <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Message
+                      </label>
+                      <textarea
+                        value={feedbackMessage}
+                        onChange={(e) => setFeedbackMessage(e.target.value)}
+                        rows={5}
+                        placeholder="Describe your question, bug report, or suggestion..."
+                        className={`w-full px-3 py-2 rounded-md border mb-3 text-base resize-y min-h-[120px] ${
+                          darkMode
+                            ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500'
+                            : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                        }`}
+                      />
+                      <Button
+                        type="button"
+                        onClick={handleSubmitStaffFeedback}
+                        disabled={feedbackSending}
+                        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
+                      >
+                        {feedbackSending ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                            Sending…
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="w-4 h-4 shrink-0" />
+                            Send to staff
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+
                   {/* Lifetime Pass - Free users only */}
                   {userRole === 'free' && (
                     <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-200 shadow-sm'}`}>
@@ -4220,8 +4477,8 @@ export default function HomePage() {
                   )}
 
 
-                  {/* Admin Tools - Bulletbait604 Only */}
-                  {isAdmin && user?.username.toLowerCase() === 'bulletbait604' && (
+                  {/* Admin Tools — algorithm refresh (same actions as Algorithms Explained tab) */}
+                  {isAdmin && (
                     <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
                       <h4 className={`font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                         <Settings className="w-5 h-5 mr-2 text-sdhq-cyan-500" />
@@ -4229,51 +4486,11 @@ export default function HomePage() {
                       </h4>
                       
                       <div className="space-y-4">
-                        {/* Refresh Algorithms Button */}
                         <div>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={async () => {
-                              if (!user || !isAdmin) return
-                              
-                              setIsLoadingAlgorithms(true)
-                              
-                              try {
-                                const res = await fetch('/api/algorithms', { 
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({})
-                                })
-                                if (!res.ok) throw new Error(`API error: ${res.status}`)
-                                
-                                const data = await res.json()
-                                if (data.data) {
-                                  setLastUpdated(data.lastUpdated)
-                                  setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
-                                    ...p,
-                                    data: data.data[p.id] || null
-                                  })))
-                                  
-                                  // Log the manual refresh
-                                  const refreshEntry: ActivityLogEntry = {
-                                    id: Date.now().toString(),
-                                    username: user.username,
-                                    timestamp: new Date().toISOString(),
-                                    action: 'algorithm_refresh',
-                                    details: `Manual algorithm refresh${data.provider ? ` via ${data.provider}` : ''}`
-                                  }
-                                  setActivityLog(prev => [refreshEntry, ...prev].slice(0, 100))
-                                  
-                                  alert('Algorithms refreshed successfully!')
-                                }
-                              } catch (error) {
-                                console.error('Error refreshing algorithms:', error)
-                                alert('Failed to refresh algorithms. Please try again.')
-                              } finally {
-                                setIsLoadingAlgorithms(false)
-                              }
-                            }}
+                            onClick={() => handleRefreshAlgorithms()}
                             disabled={isLoadingAlgorithms}
                             className="w-full"
                           >
@@ -4282,53 +4499,13 @@ export default function HomePage() {
                           </Button>
                         </div>
 
-                        {/* Individual Platform Refresh Buttons */}
                         <div className="grid grid-cols-2 gap-2">
                           {platforms.map((platform) => (
                             <Button
                               key={platform.id}
                               variant="outline"
                               size="sm"
-                              onClick={async () => {
-                                if (!user || !isAdmin) return
-                                
-                                setIsLoadingAlgorithms(true)
-                                
-                                try {
-                                  const res = await fetch('/api/algorithms', { 
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ platformId: platform.id })
-                                  })
-                                  if (!res.ok) throw new Error(`API error: ${res.status}`)
-                                  
-                                  const data = await res.json()
-                                  if (data.data) {
-                                    setLastUpdated(data.lastUpdated)
-                                    setPlatforms(prevPlatforms => prevPlatforms.map(p => ({
-                                      ...p,
-                                      data: data.data[p.id] || null
-                                    })))
-                                    
-                                    // Log the manual refresh
-                                    const refreshEntry: ActivityLogEntry = {
-                                      id: Date.now().toString(),
-                                      username: user.username,
-                                      timestamp: new Date().toISOString(),
-                                      action: 'algorithm_refresh',
-                                      details: `Manual ${platform.name} algorithm refresh${data.provider ? ` via ${data.provider}` : ''}`
-                                    }
-                                    setActivityLog(prev => [refreshEntry, ...prev].slice(0, 100))
-                                    
-                                    alert(`${platform.name} algorithm refreshed successfully!`)
-                                  }
-                                } catch (error) {
-                                  console.error(`Error refreshing ${platform.name}:`, error)
-                                  alert(`Failed to refresh ${platform.name}. Please try again.`)
-                                } finally {
-                                  setIsLoadingAlgorithms(false)
-                                }
-                              }}
+                              onClick={() => handleRefreshAlgorithms(platform.id)}
                               disabled={isLoadingAlgorithms}
                               className="text-sm"
                             >
@@ -4603,11 +4780,22 @@ export default function HomePage() {
                   onClick={() => {
                     setShowSubscribePopup(false)
                     setShowLifetimePopup(true)
+                    setPaypalLifetimeLoaded(false)
                   }}
                   className={`w-full ${darkMode ? 'border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10' : 'border-yellow-500 text-yellow-600 hover:bg-yellow-50'}`}
                 >
                   <Crown className="w-4 h-4 mr-2" />
                   Want Lifetime Access? ($89.99)
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowSubscribePopup(false)
+                    handleLifetimeSubscription()
+                  }}
+                  className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
+                >
+                  <Crown className="w-4 h-4 mr-2" />
+                  Get Lifetime Pass — $89.99 CAD
                 </Button>
               </div>
               
