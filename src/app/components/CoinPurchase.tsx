@@ -147,8 +147,8 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
             setLoading(false)
             return
           }
-          onClose()
-          window.location.reload()
+          setLoading(false)
+          setTimeout(() => window.location.reload(), 150)
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : 'Payment capture failed'
           setError(msg)

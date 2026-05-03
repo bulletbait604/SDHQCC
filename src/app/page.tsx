@@ -821,6 +821,24 @@ export default function HomePage() {
     }
   }
 
+  /** Mongo subscriber/admin/lifetime lists — GET /api/users is forbidden for non-staff */
+  useEffect(() => {
+    if (!user?.username) return
+    const normalized = user.username.replace(/^@/, '').toLowerCase()
+    const row = usersWithRoles.find(
+      (u: { username?: string; role?: string }) =>
+        typeof u.username === 'string' && u.username.toLowerCase() === normalized
+    )
+    const canFetchLists =
+      isOwner ||
+      userRole === 'admin' ||
+      userRole === 'owner' ||
+      row?.role === 'admin' ||
+      row?.role === 'owner'
+    if (!canFetchLists) return
+    void fetchUserLists()
+  }, [user, isOwner, userRole, usersWithRoles])
+
   useEffect(() => {
     setMounted(true)
 
@@ -841,7 +859,7 @@ export default function HomePage() {
 
     const runRestOfInit = () => {
       fetchUsersWithRoles()
-      fetchUserLists()
+      // fetchUserLists() only for admin/owner — see useEffect below (avoids expected 403 for normal users)
 
       setIsLoadingAlgorithms(true)
       setAlgorithmError(null)
@@ -1973,8 +1991,8 @@ export default function HomePage() {
                 )
                 return
               }
-              setShowLifetimePopup(false)
-              window.location.reload()
+              // Defer reload so PayPal's onApprove promise can finish (avoids postrobot "Target window is closed")
+              setTimeout(() => window.location.reload(), 150)
             },
             onError: function (err: { message?: string }) {
               console.error('PayPal lifetime button error:', err)
