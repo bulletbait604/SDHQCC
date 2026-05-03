@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 
 // TypeScript declaration for PayPal (namespaced loaders avoid subscription vs one-time SDK clashes)
@@ -262,18 +262,6 @@ const translations = {
   }
 };
 
-/** Persist tab across full reload (see handleMainTabChange) */
-const SDHQ_ACTIVE_TAB_KEY = 'sdhq_active_tab_restore'
-const VALID_MAIN_TABS = new Set([
-  'algorithms-explained',
-  'tag-generator-free',
-  'thumbnail-generator',
-  'clip-analyzer',
-  'kick-clips',
-  'resource-hub',
-  'settings',
-])
-
 /** Case-insensitive match in isOwner; server uses OWNER_USERNAMES env for admin APIs */
 const OWNER_USERNAMES = ['bulletbait604']
 
@@ -352,28 +340,6 @@ export default function HomePage() {
   const [mounted, setMounted] = useState(false)
   const [activeTab, setActiveTab] = useState('algorithms-explained')
 
-  /** After reload-from-tab-switch, restore tab before paint (coin balance refetches on full navigation). */
-  useLayoutEffect(() => {
-    try {
-      const v = sessionStorage.getItem(SDHQ_ACTIVE_TAB_KEY)
-      if (v && VALID_MAIN_TABS.has(v)) {
-        sessionStorage.removeItem(SDHQ_ACTIVE_TAB_KEY)
-        setActiveTab(v)
-      }
-    } catch {
-      /* storage unavailable */
-    }
-  }, [])
-
-  const handleMainTabChange = (value: string) => {
-    if (!VALID_MAIN_TABS.has(value)) return
-    try {
-      sessionStorage.setItem(SDHQ_ACTIVE_TAB_KEY, value)
-    } catch {
-      /* private mode — still reload */
-    }
-    window.location.reload()
-  }
   const [language, setLanguage] = useState<Language>('en')
   const [darkMode, setDarkMode] = useState(true)
   const [showSettings, setShowSettings] = useState(false)
@@ -488,11 +454,18 @@ export default function HomePage() {
     deductCoins, 
     hasEnoughCoins, 
     hasUnlimitedAccess,
-    loading: coinLoading 
+    loading: coinLoading,
+    refreshBalance,
   } = useCoins({ 
     userId: user?.username || '', 
     userRole
   })
+
+  /** Keep header coin total in sync when switching main tabs or after paid tool usage */
+  const handleMainTabChange = (value: string) => {
+    setActiveTab(value)
+    refreshBalance()
+  }
 
   /** Must be declared before getRecommendedTagCount / clipEditSuggestionTags (those read `platforms`). */
   const [platforms, setPlatforms] = useState<Platform[]>([
@@ -1419,6 +1392,8 @@ export default function HomePage() {
       if (!deducted) {
         throw new Error('Clip analyzed, but coin deduction failed. Please refresh and check your coin balance.')
       }
+
+      refreshBalance()
 
       // Increment usage for limited roles
       incrementUsage('clips')
@@ -3231,6 +3206,7 @@ export default function HomePage() {
                           if (!deducted) {
                             throw new Error('Tags generated, but coin deduction failed. Please refresh and check your coin balance.')
                           }
+                          refreshBalance()
                           // Log tag generation activity
                           if (user) {
                             const tagEntry: ActivityLogEntry = {
@@ -3341,6 +3317,7 @@ export default function HomePage() {
                 usageCount={usageCounts.thumbnails}
                 maxUsage={USAGE_LIMITS[userRole].thumbnails}
                 onIncrementUsage={() => incrementUsage('thumbnails')}
+                onBalanceRefresh={refreshBalance}
                 onLogActivity={(entry) => {
                   if (user) {
                     const logEntry: ActivityLogEntry = {

@@ -26,6 +26,8 @@ interface Props {
   platforms: Platform[]
   user?: { username: string } | null
   onLogActivity?: (entry: { action: string; details: string }) => void
+  /** Sync parent header coin display (ThumbnailGenerator uses its own useCoins for deduct) */
+  onBalanceRefresh?: () => void
   isDisabled?: boolean // When tab access is restricted
   usageCount?: number // Current usage count for limited roles
   maxUsage?: number | 'unlimited' // Max allowed usage
@@ -39,6 +41,7 @@ export default function ThumbnailGenerator({
   platforms, 
   user, 
   onLogActivity,
+  onBalanceRefresh,
   isDisabled = false,
   usageCount = 0,
   maxUsage = 'unlimited',
@@ -208,6 +211,8 @@ export default function ThumbnailGenerator({
         setIsGenerating(false)
         return
       }
+
+      onBalanceRefresh?.()
 
       // Log thumbnail generation activity
       if (user && onLogActivity) {
