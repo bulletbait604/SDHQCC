@@ -1696,8 +1696,10 @@ export default function HomePage() {
           alert(cap.error || 'Could not complete donation. Try again or contact support.')
           return
         }
-        setShowDonatePopup(false)
+        // Close modal only after capture succeeds and after user sees thanks — if we unmount
+        // the PayPal button container before onApprove's promise resolves, PayPal's overlay can spin forever.
         alert('Thank you for your donation!')
+        setShowDonatePopup(false)
       },
       onError: (err: { message?: string }) => {
         console.error('[Donate]', err)
