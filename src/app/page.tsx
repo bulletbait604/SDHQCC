@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
 import CoinPurchase from '@/app/components/CoinPurchase'
+import ResourceHubTab from '@/app/components/ResourceHubTab'
 import { useCoins, COIN_COSTS } from '@/hooks/useCoins'
 import {
   User,
@@ -45,7 +46,8 @@ import {
   Upload,
   Mail,
   Download,
-  Wand2
+  Wand2,
+  BookOpen
 } from 'lucide-react'
 import { createKickAuthURL } from '@/lib/kick-oauth'
 import { getClientCookie, setClientCookie } from '@/lib/clientCookies'
@@ -132,6 +134,7 @@ const translations = {
     clipAnalyzer: 'Clip Analyzer',
     contentAnalyzer: 'Content Analyzer',
     kickClips: 'KICK Clips',
+    resourceHub: 'Resource Hub',
     settings: 'Settings',
     logout: 'Logout',
     verifySubscription: 'Subscribe · $9.50 CAD/mo',
@@ -164,6 +167,7 @@ const translations = {
     clipAnalyzer: 'Analizador de Clips',
     contentAnalyzer: 'Analizador de Contenido',
     kickClips: 'KICK Clips',
+    resourceHub: 'Centro de recursos',
     settings: 'Configuración',
     logout: 'Cerrar sesión',
     verifySubscription: 'Suscribirse · $9.50 CAD/mes',
@@ -196,6 +200,7 @@ const translations = {
     clipAnalyzer: 'Analyseur de Clips',
     contentAnalyzer: 'Analyseur de Contenu',
     kickClips: 'KICK Clips',
+    resourceHub: 'Centre de ressources',
     settings: 'Paramètres',
     logout: 'Déconnexion',
     verifySubscription: "S'abonner · $9,50 CAD/mois",
@@ -228,6 +233,7 @@ const translations = {
     clipAnalyzer: 'Clip Analyzer',
     contentAnalyzer: 'Content Analyzer',
     kickClips: 'KICK Clips',
+    resourceHub: 'Ressourcen-Hub',
     settings: 'Einstellungen',
     logout: 'Abmelden',
     verifySubscription: 'Abonnieren · $9,50 CAD/Monat',
@@ -2564,7 +2570,7 @@ export default function HomePage() {
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className={`grid w-full grid-cols-6 ${tabListClasses}`}>
+            <TabsList className={`grid w-full grid-cols-7 ${tabListClasses}`}>
               <TabsTrigger 
                 value="algorithms-explained" 
                 className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
@@ -2599,6 +2605,13 @@ export default function HomePage() {
               >
                 <Video className="w-4 h-4" />
                 <span className="hidden sm:inline">{t.kickClips}</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="resource-hub"
+                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
+              >
+                <BookOpen className="w-4 h-4" />
+                <span className="hidden sm:inline">{t.resourceHub}</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="settings"
@@ -4060,7 +4073,6 @@ export default function HomePage() {
               </div>
             </TabsContent>
 
-
             <TabsContent value="kick-clips">
               <div className={`py-8 ${cardClasses}`}>
                 <div className="flex flex-col items-center mb-6">
@@ -4076,6 +4088,11 @@ export default function HomePage() {
                 <p className={`text-center ${subtitleClasses}`}>{t.comingSoon}</p>
               </div>
             </TabsContent>
+
+            <TabsContent value="resource-hub">
+              <ResourceHubTab darkMode={darkMode} cardClasses={cardClasses} />
+            </TabsContent>
+
             <TabsContent value="settings">
               <div className={`py-8 ${cardClasses}`}>
                 <div className="flex flex-col items-center mb-6">
