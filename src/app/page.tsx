@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import Image from 'next/image'
 
 // TypeScript declaration for PayPal (namespaced loaders avoid subscription vs one-time SDK clashes)
@@ -262,6 +262,18 @@ const translations = {
   }
 };
 
+/** Persist tab across full reload (see handleMainTabChange) */
+const SDHQ_ACTIVE_TAB_KEY = 'sdhq_active_tab_restore'
+const VALID_MAIN_TABS = new Set([
+  'algorithms-explained',
+  'tag-generator-free',
+  'thumbnail-generator',
+  'clip-analyzer',
+  'kick-clips',
+  'resource-hub',
+  'settings',
+])
+
 /** Case-insensitive match in isOwner; server uses OWNER_USERNAMES env for admin APIs */
 const OWNER_USERNAMES = ['bulletbait604']
 
@@ -339,6 +351,29 @@ export default function HomePage() {
   const [user, setUser] = useState<KickUser | null>(null)
   const [mounted, setMounted] = useState(false)
   const [activeTab, setActiveTab] = useState('algorithms-explained')
+
+  /** After reload-from-tab-switch, restore tab before paint (coin balance refetches on full navigation). */
+  useLayoutEffect(() => {
+    try {
+      const v = sessionStorage.getItem(SDHQ_ACTIVE_TAB_KEY)
+      if (v && VALID_MAIN_TABS.has(v)) {
+        sessionStorage.removeItem(SDHQ_ACTIVE_TAB_KEY)
+        setActiveTab(v)
+      }
+    } catch {
+      /* storage unavailable */
+    }
+  }, [])
+
+  const handleMainTabChange = (value: string) => {
+    if (!VALID_MAIN_TABS.has(value)) return
+    try {
+      sessionStorage.setItem(SDHQ_ACTIVE_TAB_KEY, value)
+    } catch {
+      /* private mode — still reload */
+    }
+    window.location.reload()
+  }
   const [language, setLanguage] = useState<Language>('en')
   const [darkMode, setDarkMode] = useState(true)
   const [showSettings, setShowSettings] = useState(false)
@@ -2661,7 +2696,7 @@ export default function HomePage() {
             </div>
           </div>
         ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <Tabs value={activeTab} onValueChange={handleMainTabChange} className="space-y-6">
             <TabsList className={`grid w-full grid-cols-7 ${tabListClasses}`}>
               <TabsTrigger 
                 value="algorithms-explained" 
