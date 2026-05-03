@@ -1,8 +1,13 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
+import clientPromise from '@/lib/mongodb'
+import { verifyAuth, hasUnlimitedAccess, AuthError } from '@/lib/auth/verifyAuth'
+import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
 
 // Force dynamic rendering to prevent static optimization
 export const dynamic = 'force-dynamic'
+
+const CLIP_ANALYZE_COIN_COST = 2
 
 // Use gemini-2.5-flash model (stable release)
 const MODEL_NAME = 'gemini-2.5-flash'
@@ -30,13 +35,15 @@ function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean
   return { allowed: true, remaining: maxUses - record.count, resetTime: record.resetTime }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   console.log('[DEBUG] Clip Analyze API: Request received - DEPLOY: f3366cc')
   
   try {
+    const user = await verifyAuth(request)
+
     console.log('[DEBUG] Clip Analyze API: Parsing request body...')
     const body = await request.json()
-    const { fileUri, mimeType, fileName, fileSize, platform, userId, userType } = body
+    const { fileUri, mimeType, fileName, fileSize, platform } = body
 
     console.log('[DEBUG] Clip Analyze API: Request data:', { 
       hasFileUri: !!fileUri, 
@@ -45,8 +52,8 @@ export async function POST(request: Request) {
       fileName,
       fileSizeMB: fileSize ? (fileSize / (1024 * 1024)).toFixed(2) : 'unknown',
       platform, 
-      userId, 
-      userType,
+      username: user.username,
+      role: user.role,
       timestamp: new Date().toISOString()
     })
 
@@ -73,20 +80,35 @@ export async function POST(request: Request) {
     // Note: 150MB limit is enforced on the frontend for direct URLs
     // Videos larger than 150MB may not be accessible for analysis
 
-    // Rate limiting
-    const identifier = userId || 'anonymous'
-    let maxUses = 5 // Default for subscribers
+    // Rate limiting — auth from session; allow paid tiers + free users with enough coins
+    const identifier = user.username.toLowerCase()
+    let maxUses = 5
 
-    if (userType === 'owner' || userType === 'admin' || userType === 'lifetime') {
-      maxUses = 999999 // Unlimited
-    } else if (userType === 'subscribed') {
+    if (hasUnlimitedAccess(user)) {
+      maxUses = 999999
+    } else if (user.role === 'subscriber' || user.role === 'subscriber_lifetime') {
       maxUses = 5
+    } else if (user.role === 'free') {
+      const client = await clientPromise
+      const db = client.db('sdhq')
+      const balanceKey = await resolveCoinBalanceUserId(db, user)
+      const row = await db.collection('coinBalances').findOne({ userId: balanceKey })
+      const coins = typeof row?.coins === 'number' ? row.coins : 0
+      if (coins < CLIP_ANALYZE_COIN_COST) {
+        return NextResponse.json(
+          {
+            error: 'Not enough coins',
+            userMessage: `Clip Analyzer needs at least ${CLIP_ANALYZE_COIN_COST} coins. Purchase coins or upgrade for unlimited access.`,
+          },
+          { status: 403 }
+        )
+      }
+      maxUses = 999999
     } else {
-      console.error('[DEBUG] Clip Analyze API: Access denied - subscription required')
       return NextResponse.json({ error: 'Access denied. Subscription required.' }, { status: 403 })
     }
 
-    console.log('[DEBUG] Clip Analyze API: Rate limiting:', { identifier, maxUses, userType })
+    console.log('[DEBUG] Clip Analyze API: Rate limiting:', { identifier, maxUses, role: user.role })
     
     const rateLimit = checkRateLimit(`clip-analyzer-${identifier}`, maxUses)
     
@@ -376,6 +398,9 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
 
     return response
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode })
+    }
     console.error('[DEBUG] Clip Analyze API: Unhandled error:', error)
     console.error('[DEBUG] Clip Analyze API: Error stack:', error instanceof Error ? error.stack : 'No stack available')
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'

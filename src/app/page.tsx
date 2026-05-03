@@ -127,7 +127,7 @@ const translations = {
     kickClips: 'KICK Clips',
     settings: 'Settings',
     logout: 'Logout',
-    verifySubscription: 'Subscribe',
+    verifySubscription: 'Subscribe · $9.50 CAD/mo',
     admin: 'Admin',
     subscribers: 'Subscribers',
     addSubscriber: 'Add Subscriber',
@@ -159,7 +159,7 @@ const translations = {
     kickClips: 'KICK Clips',
     settings: 'Configuración',
     logout: 'Cerrar sesión',
-    verifySubscription: 'Verificar Suscripción',
+    verifySubscription: 'Suscribirse · $9.50 CAD/mes',
     admin: 'Admin',
     subscribers: 'Suscriptores',
     addSubscriber: 'Agregar Suscriptor',
@@ -191,7 +191,7 @@ const translations = {
     kickClips: 'KICK Clips',
     settings: 'Paramètres',
     logout: 'Déconnexion',
-    verifySubscription: 'Vérifier Abonnement',
+    verifySubscription: "S'abonner · $9,50 CAD/mois",
     admin: 'Admin',
     subscribers: 'Abonnés',
     addSubscriber: 'Ajouter Abonné',
@@ -223,7 +223,7 @@ const translations = {
     kickClips: 'KICK Clips',
     settings: 'Einstellungen',
     logout: 'Abmelden',
-    verifySubscription: 'Abonnement Verifizieren',
+    verifySubscription: 'Abonnieren · $9,50 CAD/Monat',
     admin: 'Admin',
     subscribers: 'Abonnenten',
     addSubscriber: 'Abonnent Hinzufügen',
@@ -1548,9 +1548,16 @@ export default function HomePage() {
         throw new Error(typeof data.error === 'string' ? data.error : 'Could not send feedback.')
       }
       setFeedbackMessage('')
-      alert(
-        `Thanks! Your message was saved for staff (${data.staffEmail || 'bulletbait604@gmail.com'}). You can also email that address directly if needed.`
-      )
+      const staff = data.staffEmail || 'bulletbait604@gmail.com'
+      if (data.emailSent === true) {
+        alert(
+          `Thanks! We emailed ${staff} with your message. We'll reply to you at ${email} when we can.`
+        )
+      } else {
+        alert(
+          `Thanks! Your message was saved. We couldn’t send the automatic email just now — please also contact ${staff} if it’s urgent.`
+        )
+      }
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Could not send feedback.')
     } finally {
@@ -2349,8 +2356,13 @@ export default function HomePage() {
                   </div>
                   {userRole === 'free' ? (
                     <div className="flex items-center gap-2 ml-2 shrink-0">
-                      <Button variant="outline" size="sm" onClick={handleVerifySubscription}>
-                        <Shield className="w-4 h-4 mr-1" />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleVerifySubscription}
+                        className="max-w-[min(100vw-8rem,18rem)] whitespace-normal text-center leading-snug sm:max-w-none sm:whitespace-nowrap"
+                      >
+                        <Shield className="w-4 h-4 mr-1 shrink-0" />
                         {t.verifySubscription}
                       </Button>
                       <button

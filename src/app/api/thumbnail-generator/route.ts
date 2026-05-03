@@ -14,13 +14,71 @@ const r2 = new S3Client({
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API! });
 
+/** Aspect / pixel hints per platform (vertical shorts vs horizontal vs Instagram) */
+function thumbnailSpecFromPlatforms(platforms: string[] | undefined): {
+  label: string;
+  pixels: string;
+  aspectNote: string;
+} {
+  const ids = Array.isArray(platforms) ? platforms : [];
+  const wantsPortrait =
+    ids.some((id) =>
+      ["youtube-shorts", "tiktok", "facebook-reels"].includes(id)
+    ) && !ids.some((id) => id === "youtube-long");
+  const wantsInstagram = ids.includes("instagram");
+  const wantsLandscape =
+    ids.includes("youtube-long") ||
+    ids.includes("twitter") ||
+    (!wantsPortrait && !wantsInstagram && ids.length > 0);
+
+  if (wantsInstagram && !wantsPortrait && !ids.includes("youtube-long")) {
+    return {
+      label: "Instagram",
+      pixels: "1080×1350 pixels (4:5 portrait feed)",
+      aspectNote:
+        "Portrait 4:5 ratio optimized for Instagram feed; safe margins for UI overlays.",
+    };
+  }
+  if (wantsInstagram && wantsLandscape) {
+    return {
+      label: "Mixed / Instagram + horizontal",
+      pixels: "1280×720 pixels (16:9)",
+      aspectNote:
+        "16:9 landscape; strong focal subject centered for cross-posting.",
+    };
+  }
+  if (wantsPortrait || (wantsInstagram && !wantsLandscape)) {
+    return {
+      label: "Vertical (9:16)",
+      pixels: "1080×1920 pixels (9:16)",
+      aspectNote:
+        "Full vertical 9:16 for TikTok, YouTube Shorts, Facebook Reels; leave headroom for mobile UI.",
+    };
+  }
+  if (wantsLandscape) {
+    return {
+      label: "Horizontal (16:9)",
+      pixels: "1280×720 pixels (16:9)",
+      aspectNote:
+        "Classic widescreen YouTube thumbnail; bold readable title zones.",
+    };
+  }
+  return {
+    label: "Horizontal (16:9)",
+    pixels: "1280×720 pixels (16:9)",
+    aspectNote: "Balanced 16:9 thumbnail composition.",
+  };
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { prompt, imageBase64, mimeType, sessionId } = await req.json();
+    const { prompt, imageBase64, mimeType, sessionId, platforms } = await req.json();
 
     if (!prompt) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
     }
+
+    const spec = thumbnailSpecFromPlatforms(platforms);
 
     const parts: any[] = [];
 
@@ -42,16 +100,18 @@ export async function POST(req: NextRequest) {
 
     // Add prompt text - keep it concise for faster generation
     const promptText = imageBase64
-      ? `You are a professional YouTube thumbnail designer. An image is provided - use it as the focal point.
+      ? `You are a professional multi-platform thumbnail designer. An image is provided - use it as the focal point.
 
 Instructions: ${truncatedPrompt}
 
-Output: 1280x720 landscape thumbnail. High contrast, bold colors, clear visual hierarchy, space for text overlays.`
-      : `You are a professional YouTube thumbnail designer.
+Output dimensions: ${spec.pixels} (${spec.label}). ${spec.aspectNote}
+High contrast, bold colors, clear visual hierarchy, space for text overlays.`
+      : `You are a professional multi-platform thumbnail designer.
 
 Instructions: ${truncatedPrompt}
 
-Output: 1280x720 landscape thumbnail. High contrast, bold colors, clear visual hierarchy, space for text overlays.`;
+Output dimensions: ${spec.pixels} (${spec.label}). ${spec.aspectNote}
+High contrast, bold colors, clear visual hierarchy, space for text overlays.`;
 
     parts.push({ text: promptText });
 

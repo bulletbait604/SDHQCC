@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { verifyAuth, AuthError } from '@/lib/auth/verifyAuth'
+import { sendContactStaffEmail } from '@/lib/sendContactNotification'
 
 export const dynamic = 'force-dynamic'
 
-const STAFF_EMAIL = 'bulletbait604@gmail.com'
+const STAFF_EMAIL =
+  process.env.FEEDBACK_NOTIFY_EMAIL?.trim() || 'bulletbait604@gmail.com'
 
 function isValidEmail(s: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim())
@@ -37,9 +39,16 @@ export async function POST(req: NextRequest) {
       createdAt: new Date().toISOString(),
     })
 
+    const notify = await sendContactStaffEmail({
+      kickUsername: user.username,
+      replyEmail,
+      message,
+    })
+
     return NextResponse.json({
       ok: true,
       staffEmail: STAFF_EMAIL,
+      emailSent: notify.sent,
     })
   } catch (e) {
     if (e instanceof AuthError) {

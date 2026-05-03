@@ -48,21 +48,25 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
       return
     }
 
-    if (typeof window !== 'undefined' && window.paypal) {
+    type Win = Window & { paypal_coins?: typeof window.paypal }
+    const w = window as Win
+
+    if (typeof window !== 'undefined' && w.paypal_coins) {
       setSdkReady(true)
       return
     }
 
-    const existing = document.querySelector<HTMLScriptElement>('script[data-sdhq-paypal-sdk]')
+    const existing = document.querySelector<HTMLScriptElement>('script[data-sdhq-paypal-coins-sdk]')
     if (existing) {
-      if (window.paypal) setSdkReady(true)
+      if (w.paypal_coins) setSdkReady(true)
       else existing.addEventListener('load', () => setSdkReady(true), { once: true })
       return
     }
 
     const script = document.createElement('script')
-    script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=CAD`
-    script.setAttribute('data-sdhq-paypal-sdk', '1')
+    script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=CAD&disable-funding=paylater`
+    script.setAttribute('data-sdhq-paypal-coins-sdk', '1')
+    script.setAttribute('data-namespace', 'paypal_coins')
     script.setAttribute('data-sdk-integration-source', 'button-factory')
     script.onload = () => setSdkReady(true)
     script.onerror = () => setError('Failed to load PayPal.')
@@ -72,7 +76,9 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
   useEffect(() => {
     if (!isOpen || !sdkReady || !selectedPackage || !userId.trim()) return
     const container = paypalContainerRef.current
-    if (!container || !window.paypal) return
+    type Win = Window & { paypal_coins?: typeof window.paypal }
+    const paypalSdk = (window as Win).paypal_coins
+    if (!container || !paypalSdk) return
 
     container.innerHTML = ''
     setError('')
@@ -81,7 +87,7 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
     /** Mirrors src/app/api/coins/purchase/route.ts custom_id */
     const customId = `${uid}|coins|${selectedPackage.id}|${selectedPackage.coins}|${selectedPackage.price}`
 
-    const buttons = window.paypal.Buttons({
+    const buttons = paypalSdk.Buttons({
       style: {
         shape: 'pill',
         color: 'gold',

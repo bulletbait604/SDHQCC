@@ -194,8 +194,11 @@ export default function ThumbnailGenerator({
         description: result.description,
       }
 
-      // Push current result to history before replacing (keep last 3)
-      if (result) setHistory(prev => [result, ...prev].slice(0, 3))
+      // Keep last 3 completed generations (same shape as result cards)
+      setHistory((prev) => {
+        const withoutDup = prev.filter((p) => p.key !== newResult.key)
+        return [newResult, ...withoutDup].slice(0, 3)
+      })
       setResult(newResult)
 
       // Deduct coins for free users
@@ -245,6 +248,19 @@ export default function ThumbnailGenerator({
     link.download = `thumbnail-${Date.now()}.${ext}`
     link.click()
   }
+
+  /** Preview container matches dominant platform aspect */
+  const previewAspectClass = (() => {
+    const ids = selectedPlatforms
+    const verticalOnly =
+      ids.some((id) => ['youtube-shorts', 'tiktok', 'facebook-reels'].includes(id)) &&
+      !ids.includes('youtube-long') &&
+      !ids.includes('twitter')
+    const igOnly = ids.length === 1 && ids[0] === 'instagram'
+    if (igOnly) return 'aspect-[4/5] w-full max-w-sm mx-auto'
+    if (verticalOnly) return 'aspect-[9/16] w-full max-w-sm mx-auto'
+    return 'aspect-video w-full'
+  })()
 
   const presets = [
     { label: '🎮 Gaming', text: 'Explosive gaming thumbnail with dramatic lighting, neon accents, and space for a bold title' },
@@ -473,14 +489,14 @@ export default function ThumbnailGenerator({
               </div>
             ) : result ? (
               <div className="space-y-3">
-                <div className={`relative rounded-xl overflow-hidden border-2 border-cyan-500`}>
+                <div className={`relative rounded-xl overflow-hidden border-2 border-cyan-500 ${previewAspectClass}`}>
                   <Image
                     src={`data:${result.mimeType};base64,${result.imageBase64}`}
                     alt="Generated thumbnail"
                     width={800}
                     height={450}
                     unoptimized
-                    className="w-full object-cover"
+                    className="h-full w-full object-cover"
                   />
                   <div className="absolute top-2 right-2 flex gap-2">
                     <button

@@ -1,5 +1,62 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
+import clientPromise from '@/lib/mongodb'
+
+export const dynamic = 'force-dynamic'
+
+const ALGORITHM_SNAPSHOT_COLLECTION = 'algorithm_snapshots'
+const ALGORITHM_DOC_ID = 'current'
+
+type AlgorithmSnapshotPayload = {
+  data: Record<string, unknown>
+  lastUpdated: string | null
+  provider?: string
+  errors?: string[]
+}
+
+async function readDataFromMongo(): Promise<AlgorithmSnapshotPayload | null> {
+  try {
+    const client = await clientPromise
+    const db = client.db('sdhq')
+    const doc = await db
+      .collection(ALGORITHM_SNAPSHOT_COLLECTION)
+      .findOne<{ payload: AlgorithmSnapshotPayload }>({ _id: ALGORITHM_DOC_ID })
+    const payload = doc?.payload
+    if (
+      payload?.data &&
+      typeof payload.data === 'object' &&
+      Object.keys(payload.data).length > 0
+    ) {
+      return payload
+    }
+    return null
+  } catch (error) {
+    console.error('[Algorithms] MongoDB read failed:', error)
+    return null
+  }
+}
+
+async function writeDataToMongo(payload: AlgorithmSnapshotPayload): Promise<void> {
+  try {
+    const client = await clientPromise
+    await client
+      .db('sdhq')
+      .collection(ALGORITHM_SNAPSHOT_COLLECTION)
+      .updateOne(
+        { _id: ALGORITHM_DOC_ID },
+        {
+          $set: {
+            payload,
+            updatedAt: new Date().toISOString(),
+          },
+        },
+        { upsert: true }
+      )
+    console.log('[Algorithms] Saved to MongoDB')
+  } catch (error) {
+    console.error('[Algorithms] MongoDB write failed:', error)
+  }
+}
 
 const platforms = [
   { id: 'tiktok', name: 'TikTok' },
@@ -15,8 +72,14 @@ const GITHUB_REPO = process.env.GITHUB_REPO || 'hashy-tag-databases'
 const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main'
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN
 
-async function readData() {
-  // Try to read from GitHub first
+async function readData(): Promise<AlgorithmSnapshotPayload> {
+  const fromMongo = await readDataFromMongo()
+  if (fromMongo) {
+    console.log('[Algorithms] Loaded from MongoDB')
+    return fromMongo
+  }
+
+  // GitHub mirror / legacy
   if (GITHUB_TOKEN) {
     try {
       const url = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/contents/algorithm-data.json?ref=${GITHUB_BRANCH}`
@@ -30,6 +93,7 @@ async function readData() {
       if (response.ok) {
         const fileData = await response.json()
         const content = Buffer.from(fileData.content, 'base64').toString('utf-8')
+        console.log('[Algorithms] Loaded from GitHub')
         return JSON.parse(content)
       }
     } catch (error) {
@@ -43,14 +107,16 @@ async function readData() {
     const path = await import('path')
     const filePath = path.join(process.cwd(), 'algorithm-data.json')
     const data = await fs.readFile(filePath, 'utf-8')
+    console.log('[Algorithms] Loaded from local algorithm-data.json')
     return JSON.parse(data)
   } catch (error) {
     return { data: {}, lastUpdated: null }
   }
 }
 
-async function writeData(data: any) {
-  // Try to write to GitHub first
+async function writeData(data: AlgorithmSnapshotPayload) {
+  await writeDataToMongo(data)
+
   if (GITHUB_TOKEN) {
     try {
       // Get current file SHA
@@ -502,7 +568,7 @@ export async function POST(request: Request) {
   
   // Read existing data first
   const existingData = await readData()
-  const data: any = { data: { ...existingData.data } }
+  const data: any = { data: { ...(existingData.data || {}) } }
   const errors: string[] = []
 
   const platformsToRefresh = platformId 

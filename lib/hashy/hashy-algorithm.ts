@@ -8,7 +8,7 @@
 import fs from 'fs';
 import path from 'path';
 
-// GitHub configuration - set these in .env.local
+// GitHub configuration — set via environment variables on your host
 const GITHUB_USERNAME = process.env.GITHUB_USERNAME || 'your-username';
 const GITHUB_REPO = process.env.GITHUB_REPO || 'hashy-tag-databases';
 const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main';
