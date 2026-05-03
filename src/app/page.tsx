@@ -4743,8 +4743,11 @@ export default function HomePage() {
 
       {/* Subscribe Popup */}
       {showSubscribePopup && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-md w-full p-6 shadow-2xl`}>
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50">
+          <div className="flex min-h-full items-center justify-center p-4 py-8">
+            <div
+              className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} w-full max-w-md max-h-[min(90vh,100dvh-2rem)] overflow-y-auto rounded-xl p-6 shadow-2xl`}
+            >
             <div className="flex items-center justify-between mb-4">
               <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Unlock Premium Features</h3>
               <button 
@@ -4852,14 +4855,18 @@ export default function HomePage() {
                 Close
               </Button>
             </div>
+            </div>
           </div>
         </div>
       )}
 
       {/* Lifetime Pass — one-time checkout (not PayPal Subscription plans / no PLAN_ID env) */}
       {showLifetimePopup && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-md w-full p-6 shadow-2xl`}>
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50">
+          <div className="flex min-h-full items-center justify-center p-4 py-8">
+            <div
+              className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} w-full max-w-md max-h-[min(90vh,100dvh-2rem)] overflow-y-auto rounded-xl p-6 shadow-2xl`}
+            >
             <div className="flex items-center justify-between mb-4">
               <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Lifetime Pass</h3>
               <button 
@@ -4901,6 +4908,7 @@ export default function HomePage() {
                 Close
               </Button>
             </div>
+            </div>
           </div>
         </div>
       )}
@@ -4936,8 +4944,11 @@ export default function HomePage() {
 
       {/* Donate Popup */}
       {showDonatePopup && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-md w-full p-6 shadow-2xl`}>
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50">
+          <div className="flex min-h-full items-center justify-center p-4 py-8">
+            <div
+              className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} w-full max-w-md max-h-[min(90vh,100dvh-2rem)] overflow-y-auto rounded-xl p-6 shadow-2xl`}
+            >
             <div className="flex items-center justify-between mb-4">
               <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Support Stream Dreams</h3>
               <button 
@@ -4966,8 +4977,8 @@ export default function HomePage() {
                   PayPal is not configured for this mode (set NEXT_PUBLIC_PAYPAL_MODE and matching client ID on the server).
                 </p>
               ) : null}
-              {paypalCfg?.warning ? (
-                <p className={`text-sm ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>{paypalCfg.warning}</p>
+              {paypalCfg?.coinWarning ? (
+                <p className={`text-sm ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>{paypalCfg.coinWarning}</p>
               ) : null}
 
               <div>
@@ -5034,6 +5045,7 @@ export default function HomePage() {
             <p className={`mt-4 text-xs text-center ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
               Opens PayPal to complete your donation in USD. Thank you for your support!
             </p>
+            </div>
           </div>
         </div>
       )}

@@ -386,11 +386,6 @@ export default function ThumbnailGenerator({
                   : `⚠️ Need ${COIN_COST} coins (you have ${balance})`}
               </div>
             )}
-            {hasUnlimitedAccess && (
-              <div className="text-xs text-green-500 mb-2">
-                ✨✨ Unlimited access (no coin cost)
-              </div>
-            )}
             <button
               onClick={() => generate()}
               disabled={isGenerating || !prompt.trim() || (!hasUnlimitedAccess && !hasEnoughCoins('thumbnail-generator'))}

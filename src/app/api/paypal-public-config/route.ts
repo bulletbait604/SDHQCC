@@ -18,26 +18,30 @@ export async function GET() {
   const clientId = paypalSdkClientId() ?? null
   const planId = paypalSdkPlanId() ?? null
 
-  const warnings: string[] = []
+  /** SDK / client-ID issues that affect all PayPal flows (Subscribe, coins, donations). */
+  const sdkWarnings: string[] = []
+  /** Subscription Billing Plan only — must not appear on coin/donation popups. */
+  const subscribePlanWarnings: string[] = []
+
   if (sandbox && !clientId) {
-    warnings.push(
+    sdkWarnings.push(
       'Sandbox mode is active but no sandbox Client ID was found. Set NEXT_PUBLIC_PAYPAL_CLIENT_ID_SANDBOX (recommended) or PAYPAL_CLIENT_ID_SANDBOX in Vercel.'
     )
   }
   if (sandbox && paypalSandboxUsingGenericPlanFallback()) {
-    warnings.push(
+    subscribePlanWarnings.push(
       'Sandbox mode is falling back to NEXT_PUBLIC_PAYPAL_PLAN_ID because NEXT_PUBLIC_PAYPAL_PLAN_ID_SANDBOX is empty. A live Plan ID will not work in sandbox — create a sandbox billing plan (same Sandbox REST app as your client ID) and set NEXT_PUBLIC_PAYPAL_PLAN_ID_SANDBOX=P-…'
     )
   }
   if (!planId) {
-    warnings.push(
+    subscribePlanWarnings.push(
       sandbox
         ? 'Monthly Subscribe: set NEXT_PUBLIC_PAYPAL_PLAN_ID_SANDBOX (or NEXT_PUBLIC_PAYPAL_PLAN_ID) to the Plan ID from PayPal → Subscription plans. Lifetime Pass is a one-time payment — it does not use plan IDs.'
         : 'Monthly Subscribe: set NEXT_PUBLIC_PAYPAL_PLAN_ID to the Plan ID from PayPal → Subscription plans. Lifetime Pass is one-time checkout — no plan ID.'
     )
   }
   if (planId && !paypalSubscriptionPlanIdFormatOk(planId)) {
-    warnings.push(
+    subscribePlanWarnings.push(
       'Subscribe uses a Billing Plan ID that starts with P- (PayPal → Subscription plans → copy Plan ID). Values starting with PROD- are Product IDs and will fail with INVALID_RESOURCE_ID.'
     )
   }
@@ -52,9 +56,11 @@ export async function GET() {
         pr.httpStatus === 404
           ? 'RESOURCE_NOT_FOUND: PayPal has no Billing Plan with this ID for this REST app and environment. Create a plan with the same Sandbox (or Live) app as your Client ID and secret, then set NEXT_PUBLIC_PAYPAL_PLAN_ID_SANDBOX to that P- value.'
           : `PayPal Billing Plans API returned HTTP ${pr.httpStatus ?? 'error'} for this Plan ID — check Client ID, secret, and NEXT_PUBLIC_PAYPAL_MODE.`
-      warnings.push(msg)
+      subscribePlanWarnings.push(msg)
     }
   }
+
+  const allWarnings = [...sdkWarnings, ...subscribePlanWarnings]
 
   return NextResponse.json({
     sandbox,
@@ -64,6 +70,9 @@ export async function GET() {
     planIdFormatOk: planId ? paypalSubscriptionPlanIdFormatOk(planId) : null,
     /** null = could not verify (no server secret); false = PayPal returned error / 404 for this P- id */
     planResolvedOnPayPal,
-    warning: warnings.length ? warnings.join(' ') : null,
+    /** All warnings (Subscribe popup, diagnostics). */
+    warning: allWarnings.length ? allWarnings.join(' ') : null,
+    /** One-time checkout only (coins, donations) — excludes subscription plan messages. */
+    coinWarning: sdkWarnings.length ? sdkWarnings.join(' ') : null,
   })
 }

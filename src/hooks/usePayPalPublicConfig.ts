@@ -10,7 +10,10 @@ export type PayPalPublicConfig = {
   planIdFormatOk?: boolean | null
   /** null = server did not verify (no Client Secret); false = PayPal API could not load this Plan ID */
   planResolvedOnPayPal?: boolean | null
+  /** All warnings (e.g. Subscribe popup). */
   warning: string | null
+  /** SDK/client issues only — use in coin & donation flows (no subscription plan noise). */
+  coinWarning?: string | null
 }
 
 /**

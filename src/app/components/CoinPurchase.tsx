@@ -179,8 +179,11 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-md w-full p-6 shadow-2xl`}>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50">
+      <div className="flex min-h-full items-center justify-center p-4 py-8">
+        <div
+          className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} w-full max-w-md max-h-[min(90vh,100dvh-2rem)] overflow-y-auto rounded-xl p-6 shadow-2xl`}
+        >
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <Coins className={`w-6 h-6 ${darkMode ? 'text-yellow-400' : 'text-yellow-500'}`} />
@@ -253,8 +256,8 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
               NEXT_PUBLIC_PAYPAL_CLIENT_ID (live) on the server.
             </p>
           ) : null}
-          {paypalCfg?.warning ? (
-            <p className={`text-sm ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>{paypalCfg.warning}</p>
+          {paypalCfg?.coinWarning ? (
+            <p className={`text-sm ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>{paypalCfg.coinWarning}</p>
           ) : null}
 
           {selectedPackage && sdkReady && (
@@ -287,6 +290,7 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
         <p className={`mt-4 text-xs text-center ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
           Uses the same PayPal client ID as lifetime membership. Server secrets are only needed for webhooks capturing orders.
         </p>
+        </div>
       </div>
     </div>
   )
