@@ -4770,10 +4770,6 @@ export default function HomePage() {
                 <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                   $9.50 CAD / month — Premium Access
                 </p>
-                <p className={`text-xs mt-2 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                  Uses your Subscription plan ID from PayPal → Subscription plans (env{' '}
-                  <span className="font-mono text-[11px]">NEXT_PUBLIC_PAYPAL_PLAN_ID*</span>). Different from Lifetime Pass below.
-                </p>
               </div>
 
               {paypalCfgLoading ? (
