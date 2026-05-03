@@ -448,7 +448,7 @@ export default function ThumbnailGenerator({
                 <Loader2 className="w-10 h-10 animate-spin text-cyan-400 mb-3" />
                 <p className={`text-sm ${subtle}`}>Generating thumbnail...</p>
                 <p className={`text-xs mt-1 ${subtle}`}>
-                  Most runs finish in ~10–45s depending on the Fal model (Nano Banana Pro is slower than FLUX Turbo).
+                  This may take up to 1 minute depending on site traffic. Please wait. DO NOT refresh until finished.
                 </p>
               </div>
             ) : result ? (
