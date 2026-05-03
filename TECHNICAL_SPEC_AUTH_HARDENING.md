@@ -1,5 +1,5 @@
 # Technical Specification: Server-Side Auth Hardening
-## SDHQ Creator Corner Backend Refactoring
+## Stream Dreams Creator Corner Backend Refactoring
 
 ---
 
@@ -499,6 +499,6 @@ curl -X POST https://api.sdcreatorcorner.com/api/tokens/purchase \
 ---
 
 **Prepared for:** Windsurf AI Agent
-**Project:** SDHQ Creator Corner
+**Project:** Stream Dreams Creator Corner
 **Priority:** Critical Security
 **Estimated Effort:** 3-4 development days

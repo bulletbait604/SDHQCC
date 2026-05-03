@@ -116,7 +116,7 @@ interface AppSettings {
 
 const translations = {
   en: {
-    welcome: 'Welcome to SDHQ Creator Corner',
+    welcome: 'Welcome to Stream Dreams Creator Corner',
     description: 'Optimize long and short form content for ANY platform with AI-powered insights and tools.',
     loginButton: 'Login with Kick to Get Started',
     algorithmsExplained: 'Algorithms Explained',
@@ -144,11 +144,11 @@ const translations = {
     tagPaidDesc: 'Advanced AI-powered tag generation with trending keywords, optimization suggestions, and platform-specific recommendations.',
     clipAnalyzerDesc: 'Analyze your video clips with AI to get insights on performance, engagement potential, and optimization recommendations.',
     contentAnalyzerDesc: 'Comprehensive content analysis with AI insights, trend detection, and optimization strategies for any platform.',
-    footerCopyright: '© 2026 SDHQ Creator Corner. All rights reserved.',
+    footerCopyright: '© 2026 Stream Dreams Creator Corner. All rights reserved.',
     footerTagline: 'AI-powered content optimization for creators.',
   },
   es: {
-    welcome: 'Bienvenido a SDHQ Creator Corner',
+    welcome: 'Bienvenido a Stream Dreams Creator Corner',
     description: 'Optimiza contenido largo y corto para CUALQUIER plataforma con herramientas e ideas impulsadas por IA.',
     loginButton: 'Iniciar sesión con Kick',
     algorithmsExplained: 'Algoritmos Explicados',
@@ -176,11 +176,11 @@ const translations = {
     tagPaidDesc: 'Generación avanzada de etiquetas con IA, palabras clave populares y recomendaciones específicas.',
     clipAnalyzerDesc: 'Analiza tus clips de video con IA para obtener información sobre rendimiento y recomendaciones.',
     contentAnalyzerDesc: 'Análisis integral de contenido con información de IA, detección de tendencias y estrategias de optimización.',
-    footerCopyright: '© 2026 SDHQ Creator Corner. Todos los derechos reservados.',
+    footerCopyright: '© 2026 Stream Dreams Creator Corner. Todos los derechos reservados.',
     footerTagline: 'Optimización de contenido impulsada por IA para creadores.',
   },
   fr: {
-    welcome: 'Bienvenue à SDHQ Creator Corner',
+    welcome: 'Bienvenue à Stream Dreams Creator Corner',
     description: 'Optimisez le contenu long et court pour TOUTE plateforme avec des outils et insights IA.',
     loginButton: 'Connexion avec Kick',
     algorithmsExplained: 'Algorithmes Expliqués',
@@ -208,11 +208,11 @@ const translations = {
     tagPaidDesc: 'Génération avancée de tags avec IA, mots-clés tendance et recommandations spécifiques.',
     clipAnalyzerDesc: 'Analysez vos clips vidéo avec IA pour des insights sur les performances.',
     contentAnalyzerDesc: 'Analyse complète du contenu avec insights IA, détection de tendances et stratégies.',
-    footerCopyright: '© 2026 SDHQ Creator Corner. Tous droits réservés.',
+    footerCopyright: '© 2026 Stream Dreams Creator Corner. Tous droits réservés.',
     footerTagline: 'Optimisation de contenu IA pour créateurs.',
   },
   de: {
-    welcome: 'Willkommen bei SDHQ Creator Corner',
+    welcome: 'Willkommen bei Stream Dreams Creator Corner',
     description: 'Optimieren Sie langen und kurzen Content für JEDE Plattform mit KI-gestützten Tools.',
     loginButton: 'Mit Kick anmelden',
     algorithmsExplained: 'Algorithmen Erklärt',
@@ -240,7 +240,7 @@ const translations = {
     tagPaidDesc: 'KI-gestützte Tag-Generierung mit Trends und plattformspezifischen Empfehlungen.',
     clipAnalyzerDesc: 'Analysieren Sie Clips mit KI für Performance-Einblicke und Optimierungen.',
     contentAnalyzerDesc: 'Umfassende Content-Analyse mit KI-Einblicken, Trend-Erkennung und Strategien.',
-    footerCopyright: '© 2026 SDHQ Creator Corner. Alle Rechte vorbehalten.',
+    footerCopyright: '© 2026 Stream Dreams Creator Corner. Alle Rechte vorbehalten.',
     footerTagline: 'KI-gestützte Content-Optimierung für Creator.',
   }
 };
@@ -1754,7 +1754,7 @@ export default function HomePage() {
                     value: '89.99',
                     currency_code: 'CAD'
                   },
-                  description: 'SDHQ Creator Corner Lifetime Membership',
+                  description: 'Stream Dreams Creator Corner Lifetime Membership',
                   custom_id: `${user.username}|lifetime`
                 }]
               })
@@ -2389,14 +2389,14 @@ export default function HomePage() {
                   }`}>
                     <Image
                       src="https://iili.io/BebhdFf.png"
-                      alt="SDHQ Logo"
+                      alt="Stream Dreams logo"
                       width={48}
                       height={48}
                       className="w-12 h-12"
                     />
                   </div>
                   <span className={`font-bold text-3xl bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 bg-clip-text text-transparent transition-all duration-300 group-hover:scale-105`}>
-                    SDHQ Creator Corner
+                    Stream Dreams Creator Corner
                   </span>
                 </div>
               )}
@@ -2463,7 +2463,7 @@ export default function HomePage() {
             <div className="flex flex-col items-center text-center w-full max-w-lg px-5 py-6">
               <Image
                 src="https://iili.io/BeYpM5F.md.png"
-                alt="SDHQ Creator Corner"
+                alt="Stream Dreams Creator Corner"
                 width={320}
                 height={320}
                 priority
@@ -4718,12 +4718,12 @@ export default function HomePage() {
             <div className={`space-y-4 text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
               <section>
                 <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>1. Acceptance of Terms</h4>
-                <p>By accessing and using SDHQ Creator Corner, you agree to be bound by these Terms of Service. If you do not agree, please do not use our service.</p>
+                <p>By accessing and using Stream Dreams Creator Corner, you agree to be bound by these Terms of Service. If you do not agree, please do not use our service.</p>
               </section>
               
               <section>
                 <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>2. Description of Service</h4>
-                <p>SDHQ Creator Corner provides AI-powered content analysis tools that help creators optimize their content for various platforms. Our services include algorithm insights, tag generation, clip analysis, and content optimization recommendations.</p>
+                <p>Stream Dreams Creator Corner provides AI-powered content analysis tools that help creators optimize their content for various platforms. Our services include algorithm insights, tag generation, clip analysis, and content optimization recommendations.</p>
               </section>
               
               <section>
@@ -4897,7 +4897,7 @@ export default function HomePage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-md w-full p-6 shadow-2xl`}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Support SDHQ</h3>
+              <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Support Stream Dreams</h3>
               <button 
                 onClick={() => setShowDonatePopup(false)}
                 className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'text-gray-600'}`}
@@ -4907,7 +4907,7 @@ export default function HomePage() {
             </div>
             
             <p className={`mb-6 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              Your donation helps us keep the lights on and continue improving the Creator Corner for everyone.
+              Your donation helps us keep the lights on and continue improving Stream Dreams Creator Corner for everyone.
             </p>
 
             <div className="space-y-4">

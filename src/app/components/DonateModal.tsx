@@ -56,7 +56,7 @@ export default function DonateModal({ onClose, darkMode = true, defaultAmount = 
         <h3 className={`text-xl font-bold text-center mb-2 ${
           darkMode ? 'text-white' : 'text-gray-900'
         }`}>
-          Support SDHQ Creator Corner
+          Support Stream Dreams Creator Corner
         </h3>
 
         {/* Message */}

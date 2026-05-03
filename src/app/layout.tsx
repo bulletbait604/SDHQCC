@@ -5,7 +5,7 @@ import Providers from './providers'
 const inter = Inter({ subsets: ['latin'], display: 'swap' })
 
 export const metadata = {
-  title: 'SDHQ Creator Corner',
+  title: 'Stream Dreams Creator Corner',
   description: 'Optimize long and short form content for ANY platform - Your complete content creation toolkit',
   icons: {
     icon: [
@@ -43,7 +43,7 @@ export default function RootLayout({
             <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <span className="text-sm font-medium text-white/95">
-                  {new Date().getFullYear()} SDHQ Creator Corner. All rights reserved.
+                  {new Date().getFullYear()} Stream Dreams Creator Corner. All rights reserved.
                 </span>
                 <span className="hidden sm:inline text-white/70">|</span>
                 <a href="/privacy" className="text-sm font-medium text-white/95 hover:text-white underline transition-opacity">

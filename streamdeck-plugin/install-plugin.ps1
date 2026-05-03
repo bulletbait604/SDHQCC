@@ -59,6 +59,6 @@ Write-Host "Plugin installed successfully!" -ForegroundColor Green
 Write-Host "=========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Please start StreamDeck now." -ForegroundColor Cyan
-Write-Host "The plugin will appear in the 'SDHQ Creator Corner' category." -ForegroundColor Cyan
+Write-Host "The plugin will appear in the 'Stream Dreams Creator Corner' category." -ForegroundColor Cyan
 Write-Host ""
 Read-Host "Press Enter to exit"

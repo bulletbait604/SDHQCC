@@ -1,7 +1,7 @@
 # Thumbnail Generator - Complete Code Review Package
 
 ## Overview
-This is the complete Thumbnail Generator implementation for the SDHQ Creator Corner app.
+This is the complete Thumbnail Generator implementation for the Stream Dreams Creator Corner app.
 
 **Stack:**
 - Next.js 14 (App Router)

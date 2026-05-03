@@ -9,7 +9,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // SDHQ Creator Corner Brand Colors
+        // Stream Dreams Creator Corner brand colors
         sdhq: {
           cyan: {
             50: '#f0fdff',

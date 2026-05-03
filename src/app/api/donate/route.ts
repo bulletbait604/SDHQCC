@@ -78,11 +78,11 @@ export async function POST(req: NextRequest) {
           currency_code: currency,
           value: amount.toFixed(2)
         },
-        description: 'Donation to SDHQ Creator Corner',
+        description: 'Donation to Stream Dreams Creator Corner',
         custom_id: `${username}|donation|${amount}|${currency}`
       }],
       application_context: {
-        brand_name: 'SDHQ Creator Corner',
+        brand_name: 'Stream Dreams Creator Corner',
         landing_page: 'NO_PREFERENCE',
         user_action: 'PAY_NOW',
         return_url: `${process.env.NEXT_PUBLIC_BASE_URL}/donate/success`,

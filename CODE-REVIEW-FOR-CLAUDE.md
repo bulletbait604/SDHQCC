@@ -1,4 +1,4 @@
-# SDHQ Creator Corner - Code Review Package for Claude
+# Stream Dreams Creator Corner - Code Review Package for Claude
 
 ## Problem Summary
 

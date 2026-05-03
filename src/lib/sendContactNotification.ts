@@ -21,14 +21,14 @@ export async function sendContactStaffEmail(opts: {
   const to = process.env.FEEDBACK_NOTIFY_EMAIL?.trim() || DEFAULT_NOTIFY_EMAIL
   const from =
     process.env.RESEND_FROM_EMAIL?.trim() ||
-    'SDHQ Creator Corner <onboarding@resend.dev>'
+    'Stream Dreams Creator Corner <onboarding@resend.dev>'
 
   if (!apiKey) {
     console.warn('[feedback] RESEND_API_KEY is not set; staff email notification skipped.')
     return { sent: false, reason: 'missing_api_key' }
   }
 
-  const subject = `[SDHQ Contact] @${opts.kickUsername}`
+  const subject = `[Stream Dreams Contact] @${opts.kickUsername}`
   const html = `
 <p><strong>Kick username:</strong> ${escapeHtml(opts.kickUsername)}</p>
 <p><strong>Reply-to address:</strong> ${escapeHtml(opts.replyEmail)}</p>

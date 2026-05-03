@@ -2,7 +2,7 @@
   "name": "sdhq-creator-corner",
   "version": "0.1.0",
   "private": true,
-  "description": "SDHQ Creator Corner - Optimize long and short form content for ANY platform",
+  "description": "Stream Dreams Creator Corner - Optimize long and short form content for ANY platform",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

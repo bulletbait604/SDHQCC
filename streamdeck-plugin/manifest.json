@@ -1,7 +1,7 @@
 {
   "Name": "com.sdhqcreator.kicklive",
   "Version": "1.0.0",
-  "Author": "SDHQ Creator Corner",
+  "Author": "Stream Dreams Creator Corner",
   "Actions": [
     {
       "Name": "KICK Live Status",
@@ -23,7 +23,7 @@
       ]
     }
   ],
-  "Category": "SDHQ Creator Corner",
+  "Category": "Stream Dreams Creator Corner",
   "CategoryIcon": "icons/category",
   "CodePathWin": "app.html",
   "CodePathMac": "app.html",

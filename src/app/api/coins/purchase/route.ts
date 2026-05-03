@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
         },
       ],
       application_context: {
-        brand_name: 'SDHQ Creator Corner',
+        brand_name: 'Stream Dreams Creator Corner',
         landing_page: 'NO_PREFERENCE',
         user_action: 'PAY_NOW',
         return_url: `${baseUrl}/?coins=success`,

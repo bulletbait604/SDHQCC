@@ -77,4 +77,4 @@ The plugin includes Cloudflare authentication headers using your provided creden
 
 ## License
 
-MIT License - SDHQ Creator Corner
+MIT License - Stream Dreams Creator Corner

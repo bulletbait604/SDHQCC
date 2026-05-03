@@ -60,7 +60,7 @@ async function createPayPalPlan() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: 'SDHQ Creator Corner Subscription',
+        name: 'Stream Dreams Creator Corner Subscription',
         description: 'Monthly subscription for premium features',
         type: 'SERVICE',
         category: 'SOFTWARE',
@@ -91,7 +91,7 @@ async function createPayPalPlan() {
       body: JSON.stringify({
         product_id: product.id,
         name: 'Monthly Subscription',
-        description: 'Monthly access to SDHQ Creator Corner premium features',
+        description: 'Monthly access to Stream Dreams Creator Corner premium features',
         status: 'ACTIVE',
         billing_cycles: [
           {

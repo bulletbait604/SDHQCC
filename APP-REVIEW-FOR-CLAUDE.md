@@ -1,9 +1,9 @@
-SDHQ CREATOR CORNER - APP REVIEW FOR CLAUDE
+STREAM DREAMS CREATOR CORNER - APP REVIEW FOR CLAUDE
 ==========================================
 
 PROJECT OVERVIEW
 ----------------
-Name: SDHQ Creator Corner
+Name: Stream Dreams Creator Corner
 Description: Optimize long and short form content for ANY platform
 Framework: Next.js 14.2.0
 Language: TypeScript
