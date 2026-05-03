@@ -29,29 +29,6 @@ const MODEL_NAME = 'gemini-2.5-flash'
 
 type ClipIngestionMode = 'r2-presigned-url' | 'r2-gemini-files' | 'legacy-gemini-file'
 
-// In-memory rate limit storage for clip analyzer
-// NOTE: On Vercel serverless, this resets on cold starts. For production, use Redis/Vercel KV.
-const clipAnalyzerRateLimitStore = new Map<string, { count: number; resetTime: number }>()
-
-function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean; remaining: number; resetTime: number | null } {
-  const now = Date.now()
-  const record = clipAnalyzerRateLimitStore.get(identifier)
-
-  if (!record || now > record.resetTime) {
-    const newRecord = { count: 1, resetTime: now + 24 * 60 * 60 * 1000 }
-    clipAnalyzerRateLimitStore.set(identifier, newRecord)
-    return { allowed: true, remaining: maxUses - 1, resetTime: newRecord.resetTime }
-  }
-
-  if (record.count >= maxUses) {
-    return { allowed: false, remaining: 0, resetTime: record.resetTime }
-  }
-
-  record.count += 1
-  clipAnalyzerRateLimitStore.set(identifier, record)
-  return { allowed: true, remaining: maxUses - record.count, resetTime: record.resetTime }
-}
-
 /**
  * Gemini sometimes returns valid JSON plus trailing prose or a duplicate blob.
  * JSON.parse(fullText) then fails with "Unexpected non-whitespace character after JSON".
@@ -125,15 +102,11 @@ export async function POST(request: NextRequest) {
     // Note: 150MB limit is enforced on the frontend for direct URLs
     // Videos larger than 150MB may not be accessible for analysis
 
-    // Rate limiting — auth from session; allow paid tiers + free users with enough coins
-    const identifier = user.username.toLowerCase()
-    let maxUses = 5
-
-    if (hasUnlimitedAccess(user)) {
-      maxUses = 999999
-    } else if (user.role === 'subscriber' || user.role === 'subscriber_lifetime') {
-      maxUses = 5
-    } else if (user.role === 'free') {
+    // Access: paid tiers unlimited; free tier gated by coin balance (coins deducted client-side after success)
+    if (!hasUnlimitedAccess(user)) {
+      if (user.role !== 'free') {
+        return NextResponse.json({ error: 'Access denied. Subscription required.' }, { status: 403 })
+      }
       const client = await clientPromise
       const db = client.db('sdhq')
       const balanceKey = await resolveCoinBalanceUserId(db, user)
@@ -148,23 +121,6 @@ export async function POST(request: NextRequest) {
           { status: 403 }
         )
       }
-      maxUses = 999999
-    } else {
-      return NextResponse.json({ error: 'Access denied. Subscription required.' }, { status: 403 })
-    }
-
-    console.log('[DEBUG] Clip Analyze API: Rate limiting:', { identifier, maxUses, role: user.role })
-    
-    const rateLimit = checkRateLimit(`clip-analyzer-${identifier}`, maxUses)
-    
-    console.log('[DEBUG] Clip Analyze API: Rate limit result:', { allowed: rateLimit.allowed, remaining: rateLimit.remaining })
-    
-    if (!rateLimit.allowed) {
-      console.log('[ACTIVITY_LOG] Clip Analyze: Rate limit exceeded for', identifier)
-      return NextResponse.json(
-        { error: 'Rate limit exceeded. You have used your daily limit.', resetTime: rateLimit.resetTime },
-        { status: 429 }
-      )
     }
 
     const geminiApiKey = process.env.GEMINI_API

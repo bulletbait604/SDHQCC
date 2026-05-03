@@ -172,7 +172,9 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
     return () => {
       container.innerHTML = ''
     }
-  }, [isOpen, sdkReady, selectedPackage, userId, onClose])
+    // onClose is not used in this effect; do not add it here — a new parent callback each render
+    // would re-run this effect, tear down and re-render PayPal buttons, and make them unclickable.
+  }, [isOpen, sdkReady, selectedPackage, userId])
 
   if (!isOpen) return null
 

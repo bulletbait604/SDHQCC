@@ -7,32 +7,6 @@ export const dynamic = 'force-dynamic'
 // Use gemini-2.5-flash model (stable release)
 const MODEL_NAME = 'gemini-2.5-flash'
 
-// In-memory rate limit storage (in production, use Redis or a database)
-// NOTE: On Vercel serverless, this resets on cold starts. For production, use Redis/Vercel KV.
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
-
-// Check rate limit
-function checkRateLimit(identifier: string, maxUses: number = 5, windowMs: number = 24 * 60 * 60 * 1000): { allowed: boolean; remaining: number; resetTime: number } {
-  const now = Date.now()
-  const userLimit = rateLimitStore.get(identifier)
-  
-  if (!userLimit || now > userLimit.resetTime) {
-    // First use or window expired
-    const resetTime = now + windowMs
-    rateLimitStore.set(identifier, { count: 1, resetTime })
-    return { allowed: true, remaining: maxUses - 1, resetTime }
-  }
-  
-  if (userLimit.count >= maxUses) {
-    return { allowed: false, remaining: 0, resetTime: userLimit.resetTime }
-  }
-  
-  // Increment count
-  userLimit.count++
-  rateLimitStore.set(identifier, userLimit)
-  return { allowed: true, remaining: maxUses - userLimit.count, resetTime: userLimit.resetTime }
-}
-
 // Generate tags using Gemini
 async function generateTagsWithGemini(description: string, platform: string, count: number): Promise<string[]> {
   const geminiApiKey = process.env.GEMINI_API
@@ -180,9 +154,8 @@ export async function GET() {
   const response = NextResponse.json({ 
     message: 'Using Gemini 2.5 Flash for tag generation',
     model: 'gemini-2.5-flash',
-    rateLimit: '5 uses per 24 hours (20 for verified users)',
+    usageLimits: 'Coin/token limits only (client enforces purchase or subscription)',
     status: 'active',
-    totalUsers: rateLimitStore.size
   })
   
   // Add cache-busting headers
@@ -192,7 +165,7 @@ export async function GET() {
   return response
 }
 
-// DELETE endpoint - reset rate limit (admin only)
+// DELETE — legacy no-op (admin); server no longer tracks per-day tag uses
 export async function DELETE(request: Request) {
   try {
     const body = await request.json()
@@ -205,12 +178,8 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     
-    // Clear all rate limits
-    rateLimitStore.clear()
-    
     return NextResponse.json({ 
-      message: 'Rate limit store cleared successfully',
-      clearedUsers: 0
+      message: 'No server use-counter store (legacy endpoint)',
     })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to reset rate limit' }, { status: 500 })
@@ -221,37 +190,10 @@ export async function DELETE(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { description, platform, count = 10, userId, isVerified } = body
+    const { description, platform, count = 10 } = body
     
     if (!description || !platform) {
       return NextResponse.json({ error: 'Description and platform are required' }, { status: 400 })
-    }
-    
-    // Use userId or IP for rate limiting
-    const identifier = userId || request.headers.get('x-forwarded-for') || 'anonymous'
-    
-    // Admin users bypass rate limit
-    const isAdmin = userId && ['bulletbait604', 'Bulletbait604'].includes(userId)
-    
-    // Verified users get 20 uses/day, regular users get 5
-    const maxUses = isVerified ? 20 : 5
-    
-    let rateLimitResult = null
-    if (!isAdmin) {
-      // Check rate limit
-      rateLimitResult = checkRateLimit(identifier, maxUses, 24 * 60 * 60 * 1000)
-      
-      if (!rateLimitResult.allowed) {
-        const resetDate = new Date(rateLimitResult.resetTime)
-        return NextResponse.json({ 
-          error: 'Rate limit exceeded',
-          message: isVerified 
-            ? 'You have used your 20 tag generations for the day. Please try again later.'
-            : 'You have used your 5 free tag generations for the day. Please try again later.',
-          resetTime: rateLimitResult.resetTime,
-          resetDate: resetDate.toISOString()
-        }, { status: 429 })
-      }
     }
     
     // Generate tags with cascading fallbacks
@@ -265,11 +207,7 @@ export async function POST(request: Request) {
       platform,
       count: tags.length,
       provider: provider,
-      rateLimit: isAdmin ? { remaining: -1, resetTime: null } : {
-        remaining: rateLimitResult!.remaining,
-        resetTime: rateLimitResult!.resetTime,
-        maxUses: maxUses
-      },
+      rateLimit: { remaining: -1, resetTime: null },
       generatedAt: new Date().toISOString()
     })
     

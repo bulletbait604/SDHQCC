@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 
 // TypeScript declaration for PayPal (namespaced loaders avoid subscription vs one-time SDK clashes)
@@ -45,7 +45,6 @@ import {
   Sparkles,
   Image as ImageIcon,
   Copy,
-  Database,
   RefreshCw,
   Upload,
   Mail,
@@ -325,16 +324,6 @@ const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
   }
 };
 
-// Usage limits configuration
-const USAGE_LIMITS: Record<Role, { tags: number | 'unlimited'; thumbnails: number | 'unlimited'; clips: number | 'unlimited' }> = {
-  free: { tags: 'unlimited', thumbnails: 'unlimited', clips: 'unlimited' },
-  subscriber: { tags: 'unlimited', thumbnails: 'unlimited', clips: 'unlimited' },
-  subscriber_lifetime: { tags: 'unlimited', thumbnails: 'unlimited', clips: 'unlimited' },
-  admin: { tags: 'unlimited', thumbnails: 'unlimited', clips: 'unlimited' },
-  owner: { tags: 'unlimited', thumbnails: 'unlimited', clips: 'unlimited' },
-  tester: { tags: 'unlimited', thumbnails: 15, clips: 15 } // Tester: unlimited tags, 15 thumbnails, 15 clips
-};
-
 export default function HomePage() {
   const [user, setUser] = useState<KickUser | null>(null)
   const [mounted, setMounted] = useState(false)
@@ -354,29 +343,9 @@ export default function HomePage() {
   const [coinGrantAmount, setCoinGrantAmount] = useState<number>(10)
   const [isGrantingCoins, setIsGrantingCoins] = useState(false)
   
-  // Usage tracking for limited roles (tester, etc.)
-  const [usageCounts, setUsageCounts] = useState<{
-    thumbnails: number;
-    clips: number;
-  }>({ thumbnails: 0, clips: 0 })
-  
   // Helper function to check if user has access to a tab
   const hasTabAccess = (tabId: string): boolean => {
     return TAB_PERMISSIONS[userRole]?.[tabId] ?? true
-  }
-  
-  // Helper function to check if user has reached usage limit
-  const checkUsageLimit = (type: 'thumbnails' | 'clips'): boolean => {
-    const limits = USAGE_LIMITS[userRole]
-    if (limits[type] === 'unlimited') return false
-    return usageCounts[type] >= (limits[type] as number)
-  }
-  
-  // Helper function to increment usage count
-  const incrementUsage = (type: 'thumbnails' | 'clips') => {
-    if (USAGE_LIMITS[userRole][type] !== 'unlimited') {
-      setUsageCounts(prev => ({ ...prev, [type]: prev[type] + 1 }))
-    }
   }
   
   // Legacy state (will be removed after migration)
@@ -408,6 +377,7 @@ export default function HomePage() {
   const [feedbackMessage, setFeedbackMessage] = useState('')
   const [feedbackSending, setFeedbackSending] = useState(false)
   const [showCoinPurchase, setShowCoinPurchase] = useState(false)
+  const closeCoinPurchase = useCallback(() => setShowCoinPurchase(false), [])
 
   /** Runtime PayPal mode + IDs from server (avoids stale NEXT_PUBLIC_* in client bundle). */
   const { config: paypalCfg, loading: paypalCfgLoading, error: paypalCfgError } = usePayPalPublicConfig()
@@ -429,8 +399,6 @@ export default function HomePage() {
   const [generatedTags, setGeneratedTags] = useState<Record<string, string[]>>({})
   const [isGeneratingTags, setIsGeneratingTags] = useState<boolean>(false)
   const [tagDatabaseStatus, setTagDatabaseStatus] = useState<{lastUpdated: string | null, totalTags: number}>({lastUpdated: null, totalTags: 0})
-  const [tagRateLimit, setTagRateLimit] = useState<{remaining: number, resetTime: number | null}>({remaining: 5, resetTime: null})
-  const [timeUntilReset, setTimeUntilReset] = useState<string>('')
 
   // Clip Analyzer states
   const [clipFile, setClipFile] = useState<File | null>(null)
@@ -439,14 +407,11 @@ export default function HomePage() {
   const [clipAnalysisResult, setClipAnalysisResult] = useState<any>(null)
   const [clipError, setClipError] = useState<string>('')
   const [loadingStep, setLoadingStep] = useState<string>('')
-  const [clipRateLimit, setClipRateLimit] = useState<{remaining: number, resetTime: number | null}>({remaining: 5, resetTime: null})
   const [extractedData, setExtractedData] = useState<any>(null)
   const [showReanalysis, setShowReanalysis] = useState<boolean>(false)
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
   const [copiedTags, setCopiedTags] = useState<boolean>(false)
   const [copiedDescription, setCopiedDescription] = useState<boolean>(false)
-
-  const [usageCount, setUsageCount] = useState(0)
 
   // Coin system
   const { 
@@ -500,6 +465,9 @@ export default function HomePage() {
       data: null
     }
   ])
+
+  /** Tab header logo strip: Shorts and Long use the same image — show one YouTube mark */
+  const platformsBannerLogos = platforms.filter((p) => p.id !== 'youtube-long')
 
   // Helper function to get recommended tag count from algorithm data
   const getRecommendedTagCount = (platformId: string): number => {
@@ -787,21 +755,29 @@ export default function HomePage() {
     
     // Prefer MongoDB users.role; explicit `free` must beat PayPal subscriber lists / subscribers collection
     const dbRole = userWithRole?.role as Role | undefined
+    /** From GET /api/me — verifyAuth() already syncs this from `users` in Mongo (avoids a race to `free` before /api/roles list loads) */
+    const sessionRole = (user?.role as Role | undefined) || undefined
 
     if (isOwner) {
       setUserRole('owner')
     } else if (isAdminValue) {
       setUserRole('admin')
-    } else if (dbRole === 'subscriber_lifetime' || isLifetimeMemberValue) {
+    } else if (
+      dbRole === 'subscriber_lifetime' ||
+      sessionRole === 'subscriber_lifetime' ||
+      isLifetimeMemberValue
+    ) {
       setUserRole('subscriber_lifetime')
-    } else if (dbRole === 'free') {
+    } else if (dbRole === 'free' || sessionRole === 'free') {
       setUserRole('free')
-    } else if (dbRole === 'subscriber' || isSubscribedValue) {
+    } else if (dbRole === 'subscriber' || sessionRole === 'subscriber' || isSubscribedValue) {
       setUserRole('subscriber')
-    } else if (dbRole === 'tester' || isTesterValue) {
+    } else if (dbRole === 'tester' || sessionRole === 'tester' || isTesterValue) {
       setUserRole('tester')
     } else if (dbRole) {
       setUserRole(dbRole)
+    } else if (sessionRole && sessionRole in ROLE_HIERARCHY) {
+      setUserRole(sessionRole)
     } else {
       setUserRole('free')
     }
@@ -1102,83 +1078,6 @@ export default function HomePage() {
     }
   }, [user?.id]) // Only run when user ID changes (login)
 
-  // Update tag rate limit when role changes
-  useEffect(() => {
-    const hasUnlimited = userRole === 'owner' || userRole === 'admin'
-    const isPaidUser = userRole === 'subscriber' || userRole === 'subscriber_lifetime'
-    
-    if (hasUnlimited) {
-      setTagRateLimit({ remaining: -1, resetTime: null })
-    } else if (isPaidUser) {
-      // Subscribers and lifetime get 20 uses
-      if (tagRateLimit.remaining !== 20 && tagRateLimit.remaining !== -1) {
-        setTagRateLimit({ remaining: 20, resetTime: null })
-      }
-    } else {
-      // Free users get 3 uses
-      if (tagRateLimit.remaining !== 3 && tagRateLimit.remaining !== -1) {
-        setTagRateLimit({ remaining: 3, resetTime: null })
-      }
-    }
-  }, [userRole])
-
-  // Update clip analyzer rate limit when role changes
-  useEffect(() => {
-    const hasUnlimited = userRole === 'owner' || userRole === 'admin'
-    const isPaidUser = userRole === 'subscriber' || userRole === 'subscriber_lifetime'
-    
-    if (hasUnlimited) {
-      setClipRateLimit({ remaining: -1, resetTime: null })
-    } else if (isPaidUser) {
-      // Subscribers and lifetime get 3 uses
-      if (clipRateLimit.remaining !== 3 && clipRateLimit.remaining !== -1) {
-        setClipRateLimit({ remaining: 3, resetTime: null })
-      }
-    } else {
-      // Free users get no access (0 uses)
-      if (clipRateLimit.remaining !== 0 && clipRateLimit.remaining !== -1) {
-        setClipRateLimit({ remaining: 0, resetTime: null })
-      }
-    }
-  }, [userRole])
-
-  // Update countdown timer for rate limit reset
-  useEffect(() => {
-    if (tagRateLimit.resetTime) {
-      const updateCountdown = () => {
-        const now = Date.now()
-        const resetTime = tagRateLimit.resetTime
-        if (!resetTime) return
-        
-        const diff = resetTime - now
-
-        if (diff <= 0) {
-          setTimeUntilReset('Reseting now...')
-          return
-        }
-
-        const hours = Math.floor(diff / (1000 * 60 * 60))
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000)
-
-        if (hours > 0) {
-          setTimeUntilReset(`${hours}h ${minutes}m ${seconds}s`)
-        } else if (minutes > 0) {
-          setTimeUntilReset(`${minutes}m ${seconds}s`)
-        } else {
-          setTimeUntilReset(`${seconds}s`)
-        }
-      }
-
-      updateCountdown()
-      const interval = setInterval(updateCountdown, 1000)
-
-      return () => clearInterval(interval)
-    } else {
-      setTimeUntilReset('')
-    }
-  }, [tagRateLimit.resetTime])
-
   // Clip Analyzer functions
   const detectPlatform = (url: string): string => {
     if (url.includes('tiktok.com')) return 'tiktok'
@@ -1317,10 +1216,6 @@ export default function HomePage() {
 
       if (!analyzeRes.ok) {
         const errorData = await analyzeRes.json()
-        if (analyzeRes.status === 429) {
-          setClipRateLimit({ remaining: 0, resetTime: errorData.resetTime })
-          throw new Error('Rate limit exceeded')
-        }
         throw new Error(errorData.userMessage || errorData.error || 'Analysis failed')
       }
 
@@ -1336,9 +1231,6 @@ export default function HomePage() {
 
       refreshBalance()
 
-      // Increment usage for limited roles
-      incrementUsage('clips')
-      
       // Log activity
       if (user) {
         const entry: ActivityLogEntry = {
@@ -1359,11 +1251,6 @@ export default function HomePage() {
             details: `Analyzed clip for ${clipPlatform} (score: ${data.score})`
           })
         }).catch(error => console.error('Failed to log clip analysis to backend:', error))
-      }
-      
-      // Update rate limit
-      if (clipRateLimit.remaining !== -1) {
-        setClipRateLimit(prev => ({ ...prev, remaining: Math.max(0, prev.remaining - 1) }))
       }
     } catch (error) {
       clearInterval(stepInterval)
@@ -2441,30 +2328,30 @@ export default function HomePage() {
                         <button
                           type="button"
                           onClick={() => setShowCoinPurchase(true)}
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border transition-all ${
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-all ${
                             darkMode
                               ? 'bg-yellow-500/15 border-yellow-500/40 text-yellow-300 hover:bg-yellow-500/25'
                               : 'bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100'
                           }`}
                           title="Role and coin balance"
                         >
-                          <span className="text-sm leading-none">{ROLE_CONFIG[userRole]?.badge ?? '❓'}</span>
+                          <span className="text-lg leading-none">{ROLE_CONFIG[userRole]?.badge ?? '❓'}</span>
                           <span className="leading-none">{ROLE_CONFIG[userRole]?.label ?? userRole}</span>
                           <span className="opacity-70">•</span>
-                          <Coins className="w-3.5 h-3.5" />
+                          <Coins className="w-4 h-4 shrink-0" />
                           <span>{balance} coins</span>
-                          <Plus className="w-3 h-3" />
+                          <Plus className="w-3.5 h-3.5 shrink-0" />
                         </button>
                       ) : (
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${
                             darkMode
                               ? 'bg-sdhq-dark-700/60 border-sdhq-cyan-500/30 text-sdhq-cyan-300'
                               : 'bg-cyan-50 border-sdhq-cyan-200 text-sdhq-cyan-700'
                           }`}
                           title={`Role: ${ROLE_CONFIG[userRole]?.label ?? userRole}`}
                         >
-                          <span className="text-sm leading-none">{ROLE_CONFIG[userRole]?.badge ?? '❓'}</span>
+                          <span className="text-lg leading-none">{ROLE_CONFIG[userRole]?.badge ?? '❓'}</span>
                           <span className="leading-none">{ROLE_CONFIG[userRole]?.label ?? userRole}</span>
                         </span>
                       )}
@@ -2670,7 +2557,7 @@ export default function HomePage() {
               <div className="space-y-6">
                 {/* Platform Logos */}
                 <div className="flex justify-center gap-4 mb-2">
-                  {platforms.map((platform) => (
+                  {platformsBannerLogos.map((platform) => (
                     <img
                       key={platform.id}
                       src={platform.image}
@@ -3008,7 +2895,7 @@ export default function HomePage() {
               <div className={`${cardClasses} p-6`}>
                 {/* Platform Logos */}
                 <div className="flex justify-center gap-4 mb-2">
-                  {platforms.map((platform) => (
+                  {platformsBannerLogos.map((platform) => (
                     <img
                       key={platform.id}
                       src={platform.image}
@@ -3123,25 +3010,17 @@ export default function HomePage() {
                               platform: tagPlatform,
                               count: tagCount,
                               userId: user?.username,
-                              isVerified: true
                             })
                           })
                           
                           if (!response.ok) {
                             const errorData = await response.json()
-                            if (response.status === 429) {
-                              // Rate limit exceeded - show message but don't block (free users have unlimited with ads)
-                              console.log('Rate limit reached, but free users have unlimited use with ads')
-                            }
                             const errorMsg = errorData.details || errorData.error || `API error: ${response.status}`
                             throw new Error(errorMsg)
                           }
                           
                           const data = await response.json()
                           setGeneratedTags(prev => ({ ...prev, [tagPlatform]: data.tags }))
-                          if (data.rateLimit) {
-                            setTagRateLimit({ remaining: data.rateLimit.remaining, resetTime: data.rateLimit.resetTime })
-                          }
 
                           const deducted = await deductCoins('tag-generator')
                           if (!deducted) {
@@ -3179,7 +3058,7 @@ export default function HomePage() {
                           setIsGeneratingTags(false)
                         }
                       }}
-                      disabled={isGeneratingTags || coinLoading || !tagDescription.trim() || tagRateLimit.remaining === 0 || (!hasUnlimitedAccess && !hasEnoughCoins('tag-generator'))}
+                      disabled={isGeneratingTags || coinLoading || !tagDescription.trim() || (!hasUnlimitedAccess && !hasEnoughCoins('tag-generator'))}
                       className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
                     >
                       {isGeneratingTags ? (
@@ -3255,9 +3134,6 @@ export default function HomePage() {
                 platforms={platforms}
                 user={user}
                 isDisabled={!hasTabAccess('thumbnail-generator')}
-                usageCount={usageCounts.thumbnails}
-                maxUsage={USAGE_LIMITS[userRole].thumbnails}
-                onIncrementUsage={() => incrementUsage('thumbnails')}
                 onBalanceRefresh={refreshBalance}
                 onLogActivity={(entry) => {
                   if (user) {
@@ -3287,45 +3163,21 @@ export default function HomePage() {
             </TabsContent>
 
             <TabsContent value="clip-analyzer">
-              <div className={`relative py-8 ${cardClasses} ${!hasTabAccess('clip-analyzer') || checkUsageLimit('clips') ? 'pointer-events-none' : ''}`}>
-                {/* Disabled Overlay */}
-                {(!hasTabAccess('clip-analyzer') || checkUsageLimit('clips')) && (
+              <div className={`relative py-8 ${cardClasses} ${!hasTabAccess('clip-analyzer') ? 'pointer-events-none' : ''}`}>
+                {!hasTabAccess('clip-analyzer') && (
                   <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 rounded-xl flex flex-col items-center justify-center p-6">
                     <div className="text-center">
-                      <p className="text-white text-xl font-bold mb-2">
-                        {!hasTabAccess('clip-analyzer') ? '⛔ Access Restricted' : '📊 Usage Limit Reached'}
-                      </p>
+                      <p className="text-white text-xl font-bold mb-2">⛔ Access Restricted</p>
                       <p className="text-gray-300 text-sm">
-                        {!hasTabAccess('clip-analyzer')
-                          ? 'This feature is currently disabled for your account.'
-                          : `You have used ${usageCounts.clips} of ${USAGE_LIMITS[userRole].clips} clip analyses.\nPlease upgrade to continue.`}
+                        This feature is currently disabled for your account.
                       </p>
-                      {checkUsageLimit('clips') && (
-                        <button
-                          onClick={() => window.open('/subscribe', '_blank')}
-                          className="mt-4 px-6 py-2 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold rounded-lg hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 transition-all pointer-events-auto"
-                        >
-                          Upgrade to Unlimited
-                        </button>
-                      )}
                     </div>
-                  </div>
-                )}
-
-                {/* Usage Counter for Limited Roles */}
-                {USAGE_LIMITS[userRole].clips !== 'unlimited' && (
-                  <div className={`absolute top-4 right-4 z-10 px-3 py-1 rounded-full text-sm font-medium ${
-                    checkUsageLimit('clips')
-                      ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                      : 'bg-sdhq-cyan-500/20 text-sdhq-cyan-400 border border-sdhq-cyan-500/30'
-                  }`}>
-                    {usageCounts.clips} / {USAGE_LIMITS[userRole].clips} uses
                   </div>
                 )}
 
                 {/* Platform Logos */}
                 <div className="flex justify-center gap-4 mb-6">
-                  {platforms.map((platform) => (
+                  {platformsBannerLogos.map((platform) => (
                     <img
                       key={platform.id}
                       src={platform.image}
@@ -3372,26 +3224,13 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* Access Control - All logged-in users can access, free users have cooldowns */}
+                {/* Access: login + coins (free) or subscription unlimited */}
                 {!user ? (
                   <div className="text-center py-12">
                     <p className={`${subtitleClasses}`}>Login required to analyze clips</p>
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {/* Rate Limit Display */}
-                    <div className={`rounded-lg p-3 border ${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-700' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <Database className={`w-4 h-4 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`} />
-                          <span className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Uses</span>
-                        </div>
-                        <p className={`text-xl font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                          {clipRateLimit.remaining === -1 ? '∞' : clipRateLimit.remaining}
-                        </p>
-                      </div>
-                    </div>
-
                     {/* Input Section */}
                     <div className={`relative overflow-hidden rounded-2xl p-6 ${
                       darkMode 
@@ -4686,7 +4525,7 @@ export default function HomePage() {
       {user && (
         <CoinPurchase
           isOpen={showCoinPurchase}
-          onClose={() => setShowCoinPurchase(false)}
+          onClose={closeCoinPurchase}
           userId={user.username}
           darkMode={darkMode}
         />

@@ -7,29 +7,6 @@ export const dynamic = 'force-dynamic'
 // Use gemini-2.5-flash model (stable release)
 const MODEL_NAME = 'gemini-2.5-flash'
 
-// In-memory rate limit storage for content analyzer
-// NOTE: On Vercel serverless, this resets on cold starts. For production, use Redis/Vercel KV.
-const contentAnalyzerRateLimitStore = new Map<string, { count: number; resetTime: number }>()
-
-function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean; remaining: number; resetTime: number | null } {
-  const now = Date.now()
-  const record = contentAnalyzerRateLimitStore.get(identifier)
-
-  if (!record || now > record.resetTime) {
-    const newRecord = { count: 1, resetTime: now + 24 * 60 * 60 * 1000 }
-    contentAnalyzerRateLimitStore.set(identifier, newRecord)
-    return { allowed: true, remaining: maxUses - 1, resetTime: newRecord.resetTime }
-  }
-
-  if (record.count >= maxUses) {
-    return { allowed: false, remaining: 0, resetTime: record.resetTime }
-  }
-
-  record.count += 1
-  contentAnalyzerRateLimitStore.set(identifier, record)
-  return { allowed: true, remaining: maxUses - record.count, resetTime: record.resetTime }
-}
-
 export async function POST(request: Request) {
   try {
     console.log('[DEBUG] Content Analyzer: Request received')
@@ -54,30 +31,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Platform is required' }, { status: 400 })
     }
 
-    // Rate limiting
-    const identifier = userId || 'anonymous'
-    let maxUses = 5 // Default for subscribers
-
-    if (userType === 'owner' || userType === 'admin' || userType === 'lifetime') {
-      maxUses = 999999 // Unlimited
-    } else if (userType === 'subscribed') {
-      maxUses = 5
-    } else {
+    if (userType !== 'owner' && userType !== 'admin' && userType !== 'lifetime' && userType !== 'subscribed') {
       console.error('[DEBUG] Content Analyzer: Access denied - subscription required')
       return NextResponse.json({ error: 'Access denied. Subscription required.' }, { status: 403 })
-    }
-
-    console.log('[DEBUG] Content Analyzer: Rate limiting:', { identifier, maxUses, userType })
-    const rateLimit = checkRateLimit(`content-analyzer-${identifier}`, maxUses)
-    
-    console.log('[DEBUG] Content Analyzer: Rate limit result:', { allowed: rateLimit.allowed, remaining: rateLimit.remaining })
-
-    if (!rateLimit.allowed) {
-      console.log('[ACTIVITY_LOG] Content Analyzer: Rate limit exceeded for', identifier)
-      return NextResponse.json(
-        { error: 'Rate limit exceeded. You have used your daily limit.', resetTime: rateLimit.resetTime },
-        { status: 429 }
-      )
     }
 
     const geminiApiKey = process.env.GEMINI_API

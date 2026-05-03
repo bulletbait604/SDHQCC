@@ -29,9 +29,6 @@ interface Props {
   /** Sync parent header coin display (ThumbnailGenerator uses its own useCoins for deduct) */
   onBalanceRefresh?: () => void
   isDisabled?: boolean // When tab access is restricted
-  usageCount?: number // Current usage count for limited roles
-  maxUsage?: number | 'unlimited' // Max allowed usage
-  onIncrementUsage?: () => void // Callback to increment usage
 }
 
 export default function ThumbnailGenerator({ 
@@ -43,9 +40,6 @@ export default function ThumbnailGenerator({
   onLogActivity,
   onBalanceRefresh,
   isDisabled = false,
-  usageCount = 0,
-  maxUsage = 'unlimited',
-  onIncrementUsage
 }: Props) {
   const [prompt, setPrompt] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -108,11 +102,7 @@ export default function ThumbnailGenerator({
   const subtle = darkMode ? 'text-gray-400' : 'text-gray-500'
   const accentText = darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'
   
-  // Check if usage limit reached
-  const isUsageLimited = maxUsage !== 'unlimited' && usageCount >= maxUsage
-  
-  // Determine if entire component should be disabled
-  const isComponentDisabled = isDisabled || isUsageLimited
+  const isComponentDisabled = isDisabled
 
   // ── Image upload ───────────────────────────────────────────────────────────
   const handleFileChange = (file: File) => {
@@ -222,10 +212,6 @@ export default function ThumbnailGenerator({
         })
       }
       
-      // Increment usage count for limited roles
-      if (onIncrementUsage) {
-        onIncrementUsage()
-      }
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.')
     } finally {
@@ -278,44 +264,21 @@ export default function ThumbnailGenerator({
 
   return (
     <div className={`relative py-8 ${cardClasses} ${isComponentDisabled ? 'pointer-events-none' : ''}`}>
-      {/* Disabled Overlay */}
+      {/* Disabled Overlay (tab permission only — limits are coin-based) */}
       {isComponentDisabled && (
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 rounded-xl flex flex-col items-center justify-center p-6">
           <div className="text-center">
-            <p className="text-white text-xl font-bold mb-2">
-              {isDisabled ? '⛔ Access Restricted' : '📊 Usage Limit Reached'}
-            </p>
+            <p className="text-white text-xl font-bold mb-2">⛔ Access Restricted</p>
             <p className="text-gray-300 text-sm">
-              {isDisabled 
-                ? 'This feature is currently disabled for your account.' 
-                : `You have used ${usageCount} of ${maxUsage} thumbnail generations.\nPlease upgrade to continue.`}
+              This feature is currently disabled for your account.
             </p>
-            {isUsageLimited && (
-              <button 
-                onClick={() => window.open('/subscribe', '_blank')}
-                className="mt-4 px-6 py-2 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold rounded-lg hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 transition-all pointer-events-auto"
-              >
-                Upgrade to Unlimited
-              </button>
-            )}
           </div>
         </div>
       )}
       
-      {/* Usage Counter for Limited Roles */}
-      {maxUsage !== 'unlimited' && (
-        <div className={`absolute top-4 right-4 z-10 px-3 py-1 rounded-full text-sm font-medium ${
-          isUsageLimited 
-            ? 'bg-red-500/20 text-red-400 border border-red-500/30' 
-            : 'bg-sdhq-cyan-500/20 text-sdhq-cyan-400 border border-sdhq-cyan-500/30'
-        }`}>
-          {usageCount} / {maxUsage} uses
-        </div>
-      )}
-      
-      {/* Platform Logos */}
+      {/* Platform Logos (omit youtube-long — same artwork as Shorts in banner strip) */}
       <div className="flex justify-center gap-4 mb-6">
-        {platforms.map((platform) => (
+        {platforms.filter((p) => p.id !== 'youtube-long').map((platform) => (
           <Image
             key={platform.id}
             src={platform.image}
