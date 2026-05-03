@@ -12,11 +12,14 @@ interface Platform {
 }
 
 interface ThumbnailResult {
-  imageBase64: string
   mimeType: string
   prompt: string
   key: string
   description?: string
+}
+
+function thumbnailImageSrc(key: string): string {
+  return `/api/image?key=${encodeURIComponent(key)}`
 }
 
 interface Props {
@@ -133,7 +136,12 @@ export default function ThumbnailGenerator({
   }
 
   // ── Generate ───────────────────────────────────────────────────────────────
-  const generate = async (base64Override?: string, mimeOverride?: string) => {
+  /** `sourceKey` = re-edit from a prior R2 thumbnail (avoids huge base64 payloads). */
+  const generate = async (
+    base64Override?: string,
+    mimeOverride?: string,
+    sourceKey?: string
+  ) => {
     if (!prompt.trim()) {
       return
     }
@@ -148,17 +156,25 @@ export default function ThumbnailGenerator({
     const platformName =
       availablePlatforms.find((p) => p.id === selectedPlatform)?.name ?? 'your platform'
     const enhancedPrompt = `Create a thumbnail optimized for ${platformName}. ${prompt}`
+
+    const body: Record<string, unknown> = {
+      prompt: enhancedPrompt,
+      mimeType: mimeOverride ?? imageMime,
+      sessionId: userId || 'anon',
+      platforms: [selectedPlatform],
+    }
+    if (sourceKey) {
+      body.sourceImageKey = sourceKey
+    } else {
+      const b64 = base64Override ?? imageBase64
+      if (b64) body.imageBase64 = b64
+    }
+
     const result = await fetch('/api/thumbnail-generator', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({
-        prompt: enhancedPrompt,
-        imageBase64: base64Override ?? imageBase64 ?? undefined,
-        mimeType: mimeOverride ?? imageMime,
-        sessionId: userId || 'anon',
-        platforms: [selectedPlatform],
-      }),
+      body: JSON.stringify(body),
     }).then(r => r.json())
 
     try {
@@ -167,7 +183,6 @@ export default function ThumbnailGenerator({
       }
 
       const newResult: ThumbnailResult = {
-        imageBase64: result.imageBase64,
         mimeType: result.mimeType || 'image/png',
         prompt,
         key: result.key,
@@ -217,10 +232,10 @@ export default function ThumbnailGenerator({
     }
   }
 
-  // Re-edit: use current result as input image
+  // Re-edit: use current result as input image (load from R2 by key — faster API response)
   const reEdit = () => {
     if (!result) return
-    generate(result.imageBase64, result.mimeType)
+    generate(undefined, undefined, result.key)
   }
 
   // Restore a history item
@@ -230,12 +245,17 @@ export default function ThumbnailGenerator({
   }
 
   // Download
-  const download = (base64: string, mime: string) => {
+  const download = async (key: string, mime: string) => {
+    const res = await fetch(thumbnailImageSrc(key), { credentials: 'include' })
+    if (!res.ok) return
+    const blob = await res.blob()
     const ext = mime.split('/')[1]?.split(';')[0] || 'png'
     const link = document.createElement('a')
-    link.href = `data:${mime};base64,${base64}`
+    const objUrl = URL.createObjectURL(blob)
+    link.href = objUrl
     link.download = `thumbnail-${Date.now()}.${ext}`
     link.click()
+    URL.revokeObjectURL(objUrl)
   }
 
   /** Preview container matches selected platform aspect */
@@ -427,13 +447,15 @@ export default function ThumbnailGenerator({
               <div className={`flex flex-col items-center justify-center h-64 rounded-xl border ${card}`}>
                 <Loader2 className="w-10 h-10 animate-spin text-cyan-400 mb-3" />
                 <p className={`text-sm ${subtle}`}>Generating thumbnail...</p>
-                <p className={`text-xs mt-1 ${subtle}`}>This takes 15–30 seconds</p>
+                <p className={`text-xs mt-1 ${subtle}`}>
+                  Most runs finish in ~10–45s depending on the Fal model (Nano Banana Pro is slower than FLUX Turbo).
+                </p>
               </div>
             ) : result ? (
               <div className="space-y-3">
                 <div className={`relative rounded-xl overflow-hidden border-2 border-cyan-500 ${previewAspectClass}`}>
                   <Image
-                    src={`data:${result.mimeType};base64,${result.imageBase64}`}
+                    src={thumbnailImageSrc(result.key)}
                     alt="Generated thumbnail"
                     width={800}
                     height={450}
@@ -442,7 +464,7 @@ export default function ThumbnailGenerator({
                   />
                   <div className="absolute top-2 right-2 flex gap-2">
                     <button
-                      onClick={() => download(result.imageBase64, result.mimeType)}
+                      onClick={() => download(result.key, result.mimeType)}
                       className="p-2 bg-black/60 hover:bg-black/80 text-white rounded-lg transition-colors"
                       title="Download"
                     >
@@ -508,7 +530,7 @@ export default function ThumbnailGenerator({
                       title={item.prompt}
                     >
                       <Image
-                        src={`data:${item.mimeType};base64,${item.imageBase64}`}
+                        src={thumbnailImageSrc(item.key)}
                         alt={`v${history.length - i}`}
                         width={80}
                         height={48}

@@ -2,10 +2,12 @@
  * Rough API cost hints for owners (not invoicing-grade). Overrides via env:
  * ESTIMATE_FLUX_USD_PER_MP, ESTIMATE_NANO_FLASH_USD, ESTIMATE_NANO_PRO_1K2K_USD,
  * ESTIMATE_NANO_PRO_4K_USD, ESTIMATE_FAL_REDUX_USD, ESTIMATE_THUMBNAIL_GEMINI_ENRICH_USD,
- * ESTIMATE_TAG_GEMINI_USD, ESTIMATE_TAG_FAL_OPENROUTER_USD, ESTIMATE_CLIP_ANALYSIS_USD.
+ * ESTIMATE_TAG_GEMINI_USD, ESTIMATE_TAG_FAL_OPENROUTER_USD, ESTIMATE_CLIP_ANALYSIS_USD,
+ * ESTIMATE_FLUX2_FLASH_USD_PER_MP.
  */
 
 const FLUX_DEF = 0.008
+const FLUX2_FLASH_DEF = 0.005
 const NANO_FLASH_DEF = 0.039
 const NANO_PRO_12K_DEF = 0.15
 const NANO_PRO_4K_DEF = 0.3
@@ -71,13 +73,21 @@ export function estimateThumbnailGenerationUsd(params: {
   const isRedux =
     id === "fal-ai/flux-1/schnell/redux" ||
     id === "fal-ai/flux/schnell/redux"
-  const isFlux2TurboT2i =
-    id === "fal-ai/flux-2/turbo" || id.startsWith("fal-ai/flux-2/turbo/")
+  const isFlux2FlashEdit =
+    id === "fal-ai/flux-2/flash/edit" ||
+    id.startsWith("fal-ai/flux-2/flash/edit/")
+  const isFlux2FlashT2i =
+    (id === "fal-ai/flux-2/flash" || id.startsWith("fal-ai/flux-2/flash/")) &&
+    !isFlux2FlashEdit
   const isFlux2TurboEdit =
     id === "fal-ai/flux-2/turbo/edit" ||
     id.startsWith("fal-ai/flux-2/turbo/edit/")
+  const isFlux2TurboT2i =
+    (id === "fal-ai/flux-2/turbo" || id.startsWith("fal-ai/flux-2/turbo/")) &&
+    !isFlux2TurboEdit
   const mp = approxThumbnailOutputMegapixels(params.platforms)
   const fluxRate = numEnv("ESTIMATE_FLUX_USD_PER_MP", FLUX_DEF)
+  const fluxFlashRate = numEnv("ESTIMATE_FLUX2_FLASH_USD_PER_MP", FLUX2_FLASH_DEF)
 
   if (isProT2i || isProEdit) {
     main = nanoProTierUsd()
@@ -99,6 +109,16 @@ export function estimateThumbnailGenerationUsd(params: {
   } else if (isRedux) {
     main = numEnv("ESTIMATE_FAL_REDUX_USD", 0.004)
     lines.push("FLUX.1 Schnell Redux remix (Fal est.)")
+  } else if (isFlux2FlashEdit) {
+    main = fluxFlashRate * (FLUX_EDIT_INPUT_MP_ASSUMED + mp)
+    lines.push(
+      `FLUX.2 Flash edit ~${(FLUX_EDIT_INPUT_MP_ASSUMED + mp).toFixed(2)} MP @ $${fluxFlashRate}/MP (Fal est.)`
+    )
+  } else if (isFlux2FlashT2i) {
+    main = fluxFlashRate * mp
+    lines.push(
+      `FLUX.2 Flash ~${mp.toFixed(2)} MP out @ $${fluxFlashRate}/MP (Fal est.)`
+    )
   } else if (isFlux2TurboEdit) {
     main = fluxRate * (FLUX_EDIT_INPUT_MP_ASSUMED + mp)
     lines.push(

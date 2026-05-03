@@ -6,8 +6,21 @@ import { v4 as uuidv4 } from "uuid";
 import {
   deleteFileFromR2,
   generatePresignedReadUrl,
+  getFileFromR2,
 } from "@/lib/r2";
 import { estimateThumbnailGenerationUsd } from "@/lib/estimatedInferenceCost";
+
+/** Vercel / long-running: Fal + R2 can exceed default 10s. */
+export const maxDuration = 120;
+export const dynamic = "force-dynamic";
+
+function mimeFromThumbnailKey(key: string): string {
+  const k = key.toLowerCase();
+  if (k.endsWith(".png")) return "image/png";
+  if (k.endsWith(".webp")) return "image/webp";
+  if (k.endsWith(".jpg") || k.endsWith(".jpeg")) return "image/jpeg";
+  return "image/png";
+}
 
 /** Same stack as `src/app/api/tags/route.ts` — Flash is cheap and fast for short rewrite. */
 const THUMBNAIL_GEMINI_MODEL_DEFAULT = "gemini-2.5-flash";
@@ -37,11 +50,13 @@ const r2 = new S3Client({
  * Text-to-image defaults:
  * - **FLUX.2 Turbo** (`fal-ai/flux-2/turbo`) — newer stack, stronger prompt adherence than FLUX.1 Schnell;
  *   supports Fal’s built-in `enable_prompt_expansion`.
+ * - **FLUX.2 Flash** (`fal-ai/flux-2/flash`) — same OpenAPI shape as Turbo; Fal’s faster/cheaper FLUX.2 tier (try
+ *   `FAL_THUMBNAIL_TXT2IMG_MODEL` + `FAL_THUMBNAIL_IMG2IMG_MODEL` or set only one — the route pairs `/edit`).
  * - Override with `FAL_THUMBNAIL_TXT2IMG_MODEL=fal-ai/flux-1/schnell` for legacy ultra-fast FLUX.1 Schnell (4-step).
  *
  * Image remix / Redux stays FLUX.1 Schnell Redux (`fal-ai/flux-1/schnell/redux`).
  *
- * **Image + prompt:** default `fal-ai/flux-2/turbo/edit` (same FLUX.2 Turbo family as T2I).
+ * **Image + prompt:** default `fal-ai/flux-2/turbo/edit` (same FLUX.2 family as T2I; Flash uses `…/flash/edit`).
  * Override with `FAL_THUMBNAIL_IMG2IMG_MODEL=fal-ai/flux/dev/image-to-image` for FLUX.1 dev i2i.
  *
  * **Nano Banana (Fal):** `fal-ai/nano-banana` + `fal-ai/nano-banana/edit` (Gemini 2.5 Flash Image)
@@ -101,6 +116,38 @@ function falNanoBananaEditFromTxtExplicit(txtId: string): string | null {
   return null;
 }
 
+/** When only img2img is set, pair text-only to the matching FLUX.2 T2I (Flash vs Turbo). */
+function falFlux2T2iFromImg2imgExplicit(img2imgId: string): string | null {
+  const id = img2imgId.trim();
+  if (id === "fal-ai/flux-2/flash/edit" || id.startsWith("fal-ai/flux-2/flash/edit/")) {
+    return "fal-ai/flux-2/flash";
+  }
+  if (id === "fal-ai/flux-2/turbo/edit" || id.startsWith("fal-ai/flux-2/turbo/edit/")) {
+    return "fal-ai/flux-2/turbo";
+  }
+  return null;
+}
+
+/** When only T2I is set, pair reference+prompt to the matching FLUX.2 edit endpoint. */
+function falFlux2EditFromTxt2imgExplicit(txtId: string): string | null {
+  const id = txtId.trim();
+  if (
+    (id === "fal-ai/flux-2/flash" || id.startsWith("fal-ai/flux-2/flash/")) &&
+    id !== "fal-ai/flux-2/flash/edit" &&
+    !id.startsWith("fal-ai/flux-2/flash/edit/")
+  ) {
+    return "fal-ai/flux-2/flash/edit";
+  }
+  if (
+    (id === "fal-ai/flux-2/turbo" || id.startsWith("fal-ai/flux-2/turbo/")) &&
+    id !== "fal-ai/flux-2/turbo/edit" &&
+    !id.startsWith("fal-ai/flux-2/turbo/edit/")
+  ) {
+    return "fal-ai/flux-2/turbo/edit";
+  }
+  return null;
+}
+
 function falTxt2imgModelId(): string {
   const o = process.env.FAL_THUMBNAIL_TXT2IMG_MODEL?.trim();
   if (o) return o;
@@ -108,14 +155,34 @@ function falTxt2imgModelId(): string {
   const paired =
     img2explicit && falNanoBananaT2iFromImg2imgExplicit(img2explicit);
   if (paired) return paired;
+  const flux2paired =
+    img2explicit && falFlux2T2iFromImg2imgExplicit(img2explicit);
+  if (flux2paired) return flux2paired;
   if (thumbnailImageStack() === "nano_banana_pro") return FAL_NANO_PRO_T2I;
   return FAL_DEFAULT_TXT2IMG_SMART;
 }
 
-/** FLUX.2 Turbo t2i — different OpenAPI shape than FLUX.1 Schnell (no `num_inference_steps`). */
+/**
+ * FLUX.2 Turbo or Flash T2I — same OpenAPI shape; excludes `…/edit` IDs.
+ * Different from FLUX.1 Schnell (no `num_inference_steps`).
+ */
 function isFlux2TurboTxt2Img(modelId: string): boolean {
   const id = modelId.trim();
-  return id === "fal-ai/flux-2/turbo" || id.startsWith("fal-ai/flux-2/turbo/");
+  if (
+    (id === "fal-ai/flux-2/turbo" || id.startsWith("fal-ai/flux-2/turbo/")) &&
+    id !== "fal-ai/flux-2/turbo/edit" &&
+    !id.startsWith("fal-ai/flux-2/turbo/edit/")
+  ) {
+    return true;
+  }
+  if (
+    (id === "fal-ai/flux-2/flash" || id.startsWith("fal-ai/flux-2/flash/")) &&
+    id !== "fal-ai/flux-2/flash/edit" &&
+    !id.startsWith("fal-ai/flux-2/flash/edit/")
+  ) {
+    return true;
+  }
+  return false;
 }
 
 /** Fal’s optional in-model prompt expansion (FLUX.2 Turbo). Default on for better topic fidelity. */
@@ -132,6 +199,13 @@ function thumbnailFlux2GuidanceScale(): number {
   return Math.min(20, Math.max(0, n));
 }
 
+/** FLUX-only safety pass; disabling can shave inference time (use with care). */
+function thumbnailFluxSafetyCheckerEnabled(): boolean {
+  const v = process.env.FAL_THUMBNAIL_ENABLE_SAFETY_CHECKER?.trim().toLowerCase();
+  if (v === "0" || v === "false" || v === "no") return false;
+  return true;
+}
+
 function falImg2imgModelId(): string {
   const o = process.env.FAL_THUMBNAIL_IMG2IMG_MODEL?.trim();
   if (o) return o;
@@ -139,6 +213,9 @@ function falImg2imgModelId(): string {
   const paired =
     txtExplicit && falNanoBananaEditFromTxtExplicit(txtExplicit);
   if (paired) return paired;
+  const flux2paired =
+    txtExplicit && falFlux2EditFromTxt2imgExplicit(txtExplicit);
+  if (flux2paired) return flux2paired;
   if (thumbnailImageStack() === "nano_banana_pro") return FAL_NANO_PRO_EDIT;
   return FAL_DEFAULT_IMG2IMG_FLUX2_EDIT;
 }
@@ -244,12 +321,22 @@ function nanoBananaBaseInput(params: {
   return out;
 }
 
-/** FLUX.2 Turbo **edit** — `image_urls` + `prompt`; bills input+output MP per Fal. */
+/** FLUX.2 Turbo or Flash **edit** — `image_urls` + `prompt`; bills input+output MP per Fal. */
 function isFlux2TurboEditModel(modelId: string): boolean {
   const id = modelId.trim();
   return (
     id === "fal-ai/flux-2/turbo/edit" ||
-    id.startsWith("fal-ai/flux-2/turbo/edit/")
+    id.startsWith("fal-ai/flux-2/turbo/edit/") ||
+    id === "fal-ai/flux-2/flash/edit" ||
+    id.startsWith("fal-ai/flux-2/flash/edit/")
+  );
+}
+
+function isFlux2FlashEditModel(modelId: string): boolean {
+  const id = modelId.trim();
+  return (
+    id === "fal-ai/flux-2/flash/edit" ||
+    id.startsWith("fal-ai/flux-2/flash/edit/")
   );
 }
 
@@ -812,7 +899,6 @@ async function stagingImageUrlForFal(params: {
 
 type ThumbnailGenResult = {
   key: string;
-  imageBase64: string;
   mimeType: string;
   description: string;
   falModel: string;
@@ -895,6 +981,7 @@ async function generateThumbnailSchnell(params: {
   let imageUrlForDownload: string;
   let description: string;
   let falModel: string;
+  const fluxSafety = thumbnailFluxSafetyCheckerEnabled();
 
   if (params.imageBase64) {
     const img2imgModel = falImg2imgModelId();
@@ -918,7 +1005,7 @@ async function generateThumbnailSchnell(params: {
               image_size: imageSize,
               num_inference_steps: thumbnailSchnellReduxSteps(),
               num_images: 1,
-              enable_safety_checker: true,
+              enable_safety_checker: fluxSafety,
               output_format: falOutFmt,
               acceleration: "regular",
             },
@@ -945,7 +1032,7 @@ async function generateThumbnailSchnell(params: {
                   guidance_scale: thumbnailFlux2GuidanceScale(),
                   num_images: 1,
                   enable_prompt_expansion: thumbnailFlux2PromptExpansionEnabled(),
-                  enable_safety_checker: true,
+                  enable_safety_checker: fluxSafety,
                   output_format: falOutFmt,
                 },
                 logs: false,
@@ -958,7 +1045,7 @@ async function generateThumbnailSchnell(params: {
                   num_inference_steps: thumbnailImg2imgSteps(),
                   guidance_scale: 3.5,
                   num_images: 1,
-                  enable_safety_checker: true,
+                  enable_safety_checker: fluxSafety,
                   output_format: falOutFmt,
                   acceleration: "regular",
                 },
@@ -986,7 +1073,9 @@ async function generateThumbnailSchnell(params: {
               ? "Nano Banana Pro edit (reference + prompt)."
               : "Nano Banana edit (reference + prompt)."
             : isFlux2TurboEditModel(img2imgModel)
-              ? "FLUX.2 Turbo edit (reference + prompt)."
+              ? isFlux2FlashEditModel(img2imgModel)
+                ? "FLUX.2 Flash edit (reference + prompt)."
+                : "FLUX.2 Turbo edit (reference + prompt)."
               : "FLUX image-to-image (reference + prompt).");
     } finally {
       if (falSourceStagingKey) {
@@ -1015,7 +1104,7 @@ async function generateThumbnailSchnell(params: {
               guidance_scale: thumbnailFlux2GuidanceScale(),
               num_images: 1,
               enable_prompt_expansion: thumbnailFlux2PromptExpansionEnabled(),
-              enable_safety_checker: true,
+              enable_safety_checker: fluxSafety,
               output_format: falOutFmt,
             },
             logs: false,
@@ -1027,7 +1116,7 @@ async function generateThumbnailSchnell(params: {
               num_inference_steps: 4,
               guidance_scale: 3.5,
               num_images: 1,
-              enable_safety_checker: true,
+              enable_safety_checker: fluxSafety,
               output_format: falOutFmt,
               acceleration: "regular",
             },
@@ -1077,7 +1166,6 @@ async function generateThumbnailSchnell(params: {
 
   return {
     key,
-    imageBase64: buffer.toString("base64"),
     mimeType: contentType,
     description,
     falModel,
@@ -1087,8 +1175,22 @@ async function generateThumbnailSchnell(params: {
 
 export async function POST(req: NextRequest) {
   try {
-    const { prompt, imageBase64, mimeType, sessionId, platforms } =
-      await req.json();
+    const body = await req.json();
+    const {
+      prompt,
+      imageBase64,
+      sourceImageKey,
+      mimeType,
+      sessionId,
+      platforms,
+    } = body as {
+      prompt?: string;
+      imageBase64?: string;
+      sourceImageKey?: string;
+      mimeType?: string;
+      sessionId?: string;
+      platforms?: string[];
+    };
 
     if (!prompt) {
       return NextResponse.json(
@@ -1097,10 +1199,38 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    let effectiveB64: string | null =
+      typeof imageBase64 === "string" && imageBase64.length > 0
+        ? imageBase64
+        : null;
+    let effectiveMime =
+      typeof mimeType === "string" && mimeType.length > 0
+        ? mimeType
+        : "image/jpeg";
+
+    if (typeof sourceImageKey === "string" && sourceImageKey.trim()) {
+      const sk = sourceImageKey.trim();
+      if (!sk.startsWith("thumbnails/")) {
+        return NextResponse.json(
+          { error: "Invalid source image key" },
+          { status: 400 }
+        );
+      }
+      const buf = await getFileFromR2(sk);
+      if (!buf) {
+        return NextResponse.json(
+          { error: "Source image not found or could not be read" },
+          { status: 404 }
+        );
+      }
+      effectiveB64 = buf.toString("base64");
+      effectiveMime = mimeFromThumbnailKey(sk);
+    }
+
     const out = await generateThumbnailSchnell({
       prompt,
-      imageBase64: imageBase64 || null,
-      mimeType: mimeType || "image/jpeg",
+      imageBase64: effectiveB64,
+      mimeType: effectiveMime,
       platforms,
       sessionId,
     });
@@ -1108,14 +1238,16 @@ export async function POST(req: NextRequest) {
     const estimate = estimateThumbnailGenerationUsd({
       falModel: out.falModel,
       platforms,
-      hadReferenceImage: !!imageBase64,
+      hadReferenceImage: !!effectiveB64,
       geminiEnrichUsed: out.geminiEnrichUsed,
     });
 
+    const encKey = encodeURIComponent(out.key);
+
     return NextResponse.json({
-      url: `/api/image?key=${out.key}`,
+      url: `/api/image?key=${encKey}`,
       key: out.key,
-      imageBase64: out.imageBase64,
+      mimeType: out.mimeType,
       description: out.description,
       provider: "fal",
       falModel: out.falModel,
