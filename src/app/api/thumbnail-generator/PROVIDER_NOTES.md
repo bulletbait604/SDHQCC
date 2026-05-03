@@ -1,16 +1,12 @@
-# Thumbnail generator: Fal vs Gemini
+# Thumbnail generator (Fal FLUX Schnell only)
 
-## Revert to Gemini only
+Thumbnails are generated **only** via Fal:
 
-Set **`THUMBNAIL_GENERATOR_PROVIDER=gemini`** (or unset) and ensure **`GEMINI_API`** is set. Redeploy.
+- **No reference image:** `fal-ai/flux-1/schnell` (text-to-image)
+- **With reference image:** `fal-ai/flux-1/schnell/redux` (image remix via `data:...;base64,...` URL)
 
-## Fal mode (`THUMBNAIL_GENERATOR_PROVIDER=fal`)
+**Auth:** `SCHNELL_API_KEY` or `FAL_KEY` (or `FAL_API_KEY`).
 
-- **Text only:** `fal-ai/flux-1/schnell` (text-to-image) with the same composed prompt as before.
-- **With reference image:** `fal-ai/flux-1/schnell/redux` with `image_url` as a `data:...;base64,...` URI. The official **Redux** input has **no** separate text field — the model remixes the image. Put important layout text in the prompt for **text-only** runs, or accept a visual remix when uploading.
+The previous Gemini path was removed. **Gemini is not used** for this route.
 
-**Auth:** `SCHNELL_API_KEY` or `FAL_KEY` (same as other Fal calls).
-
-## Bookmark
-
-Record your last known-good commit after deploy: `git log -1 --oneline`
+**Note:** Redux’s API does not take a separate text instruction field — for uploads, the model remixes the image. Use the text prompt for **text-only** generations.
