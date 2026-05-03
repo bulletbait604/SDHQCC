@@ -16,9 +16,11 @@ export async function GET() {
       'Sandbox mode is active but no sandbox Client ID was found. Set NEXT_PUBLIC_PAYPAL_CLIENT_ID_SANDBOX (recommended) or PAYPAL_CLIENT_ID_SANDBOX in Vercel.'
     )
   }
-  if (sandbox && !planId) {
+  if (!planId) {
     warnings.push(
-      'Set NEXT_PUBLIC_PAYPAL_PLAN_ID_SANDBOX to your sandbox billing plan ID for subscriptions.'
+      sandbox
+        ? 'Monthly Subscribe: set NEXT_PUBLIC_PAYPAL_PLAN_ID_SANDBOX (or NEXT_PUBLIC_PAYPAL_PLAN_ID) to the Plan ID from PayPal → Subscription plans. Lifetime Pass is a one-time payment — it does not use plan IDs.'
+        : 'Monthly Subscribe: set NEXT_PUBLIC_PAYPAL_PLAN_ID to the Plan ID from PayPal → Subscription plans. Lifetime Pass is one-time checkout — no plan ID.'
     )
   }
 

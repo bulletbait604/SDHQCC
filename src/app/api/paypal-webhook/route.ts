@@ -782,26 +782,22 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Handle GET for testing and checking verification status
+// Handle GET: client polls `?username=` after checkout until MongoDB shows subscription (production-safe).
+// Debug listing without `username` stays dev-only.
 export async function GET(req: NextRequest) {
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  }
-
   const { searchParams } = new URL(req.url)
   const username = searchParams.get('username')
-  
+
   try {
     if (username) {
-      // Check MongoDB first
       const client = await clientPromise
       const db = client.db('sdhq')
-      
+
       const subscription = await db.collection('subscriptions').findOne({
         username: username.toLowerCase(),
-        status: 'ACTIVE'
+        status: 'ACTIVE',
       })
-      
+
       if (subscription) {
         return NextResponse.json({
           verified: true,
@@ -809,27 +805,46 @@ export async function GET(req: NextRequest) {
           subscriptionId: subscription.subscriptionId,
           verifiedAt: subscription.createdAt,
           status: subscription.status,
-          isLifetime: subscription.isLifetime || subscription.planId === 'lifetime'
+          isLifetime: subscription.isLifetime || subscription.planId === 'lifetime',
         })
       }
-      
-      // Fallback to legacy check
+
+      const userRow = await db.collection('users').findOne({ username: username.toLowerCase() })
+      const role = userRow?.role as string | undefined
+      if (role === 'subscriber' || role === 'subscriber_lifetime') {
+        return NextResponse.json({
+          verified: true,
+          username: (userRow?.username as string) ?? username.toLowerCase(),
+          subscriptionId: null,
+          verifiedAt:
+            typeof userRow?.updatedAt === 'string'
+              ? userRow.updatedAt
+              : new Date().toISOString(),
+          status: 'ACTIVE',
+          isLifetime: role === 'subscriber_lifetime',
+        })
+      }
+
       const verifiedUser = global.verifiedUsers.get(username.toLowerCase())
       if (verifiedUser) {
-        return NextResponse.json({ 
+        return NextResponse.json({
           verified: true,
           username: verifiedUser.username,
           subscriptionId: verifiedUser.subscriptionId,
           verifiedAt: verifiedUser.verifiedAt,
           status: verifiedUser.status,
-          isLifetime: false
+          isLifetime: false,
         })
       }
-      
+
       return NextResponse.json({ verified: false })
     }
-    
-    // Get all subscriptions from MongoDB
+
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    // Get all subscriptions from MongoDB (local/debug only)
     const client = await clientPromise
     const db = client.db('sdhq')
     const subscriptions = await db.collection('subscriptions').find({}).toArray()

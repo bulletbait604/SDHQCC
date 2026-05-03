@@ -53,6 +53,10 @@ export function paypalSdkClientId(): string | undefined {
   return live || undefined
 }
 
+/**
+ * PayPal **Subscription plan** ID only (Dashboard → Subscription plans — recurring monthly).
+ * Used by the Subscribe popup (`intent=subscription`). Not used for Lifetime Pass (one-time order checkout).
+ */
 export function paypalSdkPlanId(): string | undefined {
   if (isPayPalSandbox()) {
     const p =

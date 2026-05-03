@@ -1587,7 +1587,8 @@ export default function HomePage() {
     setPaypalLoaded(false)
   }
 
-  const handleLifetimeSubscription = () => {
+  /** Opens Lifetime Pass checkout — one-time PayPal order, not a Subscription Plan */
+  const handleLifetimePassCheckout = () => {
     setShowLifetimePopup(true)
     setPaypalLifetimeLoaded(false)
   }
@@ -1703,122 +1704,170 @@ export default function HomePage() {
 
   // Load PayPal SDK and render subscription button (isolated namespace — do not share window.paypal with lifetime/donate)
   useEffect(() => {
-    if (showSubscribePopup && !paypalLoaded) {
+    if (!showSubscribePopup || paypalLoaded) return
+    // Avoid racing before /api/paypal-public-config responds (first paint had no clientId/planId)
+    if (paypalCfgLoading) return
+
+    const paypalClientId = paypalCfg?.clientId
+    const planId = paypalCfg?.planId
+
+    if (!paypalClientId || !planId) {
+      console.error('PayPal: client ID or plan ID missing — check /api/paypal-public-config and Vercel env.')
+      return
+    }
+
+    let cancelled = false
+
+    type Win = Window & { paypal_subscribe?: typeof window.paypal }
+    const w = window as Win
+
+    console.log(`PayPal: Loading subscription SDK in ${paypalCfg?.sandbox ? 'SANDBOX' : 'LIVE'} mode`)
+
+    const mountSubscribeButtons = () => {
+      if (cancelled) return
       const container = document.getElementById('paypal-button-container')
-      if (container) {
-        container.innerHTML = ''
-      }
-
-      const paypalClientId = paypalCfg?.clientId
-      const planId = paypalCfg?.planId
-
-      if (!paypalClientId || !planId) {
-        console.error('PayPal: client ID or plan ID missing — check /api/paypal-public-config and Vercel env.')
+      if (!container) {
+        console.error('PayPal: #paypal-button-container not in DOM')
         return
       }
+      if (!w.paypal_subscribe || !user) {
+        console.error('PayPal: paypal_subscribe SDK or user not available')
+        return
+      }
+      container.innerHTML = ''
+      try {
+        const buttons = w.paypal_subscribe.Buttons({
+          style: {
+            shape: 'pill',
+            color: 'blue',
+            layout: 'horizontal',
+            label: 'subscribe',
+          },
+          createSubscription: function (_data: unknown, actions: any) {
+            const uid = user.username.replace(/^@/, '').toLowerCase()
+            console.log('PayPal: Creating subscription with plan:', planId)
+            return actions.subscription
+              .create({
+                plan_id: planId,
+                custom_id: uid,
+              })
+              .catch((err: unknown) => {
+                console.error('PayPal: Subscription creation failed:', err)
+                alert('Failed to create subscription. Please try again.')
+                throw err
+              })
+          },
+          onApprove: function (data: { subscriptionID?: string }) {
+            console.log('Subscription approved:', data.subscriptionID)
+            setShowSubscribePopup(false)
+            try {
+              const paypalWindows = window.open('', 'paypal')
+              if (paypalWindows && !paypalWindows.closed) paypalWindows.close()
+              const sdkWindows = window.open('', '__paypalSDK__')
+              if (sdkWindows && !sdkWindows.closed) sdkWindows.close()
+            } catch (e) {
+              console.log('Could not auto-close PayPal window:', e)
+            }
+            if (data.subscriptionID) pollVerificationStatus(data.subscriptionID)
+          },
+          onError: function (err: { message?: string }) {
+            console.error('PayPal button error:', err)
+            alert('PayPal button error: ' + (err.message || 'Unknown error'))
+          },
+          onCancel: function () {
+            console.log('PayPal subscription cancelled by user')
+          },
+        })
 
-      type Win = Window & { paypal_subscribe?: typeof window.paypal }
-      const w = window as Win
-
-      console.log(`PayPal: Loading subscription SDK in ${paypalCfg?.sandbox ? 'SANDBOX' : 'LIVE'} mode`)
-
-      const mountSubscribeButtons = () => {
-        if (!w.paypal_subscribe || !user) {
-          console.error('PayPal: paypal_subscribe SDK or user not available')
-          return
+        const eligible = buttons.isEligible()
+        if (!eligible) {
+          console.warn('PayPal: Subscription Buttons reported not eligible — attempting render anyway (check plan ID & currency)')
         }
-        try {
-          const buttons = w.paypal_subscribe.Buttons({
-            style: {
-              shape: 'pill',
-              color: 'blue',
-              layout: 'horizontal',
-              label: 'subscribe',
-            },
-            createSubscription: function (_data: unknown, actions: any) {
-              const uid = user.username.replace(/^@/, '').toLowerCase()
-              console.log('PayPal: Creating subscription with plan:', planId)
-              return actions.subscription
-                .create({
-                  plan_id: planId,
-                  custom_id: uid,
-                })
-                .catch((err: unknown) => {
-                  console.error('PayPal: Subscription creation failed:', err)
-                  alert('Failed to create subscription. Please try again.')
-                  throw err
-                })
-            },
-            onApprove: function (data: { subscriptionID?: string }) {
-              console.log('Subscription approved:', data.subscriptionID)
-              setShowSubscribePopup(false)
-              try {
-                const paypalWindows = window.open('', 'paypal')
-                if (paypalWindows && !paypalWindows.closed) paypalWindows.close()
-                const sdkWindows = window.open('', '__paypalSDK__')
-                if (sdkWindows && !sdkWindows.closed) sdkWindows.close()
-              } catch (e) {
-                console.log('Could not auto-close PayPal window:', e)
-              }
-              if (data.subscriptionID) pollVerificationStatus(data.subscriptionID)
-            },
-            onError: function (err: { message?: string }) {
-              console.error('PayPal button error:', err)
-              alert('PayPal button error: ' + (err.message || 'Unknown error'))
-            },
-            onCancel: function () {
-              console.log('PayPal subscription cancelled by user')
-            },
-          })
 
-          if (buttons.isEligible()) {
-            buttons.render('#paypal-button-container')
+        const renderResult = buttons.render(container) as unknown
+        const finishOk = () => {
+          if (!cancelled) {
             console.log('PayPal: Subscription button rendered')
             setPaypalLoaded(true)
-          } else {
-            console.error('PayPal: Subscription button not eligible')
-            alert('PayPal subscription button is not available. Check plan ID, sandbox vs live, and that you use a sandbox Personal buyer account when testing.')
           }
-        } catch (err) {
-          console.error('PayPal: Error creating subscription buttons:', err)
-          alert('Failed to initialize PayPal. Please try again.')
         }
-      }
-
-      if (w.paypal_subscribe) {
-        mountSubscribeButtons()
-        return
-      }
-
-      const existing = Array.from(
-        document.querySelectorAll<HTMLScriptElement>('script[data-sdhq-paypal-subscribe-sdk]')
-      ).find((s) => s.getAttribute('data-paypal-client-id') === paypalClientId)
-
-      if (existing) {
-        const onLoad = () => mountSubscribeButtons()
-        existing.addEventListener('load', onLoad, { once: true })
-        if (w.paypal_subscribe) onLoad()
-        return () => existing.removeEventListener('load', onLoad)
-      }
-
-      const script = document.createElement('script')
-      script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(paypalClientId)}&vault=true&intent=subscription&disable-funding=paylater`
-      script.setAttribute('data-sdk-integration-source', 'button-factory')
-      script.setAttribute('data-sdhq-paypal-subscribe-sdk', '1')
-      script.setAttribute('data-paypal-client-id', paypalClientId)
-      script.setAttribute('data-namespace', 'paypal_subscribe')
-      script.onload = () => mountSubscribeButtons()
-      script.onerror = () => {
-        console.error('PayPal: Failed to load subscription SDK')
-        alert('Failed to load PayPal. Please check your internet connection and try again.')
-      }
-      document.body.appendChild(script)
-
-      return () => {
-        if (script.parentNode) script.parentNode.removeChild(script)
+        const finishErr = (err: unknown) => {
+          console.error('PayPal: Subscription render failed:', err)
+          if (!cancelled) {
+            alert(
+              'Could not show the PayPal Subscribe button. Confirm NEXT_PUBLIC_PAYPAL_PLAN_ID (or SANDBOX) matches a subscription plan for this client ID and currency (CAD).'
+            )
+          }
+        }
+        if (renderResult && typeof (renderResult as Promise<void>).then === 'function') {
+          ;(renderResult as Promise<void>).then(finishOk).catch(finishErr)
+        } else {
+          finishOk()
+        }
+      } catch (err) {
+        console.error('PayPal: Error creating subscription buttons:', err)
+        alert('Failed to initialize PayPal. Please try again.')
       }
     }
-  }, [showSubscribePopup, user, paypalLoaded, paypalCfg?.clientId, paypalCfg?.planId, paypalCfg?.sandbox])
+
+    const scheduleMount = () => {
+      if (cancelled) return
+      requestAnimationFrame(() => {
+        if (cancelled) return
+        mountSubscribeButtons()
+      })
+    }
+
+    if (w.paypal_subscribe) {
+      scheduleMount()
+      return () => {
+        cancelled = true
+      }
+    }
+
+    const existing = Array.from(
+      document.querySelectorAll<HTMLScriptElement>('script[data-sdhq-paypal-subscribe-sdk]')
+    ).find((s) => s.getAttribute('data-paypal-client-id') === paypalClientId)
+
+    if (existing) {
+      const onLoad = () => scheduleMount()
+      existing.addEventListener('load', onLoad, { once: true })
+      if (w.paypal_subscribe) scheduleMount()
+      return () => {
+        cancelled = true
+        existing.removeEventListener('load', onLoad)
+      }
+    }
+
+    const script = document.createElement('script')
+    // components=buttons required for modular loader; currency matches CAD subscription plan
+    script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(
+      paypalClientId
+    )}&components=buttons&vault=true&intent=subscription&currency=CAD&disable-funding=paylater`
+    script.setAttribute('data-sdk-integration-source', 'button-factory')
+    script.setAttribute('data-sdhq-paypal-subscribe-sdk', '1')
+    script.setAttribute('data-paypal-client-id', paypalClientId)
+    script.setAttribute('data-namespace', 'paypal_subscribe')
+    script.onload = () => scheduleMount()
+    script.onerror = () => {
+      console.error('PayPal: Failed to load subscription SDK')
+      alert('Failed to load PayPal. Please check your internet connection and try again.')
+    }
+    document.body.appendChild(script)
+
+    return () => {
+      cancelled = true
+      if (script.parentNode) script.parentNode.removeChild(script)
+    }
+  }, [
+    showSubscribePopup,
+    user,
+    paypalLoaded,
+    paypalCfgLoading,
+    paypalCfg?.clientId,
+    paypalCfg?.planId,
+    paypalCfg?.sandbox,
+  ])
 
   // Load PayPal SDK for lifetime (separate namespace from subscription — avoids SDK overwriting window.paypal)
   useEffect(() => {
@@ -4176,7 +4225,7 @@ export default function HomePage() {
                           </div>
                         </div>
                         <Button
-                          onClick={handleLifetimeSubscription}
+                          onClick={handleLifetimePassCheckout}
                           className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
                         >
                           <Crown className="w-4 h-4 mr-1" />
@@ -4692,7 +4741,7 @@ export default function HomePage() {
                     Get lifetime access to all premium features for a one-time payment of $89.99 CAD.
                   </p>
                   <Button
-                    onClick={handleLifetimeSubscription}
+                    onClick={handleLifetimePassCheckout}
                     className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
                   >
                     <Crown className="w-4 h-4 mr-2" />
@@ -4824,9 +4873,15 @@ export default function HomePage() {
               </p>
               
               <div className={`p-4 rounded-lg border ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
-                <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PayPal Subscription:</p>
+                <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  PayPal Subscription plan (monthly):
+                </p>
                 <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  $9.50 CAD / month - Premium Access
+                  $9.50 CAD / month — Premium Access
+                </p>
+                <p className={`text-xs mt-2 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                  Uses your Subscription plan ID from PayPal → Subscription plans (env{' '}
+                  <span className="font-mono text-[11px]">NEXT_PUBLIC_PAYPAL_PLAN_ID*</span>). Different from Lifetime Pass below.
                 </p>
               </div>
 
@@ -4873,7 +4928,7 @@ export default function HomePage() {
                 <Button
                   onClick={() => {
                     setShowSubscribePopup(false)
-                    handleLifetimeSubscription()
+                    handleLifetimePassCheckout()
                   }}
                   className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
                 >
@@ -4894,12 +4949,12 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Lifetime Membership Popup */}
+      {/* Lifetime Pass — one-time checkout (not PayPal Subscription plans / no PLAN_ID env) */}
       {showLifetimePopup && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-md w-full p-6 shadow-2xl`}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Lifetime Membership</h3>
+              <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Lifetime Pass</h3>
               <button 
                 onClick={() => setShowLifetimePopup(false)}
                 className={`p-1 rounded-full hover:bg-gray-200 ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'text-gray-600'}`}
@@ -4910,11 +4965,15 @@ export default function HomePage() {
             
             <div className="space-y-4">
               <p className={`text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                Get lifetime access to all current and upcoming features for a one-time payment of $89.99 CAD.
+                Get unlimited access to all current and upcoming features with a single one-time payment of $89.99 CAD.
               </p>
-              
+              <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                This charges once through PayPal checkout — it is not a subscription plan and does not use{' '}
+                <span className="font-mono text-[11px]">NEXT_PUBLIC_PAYPAL_PLAN_ID</span>.
+              </p>
+
               <div className={`p-4 rounded-lg border ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
-                <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PayPal One-Time Payment:</p>
+                <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PayPal one-time checkout:</p>
                 <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                   $89.99 CAD - Lifetime Access
                 </p>
