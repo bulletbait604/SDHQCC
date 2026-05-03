@@ -2412,9 +2412,9 @@ export default function HomePage() {
       {/* Header */}
       <header className={headerClasses}>
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2 sm:items-center">
             {/* Left side - User info */}
-            <div className="flex items-center space-x-4">
+            <div className="flex min-w-0 items-center justify-self-start">
               {user ? (
                 <div className="flex items-start gap-3">
                   {user.profile_image_url ? (
@@ -2434,7 +2434,7 @@ export default function HomePage() {
                   )}
                   <div className="flex min-w-0 flex-col gap-2">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      <p className={`font-semibold text-[110%] leading-snug ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                         {user.display_name}
                       </p>
                       {userRole === 'free' ? (
@@ -2470,7 +2470,7 @@ export default function HomePage() {
                       )}
                     </div>
                     {userRole === 'free' ? (
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2 origin-left scale-[0.95]">
                         <Button
                           variant="outline"
                           size="sm"
@@ -2492,7 +2492,7 @@ export default function HomePage() {
                         </Button>
                       </div>
                     ) : (
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2 origin-left scale-[0.95]">
                         <Button
                           type="button"
                           variant="outline"
@@ -2512,22 +2512,22 @@ export default function HomePage() {
               )}
             </div>
             
-            {/* Center - Logo */}
-            <div className="flex-1 flex justify-center">
+            {/* Center - Logo + title */}
+            <div className="flex flex-col items-center justify-center text-center min-w-0 justify-self-center px-1">
               {user && (
-                <div className="flex items-center space-x-3 group">
-                  <div className={`relative p-2 rounded-xl transition-all duration-300 group-hover:scale-110 ${
+                <div className="flex flex-col items-center gap-2 group max-w-[min(100vw-2rem,28rem)]">
+                  <div className={`relative p-2.5 rounded-xl transition-all duration-300 group-hover:scale-105 ${
                     darkMode ? 'bg-sdhq-dark-700 shadow-lg shadow-sdhq-cyan-500/20' : 'bg-white shadow-lg shadow-cyan-500/20'
                   }`}>
                     <Image
                       src="https://iili.io/BebhdFf.png"
                       alt="Stream Dreams logo"
-                      width={48}
-                      height={48}
-                      className="w-12 h-12"
+                      width={64}
+                      height={64}
+                      className="w-16 h-16"
                     />
                   </div>
-                  <span className={`font-bold text-3xl bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 bg-clip-text text-transparent transition-all duration-300 group-hover:scale-105`}>
+                  <span className={`font-bold text-xl sm:text-2xl leading-tight bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 bg-clip-text text-transparent transition-all duration-300`}>
                     Stream Dreams Creator Corner
                   </span>
                 </div>
@@ -2535,7 +2535,7 @@ export default function HomePage() {
             </div>
             
             {/* Right side - Actions */}
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center justify-end flex-wrap gap-x-3 gap-y-2 justify-self-end">
               {/* Dark Mode Toggle */}
               <Button 
                 variant="outline" 

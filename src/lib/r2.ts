@@ -1,4 +1,10 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+} from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 // R2 is S3-compatible
@@ -68,6 +74,57 @@ export async function generateUploadUrl(
     return { uploadUrl, fileKey, publicUrl }
   } catch (error) {
     console.error('Error generating upload URL:', error)
+    return null
+  }
+}
+
+/** Object size and optional content type without downloading the body. */
+export async function getR2ObjectMetadata(
+  fileKey: string
+): Promise<{ contentLength: number; contentType?: string } | null> {
+  if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
+    return null
+  }
+  try {
+    const command = new HeadObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: fileKey,
+    })
+    const response = await r2Client.send(command)
+    const len = response.ContentLength
+    if (typeof len !== 'number' || len < 0) {
+      return null
+    }
+    return {
+      contentLength: len,
+      contentType: response.ContentType,
+    }
+  } catch (error) {
+    console.error('R2: HeadObject failed:', error)
+    return null
+  }
+}
+
+/**
+ * Presigned GET URL so Gemini (or other services) can fetch the object without our server buffering bytes.
+ * Expiry should cover analysis time (Gemini fetches during generateContent).
+ */
+export async function generatePresignedReadUrl(
+  fileKey: string,
+  expiresInSeconds: number
+): Promise<string | null> {
+  if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
+    console.error('R2 credentials not configured')
+    return null
+  }
+  try {
+    const command = new GetObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: fileKey,
+    })
+    return await getSignedUrl(r2Client, command, { expiresIn: expiresInSeconds })
+  } catch (error) {
+    console.error('Error generating presigned read URL:', error)
     return null
   }
 }

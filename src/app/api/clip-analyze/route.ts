@@ -3,7 +3,12 @@ import { GoogleGenAI } from '@google/genai'
 import clientPromise from '@/lib/mongodb'
 import { verifyAuth, hasUnlimitedAccess, AuthError } from '@/lib/auth/verifyAuth'
 import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
-import { getFileFromR2, deleteFileFromR2 } from '@/lib/r2'
+import {
+  getFileFromR2,
+  deleteFileFromR2,
+  getR2ObjectMetadata,
+  generatePresignedReadUrl,
+} from '@/lib/r2'
 import {
   uploadBufferToGeminiFilesApi,
   pollGeminiFileUntilActive,
@@ -15,8 +20,14 @@ export const dynamic = 'force-dynamic'
 
 const CLIP_ANALYZE_COIN_COST = 2
 
+/** Gemini can fetch HTTPS / signed URLs directly; larger clips still use the Files API after R2. */
+const GEMINI_EXTERNAL_URL_MAX_BYTES = 100 * 1024 * 1024
+const CLIP_MAX_BYTES = 250 * 1024 * 1024
+
 // Use gemini-2.5-flash model (stable release)
 const MODEL_NAME = 'gemini-2.5-flash'
+
+type ClipIngestionMode = 'r2-presigned-url' | 'r2-gemini-files' | 'legacy-gemini-file'
 
 // In-memory rate limit storage for clip analyzer
 // NOTE: On Vercel serverless, this resets on cold starts. For production, use Redis/Vercel KV.
@@ -170,6 +181,9 @@ export async function POST(request: NextRequest) {
     let analysisFileUri: string
     let cleanupGeminiName: string | null = null
     let cleanupR2Key: string | null = null
+    let clipIngestionMode: ClipIngestionMode = 'legacy-gemini-file'
+    let effectiveMime = typeof mimeType === 'string' && mimeType ? mimeType : 'video/mp4'
+
     const clipFromR2 = typeof r2FileKey === 'string' && r2FileKey.length > 0
     const storageUser = user.username.replace(/^@/, '').toLowerCase()
 
@@ -178,9 +192,9 @@ export async function POST(request: NextRequest) {
       if (!r2FileKey!.startsWith(prefix) || r2FileKey!.includes('..') || r2FileKey!.length > 500) {
         return NextResponse.json({ error: 'Invalid clip file key' }, { status: 400 })
       }
-      console.log('[DEBUG] Clip Analyze: Loading from R2', r2FileKey)
-      const buffer = await getFileFromR2(r2FileKey!)
-      if (!buffer) {
+
+      const meta = await getR2ObjectMetadata(r2FileKey!)
+      if (!meta) {
         return NextResponse.json(
           {
             error: 'Clip not found',
@@ -189,26 +203,62 @@ export async function POST(request: NextRequest) {
           { status: 404 }
         )
       }
-      const maxBytes = 250 * 1024 * 1024
-      if (buffer.length > maxBytes) {
+
+      if (meta.contentLength > CLIP_MAX_BYTES) {
         return NextResponse.json({ error: 'File too large (max 250MB)' }, { status: 400 })
       }
+
+      effectiveMime = mimeType || meta.contentType || 'video/mp4'
       cleanupR2Key = r2FileKey!
-      console.log('[DEBUG] Clip Analyze: Uploading', buffer.length, 'bytes to Gemini Files API (server)')
-      const uploaded = await uploadBufferToGeminiFilesApi({
-        apiKey: geminiApiKey,
-        buffer,
-        mimeType: mimeType || 'video/mp4',
-        displayName: typeof fileName === 'string' ? fileName : 'clip.mp4',
-      })
-      cleanupGeminiName = uploaded.name
-      await pollGeminiFileUntilActive(geminiApiKey, uploaded.uri)
-      analysisFileUri = uploaded.uri
+
+      if (meta.contentLength <= GEMINI_EXTERNAL_URL_MAX_BYTES) {
+        const readUrl = await generatePresignedReadUrl(r2FileKey!, 3600)
+        if (!readUrl) {
+          return NextResponse.json(
+            {
+              error: 'Storage misconfigured',
+              userMessage: 'Could not prepare your clip for analysis. Please try again later.',
+              details: 'Presigned read URL unavailable',
+            },
+            { status: 503 }
+          )
+        }
+        analysisFileUri = readUrl
+        clipIngestionMode = 'r2-presigned-url'
+        console.log(
+          '[DEBUG] Clip Analyze: Gemini will fetch clip via R2 presigned URL (no Files API upload, size:',
+          meta.contentLength,
+          ')'
+        )
+      } else {
+        console.log('[DEBUG] Clip Analyze: Clip > 100MB — loading from R2 and uploading to Gemini Files API')
+        const buffer = await getFileFromR2(r2FileKey!)
+        if (!buffer) {
+          return NextResponse.json(
+            {
+              error: 'Clip not found',
+              userMessage: 'Could not load your upload. Try uploading again.',
+            },
+            { status: 404 }
+          )
+        }
+        const uploaded = await uploadBufferToGeminiFilesApi({
+          apiKey: geminiApiKey,
+          buffer,
+          mimeType: effectiveMime,
+          displayName: typeof fileName === 'string' ? fileName : 'clip.mp4',
+        })
+        cleanupGeminiName = uploaded.name
+        await pollGeminiFileUntilActive(geminiApiKey, uploaded.uri)
+        analysisFileUri = uploaded.uri
+        clipIngestionMode = 'r2-gemini-files'
+      }
     } else if (
       typeof fileUri === 'string' &&
       fileUri.startsWith('https://generativelanguage.googleapis.com/')
     ) {
       analysisFileUri = fileUri
+      clipIngestionMode = 'legacy-gemini-file'
       console.log('[DEBUG] Clip Analyze: Using client-provided Gemini fileUri (legacy)')
     } else {
       return NextResponse.json(
@@ -220,19 +270,29 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    let fileUriForGemini = analysisFileUri
+    let attemptedPresignedFallback = false
+
     try {
+    const extractedSource =
+      clipIngestionMode === 'r2-presigned-url'
+        ? 'r2-presigned-url'
+        : clipIngestionMode === 'r2-gemini-files'
+          ? 'r2-then-gemini-files'
+          : 'legacy-gemini-file-uri'
+
     // Create basic extracted data from file metadata
-    const extractedData = {
+    let extractedData = {
       fileName: fileName || 'Unknown',
       fileSize: fileSize || 0,
-      fileType: mimeType || 'video/mp4',
+      fileType: effectiveMime,
       duration: 'Unknown (requires video processing)',
       summary: `Uploaded video file: ${fileName || 'Unknown'} (${fileSize ? (fileSize / (1024 * 1024)).toFixed(2) : 'Unknown'} MB)`,
       visualAnalysis: 'Video file uploaded for analysis',
       audioAnalysis: 'Video file uploaded for analysis',
       topics: [],
       keyPoints: [],
-      source: clipFromR2 ? 'r2-then-gemini' : 'direct-upload-gemini',
+      source: extractedSource,
     }
 
     console.log('[DEBUG] Clip Analyze API: Starting Gemini analysis with file URI...')
@@ -241,10 +301,10 @@ export async function POST(request: NextRequest) {
     let analysisResult = null
     let analysisSource = 'none'
 
-    try {
-      // Initialize Google GenAI client
       const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
-      
+
+      for (;;) {
+      try {
       console.log('[DEBUG] Using model:', MODEL_NAME)
       console.log('[DEBUG] Starting Gemini API call with timeout protection...')
       
@@ -253,7 +313,7 @@ export async function POST(request: NextRequest) {
         setTimeout(() => reject(new Error('Gemini API timeout after 52 seconds')), 52000)
       })
       
-      console.log('[DEBUG] Analyzing file URI:', analysisFileUri)
+      console.log('[DEBUG] Analyzing file URI:', fileUriForGemini.substring(0, 120))
       
       const geminiResponse = await Promise.race([
         genAI.models.generateContent({
@@ -264,8 +324,8 @@ export async function POST(request: NextRequest) {
               parts: [
                 {
                   fileData: {
-                    mimeType: mimeType || 'video/mp4',
-                    fileUri: analysisFileUri
+                    mimeType: effectiveMime,
+                    fileUri: fileUriForGemini
                   }
                 },
                 {
@@ -396,13 +456,53 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
           }
           analysisSource = MODEL_NAME
           console.log('✅ [DEBUG] Gemini analysis successful - parsed JSON with keys:', Object.keys(analysisResult))
+          break
         } catch (parseError) {
           console.error('[DEBUG] JSON parse error:', parseError)
           console.error('[DEBUG] Failed content:', cleanContent.substring(0, 500))
           throw parseError
         }
+      } else {
+        break
       }
     } catch (geminiError: any) {
+      const canFallback =
+        !attemptedPresignedFallback &&
+        clipFromR2 &&
+        cleanupR2Key &&
+        !cleanupGeminiName &&
+        clipIngestionMode === 'r2-presigned-url'
+
+      if (canFallback) {
+        attemptedPresignedFallback = true
+        console.warn(
+          '[clip-analyze] Presigned URL analysis failed; retrying via Gemini Files API:',
+          geminiError?.message
+        )
+        const buffer = await getFileFromR2(cleanupR2Key!)
+        if (!buffer) {
+          return NextResponse.json(
+            {
+              error: 'Clip not found',
+              userMessage: 'Could not load your upload. Try uploading again.',
+            },
+            { status: 404 }
+          )
+        }
+        const uploaded = await uploadBufferToGeminiFilesApi({
+          apiKey: geminiApiKey,
+          buffer,
+          mimeType: effectiveMime,
+          displayName: typeof fileName === 'string' ? fileName : 'clip.mp4',
+        })
+        cleanupGeminiName = uploaded.name
+        await pollGeminiFileUntilActive(geminiApiKey, uploaded.uri)
+        fileUriForGemini = uploaded.uri
+        clipIngestionMode = 'r2-gemini-files'
+        extractedData = { ...extractedData, source: 'r2-gemini-files-fallback' }
+        continue
+      }
+
       console.error('[ERROR] Gemini analysis error:', geminiError)
       console.error('[ERROR] Error type:', geminiError.constructor.name)
       console.error('[ERROR] Error message:', geminiError.message)
@@ -461,6 +561,7 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         details: errorDetails
       }, { status: 503 })
     }
+      }
 
     // Only Gemini - no fallbacks
     if (!analysisResult) {
