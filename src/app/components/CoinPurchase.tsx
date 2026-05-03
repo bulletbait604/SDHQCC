@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Coins, X, Loader2 } from 'lucide-react'
 import { usePayPalPublicConfig } from '@/hooks/usePayPalPublicConfig'
+import { captureCheckoutOrderOnServer } from '@/lib/paypalCaptureOrderClient'
 
 interface CoinPackage {
   id: 'small' | 'medium' | 'large'
@@ -117,10 +118,20 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
           ],
         })
       },
-      onApprove: async (_data: { orderID?: string }, actions: { order: { capture: () => Promise<unknown> } }) => {
+      onApprove: async (data: { orderID?: string }) => {
+        const orderID = data.orderID
+        if (!orderID) {
+          setError('Missing order ID from PayPal.')
+          return
+        }
         try {
           setLoading(true)
-          await actions.order.capture()
+          const cap = await captureCheckoutOrderOnServer(orderID)
+          if (!cap.ok) {
+            setError(cap.error || 'Payment capture failed')
+            setLoading(false)
+            return
+          }
           onClose()
           window.location.reload()
         } catch (e: unknown) {

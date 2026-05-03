@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { isPayPalSandbox, paypalApiBase, paypalClientCredentials } from '@/lib/paypalEnv'
+import { isPayPalSandbox, paypalApiBase } from '@/lib/paypalEnv'
+import { getPayPalAccessToken, verifyCompletedOrderForFulfillment } from '@/lib/paypalServerApi'
 import {
   INTERNAL_API_SECRET_HEADER,
   getInternalApiSecret,
@@ -140,130 +141,6 @@ async function cancelSubscription(subscriptionId: string) {
     console.error('Failed to cancel subscription:', error)
     return false
   }
-}
-
-// Helper function to get PayPal access token
-async function getPayPalAccessToken(): Promise<string | null> {
-  const { clientId, clientSecret } = paypalClientCredentials()
-
-  if (!clientId || !clientSecret) {
-    console.error('PayPal credentials not configured')
-    return null
-  }
-
-  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
-  const paypalUrl = `${paypalApiBase()}/v1/oauth2/token`
-
-  try {
-    const response = await fetch(paypalUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${auth}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: 'grant_type=client_credentials',
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('PayPal token request failed:', response.status, errorText)
-      return null
-    }
-
-    const data = await response.json()
-    return data.access_token
-  } catch (error) {
-    console.error('Error getting PayPal access token:', error)
-    return null
-  }
-}
-
-// Helper function to capture order server-side
-async function captureOrder(orderId: string): Promise<any | null> {
-  try {
-    const accessToken = await getPayPalAccessToken()
-    
-    if (!accessToken) {
-      console.error('Cannot capture order - no access token')
-      return null
-    }
-    
-    const paypalUrl = `${paypalApiBase()}/v2/checkout/orders/${orderId}/capture`
-
-    console.log(`PayPal: Capturing order ${orderId}`)
-    
-    const response = await fetch(paypalUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'PayPal-Request-Id': `capture-${orderId}-${Date.now()}`
-      },
-    })
-    
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('PayPal order capture failed:', response.status, errorText)
-      return null
-    }
-    
-    const captureData = await response.json()
-    console.log(`✅ Order ${orderId} captured successfully:`, captureData.status)
-    return captureData
-  } catch (error) {
-    console.error('Error capturing order:', error)
-    return null
-  }
-}
-
-// Helper function to get order details
-async function getOrderDetails(orderId: string): Promise<any | null> {
-  try {
-    const accessToken = await getPayPalAccessToken()
-    
-    if (!accessToken) {
-      console.error('Cannot get order details - no access token')
-      return null
-    }
-    
-    const paypalUrl = `${paypalApiBase()}/v2/checkout/orders/${orderId}`
-
-    console.log(`PayPal: Getting order ${orderId} details`)
-    
-    const response = await fetch(paypalUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    })
-    
-    if (!response.ok) {
-      console.error('PayPal get order failed:', response.status)
-      return null
-    }
-    
-    const order = await response.json()
-    console.log(`✅ Order ${orderId} retrieved:`, order.status)
-    return order
-  } catch (error) {
-    console.error('Error getting order details:', error)
-    return null
-  }
-}
-
-/** Capture APPROVED checkout orders so coin/lifetime credits only run after payment settles */
-async function ensureCheckoutOrderCaptured(orderId: string): Promise<boolean> {
-  let order = await getOrderDetails(orderId)
-  if (!order) return false
-  if (order.status === 'COMPLETED') return true
-  if (order.status === 'APPROVED') {
-    const cap = await captureOrder(orderId)
-    if (!cap) return false
-    order = await getOrderDetails(orderId)
-    return order?.status === 'COMPLETED'
-  }
-  return false
 }
 
 // Helper function to verify subscription with PayPal API
@@ -534,16 +411,31 @@ export async function POST(req: NextRequest) {
           }
         }
         
-        // Handle one-time payment orders (coin purchases) - MUST CHECK BEFORE LIFETIME
-        if (eventType === 'CHECKOUT.ORDER.APPROVED' || eventType === 'CHECKOUT.ORDER.COMPLETED') {
-          const orderId = eventData.resource?.id
-          const customId = eventData.resource?.purchase_units?.[0]?.custom_id
-          const amount = eventData.resource?.purchase_units?.[0]?.amount?.value
-          
-          console.log(`💰 Order webhook: ${orderId}, custom_id: ${customId}`)
-          
+        // One-time orders: only fulfill on COMPLETED + PayPal GET shows COMPLETED and custom_id (not APPROVED / not webhook body alone)
+        if (eventType === 'CHECKOUT.ORDER.COMPLETED') {
+          const orderId = eventData.resource?.id as string | undefined
+          if (!orderId) {
+            return NextResponse.json({ status: 'error', message: 'Missing order id' }, { status: 400 })
+          }
+
+          const verified = await verifyCompletedOrderForFulfillment(orderId)
+          if (!verified?.customId) {
+            console.error(
+              `❌ Order ${orderId} not COMPLETED in PayPal API or missing custom_id — skipping fulfillment`
+            )
+            return NextResponse.json(
+              { status: 'error', message: 'Order not verified as completed' },
+              { status: 400 }
+            )
+          }
+
+          const customId = verified.customId
+          const amount = verified.amountValue
+
+          console.log(`💰 CHECKOUT.ORDER.COMPLETED: ${orderId}, custom_id (from PayPal API): ${customId}`)
+
           // Check for COIN purchase FIRST (format: usernameLower|coins|packageType|coinCount|price)
-          if (customId && customId.includes('coins')) {
+          if (customId.includes('coins')) {
             const parts = customId.split('|')
             const username = parts[0]?.toLowerCase()
             const packageType = parts[2]
@@ -551,12 +443,6 @@ export async function POST(req: NextRequest) {
             const pricePart = parts[4]
 
             if (username && !isNaN(coinCount)) {
-              const completedOk = await ensureCheckoutOrderCaptured(orderId)
-              if (!completedOk) {
-                console.error(`❌ Coin purchase order ${orderId} verification/capture failed`)
-                return NextResponse.json({ status: 'error', message: 'Order verification failed' }, { status: 400 })
-              }
-
               const client = await clientPromise
               const db = client.db('sdhq')
 
@@ -641,19 +527,13 @@ export async function POST(req: NextRequest) {
           }
 
           // Donations (format: usernameLower|donation|amount|USD — PayPal JS SDK on client)
-          if (customId && customId.includes('|donation|')) {
+          if (customId.includes('|donation|')) {
             const parts = customId.split('|')
             const username = parts[0]?.toLowerCase()
             const donationAmount = parseFloat(parts[2])
             const currency = (parts[3] || 'USD').toUpperCase()
 
             if (username && !isNaN(donationAmount)) {
-              const completedOk = await ensureCheckoutOrderCaptured(orderId)
-              if (!completedOk) {
-                console.error(`❌ Donation order ${orderId} verification/capture failed`)
-                return NextResponse.json({ status: 'error', message: 'Order verification failed' }, { status: 400 })
-              }
-
               const client = await clientPromise
               const db = client.db('sdhq')
 
@@ -698,22 +578,15 @@ export async function POST(req: NextRequest) {
               })
             }
           }
-          
+
           // LEGACY: old PayPal custom_id used |tokens| (same balance as coins today)
-          if (customId && customId.includes('tokens')) {
+          if (customId.includes('tokens')) {
             const parts = customId.split('|')
             const username = parts[0]
             const packageType = parts[2]
             const tokenCount = parseInt(parts[3], 10)
-            
+
             if (username && !isNaN(tokenCount)) {
-              // Verify order with PayPal
-              const verifiedOrder = await getOrderDetails(orderId)
-              if (!verifiedOrder || verifiedOrder.status !== 'COMPLETED') {
-                console.error(`❌ Token purchase order ${orderId} verification failed or not completed`)
-                return NextResponse.json({ status: 'error', message: 'Order verification failed' }, { status: 400 })
-              }
-              
               // Update token balance (legacy - migrate to coins)
               const client = await clientPromise
               const db = client.db('sdhq')
@@ -768,19 +641,12 @@ export async function POST(req: NextRequest) {
               })
             }
           }
-          
+
           // Handle lifetime membership (format: username|lifetime)
-          if (customId && customId.includes('lifetime')) {
+          if (customId.includes('lifetime')) {
             const username = customId.split('|')[0]
-            
+
             if (username) {
-              // Verify order with PayPal
-              const verifiedOrder = await getOrderDetails(orderId)
-              if (!verifiedOrder || verifiedOrder.status !== 'COMPLETED') {
-                console.error(`❌ Lifetime order ${orderId} verification failed or not completed`)
-                return NextResponse.json({ status: 'error', message: 'Order verification failed' }, { status: 400 })
-              }
-              
               // Store with LOWERCASE username to match GET endpoint search
               const subscription = {
                 username: username.toLowerCase(),

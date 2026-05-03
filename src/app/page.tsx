@@ -3,10 +3,12 @@
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 
-// TypeScript declaration for PayPal
+// TypeScript declaration for PayPal (namespaced loaders avoid subscription vs one-time SDK clashes)
 declare global {
   interface Window {
     paypal?: any
+    paypal_subscribe?: any
+    paypal_lifetime?: any
   }
 }
 
@@ -16,6 +18,7 @@ import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
 import CoinPurchase from '@/app/components/CoinPurchase'
 import ResourceHubTab from '@/app/components/ResourceHubTab'
 import { usePayPalPublicConfig } from '@/hooks/usePayPalPublicConfig'
+import { captureCheckoutOrderOnServer } from '@/lib/paypalCaptureOrderClient'
 import { useCoins, COIN_COSTS } from '@/hooks/useCoins'
 import {
   User,
@@ -1668,11 +1671,17 @@ export default function HomePage() {
           ],
         })
       },
-      onApprove: async (
-        _data: unknown,
-        actions: { order: { capture: () => Promise<unknown> } }
-      ) => {
-        await actions.order.capture()
+      onApprove: async (data: { orderID?: string }) => {
+        const orderID = data.orderID
+        if (!orderID) {
+          alert('PayPal did not return an order ID.')
+          return
+        }
+        const cap = await captureCheckoutOrderOnServer(orderID)
+        if (!cap.ok) {
+          alert(cap.error || 'Could not complete donation. Try again or contact support.')
+          return
+        }
         setShowDonatePopup(false)
         alert('Thank you for your donation!')
       },
@@ -1692,10 +1701,9 @@ export default function HomePage() {
     }
   }, [showDonatePopup, paypalDonateSdkReady, user, donateAmount])
 
-  // Load PayPal SDK and render subscription button
+  // Load PayPal SDK and render subscription button (isolated namespace — do not share window.paypal with lifetime/donate)
   useEffect(() => {
     if (showSubscribePopup && !paypalLoaded) {
-      // Remove existing PayPal button if any
       const container = document.getElementById('paypal-button-container')
       if (container) {
         container.innerHTML = ''
@@ -1709,100 +1717,110 @@ export default function HomePage() {
         return
       }
 
-      console.log(`PayPal: Loading SDK in ${paypalCfg?.sandbox ? 'SANDBOX' : 'LIVE'} mode`)
+      type Win = Window & { paypal_subscribe?: typeof window.paypal }
+      const w = window as Win
 
-      const script = document.createElement('script')
-      script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(paypalClientId)}&vault=true&intent=subscription&disable-funding=paylater`
-      script.setAttribute('data-sdk-integration-source', 'button-factory')
-      script.onload = () => {
-        console.log('PayPal SDK loaded successfully')
-        // Render PayPal button after SDK loads
-        if (window.paypal && user) {
-          console.log('PayPal: Rendering subscription button...')
-          console.log('PayPal: Plan ID present:', !!planId)
-          
-          try {
-            const buttons = window.paypal.Buttons({
-              style: {
-                shape: 'pill',
-                color: 'blue',
-                layout: 'horizontal',
-                label: 'subscribe'
-              },
-              createSubscription: function(data: any, actions: any) {
-                const uid = user.username.replace(/^@/, '').toLowerCase()
-                console.log('PayPal: Creating subscription with plan:', planId)
-                return actions.subscription.create({
+      console.log(`PayPal: Loading subscription SDK in ${paypalCfg?.sandbox ? 'SANDBOX' : 'LIVE'} mode`)
+
+      const mountSubscribeButtons = () => {
+        if (!w.paypal_subscribe || !user) {
+          console.error('PayPal: paypal_subscribe SDK or user not available')
+          return
+        }
+        try {
+          const buttons = w.paypal_subscribe.Buttons({
+            style: {
+              shape: 'pill',
+              color: 'blue',
+              layout: 'horizontal',
+              label: 'subscribe',
+            },
+            createSubscription: function (_data: unknown, actions: any) {
+              const uid = user.username.replace(/^@/, '').toLowerCase()
+              console.log('PayPal: Creating subscription with plan:', planId)
+              return actions.subscription
+                .create({
                   plan_id: planId,
                   custom_id: uid,
-                }).catch((err: any) => {
+                })
+                .catch((err: unknown) => {
                   console.error('PayPal: Subscription creation failed:', err)
                   alert('Failed to create subscription. Please try again.')
                   throw err
                 })
-              },
-              onApprove: function(data: any, actions: any) {
-                console.log('Subscription approved:', data.subscriptionID)
-
-                // Close our subscribe popup
-                setShowSubscribePopup(false)
-                
-                // Force close any PayPal popup windows
-                try {
-                  // Try to find and close PayPal windows by name
-                  const paypalWindows = window.open('', 'paypal')
-                  if (paypalWindows && !paypalWindows.closed) {
-                    paypalWindows.close()
-                  }
-                  const sdkWindows = window.open('', '__paypalSDK__')
-                  if (sdkWindows && !sdkWindows.closed) {
-                    sdkWindows.close()
-                  }
-                } catch (e) {
-                  console.log('Could not auto-close PayPal window:', e)
-                }
-                
-                // Start polling for verification status immediately (silently in background)
-                pollVerificationStatus(data.subscriptionID)
-              },
-              onError: function(err: any) {
-                console.error('PayPal button error:', err)
-                alert('PayPal button error: ' + (err.message || 'Unknown error'))
-              },
-              onCancel: function() {
-                console.log('PayPal subscription cancelled by user')
+            },
+            onApprove: function (data: { subscriptionID?: string }) {
+              console.log('Subscription approved:', data.subscriptionID)
+              setShowSubscribePopup(false)
+              try {
+                const paypalWindows = window.open('', 'paypal')
+                if (paypalWindows && !paypalWindows.closed) paypalWindows.close()
+                const sdkWindows = window.open('', '__paypalSDK__')
+                if (sdkWindows && !sdkWindows.closed) sdkWindows.close()
+              } catch (e) {
+                console.log('Could not auto-close PayPal window:', e)
               }
-            })
-            
-            if (buttons.isEligible()) {
-              buttons.render('#paypal-button-container')
-              console.log('PayPal: Button rendered successfully')
-              setPaypalLoaded(true)
-            } else {
-              console.error('PayPal: Button not eligible for rendering')
-              alert('PayPal button is not eligible. Please check your PayPal configuration.')
-            }
-          } catch (err) {
-            console.error('PayPal: Error creating buttons:', err)
-            alert('Failed to initialize PayPal. Please try again.')
+              if (data.subscriptionID) pollVerificationStatus(data.subscriptionID)
+            },
+            onError: function (err: { message?: string }) {
+              console.error('PayPal button error:', err)
+              alert('PayPal button error: ' + (err.message || 'Unknown error'))
+            },
+            onCancel: function () {
+              console.log('PayPal subscription cancelled by user')
+            },
+          })
+
+          if (buttons.isEligible()) {
+            buttons.render('#paypal-button-container')
+            console.log('PayPal: Subscription button rendered')
+            setPaypalLoaded(true)
+          } else {
+            console.error('PayPal: Subscription button not eligible')
+            alert('PayPal subscription button is not available. Check plan ID, sandbox vs live, and that you use a sandbox Personal buyer account when testing.')
           }
-        } else {
-          console.error('PayPal: window.paypal or user not available')
+        } catch (err) {
+          console.error('PayPal: Error creating subscription buttons:', err)
+          alert('Failed to initialize PayPal. Please try again.')
         }
       }
-      script.onerror = (err) => {
-        console.error('PayPal: Failed to load SDK:', err)
+
+      if (w.paypal_subscribe) {
+        mountSubscribeButtons()
+        return
+      }
+
+      const existing = Array.from(
+        document.querySelectorAll<HTMLScriptElement>('script[data-sdhq-paypal-subscribe-sdk]')
+      ).find((s) => s.getAttribute('data-paypal-client-id') === paypalClientId)
+
+      if (existing) {
+        const onLoad = () => mountSubscribeButtons()
+        existing.addEventListener('load', onLoad, { once: true })
+        if (w.paypal_subscribe) onLoad()
+        return () => existing.removeEventListener('load', onLoad)
+      }
+
+      const script = document.createElement('script')
+      script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(paypalClientId)}&vault=true&intent=subscription&disable-funding=paylater`
+      script.setAttribute('data-sdk-integration-source', 'button-factory')
+      script.setAttribute('data-sdhq-paypal-subscribe-sdk', '1')
+      script.setAttribute('data-paypal-client-id', paypalClientId)
+      script.setAttribute('data-namespace', 'paypal_subscribe')
+      script.onload = () => mountSubscribeButtons()
+      script.onerror = () => {
+        console.error('PayPal: Failed to load subscription SDK')
         alert('Failed to load PayPal. Please check your internet connection and try again.')
       }
       document.body.appendChild(script)
 
       return () => {
-        document.body.removeChild(script)
+        if (script.parentNode) script.parentNode.removeChild(script)
       }
     }
   }, [showSubscribePopup, user, paypalLoaded, paypalCfg?.clientId, paypalCfg?.planId, paypalCfg?.sandbox])
 
-  // Load PayPal SDK for lifetime membership - WORKS LIKE SUBSCRIPTION BUTTON
+  // Load PayPal SDK for lifetime (separate namespace from subscription — avoids SDK overwriting window.paypal)
   useEffect(() => {
     if (showLifetimePopup && !paypalLifetimeLoaded && user) {
       const paypalClientId = paypalCfg?.clientId
@@ -1812,47 +1830,96 @@ export default function HomePage() {
         return
       }
 
+      type Win = Window & { paypal_lifetime?: typeof window.paypal }
+      const w = window as Win
+
       console.log(`PayPal Lifetime: Loading SDK in ${paypalCfg?.sandbox ? 'SANDBOX' : 'LIVE'} mode`)
 
-      const script = document.createElement('script')
-      script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(paypalClientId)}&currency=CAD&disable-funding=paylater`
-      script.setAttribute('data-sdk-integration-source', 'button-factory')
-      script.onload = () => {
-        if (window.paypal && user) {
-          window.paypal.Buttons({
+      const mountLifetimeButtons = () => {
+        if (!w.paypal_lifetime || !user) return
+        try {
+          const buttons = w.paypal_lifetime.Buttons({
             style: {
               shape: 'pill',
               color: 'blue',
               layout: 'horizontal',
-              label: 'pay'
+              label: 'pay',
             },
-            createOrder: function(data: any, actions: any) {
+            createOrder: function (_data: unknown, actions: any) {
               return actions.order.create({
-                purchase_units: [{
-                  amount: {
-                    value: '89.99',
-                    currency_code: 'CAD'
+                purchase_units: [
+                  {
+                    amount: {
+                      value: '89.99',
+                      currency_code: 'CAD',
+                    },
+                    description: 'Stream Dreams Creator Corner Lifetime Membership',
+                    custom_id: `${user.username}|lifetime`,
                   },
-                  description: 'Stream Dreams Creator Corner Lifetime Membership',
-                  custom_id: `${user.username}|lifetime`
-                }]
+                ],
               })
             },
-            onApprove: function(data: any, actions: any) {
-              console.log('Lifetime payment approved:', data.orderID)
-              
-              // Close popup and start polling - webhook will handle verification
+            onApprove: async function (data: { orderID?: string }) {
+              const orderID = data.orderID
+              console.log('Lifetime payment approved:', orderID)
+              if (!orderID) {
+                alert('PayPal did not return an order ID.')
+                return
+              }
+              const cap = await captureCheckoutOrderOnServer(orderID)
+              if (!cap.ok) {
+                alert(cap.error || 'Could not complete payment. Try again.')
+                return
+              }
               setShowLifetimePopup(false)
-              pollVerificationStatus(data.orderID)
-            }
-          }).render('#paypal-lifetime-button-container')
-          setPaypalLifetimeLoaded(true)
+              pollVerificationStatus(orderID)
+            },
+            onError: function (err: { message?: string }) {
+              console.error('PayPal lifetime button error:', err)
+              alert('PayPal error: ' + (err.message || 'Unknown error'))
+            },
+          })
+          if (buttons.isEligible()) {
+            buttons.render('#paypal-lifetime-button-container')
+            setPaypalLifetimeLoaded(true)
+          } else {
+            console.error('PayPal: Lifetime button not eligible')
+            alert('PayPal checkout is not available. In sandbox, log in with a Personal buyer account, not your Business (seller) account.')
+          }
+        } catch (e) {
+          console.error('PayPal lifetime Buttons failed:', e)
+          alert('Failed to initialize PayPal checkout.')
         }
       }
+
+      if (w.paypal_lifetime) {
+        mountLifetimeButtons()
+        return
+      }
+
+      const existing = Array.from(
+        document.querySelectorAll<HTMLScriptElement>('script[data-sdhq-paypal-lifetime-sdk]')
+      ).find((s) => s.getAttribute('data-paypal-client-id') === paypalClientId)
+
+      if (existing) {
+        const onLoad = () => mountLifetimeButtons()
+        existing.addEventListener('load', onLoad, { once: true })
+        if (w.paypal_lifetime) onLoad()
+        return () => existing.removeEventListener('load', onLoad)
+      }
+
+      const script = document.createElement('script')
+      script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(paypalClientId)}&currency=CAD&disable-funding=paylater`
+      script.setAttribute('data-sdk-integration-source', 'button-factory')
+      script.setAttribute('data-sdhq-paypal-lifetime-sdk', '1')
+      script.setAttribute('data-paypal-client-id', paypalClientId)
+      script.setAttribute('data-namespace', 'paypal_lifetime')
+      script.onload = () => mountLifetimeButtons()
+      script.onerror = () => console.error('PayPal lifetime SDK failed to load')
       document.body.appendChild(script)
 
       return () => {
-        document.body.removeChild(script)
+        if (script.parentNode) script.parentNode.removeChild(script)
       }
     }
   }, [showLifetimePopup, user, paypalLifetimeLoaded, paypalCfg?.clientId, paypalCfg?.sandbox])
@@ -4781,7 +4848,12 @@ export default function HomePage() {
               ) : null}
 
               <div id="paypal-button-container" className="w-full"></div>
-              
+              {paypalCfg?.sandbox ? (
+                <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
+                  Sandbox testing: use a <span className="font-semibold">Personal</span> buyer account (PayPal Developer → Sandbox accounts). Do not pay with the Business account linked to your app — PayPal will block it.
+                </p>
+              ) : null}
+
               <div className={`text-center pt-2 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
                 <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   Want to pay once and never worry about subscriptions again?
@@ -4849,7 +4921,12 @@ export default function HomePage() {
               </div>
               
               <div id="paypal-lifetime-button-container" className="w-full"></div>
-              
+              {paypalCfg?.sandbox ? (
+                <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
+                  Sandbox: pay with a <span className="font-semibold">Personal</span> buyer sandbox account, not the Business (seller) account for your REST app.
+                </p>
+              ) : null}
+
               <Button
                 variant="outline"
                 onClick={() => setShowLifetimePopup(false)}
