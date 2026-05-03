@@ -627,9 +627,15 @@ export default function HomePage() {
       if (response.ok) {
         // Refresh users list
         await fetchUsersWithRoles()
-        // If updating self, refresh own role
+        // If updating self, refresh own role + /api/me (subscribers row may be cleared on downgrade to free)
         if (username.toLowerCase() === user?.username.toLowerCase()) {
           await fetchUserRole()
+          const meRes = await fetch('/api/me', { credentials: 'include' })
+          if (meRes.ok) {
+            const me = await meRes.json()
+            setIsVerified(!!me.subscription?.isVerified)
+            setIsLifetime(!!me.subscription?.isLifetime)
+          }
         }
         
         // Log role change to activity
@@ -770,7 +776,7 @@ export default function HomePage() {
     setIsLifetimeMember(isLifetimeMemberValue)
     setIsTester(isTesterValue)
     
-    // Prefer MongoDB role from /api/roles so manual subscriber/lifetime updates are not overwritten by PayPal lists
+    // Prefer MongoDB users.role; explicit `free` must beat PayPal subscriber lists / subscribers collection
     const dbRole = userWithRole?.role as Role | undefined
 
     if (isOwner) {
@@ -779,11 +785,13 @@ export default function HomePage() {
       setUserRole('admin')
     } else if (dbRole === 'subscriber_lifetime' || isLifetimeMemberValue) {
       setUserRole('subscriber_lifetime')
+    } else if (dbRole === 'free') {
+      setUserRole('free')
     } else if (dbRole === 'subscriber' || isSubscribedValue) {
       setUserRole('subscriber')
     } else if (dbRole === 'tester' || isTesterValue) {
       setUserRole('tester')
-    } else if (dbRole && dbRole !== 'free') {
+    } else if (dbRole) {
       setUserRole(dbRole)
     } else {
       setUserRole('free')
@@ -924,45 +932,50 @@ export default function HomePage() {
         }
         if (meRes.ok) {
           const me = await meRes.json()
-          if (me.user) {
+          if (!me.user) {
+            setUser(null)
+            setIsVerified(false)
+            setIsLifetime(false)
+            applyAnonymousUiFromCookies()
+          } else {
             setUser(me.user as KickUser)
-          }
-          if (me.preferences?.language && translations[me.preferences.language as Language]) {
-            setLanguage(me.preferences.language as Language)
-          }
-          if (typeof me.preferences?.darkMode === 'boolean') {
-            setDarkMode(me.preferences.darkMode)
-          }
-          setIsVerified(!!me.subscription?.isVerified)
-          setIsLifetime(!!me.subscription?.isLifetime)
+            if (me.preferences?.language && translations[me.preferences.language as Language]) {
+              setLanguage(me.preferences.language as Language)
+            }
+            if (typeof me.preferences?.darkMode === 'boolean') {
+              setDarkMode(me.preferences.darkMode)
+            }
+            setIsVerified(!!me.subscription?.isVerified)
+            setIsLifetime(!!me.subscription?.isLifetime)
 
-          if (isPostVerification && me.user?.username) {
-            console.log('Post-verification reload detected, polling for role update...')
-            urlParams.delete('verified')
-            window.history.replaceState({}, '', `${window.location.pathname}?${urlParams}`)
+            if (isPostVerification && me.user?.username) {
+              console.log('Post-verification reload detected, polling for role update...')
+              urlParams.delete('verified')
+              window.history.replaceState({}, '', `${window.location.pathname}?${urlParams}`)
 
-            let rolePollCount = 0
-            const rolePoll = setInterval(async () => {
-              rolePollCount++
+              let rolePollCount = 0
+              const rolePoll = setInterval(async () => {
+                rolePollCount++
 
-              const response = await fetch(`/api/roles?username=${me.user.username}`, {
-                credentials: 'include',
-              })
-              if (response.ok) {
-                const data = await response.json()
+                const response = await fetch(`/api/roles?username=${me.user.username}`, {
+                  credentials: 'include',
+                })
+                if (response.ok) {
+                  const data = await response.json()
 
-                if (data.user && data.user.role && data.user.role !== 'free') {
-                  clearInterval(rolePoll)
-                  setUserRole(data.user.role)
-                  console.log(`✅ Role updated to ${data.user.role} after ${rolePollCount} polls`)
+                  if (data.user && data.user.role && data.user.role !== 'free') {
+                    clearInterval(rolePoll)
+                    setUserRole(data.user.role)
+                    console.log(`✅ Role updated to ${data.user.role} after ${rolePollCount} polls`)
+                  }
                 }
-              }
 
-              if (rolePollCount >= 30) {
-                clearInterval(rolePoll)
-                console.log('Role poll timeout, final role will be shown')
-              }
-            }, 200)
+                if (rolePollCount >= 30) {
+                  clearInterval(rolePoll)
+                  console.log('Role poll timeout, final role will be shown')
+                }
+              }, 200)
+            }
           }
         } else {
           applyAnonymousUiFromCookies()
@@ -1715,6 +1728,16 @@ export default function HomePage() {
       console.error('PayPal: client ID or plan ID missing — check /api/paypal-public-config and Vercel env.')
       return
     }
+    if (paypalCfg?.planIdFormatOk === false) {
+      console.error('PayPal: Plan ID must start with P- (billing plan), not PROD-. Skipping Subscribe button.')
+      return
+    }
+    if (paypalCfg?.planResolvedOnPayPal === false) {
+      console.error(
+        'PayPal: Plan ID not found for this REST app / environment — fix NEXT_PUBLIC_PAYPAL_PLAN_ID_SANDBOX (sandbox) or create plan with same app. Skipping Subscribe button.'
+      )
+      return
+    }
 
     let cancelled = false
 
@@ -1879,6 +1902,8 @@ export default function HomePage() {
     paypalCfg?.clientId,
     paypalCfg?.planId,
     paypalCfg?.sandbox,
+    paypalCfg?.planIdFormatOk,
+    paypalCfg?.planResolvedOnPayPal,
   ])
 
   // Load PayPal SDK for lifetime (separate namespace from subscription — avoids SDK overwriting window.paypal)
@@ -4945,6 +4970,18 @@ export default function HomePage() {
                   Plan ID must be a Billing Plan ID starting with <span className="font-mono">P-</span> (PayPal →
                   Subscription plans). <span className="font-mono">PROD-</span> product IDs will fail with
                   INVALID_RESOURCE_ID.
+                </p>
+              ) : null}
+              {paypalCfg?.planResolvedOnPayPal === false ? (
+                <p className={`text-sm ${darkMode ? 'text-red-400' : 'text-red-700'}`}>
+                  PayPal cannot load this Plan ID for your current app (
+                  <span className="font-mono">RESOURCE_NOT_FOUND</span>). In{' '}
+                  <span className="font-semibold">sandbox</span>, set{' '}
+                  <span className="font-mono text-[11px]">NEXT_PUBLIC_PAYPAL_PLAN_ID_SANDBOX</span> to a{' '}
+                  <span className="font-mono">P-</span> plan created with the <em>same</em> Sandbox REST app as your
+                  Client ID (see Developer Dashboard). Do not reuse a live plan ID. Run{' '}
+                  <span className="font-mono text-[11px]">npm run create-paypal-plan</span> with{' '}
+                  <span className="font-mono text-[11px]">PAYPAL_MODE=sandbox</span> if needed.
                 </p>
               ) : null}
               {!paypalCfgLoading && !paypalCfg?.clientId && !paypalCfgError ? (

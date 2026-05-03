@@ -52,6 +52,12 @@ export async function POST(request: NextRequest) {
       { upsert: true }
     );
 
+    // Owner downgrade to free: clear PayPal-derived membership rows so UI /api/me + role logic stay aligned
+    if (role === 'free') {
+      await db.collection('subscribers').deleteOne({ username: normalizedUsername })
+      await db.collection('lifetimeMembers').deleteOne({ username: normalizedUsername })
+    }
+
     // Verify the update
     const updatedUser = await db.collection('users').findOne({ username: normalizedUsername });
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
+import { verifyAuth, AuthError, createAuthErrorResponse, extractSessionToken } from '@/lib/auth/verifyAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +19,21 @@ type KickOAuthDb = {
 }
 
 export async function GET(req: NextRequest) {
+  // Anonymous visitors: return 200 so browsers/devtools don’t show failing /api/me requests
+  if (!extractSessionToken(req)) {
+    return NextResponse.json({
+      user: null,
+      subscription: {
+        isVerified: false,
+        isLifetime: false,
+      },
+      preferences: {
+        language: 'en',
+        darkMode: false,
+      },
+    })
+  }
+
   try {
     const authUser = await verifyAuth(req)
     const client = await clientPromise

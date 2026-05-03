@@ -18,7 +18,7 @@ const UNLIMITED_ROLES: UserRole[] = ['subscriber', 'subscriber_lifetime', 'admin
  * Extract session token from request
  * Priority: 1) HTTP-Only cookie, 2) Authorization header
  */
-function extractSessionToken(req: NextRequest): string | null {
+export function extractSessionToken(req: NextRequest): string | null {
   // Check for session cookie first (most secure)
   const sessionCookie = req.cookies.get('next-auth.session-token')?.value ||
                        req.cookies.get('session')?.value ||
@@ -86,17 +86,37 @@ export async function verifyAuth(req: NextRequest): Promise<VerifiedUser> {
   // Verify user still exists in database (prevents using deleted account tokens)
   const client = await clientPromise
   const db = client.db('sdhq')
-  const dbUser = await db.collection('users').findOne({ username: user.username })
-  
+  let dbUser = await db.collection('users').findOne({ username: user.username })
+
+  // Valid session but no Mongo row (deleted doc, replica lag, legacy token) — recreate minimal user
   if (!dbUser) {
-    throw new AuthError('User not found', 401)
+    const now = new Date().toISOString()
+    await db.collection('users').updateOne(
+      { username: user.username },
+      {
+        $set: {
+          username: user.username,
+          kickId: user.id,
+          updatedAt: now,
+        },
+        $setOnInsert: {
+          role: (user.role || 'free') as string,
+          createdAt: now,
+        },
+      },
+      { upsert: true }
+    )
+    dbUser = await db.collection('users').findOne({ username: user.username })
+    if (!dbUser) {
+      throw new AuthError('User not found', 401)
+    }
   }
-  
+
   // Update role from database (in case role changed since token issued)
   if (dbUser.role && dbUser.role !== user.role) {
     user.role = dbUser.role as UserRole
   }
-  
+
   return user
 }
 
