@@ -37,6 +37,17 @@ function thumbnailGeminiEnrichEnabled(): boolean {
   return v === "1" || v === "true" || v === "yes";
 }
 
+/**
+ * When `GEMINI_API` is set, run a lightweight Gemini 2.5 spell/typo pass on creator notes
+ * (default on). Skipped when `THUMBNAIL_GEMINI_SPELLCHECK=0` — enrich-only runs do not double-call.
+ */
+function thumbnailGeminiSpellcheckEnabled(): boolean {
+  if (!process.env.GEMINI_API?.trim()) return false;
+  const v = process.env.THUMBNAIL_GEMINI_SPELLCHECK?.trim().toLowerCase();
+  if (v === "0" || v === "false" || v === "no") return false;
+  return true;
+}
+
 const r2 = new S3Client({
   region: "auto",
   endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
@@ -706,6 +717,12 @@ function platformOverlayHintsFromPlatforms(platforms: string[] | undefined): str
 const THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT =
   "\n\n**Mandatory graphic thumbnail treatment:** The final image must include **real painted typography**—at least a **dominant headline** plus a **second text line** (subtitle, stat, or callout)—with **thick stroke, hard shadow, or outer glow** so it reads at tiny preview size. Add **collage-style graphic layers**: arrows, starbursts, simple badges, sparkles, or emoji-like doodles as **flat stickers** around the focal subject. Phrases should echo the instructions (or invent short hooks if none given). **Invented / generic marks only**—do not copy official brand logos, game marks, or trademarked UI; stylized originals are required.";
 
+/**
+ * Diffusion models (FLUX, etc.) often garble painted text. Nano Banana skips this—its stack is separate.
+ */
+const THUMBNAIL_FLUX_TYPOGRAPHY_SPELLING_BLOCK =
+  "\n\n**On-image text—spelling accuracy (critical):** Every word you paint must match the instructions **letter-for-letter**—no swapped or missing letters, nonsense glyphs, mirror writing, or random characters. Prefer **short lines** of **simple bold block or clean sans-serif** type with a **thick outline**; avoid melting, ultra-warped, or hyper-ornate lettering that distorts letter shapes. Reproduce **proper nouns and titles exactly** as given. When inventing hook text, keep it **plain and easy to spell**.";
+
 function buildPromptText(
   instructionText: string,
   spec: ReturnType<typeof thumbnailSpecFromPlatforms>,
@@ -714,12 +731,17 @@ function buildPromptText(
   domainKeywordSource?: string,
   /** Echo creator wording when an LLM rewrote instructions—keeps proper nouns (games, platforms). */
   literalAnchorSource?: string,
-  platforms?: string[]
+  platforms?: string[],
+  /** Extra spelling/legibility pressure for diffusion-rendered typography (FLUX family). */
+  includeFluxTypographySpellingHints?: boolean
 ): string {
   const domain = domainHintsForPrompt(domainKeywordSource ?? instructionText);
   const keywordSource = domainKeywordSource ?? instructionText;
   const streamBlock = streamThumbnailTypographyBlock(keywordSource);
   const platformOverlay = platformOverlayHintsFromPlatforms(platforms);
+  const fluxSpelling = includeFluxTypographySpellingHints
+    ? THUMBNAIL_FLUX_TYPOGRAPHY_SPELLING_BLOCK
+    : "";
 
   const fidelity =
     literalAnchorSource &&
@@ -733,13 +755,13 @@ function buildPromptText(
   return hasImage
     ? `You are a professional multi-platform thumbnail designer. An image is provided—compose around it and honor the text below.${obeyLiteral}
 
-Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT}
+Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${fluxSpelling}${THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT}
 
 Output dimensions: ${spec.pixels} (${spec.label}). ${spec.aspectNote}
 High contrast, bold colors, clear visual hierarchy—**all headline and sticker graphics must be fully rendered inside the image pixels** (never implied or left for post-production).`
     : `You are a professional multi-platform thumbnail designer.${obeyLiteral}
 
-Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT}
+Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${fluxSpelling}${THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT}
 
 Output dimensions: ${spec.pixels} (${spec.label}). ${spec.aspectNote}
 High contrast, bold colors, clear visual hierarchy—**all headline and sticker graphics must be fully rendered inside the image pixels** (never implied or left for post-production).`;
@@ -767,9 +789,12 @@ async function enrichThumbnailBriefWithGemini(params: {
 
   const metaPrompt = `You help draft image prompts for thumbnail image models (FLUX, Nano Banana / Gemini-image on Fal, etc.).
 
-Rewrite the creator's notes into ONE concise paragraph (max 110 words) of concrete visual directions: subject, mood, lighting, palette, composition, plus **exact short strings** the model must **paint as on-image typography** (e.g. "LIVE ON TWITCH", "NEW GAME — WINDROSE", a funny one-liner)—not "space for text" or "add title later". Also name **2–4 graphic sticker elements** to include (arrow, starburst, badge shape, emoji doodle) so the frame looks like a real social thumbnail—not a clean movie poster.
+**Step 1 — spelling:** Infer the creator's intent and **fix misspellings and typos** (game/stream titles, platform names, people/channel names, common words). Use **standard correct spellings** for any text that should appear on the thumbnail. If something is ambiguous slang or clearly intentional stylization, keep the intent.
+
+**Step 2 — rewrite:** Turn the (now spelling-correct) notes into ONE concise paragraph (max 110 words) of concrete visual directions: subject, mood, lighting, palette, composition, plus **exact short strings** the model must **paint as on-image typography** (e.g. "LIVE ON TWITCH", "NEW GAME — WINDROSE", a funny one-liner)—not "space for text" or "add title later". Those strings must use the **corrected spellings** from step 1. Also name **2–4 graphic sticker elements** to include (arrow, starburst, badge shape, emoji doodle) so the frame looks like a real social thumbnail—not a clean movie poster.
 
 CRITICAL—keep fidelity to what they wrote:
+• **Spelling:** Any exact phrase you tell the image model to paint must be **correctly spelled**; when the creator mistyped, use the **fixed** spelling in on-image strings. For new hook lines you invent, use **short, simple, easy-to-read** words (diffusion models often garble ornate type).
 • If they name a streaming platform (Twitch, Kick, YouTube Live, etc.), prescribe **busy stream-thumb layout**: purple/black Twitch energy when relevant, chunky outlined lettering, HUD corners; propose exact short phrases for on-image typography.
 • If they name a game, franchise, or title (e.g. indie games, RPGs, Windrose, etc.), translate it into matching genre art direction—fantasy forest vs sci-fi HUD vs anime RPG mood—even when you cannot show official logos or characters (describe original scenes "inspired by" that genre).
 • Do NOT drop proper nouns that carry meaning; you may name platforms and games as *theme anchors*. Do not reproduce official logos, trademark UI, or real people's likenesses—stylized original imagery only.
@@ -810,6 +835,60 @@ Reply with plain prose only—no markdown, no bullets, no quotes wrapping the wh
     return cleaned;
   } catch (e) {
     console.warn("[Thumbnail] Gemini enrichment failed:", e);
+    return null;
+  }
+}
+
+/** Short Gemini pass: fix typos only (same model family as enrich — default gemini-2.5-flash). */
+async function spellcheckThumbnailBriefWithGemini(params: {
+  userPrompt: string;
+}): Promise<string | null> {
+  const apiKey = process.env.GEMINI_API?.trim();
+  if (!apiKey) {
+    return null;
+  }
+
+  const safeNotes = params.userPrompt.replace(/"""/g, '"');
+  const metaPrompt = `You correct spelling in creator notes for a video thumbnail image generator (the notes are later sent to a diffusion model that paints text into pixels).
+
+Rules:
+• Fix clear misspellings in ordinary words, titles, platform names (Twitch, YouTube, etc.), and proper nouns when the intended word is obvious.
+• If a word is ambiguous or intentional creator slang/stylization, keep it.
+• Do NOT rewrite into a long visual brief—keep the same length and scope as the input (a short note stays a short note).
+• Output ONLY the corrected notes as plain text—no markdown, no bullet list, no quotes wrapping the whole answer, no preamble like "Here is".
+
+Creator notes:
+"""
+${safeNotes}
+"""`;
+
+  try {
+    const genAI = new GoogleGenAI({ apiKey });
+    const response = await genAI.models.generateContent({
+      model: thumbnailGeminiModelId(),
+      contents: [{ role: "user", parts: [{ text: metaPrompt }] }],
+    });
+
+    let rawText: string;
+    try {
+      const r = response as unknown as {
+        text?: string | (() => string);
+      };
+      rawText =
+        typeof r.text === "function"
+          ? r.text()
+          : String(r.text ?? "");
+    } catch {
+      return null;
+    }
+
+    const cleaned = rawText.trim().replace(/^["'`]+|["'`]+$/g, "");
+    if (!cleaned || cleaned.length < 3) {
+      return null;
+    }
+    return cleaned;
+  } catch (e) {
+    console.warn("[Thumbnail] Gemini spellcheck failed:", e);
     return null;
   }
 }
@@ -903,6 +982,7 @@ type ThumbnailGenResult = {
   description: string;
   falModel: string;
   geminiEnrichUsed: boolean;
+  geminiSpellcheckUsed: boolean;
 };
 
 async function generateThumbnailSchnell(params: {
@@ -923,11 +1003,13 @@ async function generateThumbnailSchnell(params: {
   const falOutFmt = falThumbnailOutputFormat();
 
   let geminiEnrichUsed = false;
+  let geminiSpellcheckUsed = false;
   let instructionPrompt = truncatedPrompt;
   /** When enrich + reference run together, staging runs in parallel with Gemini to save wall time. */
   let earlyStaged: { imageUrl: string; stagingKey: string | null } | null = null;
 
   const enrichOn = thumbnailGeminiEnrichEnabled();
+  const spellcheckOn = thumbnailGeminiSpellcheckEnabled();
   const hasRef = !!params.imageBase64;
 
   if (enrichOn && hasRef) {
@@ -964,16 +1046,43 @@ async function generateThumbnailSchnell(params: {
     }
   }
 
+  if (!geminiEnrichUsed && spellcheckOn) {
+    const fixed = await spellcheckThumbnailBriefWithGemini({
+      userPrompt: truncatedPrompt,
+    });
+    if (fixed) {
+      geminiSpellcheckUsed = true;
+      instructionPrompt =
+        fixed.length > maxPromptLength
+          ? fixed.slice(0, maxPromptLength) + "..."
+          : fixed;
+    }
+  }
+
   const spec = thumbnailSpecFromPlatforms(params.platforms);
+  const useFluxTypographySpellingHints = params.imageBase64
+    ? !isFalNanoBananaEditModel(falImg2imgModelId())
+    : !isFalNanoBananaT2iModel(falTxt2imgModelId());
+
+  const domainKeywordSource = geminiEnrichUsed
+    ? truncatedPrompt
+    : instructionPrompt.trim() !== truncatedPrompt.trim()
+      ? instructionPrompt
+      : truncatedPrompt;
+  const literalAnchorSource =
+    geminiEnrichUsed &&
+    instructionPrompt.trim() !== truncatedPrompt.trim()
+      ? truncatedPrompt
+      : undefined;
+
   const promptText = buildPromptText(
     instructionPrompt,
     spec,
     !!params.imageBase64,
-    truncatedPrompt,
-    instructionPrompt.trim() !== truncatedPrompt.trim()
-      ? truncatedPrompt
-      : undefined,
-    params.platforms
+    domainKeywordSource,
+    literalAnchorSource,
+    params.platforms,
+    useFluxTypographySpellingHints
   );
   const imageSize = falImageSizeFromPlatforms(params.platforms);
   const nanoAspect = nanoBananaAspectRatioFromPlatforms(params.platforms);
@@ -1170,6 +1279,7 @@ async function generateThumbnailSchnell(params: {
     description,
     falModel,
     geminiEnrichUsed,
+    geminiSpellcheckUsed,
   };
 }
 
@@ -1240,6 +1350,7 @@ export async function POST(req: NextRequest) {
       platforms,
       hadReferenceImage: !!effectiveB64,
       geminiEnrichUsed: out.geminiEnrichUsed,
+      geminiSpellcheckUsed: out.geminiSpellcheckUsed,
     });
 
     const encKey = encodeURIComponent(out.key);

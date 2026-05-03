@@ -3,7 +3,7 @@
  * ESTIMATE_FLUX_USD_PER_MP, ESTIMATE_NANO_FLASH_USD, ESTIMATE_NANO_PRO_1K2K_USD,
  * ESTIMATE_NANO_PRO_4K_USD, ESTIMATE_FAL_REDUX_USD, ESTIMATE_THUMBNAIL_GEMINI_ENRICH_USD,
  * ESTIMATE_TAG_GEMINI_USD, ESTIMATE_TAG_FAL_OPENROUTER_USD, ESTIMATE_CLIP_ANALYSIS_USD,
- * ESTIMATE_FLUX2_FLASH_USD_PER_MP.
+ * ESTIMATE_FLUX2_FLASH_USD_PER_MP, ESTIMATE_THUMBNAIL_GEMINI_SPELLCHECK_USD.
  */
 
 const FLUX_DEF = 0.008
@@ -60,6 +60,7 @@ export function estimateThumbnailGenerationUsd(params: {
   platforms: string[] | undefined
   hadReferenceImage: boolean
   geminiEnrichUsed: boolean
+  geminiSpellcheckUsed?: boolean
 }): { estimatedCostUsd: number; estimatedCostNote: string } {
   const id = params.falModel.trim()
   const lines: string[] = []
@@ -143,6 +144,11 @@ export function estimateThumbnailGenerationUsd(params: {
     enrich = numEnv("ESTIMATE_THUMBNAIL_GEMINI_ENRICH_USD", 0.0005)
     lines.push(
       `Gemini prompt enrich (${process.env.THUMBNAIL_GEMINI_MODEL || "gemini-2.5-flash"}, rough)`
+    )
+  } else if (params.geminiSpellcheckUsed) {
+    enrich = numEnv("ESTIMATE_THUMBNAIL_GEMINI_SPELLCHECK_USD", 0.0002)
+    lines.push(
+      `Gemini spellcheck (${process.env.THUMBNAIL_GEMINI_MODEL || "gemini-2.5-flash"}, rough)`
     )
   }
 
