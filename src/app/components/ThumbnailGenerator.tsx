@@ -51,8 +51,7 @@ export default function ThumbnailGenerator({
   const [history, setHistory] = useState<ThumbnailResult[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   
-  // Platform selection state
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['youtube-shorts', 'youtube-long'])
+  const [selectedPlatform, setSelectedPlatform] = useState('youtube-shorts')
 
   // Coin system for free users
   const { 
@@ -128,25 +127,11 @@ export default function ThumbnailGenerator({
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  // Toggle platform selection
-  const togglePlatform = (platformId: string) => {
-    setSelectedPlatforms(prev => 
-      prev.includes(platformId)
-        ? prev.filter(id => id !== platformId)
-        : [...prev, platformId]
-    )
-  }
-
   // ── Generate ───────────────────────────────────────────────────────────────
   const generate = async (base64Override?: string, mimeOverride?: string) => {
     if (!prompt.trim()) {
       return
     }
-    if (selectedPlatforms.length === 0) {
-      setError('Please select at least one platform')
-      return
-    }
-
     if (!hasUnlimitedAccess && !hasEnoughCoins('thumbnail-generator')) {
       setError('Insufficient coins. Thumbnail generation costs 2 coins for free users.')
       return
@@ -155,12 +140,9 @@ export default function ThumbnailGenerator({
     setIsGenerating(true)
     setError('')
 
-    // Build platform-specific prompt
-    const platformNames = selectedPlatforms.map(id => 
-      availablePlatforms.find(p => p.id === id)?.name
-    ).filter(Boolean).join(', ')
-    
-    const enhancedPrompt = `Create a thumbnail optimized for ${platformNames}. ${prompt}`
+    const platformName =
+      availablePlatforms.find((p) => p.id === selectedPlatform)?.name ?? 'your platform'
+    const enhancedPrompt = `Create a thumbnail optimized for ${platformName}. ${prompt}`
     const result = await fetch('/api/thumbnail-generator', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -170,7 +152,7 @@ export default function ThumbnailGenerator({
         imageBase64: base64Override ?? imageBase64 ?? undefined,
         mimeType: mimeOverride ?? imageMime,
         sessionId: userId || 'anon',
-        platforms: selectedPlatforms,
+        platforms: [selectedPlatform],
       }),
     }).then(r => r.json())
 
@@ -240,16 +222,12 @@ export default function ThumbnailGenerator({
     link.click()
   }
 
-  /** Preview container matches dominant platform aspect */
+  /** Preview container matches selected platform aspect */
   const previewAspectClass = (() => {
-    const ids = selectedPlatforms
-    const verticalOnly =
-      ids.some((id) => ['youtube-shorts', 'tiktok', 'facebook-reels'].includes(id)) &&
-      !ids.includes('youtube-long') &&
-      !ids.includes('twitter')
-    const igOnly = ids.length === 1 && ids[0] === 'instagram'
-    if (igOnly) return 'aspect-[4/5] w-full max-w-sm mx-auto'
-    if (verticalOnly) return 'aspect-[9/16] w-full max-w-sm mx-auto'
+    const id = selectedPlatform
+    if (id === 'instagram') return 'aspect-[4/5] w-full max-w-sm mx-auto'
+    if (['youtube-shorts', 'tiktok', 'facebook-reels'].includes(id))
+      return 'aspect-[9/16] w-full max-w-sm mx-auto'
     return 'aspect-video w-full'
   })()
 
@@ -378,41 +356,26 @@ export default function ThumbnailGenerator({
               className={`w-full border rounded-xl px-4 py-3 text-base resize-none outline-none transition-all backdrop-blur-sm ${inputClasses}`}
             />
 
-            {/* Platform Selection */}
+            {/* Platform */}
             <div className={`p-4 rounded-xl border ${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-gray-50 border-gray-200'}`}>
-              <p className={`text-sm font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                📱 Check your platform(s):
-              </p>
-              <div className="grid grid-cols-2 gap-2">
+              <label
+                htmlFor="thumbnail-platform"
+                className={`text-sm font-semibold mb-2 block ${darkMode ? 'text-white' : 'text-gray-800'}`}
+              >
+                📱 Target platform
+              </label>
+              <select
+                id="thumbnail-platform"
+                value={selectedPlatform}
+                onChange={(e) => setSelectedPlatform(e.target.value)}
+                className={`w-full rounded-xl px-4 py-3 text-base outline-none transition-all backdrop-blur-sm ${inputClasses}`}
+              >
                 {availablePlatforms.map((platform) => (
-                  <label 
-                    key={platform.id}
-                    className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all ${
-                      selectedPlatforms.includes(platform.id)
-                        ? darkMode 
-                          ? 'bg-sdhq-cyan-500/20 border border-sdhq-cyan-500/50' 
-                          : 'bg-sdhq-cyan-100 border border-sdhq-cyan-300'
-                        : darkMode
-                          ? 'bg-sdhq-dark-700 border border-sdhq-dark-600 hover:bg-sdhq-dark-600'
-                          : 'bg-white border border-gray-200 hover:bg-gray-100'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedPlatforms.includes(platform.id)}
-                      onChange={() => togglePlatform(platform.id)}
-                      className="w-4 h-4 rounded border-gray-300 text-sdhq-cyan-500 focus:ring-sdhq-cyan-500"
-                    />
-                    <span className="text-lg">{platform.icon}</span>
-                    <span className={`text-sm ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>
-                      {platform.name}
-                    </span>
-                  </label>
+                  <option key={platform.id} value={platform.id}>
+                    {platform.icon} {platform.name}
+                  </option>
                 ))}
-              </div>
-              {selectedPlatforms.length === 0 && (
-                <p className="text-red-400 text-sm mt-2">Please select at least one platform</p>
-              )}
+              </select>
             </div>
 
             {/* Generate button with coin cost */}
@@ -430,7 +393,7 @@ export default function ThumbnailGenerator({
             )}
             <button
               onClick={() => generate()}
-              disabled={isGenerating || !prompt.trim() || selectedPlatforms.length === 0 || (!hasUnlimitedAccess && !hasEnoughCoins('thumbnail-generator'))}
+              disabled={isGenerating || !prompt.trim() || (!hasUnlimitedAccess && !hasEnoughCoins('thumbnail-generator'))}
               className="w-full py-4 rounded-xl font-bold text-lg transition-all bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 text-black disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(6,182,212,0.4)]"
             >
               {isGenerating ? (
