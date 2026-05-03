@@ -16,6 +16,40 @@ export type FulfillVerifiedCoinPurchaseResult =
   | { ok: true; duplicate?: boolean; coins: number; username: string }
   | { ok: false; error: string; forbidden?: boolean }
 
+/** Must match CoinPurchase.tsx, /api/coins/purchase, and paypal-webhook custom_id parsing */
+const COIN_CATALOG: Record<string, { coins: number; price: number }> = {
+  small: { coins: 12, price: 5 },
+  medium: { coins: 35, price: 10 },
+  large: { coins: 100, price: 20 },
+}
+
+function verifyCatalogAndPayPalAmount(
+  packageType: string,
+  coinCount: number,
+  pricePart: string | undefined,
+  amountFromPayPal: string | undefined
+): { ok: true } | { ok: false; error: string } {
+  const def = COIN_CATALOG[packageType]
+  if (!def) return { ok: false, error: 'Unknown coin package' }
+  if (def.coins !== coinCount) {
+    return { ok: false, error: 'Coin count does not match package' }
+  }
+  if (pricePart !== undefined && pricePart !== '') {
+    const metaPrice = parseFloat(pricePart)
+    if (!Number.isNaN(metaPrice) && Math.abs(metaPrice - def.price) > 0.009) {
+      return { ok: false, error: 'Package price in order metadata is invalid' }
+    }
+  }
+  if (amountFromPayPal === undefined || amountFromPayPal === '') {
+    return { ok: false, error: 'Could not verify captured amount from PayPal' }
+  }
+  const paid = parseFloat(amountFromPayPal)
+  if (Number.isNaN(paid) || Math.abs(paid - def.price) > 0.009) {
+    return { ok: false, error: 'Payment amount does not match the selected coin package' }
+  }
+  return { ok: true }
+}
+
 async function logCoinPurchaseActivity(username: string, details: string) {
   try {
     const base = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || ''
@@ -55,7 +89,8 @@ export async function fulfillVerifiedCoinPurchase(
   }
 
   const parts = customId.split('|')
-  const username = parts[0]?.toLowerCase()
+  const username =
+    parts[0]?.replace(/^@/, '').toLowerCase() ?? ''
   const packageType = parts[2]
   const coinCount = parseInt(parts[3], 10)
   const pricePart = parts[4]
@@ -64,14 +99,24 @@ export async function fulfillVerifiedCoinPurchase(
     return { ok: false, error: 'Invalid coin purchase custom_id' }
   }
 
-  if (
-    assertUsername !== undefined &&
-    assertUsername.toLowerCase() !== username
-  ) {
-    return {
-      ok: false,
-      error: 'This PayPal order belongs to another account',
-      forbidden: true,
+  const catalogCheck = verifyCatalogAndPayPalAmount(
+    packageType,
+    coinCount,
+    pricePart,
+    amount
+  )
+  if (!catalogCheck.ok) {
+    return { ok: false, error: catalogCheck.error }
+  }
+
+  if (assertUsername !== undefined) {
+    const asserted = assertUsername.replace(/^@/, '').toLowerCase()
+    if (asserted !== username) {
+      return {
+        ok: false,
+        error: 'This PayPal order belongs to another account',
+        forbidden: true,
+      }
     }
   }
 
