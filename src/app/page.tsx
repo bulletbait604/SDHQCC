@@ -763,6 +763,7 @@ export default function HomePage() {
 
       setCoinGrantUsername('')
       setCoinGrantAmount(10)
+      void fetchUsersWithRoles()
       const action = amount >= 0 ? 'Added' : 'Removed'
       alert(`${action} ${Math.abs(amount)} coins for ${data.targetUsername}. New balance: ${data.balance}`)
     } catch (error) {
@@ -4568,6 +4569,17 @@ export default function HomePage() {
                                   darkMode ? 'bg-sdhq-dark-700 text-gray-300' : 'bg-gray-100 text-gray-600'
                                 }`}>
                                   {ROLE_CONFIG[u.role as Role]?.label || u.role}
+                                </span>
+                                <span
+                                  className={`text-xs tabular-nums px-2 py-1 rounded ${
+                                    darkMode
+                                      ? 'bg-amber-900/35 text-amber-100'
+                                      : 'bg-amber-50 text-amber-900'
+                                  }`}
+                                  title="Coin balance (Mongo coinBalances)"
+                                >
+                                  🪙{' '}
+                                  {typeof u.coins === 'number' ? u.coins : '—'}
                                 </span>
                               </div>
                               <div className="flex items-center space-x-2">
