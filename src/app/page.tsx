@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
 import CoinPurchase from '@/app/components/CoinPurchase'
 import ResourceHubTab from '@/app/components/ResourceHubTab'
+import { usePayPalPublicConfig } from '@/hooks/usePayPalPublicConfig'
 import { useCoins, COIN_COSTS } from '@/hooks/useCoins'
 import {
   User,
@@ -405,7 +406,10 @@ export default function HomePage() {
   const [feedbackMessage, setFeedbackMessage] = useState('')
   const [feedbackSending, setFeedbackSending] = useState(false)
   const [showCoinPurchase, setShowCoinPurchase] = useState(false)
-  
+
+  /** Runtime PayPal mode + IDs from server (avoids stale NEXT_PUBLIC_* in client bundle). */
+  const { config: paypalCfg, loading: paypalCfgLoading, error: paypalCfgError } = usePayPalPublicConfig()
+
   // Verification states
   const [isVerified, setIsVerified] = useState<boolean>(false)
   const [isLifetime, setIsLifetime] = useState<boolean>(false)
@@ -641,6 +645,7 @@ export default function HomePage() {
         fetch('/api/activity-log', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             username: user?.username,
             action: 'role_updated',
@@ -799,7 +804,7 @@ export default function HomePage() {
         if (data.lifetimeMembers !== undefined) {
           setLifetimeMembers(data.lifetimeMembers || [])
         }
-      } else {
+      } else if (response.status !== 401 && response.status !== 403) {
         console.error('Failed to fetch user lists:', response.status)
       }
     } catch (error) {
@@ -1207,8 +1212,6 @@ export default function HomePage() {
     }, 2000)
 
     try {
-      const userType = userRole
-      
       console.log('Clip Upload: Starting upload flow...')
       console.log('Clip Upload: File details:', { name: clipFile.name, type: clipFile.type, size: clipFile.size })
       
@@ -1219,10 +1222,7 @@ export default function HomePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          userId: user?.id || '',
-          userType: userType
-        })
+        body: JSON.stringify({}),
       })
 
       if (!tokenRes.ok) {
@@ -1368,6 +1368,7 @@ export default function HomePage() {
         fetch('/api/activity-log', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             username: user.username,
             action: 'clip_analysis',
@@ -1444,6 +1445,7 @@ export default function HomePage() {
       fetch('/api/activity-log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           username: user.username,
           action: 'logout'
@@ -1516,6 +1518,7 @@ export default function HomePage() {
         fetch('/api/activity-log', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             username: user.username,
             action: 'algorithm_refresh',
@@ -1598,7 +1601,7 @@ export default function HomePage() {
   /** PayPal JS SDK (popup / smart buttons) for donations — USD, matches webhook custom_id */
   useEffect(() => {
     if (!showDonatePopup) return
-    const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+    const clientId = paypalCfg?.clientId
     if (!clientId) return
 
     type Win = Window & { paypal_donate?: typeof window.paypal }
@@ -1608,7 +1611,9 @@ export default function HomePage() {
       return
     }
 
-    const existing = document.querySelector<HTMLScriptElement>('script[data-sdhq-paypal-donate-sdk]')
+    const existing = Array.from(
+      document.querySelectorAll<HTMLScriptElement>('script[data-sdhq-paypal-donate-sdk]')
+    ).find((s) => s.getAttribute('data-paypal-client-id') === clientId)
     if (existing) {
       if (w.paypal_donate) setPaypalDonateSdkReady(true)
       else existing.addEventListener('load', () => setPaypalDonateSdkReady(true), { once: true })
@@ -1616,14 +1621,15 @@ export default function HomePage() {
     }
 
     const script = document.createElement('script')
-    script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=USD&disable-funding=paylater`
+    script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=USD&disable-funding=paylater`
     script.setAttribute('data-sdhq-paypal-donate-sdk', '1')
+    script.setAttribute('data-paypal-client-id', clientId)
     script.setAttribute('data-namespace', 'paypal_donate')
     script.setAttribute('data-sdk-integration-source', 'button-factory')
     script.onload = () => setPaypalDonateSdkReady(true)
     script.onerror = () => console.error('PayPal donate SDK failed to load')
     document.body.appendChild(script)
-  }, [showDonatePopup])
+  }, [showDonatePopup, paypalCfg?.clientId])
 
   useEffect(() => {
     if (!showDonatePopup || !paypalDonateSdkReady || !user) return
@@ -1697,33 +1703,25 @@ export default function HomePage() {
         container.innerHTML = ''
       }
 
-      // Load PayPal SDK - PRODUCTION MODE
-      const isSandbox = false
-      const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
-      
-      if (!paypalClientId) {
-        console.error('PayPal Client ID not configured')
+      const paypalClientId = paypalCfg?.clientId
+      const planId = paypalCfg?.planId
+
+      if (!paypalClientId || !planId) {
+        console.error('PayPal: client ID or plan ID missing — check /api/paypal-public-config and Vercel env.')
         return
       }
-      
-      console.log(`PayPal: Loading SDK in LIVE mode`)
-      
+
+      console.log(`PayPal: Loading SDK in ${paypalCfg?.sandbox ? 'SANDBOX' : 'LIVE'} mode`)
+
       const script = document.createElement('script')
-      script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&vault=true&intent=subscription&disable-funding=paylater`
+      script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(paypalClientId)}&vault=true&intent=subscription&disable-funding=paylater`
       script.setAttribute('data-sdk-integration-source', 'button-factory')
       script.onload = () => {
         console.log('PayPal SDK loaded successfully')
         // Render PayPal button after SDK loads
         if (window.paypal && user) {
           console.log('PayPal: Rendering subscription button...')
-          const planId = process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID
           console.log('PayPal: Plan ID present:', !!planId)
-          
-          if (!planId) {
-            console.error('PayPal: Plan ID not configured!')
-            alert('PayPal configuration error: Plan ID not set. Please contact support.')
-            return
-          }
           
           try {
             const buttons = window.paypal.Buttons({
@@ -1734,10 +1732,17 @@ export default function HomePage() {
                 label: 'subscribe'
               },
               createSubscription: function(data: any, actions: any) {
+                const emailForPayPal = paypalEmail.trim()
+                if (!emailForPayPal || !emailForPayPal.includes('@')) {
+                  alert(
+                    'Please enter your PayPal account email in the field above before subscribing (use your sandbox buyer email when testing).'
+                  )
+                  return Promise.reject(new Error('PayPal email required'))
+                }
                 console.log('PayPal: Creating subscription with plan:', planId)
                 return actions.subscription.create({
                   plan_id: planId,
-                  custom_id: `${user.username}|${paypalEmail}`
+                  custom_id: `${user.username}|${emailForPayPal}`
                 }).catch((err: any) => {
                   console.error('PayPal: Subscription creation failed:', err)
                   alert('Failed to create subscription. Please try again.')
@@ -1804,23 +1809,22 @@ export default function HomePage() {
         document.body.removeChild(script)
       }
     }
-  }, [showSubscribePopup, user, paypalLoaded, paypalEmail])
+  }, [showSubscribePopup, user, paypalLoaded, paypalEmail, paypalCfg?.clientId, paypalCfg?.planId, paypalCfg?.sandbox])
 
   // Load PayPal SDK for lifetime membership - WORKS LIKE SUBSCRIPTION BUTTON
   useEffect(() => {
     if (showLifetimePopup && !paypalLifetimeLoaded && user) {
-      const isSandbox = false
-      const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
-      
+      const paypalClientId = paypalCfg?.clientId
+
       if (!paypalClientId) {
         console.error('PayPal Client ID not configured')
         return
       }
-      
-      console.log(`PayPal Lifetime: Loading SDK in LIVE mode`)
-      
+
+      console.log(`PayPal Lifetime: Loading SDK in ${paypalCfg?.sandbox ? 'SANDBOX' : 'LIVE'} mode`)
+
       const script = document.createElement('script')
-      script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=CAD&disable-funding=paylater`
+      script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(paypalClientId)}&currency=CAD&disable-funding=paylater`
       script.setAttribute('data-sdk-integration-source', 'button-factory')
       script.onload = () => {
         if (window.paypal && user) {
@@ -1860,7 +1864,7 @@ export default function HomePage() {
         document.body.removeChild(script)
       }
     }
-  }, [showLifetimePopup, user, paypalLifetimeLoaded])
+  }, [showLifetimePopup, user, paypalLifetimeLoaded, paypalCfg?.clientId, paypalCfg?.sandbox])
 
   // Reset PayPal embed state when modals close so buttons render again on next open
   useEffect(() => {
@@ -2214,6 +2218,7 @@ export default function HomePage() {
     fetch('/api/activity-log', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({
         username: user.username,
         action: 'verification_attempt',
@@ -2269,6 +2274,7 @@ export default function HomePage() {
         fetch('/api/activity-log', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             username: user.username,
             action: 'payment_success',
@@ -2294,6 +2300,7 @@ export default function HomePage() {
         fetch('/api/activity-log', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             username: user.username,
             action: 'payment_failed',
@@ -3118,6 +3125,7 @@ export default function HomePage() {
                             fetch('/api/activity-log', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
+                              credentials: 'include',
                               body: JSON.stringify({
                                 username: user.username,
                                 action: 'tag_generation',
@@ -3227,6 +3235,7 @@ export default function HomePage() {
                     fetch('/api/activity-log', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
                       body: JSON.stringify({
                         username: user.username,
                         action: 'thumbnail_generation',
@@ -4879,7 +4888,48 @@ export default function HomePage() {
                   $9.50 CAD / month - Premium Access
                 </p>
               </div>
-              
+
+              <div className="space-y-2">
+                <label className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  PayPal account email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  autoComplete="email"
+                  inputMode="email"
+                  value={paypalEmail}
+                  onChange={(e) => setPaypalEmail(e.target.value)}
+                  placeholder={paypalCfg?.sandbox ? 'Sandbox buyer e.g. sb-buyer@personal.example.com' : 'Same email as your PayPal login'}
+                  className={`w-full px-3 py-2 rounded-lg border text-base ${
+                    darkMode
+                      ? 'bg-sdhq-dark-700 border-sdhq-dark-600 text-white placeholder-gray-500'
+                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                  }`}
+                />
+                <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
+                  {paypalCfg?.sandbox
+                    ? 'Use the sandbox buyer email from PayPal Developer → Testing Tools → Sandbox Accounts (not your real email).'
+                    : 'Must match the email on the PayPal account used to subscribe.'}
+                </p>
+              </div>
+
+              {paypalCfgLoading ? (
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Loading PayPal configuration…
+                </p>
+              ) : null}
+              {paypalCfgError ? (
+                <p className="text-sm text-red-500">{paypalCfgError}</p>
+              ) : null}
+              {paypalCfg?.warning ? (
+                <p className={`text-sm ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>{paypalCfg.warning}</p>
+              ) : null}
+              {!paypalCfgLoading && !paypalCfg?.clientId && !paypalCfgError ? (
+                <p className={`text-sm ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>
+                  PayPal client ID is missing for this mode. Set sandbox or live IDs in your deployment env and redeploy if needed.
+                </p>
+              ) : null}
+
               <div id="paypal-button-container" className="w-full"></div>
               
               <div className={`text-center pt-2 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
@@ -5010,10 +5060,21 @@ export default function HomePage() {
             </p>
 
             <div className="space-y-4">
-              {!process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ? (
-                <p className={`text-sm ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>
-                  PayPal is not configured for this build (NEXT_PUBLIC_PAYPAL_CLIENT_ID).
+              {paypalCfgLoading ? (
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Loading PayPal configuration…
                 </p>
+              ) : null}
+              {paypalCfgError ? (
+                <p className="text-sm text-red-500">{paypalCfgError}</p>
+              ) : null}
+              {!paypalCfgLoading && !paypalCfg?.clientId && !paypalCfgError ? (
+                <p className={`text-sm ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>
+                  PayPal is not configured for this mode (set NEXT_PUBLIC_PAYPAL_MODE and matching client ID on the server).
+                </p>
+              ) : null}
+              {paypalCfg?.warning ? (
+                <p className={`text-sm ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>{paypalCfg.warning}</p>
               ) : null}
 
               <div>
@@ -5057,7 +5118,7 @@ export default function HomePage() {
                 ))}
               </div>
 
-              {process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ? (
+              {paypalCfg?.clientId ? (
                 <>
                   {!paypalDonateSdkReady ? (
                     <p className={`text-sm text-center ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>

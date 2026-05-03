@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Coins, X, Loader2 } from 'lucide-react'
+import { usePayPalPublicConfig } from '@/hooks/usePayPalPublicConfig'
 
 interface CoinPackage {
   id: 'small' | 'medium' | 'large'
@@ -28,7 +29,7 @@ interface CoinPurchaseProps {
 
 /**
  * Coin checkout uses the same PayPal JS SDK flow as Lifetime membership:
- * only NEXT_PUBLIC_PAYPAL_CLIENT_ID is required in the browser (no server secret for order creation).
+ * client ID from GET /api/paypal-public-config (runtime env — not baked into the bundle).
  * Webhook credits coins using custom_id: usernameLower|coins|packageType|coinCount|price
  */
 export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false }: CoinPurchaseProps) {
@@ -37,16 +38,21 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
   const [error, setError] = useState('')
   const [sdkReady, setSdkReady] = useState(false)
   const paypalContainerRef = useRef<HTMLDivElement>(null)
+  const { config: paypalCfg, loading: paypalCfgLoading, error: paypalCfgError } = usePayPalPublicConfig()
 
   // Load PayPal SDK once (same pattern as lifetime membership on page.tsx)
   useEffect(() => {
     if (!isOpen) return
 
-    const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+    const clientId = paypalCfg?.clientId
     if (!clientId) {
-      setError('PayPal is not configured (NEXT_PUBLIC_PAYPAL_CLIENT_ID).')
+      if (!paypalCfgLoading) {
+        setError(paypalCfgError || 'PayPal is not configured for this mode.')
+      }
+      setSdkReady(false)
       return
     }
+    setError('')
 
     type Win = Window & { paypal_coins?: typeof window.paypal }
     const w = window as Win
@@ -56,7 +62,9 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
       return
     }
 
-    const existing = document.querySelector<HTMLScriptElement>('script[data-sdhq-paypal-coins-sdk]')
+    const existing = Array.from(
+      document.querySelectorAll<HTMLScriptElement>('script[data-sdhq-paypal-coins-sdk]')
+    ).find((s) => s.getAttribute('data-paypal-client-id') === clientId)
     if (existing) {
       if (w.paypal_coins) setSdkReady(true)
       else existing.addEventListener('load', () => setSdkReady(true), { once: true })
@@ -64,14 +72,15 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
     }
 
     const script = document.createElement('script')
-    script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=CAD&disable-funding=paylater`
+    script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=CAD&disable-funding=paylater`
     script.setAttribute('data-sdhq-paypal-coins-sdk', '1')
+    script.setAttribute('data-paypal-client-id', clientId)
     script.setAttribute('data-namespace', 'paypal_coins')
     script.setAttribute('data-sdk-integration-source', 'button-factory')
     script.onload = () => setSdkReady(true)
     script.onerror = () => setError('Failed to load PayPal.')
     document.body.appendChild(script)
-  }, [isOpen])
+  }, [isOpen, paypalCfg?.clientId, paypalCfgLoading, paypalCfgError])
 
   useEffect(() => {
     if (!isOpen || !sdkReady || !selectedPackage || !userId.trim()) return
@@ -204,11 +213,21 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
         </div>
 
         <div className="mt-6 min-h-[120px]">
-          {!process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID && (
+          {paypalCfgLoading ? (
+            <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Loading PayPal configuration…</p>
+          ) : null}
+          {paypalCfgError ? (
+            <p className="text-sm text-red-500">{paypalCfgError}</p>
+          ) : null}
+          {!paypalCfgLoading && !paypalCfg?.clientId && !paypalCfgError ? (
             <p className={`text-sm ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>
-              Missing NEXT_PUBLIC_PAYPAL_CLIENT_ID — add it in Vercel (same as lifetime checkout).
+              Missing PayPal client ID for this mode — set NEXT_PUBLIC_PAYPAL_CLIENT_ID_SANDBOX (sandbox) or
+              NEXT_PUBLIC_PAYPAL_CLIENT_ID (live) on the server.
             </p>
-          )}
+          ) : null}
+          {paypalCfg?.warning ? (
+            <p className={`text-sm ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>{paypalCfg.warning}</p>
+          ) : null}
 
           {selectedPackage && sdkReady && (
             <>
@@ -219,7 +238,7 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
             </>
           )}
 
-          {selectedPackage && !sdkReady && !error && (
+          {selectedPackage && !sdkReady && !error && !paypalCfgLoading && (
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <Loader2 className="w-4 h-4 animate-spin" />
               Loading PayPal…

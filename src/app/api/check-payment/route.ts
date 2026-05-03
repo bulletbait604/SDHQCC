@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
+import {
+  isPayPalSandbox,
+  paypalApiBase,
+  paypalClientCredentials,
+} from '@/lib/paypalEnv'
 
 // Reference to global verified payments from webhook (legacy)
 declare global {
@@ -8,22 +13,20 @@ declare global {
 
 // Get PayPal access token
 async function getPayPalAccessToken(): Promise<string | null> {
-  // PRODUCTION MODE - Live PayPal APIs
-  const clientId = process.env.PAYPAL_CLIENT_ID
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET
-  
+  const { clientId, clientSecret } = paypalClientCredentials()
+
   if (!clientId || !clientSecret) {
     console.error('PayPal credentials not configured', { hasClientId: !!clientId, hasSecret: !!clientSecret })
     return null
   }
-  
+
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
-  
+
   try {
-    const paypalUrl = 'https://api-m.paypal.com/v1/oauth2/token'
-    
-    console.log(`PayPal: Getting token in LIVE mode`)
-    
+    const paypalUrl = `${paypalApiBase()}/v1/oauth2/token`
+
+    console.log(`PayPal: Getting token in ${isPayPalSandbox() ? 'SANDBOX' : 'LIVE'} mode`)
+
     const response = await fetch(paypalUrl, {
       method: 'POST',
       headers: {
@@ -48,7 +51,7 @@ async function getPayPalAccessToken(): Promise<string | null> {
 // Get subscription details from PayPal
 async function getPayPalSubscription(accessToken: string, subscriptionId: string): Promise<any | null> {
   try {
-    const paypalUrl = `https://api-m.paypal.com/v1/billing/subscriptions/${subscriptionId}`
+    const paypalUrl = `${paypalApiBase()}/v1/billing/subscriptions/${subscriptionId}`
     
     const response = await fetch(paypalUrl, {
       method: 'GET',
@@ -69,11 +72,37 @@ async function getPayPalSubscription(accessToken: string, subscriptionId: string
   }
 }
 
+/** Email PayPal stores on the subscription (canonical for verification). */
+function subscriberEmailFromSubscription(subscription: Record<string, unknown>): string | undefined {
+  const sub = subscription?.subscriber as Record<string, unknown> | undefined
+  const raw = sub?.email_address
+  return typeof raw === 'string' ? raw.toLowerCase().trim() : undefined
+}
+
+function emailsMatchVerification(
+  paypalEmailEntered: string,
+  storedFromCustomId: string | undefined,
+  subscriberEmail: string | undefined
+): boolean {
+  const entered = paypalEmailEntered.toLowerCase().trim()
+  const stored = (storedFromCustomId || '').toLowerCase().trim()
+
+  // Canonical: PayPal subscriber email (always matches the paying sandbox/live account).
+  if (subscriberEmail && subscriberEmail === entered) {
+    return true
+  }
+  // Fallback: email embedded in custom_id at subscribe time.
+  if (stored && stored === entered) {
+    return true
+  }
+  return false
+}
+
 // List subscriptions for a business account
 async function listPayPalSubscriptions(accessToken: string): Promise<any[]> {
   try {
-    const paypalUrl = 'https://api-m.paypal.com/v1/billing/subscriptions'
-    
+    const paypalUrl = `${paypalApiBase()}/v1/billing/subscriptions`
+
     const response = await fetch(paypalUrl, {
       method: 'GET',
       headers: {
@@ -163,8 +192,12 @@ export async function POST(req: NextRequest) {
           // Extract custom_id to verify it matches our username
           const customId = subscription.custom_id || ''
           const [subUsername, storedEmail] = customId.split('|')
-          // Match username and email
-          if (subUsername?.toLowerCase() === username.toLowerCase() && storedEmail?.toLowerCase() === paypalEmail.toLowerCase()) {
+          const payerEmail = subscriberEmailFromSubscription(subscription as Record<string, unknown>)
+
+          if (
+            subUsername?.toLowerCase() === username.toLowerCase() &&
+            emailsMatchVerification(paypalEmail, storedEmail, payerEmail)
+          ) {
 
             // Persist to MongoDB
             await db.collection('subscriptions').updateOne(
@@ -214,10 +247,14 @@ export async function POST(req: NextRequest) {
       if (sub.status === 'ACTIVE') {
         const customId = sub.custom_id || ''
         const [subUsername, storedEmail] = customId.split('|')
-        
-        // Match username and email
-        if (subUsername?.toLowerCase() === username.toLowerCase() && storedEmail?.toLowerCase() === paypalEmail.toLowerCase()) {
 
+        const full = await getPayPalSubscription(accessToken, sub.id)
+        const payerEmail = full ? subscriberEmailFromSubscription(full as Record<string, unknown>) : undefined
+
+        if (
+          subUsername?.toLowerCase() === username.toLowerCase() &&
+          emailsMatchVerification(paypalEmail, storedEmail, payerEmail)
+        ) {
           // Persist to MongoDB
           await db.collection('subscriptions').updateOne(
             { subscriptionId: sub.id },

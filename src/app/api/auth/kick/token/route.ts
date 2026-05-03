@@ -8,6 +8,10 @@ import {
   kickOAuthExtrasFromRow,
   type NormalizedKickUser,
 } from '@/lib/kickUserProfile'
+import {
+  INTERNAL_API_SECRET_HEADER,
+  getInternalApiSecret,
+} from '@/lib/internalApi'
 
 export async function POST(request: NextRequest) {
   try {
@@ -76,14 +80,22 @@ export async function POST(request: NextRequest) {
       console.log(`User login: ${user.username} (ID: ${user.id}) at ${new Date().toISOString()}`)
 
       try {
-        await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/activity-log`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username: user.username,
-            action: 'login',
-          }),
-        })
+        const base = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+        const secret = getInternalApiSecret()
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+        if (secret) {
+          headers[INTERNAL_API_SECRET_HEADER] = secret
+        }
+        if (secret) {
+          await fetch(`${base.replace(/\/$/, '')}/api/activity-log`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              username: user.username,
+              action: 'login',
+            }),
+          })
+        }
       } catch (error) {
         console.error('Failed to log login to activity log:', error)
       }

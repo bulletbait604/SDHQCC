@@ -1,53 +1,32 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 
-export async function POST(request: Request) {
+/**
+ * Returns GEMINI_API for authenticated sessions only (role enforced server-side).
+ * Do not trust client-supplied user id/type.
+ */
+export async function POST(req: NextRequest) {
   try {
-    console.log('[DEBUG] Gemini API Key: Request received')
-    
-    const body = await request.json()
-    const { userId, userType } = body
+    await verifyAuth(req)
 
-    console.log('[DEBUG] Gemini API Key: User info:', { userId, userType })
-
-    // Validate user authentication
-    if (!userId) {
-      console.error('[DEBUG] Gemini API Key: User ID required')
-      return NextResponse.json({ error: 'User ID required' }, { status: 400 })
-    }
-
-    // Check subscription - free users can access with cooldowns
-    const allowedTypes = ['owner', 'admin', 'lifetime', 'subscribed', 'free', 'tester']
-    if (!allowedTypes.includes(userType)) {
-      console.error('[DEBUG] Gemini API Key: Access denied - unknown user type:', userType)
-      return NextResponse.json({ error: 'Access denied. Invalid user type.' }, { status: 403 })
-    }
-
-    // Get API key from environment
     const apiKey = process.env.GEMINI_API
-    
+
     if (!apiKey) {
-      console.error('[DEBUG] Gemini API Key: GEMINI_API not configured')
-      return NextResponse.json({ 
-        error: 'Service not configured',
-        userMessage: 'Gemini API is not configured. Please contact support.',
-        details: 'GEMINI_API not configured'
-      }, { status: 503 })
+      console.error('[Gemini API Key] GEMINI_API not configured')
+      return NextResponse.json(
+        {
+          error: 'Service not configured',
+          userMessage: 'Gemini API is not configured. Please contact support.',
+          details: 'GEMINI_API not configured',
+        },
+        { status: 503 }
+      )
     }
 
-    console.log('[DEBUG] Gemini API Key: API key provided successfully', { 
-      keyLength: apiKey.length
-    })
-    
-    // Return API key
-    return NextResponse.json({
-      apiKey: apiKey
-    })
-
-  } catch (authError: any) {
-    console.error('[DEBUG] Gemini API Key: Error:', authError)
-    return NextResponse.json({ 
-      error: 'Failed to get API key', 
-      details: authError.message 
-    }, { status: 503 })
+    return NextResponse.json({ apiKey })
+  } catch (e: unknown) {
+    if (e instanceof AuthError) return createAuthErrorResponse(e)
+    console.error('[Gemini API Key]', e)
+    return NextResponse.json({ error: 'Failed to get API key' }, { status: 503 })
   }
 }

@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
+import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { actorUsername, targetUsername, tokens } = body
+    const actor = await verifyAuth(req)
 
-    if (!actorUsername || !targetUsername || typeof tokens !== 'number') {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    const body = await req.json()
+    const { targetUsername, tokens } = body
+
+    if (!targetUsername || typeof tokens !== 'number') {
+      return NextResponse.json({ error: 'Missing required fields: targetUsername, tokens' }, { status: 400 })
     }
 
     const tokenAmount = Math.floor(tokens)
@@ -15,22 +18,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Token amount must be greater than 0' }, { status: 400 })
     }
 
+    const normalizedAdmin = actor.username.toLowerCase()
+    const normalizedTarget = String(targetUsername).toLowerCase().replace(/^@/, '')
+
     const client = await clientPromise
     const db = client.db('sdhq')
 
-    const normalizedAdmin = actorUsername.toLowerCase()
-    const normalizedTarget = targetUsername.toLowerCase()
     const adminUser = await db.collection('users').findOne({ username: normalizedAdmin })
 
     if (!adminUser || adminUser.role !== 'owner') {
       return NextResponse.json({ error: 'Only owners can grant tokens' }, { status: 403 })
     }
 
-    // Optional hardening: require owner username to be in allowlist if configured.
     const ownerAllowlistRaw = process.env.OWNER_USERNAMES || ''
     const ownerAllowlist = ownerAllowlistRaw
       .split(',')
-      .map(name => name.trim().toLowerCase())
+      .map((name) => name.trim().toLowerCase())
       .filter(Boolean)
     if (ownerAllowlist.length > 0 && !ownerAllowlist.includes(normalizedAdmin)) {
       return NextResponse.json({ error: 'Owner is not allowlisted for token grants' }, { status: 403 })
@@ -42,18 +45,18 @@ export async function POST(req: NextRequest) {
       {
         $inc: {
           tokens: tokenAmount,
-          totalEarned: tokenAmount
+          totalEarned: tokenAmount,
         },
         $set: {
-          updatedAt: now
+          updatedAt: now,
         },
         $setOnInsert: {
           userId: normalizedTarget,
           lastDailyReset: now,
           totalPurchased: 0,
           totalSpent: 0,
-          createdAt: now
-        }
+          createdAt: now,
+        },
       },
       { upsert: true, returnDocument: 'after' }
     )
@@ -64,7 +67,7 @@ export async function POST(req: NextRequest) {
       amount: tokenAmount,
       grantedBy: normalizedAdmin,
       balanceAfter: updateResult?.value?.tokens ?? tokenAmount,
-      timestamp: now
+      timestamp: now,
     })
 
     await db.collection('activity-logs').insertOne({
@@ -72,16 +75,17 @@ export async function POST(req: NextRequest) {
       username: normalizedAdmin,
       timestamp: now,
       action: 'token_grant',
-      details: `Granted ${tokenAmount} tokens to ${normalizedTarget}`
+      details: `Granted ${tokenAmount} tokens to ${normalizedTarget}`,
     })
 
     return NextResponse.json({
       success: true,
       targetUsername: normalizedTarget,
       granted: tokenAmount,
-      balance: updateResult?.value?.tokens ?? tokenAmount
+      balance: updateResult?.value?.tokens ?? tokenAmount,
     })
-  } catch (error) {
+  } catch (error: unknown) {
+    if (error instanceof AuthError) return createAuthErrorResponse(error)
     console.error('[Tokens] Admin adjust error:', error)
     return NextResponse.json({ error: 'Failed to grant tokens' }, { status: 500 })
   }

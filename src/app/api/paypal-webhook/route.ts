@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { paypalApiBase, paypalClientCredentials } from '@/lib/paypalEnv'
+import { isPayPalSandbox, paypalApiBase, paypalClientCredentials } from '@/lib/paypalEnv'
+import {
+  INTERNAL_API_SECRET_HEADER,
+  getInternalApiSecret,
+} from '@/lib/internalApi'
 
 // Legacy in-memory storage - kept for backwards compatibility
 declare global {
@@ -19,15 +23,29 @@ if (!global.verifiedUsers) {
 // Helper function to log activity to activity-log API
 async function logActivity(username: string, action: string, details?: string) {
   try {
-    await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/activity-log`, {
+    const base = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || ''
+    if (!base) {
+      console.warn('[activity-log] NEXT_PUBLIC_APP_URL / NEXT_PUBLIC_BASE_URL not set; skipping remote log')
+      return
+    }
+    const secret = getInternalApiSecret()
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (secret) {
+      headers[INTERNAL_API_SECRET_HEADER] = secret
+    } else {
+      console.warn('[activity-log] INTERNAL_API_SECRET not set; webhook cannot authenticate activity-log POST')
+      return
+    }
+
+    await fetch(`${base.replace(/\/$/, '')}/api/activity-log`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         username,
         action,
         details,
-        timestamp: new Date().toISOString()
-      })
+        timestamp: new Date().toISOString(),
+      }),
     })
   } catch (error) {
     console.error('Failed to log activity:', error)
@@ -831,8 +849,7 @@ export async function POST(req: NextRequest) {
     })
     
     // Use PayPal's sandbox or live verification URL
-    const isSandbox = process.env.PAYPAL_MODE === 'sandbox'
-    const paypalUrl = isSandbox
+    const paypalUrl = isPayPalSandbox()
       ? 'https://ipnpb.sandbox.paypal.com/cgi-bin/webscr'
       : 'https://ipnpb.paypal.com/cgi-bin/webscr'
     

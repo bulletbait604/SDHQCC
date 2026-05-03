@@ -16,12 +16,61 @@ type StreamingRow = {
   label: string
 }
 
+type ToolkitSectionId =
+  | 'audio'
+  | 'video'
+  | 'graphics'
+  | 'photos'
+  | 'quotes'
+  | 'editing'
+
 type ToolkitRow = {
+  /** Fine-grained tag shown on each card */
   category: string
+  sectionId: ToolkitSectionId
   name: string
   details: string
   url: string
 }
+
+const TOOLKIT_SECTION_META: Record<
+  ToolkitSectionId,
+  { title: string; subtitle: string }
+> = {
+  audio: {
+    title: 'Audio & sound',
+    subtitle: 'Music beds, SFX, soundboards — check licenses for monetized uploads.',
+  },
+  video: {
+    title: 'Video, clips & B-roll',
+    subtitle: 'Short-form editors, stock footage, and background clips.',
+  },
+  graphics: {
+    title: 'Fonts, stickers, GIFs & text',
+    subtitle: 'Typography, sticker-style assets, animated GIFs, and stylized titles.',
+  },
+  photos: {
+    title: 'Photos, vectors & archives',
+    subtitle: 'Still imagery, vectors, and rights-filtered archival clips.',
+  },
+  quotes: {
+    title: 'Movie quotes & dialogue',
+    subtitle: 'Look up lines for captions, jokes, or reaction edits.',
+  },
+  editing: {
+    title: 'Editing & compositing',
+    subtitle: 'Desktop NLE and browser compositing — stronger tools, steeper learning curves.',
+  },
+}
+
+const TOOLKIT_SECTION_ORDER: ToolkitSectionId[] = [
+  'audio',
+  'video',
+  'graphics',
+  'photos',
+  'quotes',
+  'editing',
+]
 
 const STREAMING_SOFTWARE: StreamingRow[] = [
   {
@@ -61,140 +110,165 @@ const STREAMING_SOFTWARE: StreamingRow[] = [
   },
 ]
 
-const TOOLKIT_LINKS: ToolkitRow[] = [
+const TOOLKIT_LINKS: ToolkitRow[] = ([
   {
     category: 'Audio',
+    sectionId: 'audio',
     name: 'Freesound',
     details: 'Community Creative Commons sounds — verify license per clip.',
     url: 'https://freesound.org',
   },
   {
     category: 'Audio',
+    sectionId: 'audio',
     name: 'MyInstants',
     details: 'Massive soundboard of viral meme sounds and buttons.',
     url: 'https://www.myinstants.com',
   },
   {
     category: 'Audio',
+    sectionId: 'audio',
     name: 'Pixabay Music',
     details: 'Royalty-free music tracks; no attribution required on Pixabay license.',
     url: 'https://pixabay.com/music/',
   },
   {
     category: 'Audio',
+    sectionId: 'audio',
     name: 'Uppbeat',
     details: 'Royalty-free music with automatic YouTube clearance.',
     url: 'https://uppbeat.io',
   },
   {
     category: 'Audio',
+    sectionId: 'audio',
     name: 'ZapSplat',
     details: 'Large free SFX library; free account often required.',
     url: 'https://www.zapsplat.com',
   },
   {
     category: 'Clips',
+    sectionId: 'video',
     name: 'CapCut',
     details: 'Strong choice for vertical shorts/reels with AI captions.',
     url: 'https://www.capcut.com',
   },
   {
     category: 'Editing',
+    sectionId: 'editing',
     name: 'DaVinci Resolve',
     details: 'Professional NLE with a capable free tier (Blackmagic).',
     url: 'https://www.blackmagicdesign.com/products/davinciresolve',
   },
   {
     category: 'Editing',
+    sectionId: 'editing',
     name: 'Photopea',
     details: 'Free Photoshop-like editor in the browser.',
     url: 'https://www.photopea.com',
   },
   {
     category: 'Fonts',
+    sectionId: 'graphics',
     name: 'DaFont',
     details: 'Huge font archive — check each font’s license before commercial use.',
     url: 'https://www.dafont.com',
   },
   {
     category: 'Fonts',
+    sectionId: 'graphics',
     name: 'Google Fonts',
     details: 'Open fonts with clear licensing; easy web & download use.',
     url: 'https://fonts.google.com',
   },
   {
     category: 'GIFs',
+    sectionId: 'graphics',
     name: 'GIPHY',
     details: 'Primary library for animated GIFs and stickers.',
     url: 'https://giphy.com',
   },
   {
     category: 'GIFs',
+    sectionId: 'graphics',
     name: 'Tenor',
     details: 'GIF search integrated with many apps; good for sticker-style GIFs.',
     url: 'https://tenor.com',
   },
   {
     category: 'Quotes',
+    sectionId: 'quotes',
     name: 'QuoDB',
     details: 'Searchable movie quote database (great for caption ideas).',
     url: 'https://www.quodb.com',
   },
   {
     category: 'Quotes',
+    sectionId: 'quotes',
     name: 'Subzin',
     details: 'Find quotes by phrase across film & TV subtitles.',
     url: 'https://www.subzin.com',
   },
   {
     category: 'Stickers',
+    sectionId: 'graphics',
     name: 'Flaticon',
     details: 'Static & animated sticker-style assets (filter Free where needed).',
     url: 'https://www.flaticon.com',
   },
   {
     category: 'Text',
+    sectionId: 'graphics',
     name: 'TextStudio',
     details: '3D, neon, and specialty text generators.',
     url: 'https://www.textstudio.com',
   },
   {
     category: 'Video / B-roll',
+    sectionId: 'video',
     name: 'Mixkit',
     details: 'Free HD stock video clips and assets.',
     url: 'https://mixkit.co/free-stock-video/',
   },
   {
     category: 'Video / B-roll',
+    sectionId: 'video',
     name: 'Pexels Videos',
     details: 'High-quality stock footage (no attribution required).',
     url: 'https://www.pexels.com/videos/',
   },
   {
     category: 'Video / B-roll',
+    sectionId: 'video',
     name: 'Pixabay Videos',
     details: 'Large free footage library alongside photos.',
     url: 'https://pixabay.com/videos/',
   },
   {
     category: 'Visuals',
+    sectionId: 'photos',
     name: 'Internet Archive',
     details: 'Public domain & Creative Commons film clips — filter by usage rights.',
     url: 'https://archive.org/details/moviesandfilms',
   },
   {
     category: 'Visuals',
+    sectionId: 'photos',
     name: 'Pexels',
     details: 'High-quality stock photo & video (no attribution required).',
     url: 'https://www.pexels.com',
   },
   {
     category: 'Visuals',
+    sectionId: 'photos',
     name: 'Vecteezy',
     details: 'PNGs and vectors — use the Free filter and check license.',
     url: 'https://www.vecteezy.com',
   },
-].sort((a, b) => {
+] as ToolkitRow[]).sort((a, b) => {
+  const si = TOOLKIT_SECTION_ORDER.indexOf(a.sectionId)
+  const sj = TOOLKIT_SECTION_ORDER.indexOf(b.sectionId)
+  if (si !== sj) return si - sj
   const c = a.category.localeCompare(b.category)
   if (c !== 0) return c
   return a.name.localeCompare(b.name)
@@ -291,31 +365,56 @@ export default function ResourceHubTab({ darkMode, cardClasses }: Props) {
 
       {/* II. Content creation toolkit */}
       <section className="mb-10">
-        <h2 className={`${h2} mb-4 border-b pb-2 ${darkMode ? 'border-sdhq-cyan-500/30' : 'border-sdhq-cyan-200'}`}>
+        <h2 className={`${h2} mb-2 border-b pb-2 ${darkMode ? 'border-sdhq-cyan-500/30' : 'border-sdhq-cyan-200'}`}>
           II. Content creation toolkit
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {TOOLKIT_LINKS.map((row) => (
-            <div
-              key={`${row.category}-${row.name}`}
-              className={`rounded-xl border p-4 transition-shadow ${cardInner} ${darkMode ? 'hover:border-sdhq-cyan-500/40' : 'hover:border-sdhq-cyan-300'}`}
-            >
-              <div className="mb-1 flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                    darkMode ? 'bg-sdhq-dark-800 text-sdhq-cyan-300' : 'bg-white text-sdhq-cyan-700 shadow-sm'
-                  }`}
+        <p className={`mb-8 ${body}`}>
+          Tools grouped by how you&apos;ll use them (audio, video, graphics, stills, quotes, full editors). Each card
+          still shows a specific type tag.
+        </p>
+
+        <div className="space-y-10">
+          {TOOLKIT_SECTION_ORDER.map((sectionId) => {
+            const meta = TOOLKIT_SECTION_META[sectionId]
+            const items = TOOLKIT_LINKS.filter((r) => r.sectionId === sectionId)
+            if (items.length === 0) return null
+
+            return (
+              <div key={sectionId}>
+                <h3
+                  className={`mb-1 text-lg font-bold tracking-tight ${darkMode ? 'text-white' : 'text-gray-900'}`}
                 >
-                  {row.category}
-                </span>
-                <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{row.name}</span>
+                  {meta.title}
+                </h3>
+                <p className={`mb-4 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{meta.subtitle}</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {items.map((row) => (
+                    <div
+                      key={`${row.category}-${row.name}`}
+                      className={`rounded-xl border p-4 transition-shadow ${cardInner} ${darkMode ? 'hover:border-sdhq-cyan-500/40' : 'hover:border-sdhq-cyan-300'}`}
+                    >
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            darkMode ? 'bg-sdhq-dark-800 text-sdhq-cyan-300' : 'bg-white text-sdhq-cyan-700 shadow-sm'
+                          }`}
+                        >
+                          {row.category}
+                        </span>
+                        <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                          {row.name}
+                        </span>
+                      </div>
+                      <p className={`mb-2 ${body}`}>{row.details}</p>
+                      <LinkOut href={row.url} darkMode={darkMode}>
+                        Open site
+                      </LinkOut>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <p className={`mb-2 ${body}`}>{row.details}</p>
-              <LinkOut href={row.url} darkMode={darkMode}>
-                Open site
-              </LinkOut>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </section>
 

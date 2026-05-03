@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { MongoClient, Db } from 'mongodb'
+import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
+import { isAllowlistedOwner } from '@/lib/ownerAllowlist'
+import { INTERNAL_API_SECRET_HEADER, isValidInternalApiSecret } from '@/lib/internalApi'
 
-// MongoDB connection
 const MONGODB_URI = process.env.MONGODB_URI
 const DB_NAME = 'sdhq'
 const COLLECTION_NAME = 'activity-logs'
@@ -25,89 +27,116 @@ async function getDb(): Promise<Db> {
 
 const MAX_LOGS = 500
 
+function canViewAllActivity(role: string, username: string): boolean {
+  return ['admin', 'owner'].includes(role) || isAllowlistedOwner(username)
+}
+
 export async function GET(request: NextRequest) {
   try {
+    const user = await verifyAuth(request)
+
     const { searchParams } = new URL(request.url)
-    const username = searchParams.get('username')
+    let username = searchParams.get('username')
     const action = searchParams.get('action')
-    const limit = parseInt(searchParams.get('limit') || '100')
+    const rawLimit = parseInt(searchParams.get('limit') || '100', 10)
+    const limit = Math.min(Number.isFinite(rawLimit) ? rawLimit : 100, MAX_LOGS)
 
     const database = await getDb()
     const collection = database.collection(COLLECTION_NAME)
-    
-    // Build query
-    const query: any = {}
-    if (username && username !== 'all') {
-      query.username = username
+
+    const query: Record<string, string> = {}
+
+    if (!canViewAllActivity(user.role, user.username)) {
+      query.username = user.username
+    } else {
+      if (username && username !== 'all') {
+        query.username = username
+      }
     }
+
     if (action && action !== 'all') {
       query.action = action
     }
-    
-    // Fetch logs, sorted by timestamp (newest first)
-    const logs = await collection
-      .find(query)
-      .sort({ timestamp: -1 })
-      .limit(limit)
-      .toArray()
+
+    const logs = await collection.find(query).sort({ timestamp: -1 }).limit(limit).toArray()
 
     return NextResponse.json({ logs })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    if (error instanceof AuthError) return createAuthErrorResponse(error)
     console.error('Error fetching activity logs:', error)
-    return NextResponse.json({ error: error.message || 'Failed to fetch activity logs' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : 'Failed to fetch activity logs'
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { username, action, details } = body
+    const secretHeader = request.headers.get(INTERNAL_API_SECRET_HEADER)
+
+    let username: string
+    let action: string
+    let details: string
+
+    if (isValidInternalApiSecret(secretHeader)) {
+      username = body.username
+      action = body.action
+      details = body.details ?? ''
+      if (!username || !action) {
+        return NextResponse.json({ error: 'Username and action are required' }, { status: 400 })
+      }
+    } else {
+      const user = await verifyAuth(request)
+      action = body.action
+      details = body.details ?? ''
+      if (!action) {
+        return NextResponse.json({ error: 'Action is required' }, { status: 400 })
+      }
+      username = user.username
+    }
 
     console.log('Activity log received:', { username, action, details })
-
-    if (!username || !action) {
-      return NextResponse.json({ error: 'Username and action are required' }, { status: 400 })
-    }
 
     const newLog = {
       id: Date.now().toString(),
       username,
       timestamp: new Date().toISOString(),
       action,
-      details: details || ''
+      details,
     }
 
     const database = await getDb()
     const collection = database.collection(COLLECTION_NAME)
-    
-    // Insert new log
+
     await collection.insertOne(newLog)
     console.log('Successfully saved to MongoDB')
-    
-    // Get total count and trim if needed
+
     const count = await collection.countDocuments()
     if (count > MAX_LOGS) {
-      // Delete oldest logs to maintain MAX_LOGS limit
-      const logsToDelete = await collection
-        .find()
-        .sort({ timestamp: 1 })
-        .limit(count - MAX_LOGS)
-        .toArray()
-      
-      const idsToDelete = logsToDelete.map(log => log._id)
+      const logsToDelete = await collection.find().sort({ timestamp: 1 }).limit(count - MAX_LOGS).toArray()
+
+      const idsToDelete = logsToDelete.map((log) => log._id)
       await collection.deleteMany({ _id: { $in: idsToDelete } })
       console.log('Trimmed old logs, keeping only last', MAX_LOGS)
     }
 
     return NextResponse.json({ success: true, log: newLog })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    if (error instanceof AuthError) return createAuthErrorResponse(error)
     console.error('Error logging activity:', error)
-    return NextResponse.json({ error: error.message || 'Failed to log activity' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : 'Failed to log activity'
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
+    const user = await verifyAuth(request)
+
+    if (!canViewAllActivity(user.role, user.username)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const { searchParams } = new URL(request.url)
     const username = searchParams.get('username')
 
@@ -115,16 +144,16 @@ export async function DELETE(request: NextRequest) {
     const collection = database.collection(COLLECTION_NAME)
 
     if (username) {
-      // Delete logs for a specific user
       await collection.deleteMany({ username })
     } else {
-      // Clear all logs
       await collection.deleteMany({})
     }
 
     return NextResponse.json({ success: true })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    if (error instanceof AuthError) return createAuthErrorResponse(error)
     console.error('Error clearing activity logs:', error)
-    return NextResponse.json({ error: error.message || 'Failed to clear activity logs' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : 'Failed to clear activity logs'
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
