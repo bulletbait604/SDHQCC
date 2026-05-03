@@ -2325,23 +2325,32 @@ export default function HomePage() {
                         {user.display_name}
                       </p>
                       {userRole === 'free' ? (
-                        <button
-                          type="button"
-                          onClick={() => setShowCoinPurchase(true)}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-all ${
-                            darkMode
-                              ? 'bg-yellow-500/15 border-yellow-500/40 text-yellow-300 hover:bg-yellow-500/25'
-                              : 'bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100'
-                          }`}
-                          title="Role and coin balance"
-                        >
-                          <span className="text-lg leading-none">{ROLE_CONFIG[userRole]?.badge ?? '❓'}</span>
-                          <span className="leading-none">{ROLE_CONFIG[userRole]?.label ?? userRole}</span>
-                          <span className="opacity-70">•</span>
-                          <Coins className="w-4 h-4 shrink-0" />
-                          <span>{balance} coins</span>
-                          <Plus className="w-3.5 h-3.5 shrink-0" />
-                        </button>
+                        <div className="flex flex-col items-start gap-0.5">
+                          <span
+                            className={`text-[10px] leading-none opacity-60 ${
+                              darkMode ? 'text-gray-400' : 'text-gray-500'
+                            }`}
+                          >
+                            10 coins free/24hr
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowCoinPurchase(true)}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-all ${
+                              darkMode
+                                ? 'bg-yellow-500/15 border-yellow-500/40 text-yellow-300 hover:bg-yellow-500/25'
+                                : 'bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100'
+                            }`}
+                            title="Role and coin balance"
+                          >
+                            <span className="text-lg leading-none">{ROLE_CONFIG[userRole]?.badge ?? '❓'}</span>
+                            <span className="leading-none">{ROLE_CONFIG[userRole]?.label ?? userRole}</span>
+                            <span className="opacity-70">•</span>
+                            <Coins className="w-4 h-4 shrink-0" />
+                            <span>{balance} coins</span>
+                            <Plus className="w-3.5 h-3.5 shrink-0" />
+                          </button>
+                        </div>
                       ) : (
                         <span
                           className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${
