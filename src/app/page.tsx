@@ -494,6 +494,40 @@ export default function HomePage() {
     userRole
   })
 
+  /** Must be declared before getRecommendedTagCount / clipEditSuggestionTags (those read `platforms`). */
+  const [platforms, setPlatforms] = useState<Platform[]>([
+    {
+      id: 'tiktok',
+      name: 'TikTok',
+      image: 'https://iili.io/Bep916P.webp',
+      data: null
+    },
+    {
+      id: 'instagram',
+      name: 'Instagram',
+      image: 'https://iili.io/BepIskv.png',
+      data: null
+    },
+    {
+      id: 'youtube-shorts',
+      name: 'YouTube Shorts',
+      image: 'https://iili.io/Bep23il.webp',
+      data: null
+    },
+    {
+      id: 'youtube-long',
+      name: 'YouTube Long',
+      image: 'https://iili.io/Bep23il.webp',
+      data: null
+    },
+    {
+      id: 'facebook-reels',
+      name: 'Facebook Reels',
+      image: 'https://iili.io/Bepazil.png',
+      data: null
+    }
+  ])
+
   // Helper function to get recommended tag count from algorithm data
   const getRecommendedTagCount = (platformId: string): number => {
     const platform = platforms.find(p => p.id === platformId)
@@ -541,39 +575,6 @@ export default function HomePage() {
     clipAnalysisResult != null ? getEditSuggestionsTagSlice(clipPlatform, clipAnalysisResult.tags) : []
 
   // Thumbnail Generator is now a separate component in @/app/components/ThumbnailGenerator
-
-  const [platforms, setPlatforms] = useState<Platform[]>([
-    {
-      id: 'tiktok',
-      name: 'TikTok',
-      image: 'https://iili.io/Bep916P.webp',
-      data: null
-    },
-    {
-      id: 'instagram',
-      name: 'Instagram',
-      image: 'https://iili.io/BepIskv.png',
-      data: null
-    },
-    {
-      id: 'youtube-shorts',
-      name: 'YouTube Shorts',
-      image: 'https://iili.io/Bep23il.webp',
-      data: null
-    },
-    {
-      id: 'youtube-long',
-      name: 'YouTube Long',
-      image: 'https://iili.io/Bep23il.webp',
-      data: null
-    },
-    {
-      id: 'facebook-reels',
-      name: 'Facebook Reels',
-      image: 'https://iili.io/Bepazil.png',
-      data: null
-    }
-  ])
 
   const t = translations[language]
   const isOwner = user
