@@ -1940,7 +1940,7 @@ export default function HomePage() {
                       currency_code: 'CAD',
                     },
                     description: 'Stream Dreams Creator Corner Lifetime Membership',
-                    custom_id: `${user.username}|lifetime`,
+                    custom_id: `${user.username.replace(/^@/, '').toLowerCase()}|lifetime`,
                   },
                 ],
               })
@@ -1957,8 +1957,22 @@ export default function HomePage() {
                 alert(cap.error || 'Could not complete payment. Try again.')
                 return
               }
+              const done = await fetch('/api/lifetime/complete-purchase', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: orderID }),
+              })
+              const doneJson = (await done.json().catch(() => ({}))) as { error?: string }
+              if (!done.ok) {
+                alert(
+                  doneJson.error ||
+                    'Payment went through but lifetime access was not applied. Refresh the page, or contact support with your PayPal receipt.'
+                )
+                return
+              }
               setShowLifetimePopup(false)
-              pollVerificationStatus(orderID, 'checkout_order')
+              window.location.reload()
             },
             onError: function (err: { message?: string }) {
               console.error('PayPal lifetime button error:', err)
@@ -2298,18 +2312,14 @@ export default function HomePage() {
   }
 
   /**
-   * After PayPal approves payment, confirm on our side.
-   * - Monthly subscription: call `/api/check-payment` (PayPal GET + Mongo write). Does not rely on webhooks.
-   * - Lifetime / other checkout orders: poll Mongo only (fulfillment is webhook-driven after capture).
+   * After PayPal approves a monthly subscription, confirm via `/api/check-payment` and Mongo poll fallback.
+   * Lifetime Pass uses `/api/lifetime/complete-purchase` immediately after capture (same pattern as coins).
    */
-  const pollVerificationStatus = (
-    id: string,
-    source: 'subscription' | 'checkout_order' = 'subscription'
-  ) => {
+  const pollVerificationStatus = (id: string) => {
     if (!user) return
 
     const uname = user.username.replace(/^@/, '').toLowerCase()
-    console.log('🔍 Starting verification polling for:', id, 'user:', uname, 'source:', source)
+    console.log('🔍 Starting verification polling for:', id, 'user:', uname)
     setIsVerifying(true)
 
     let pollCount = 0
@@ -2325,24 +2335,22 @@ export default function HomePage() {
       pollCount++
 
       try {
-        if (source === 'subscription') {
-          const checkRes = await fetch('/api/check-payment', {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              username: uname,
-              subscriptionId: id,
-            }),
-          })
-          const checkData = checkRes.ok ? await checkRes.json() : null
-          if (checkData?.verified) {
-            console.log('✅ VERIFIED via check-payment (PayPal API + DB) on poll', pollCount, '- reloading...')
-            clearInterval(poll)
-            setIsVerifying(false)
-            confirmAndReload()
-            return
-          }
+        const checkRes = await fetch('/api/check-payment', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: uname,
+            subscriptionId: id,
+          }),
+        })
+        const checkData = checkRes.ok ? await checkRes.json() : null
+        if (checkData?.verified) {
+          console.log('✅ VERIFIED via check-payment (PayPal API + DB) on poll', pollCount, '- reloading...')
+          clearInterval(poll)
+          setIsVerifying(false)
+          confirmAndReload()
+          return
         }
 
         const response = await fetch(`/api/paypal-webhook?username=${encodeURIComponent(uname)}`)
@@ -2365,9 +2373,7 @@ export default function HomePage() {
           clearInterval(poll)
           setIsVerifying(false)
           alert(
-            source === 'subscription'
-              ? 'Payment went through, but we could not confirm the subscription in time. Refresh the page — if your badge still does not appear, contact support with your PayPal receipt.'
-              : 'Your payment was successful! It may take a minute to process. Please refresh the browser if you do not see your new badge.'
+            'Payment went through, but we could not confirm the subscription in time. Refresh the page — if your badge still does not appear, contact support with your PayPal receipt.'
           )
         }
       } catch (error) {

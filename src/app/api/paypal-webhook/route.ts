@@ -12,6 +12,7 @@ import {
   upsertUserRole,
 } from '@/lib/subscriptionFulfillmentDb'
 import { fulfillVerifiedCoinPurchase } from '@/lib/coinPurchaseFulfillment'
+import { fulfillVerifiedLifetimePurchase } from '@/lib/lifetimePurchaseFulfillment'
 
 // Legacy in-memory storage - kept for backwards compatibility
 declare global {
@@ -552,33 +553,25 @@ export async function POST(req: NextRequest) {
 
           // Handle lifetime membership (format: username|lifetime)
           if (customId.includes('lifetime')) {
-            const username = customId.split('|')[0]
-
-            if (username) {
-              // Store with LOWERCASE username to match GET endpoint search
-              const subscription = {
-                username: username.toLowerCase(),
-                subscriptionId: orderId,
-                status: 'ACTIVE',
-                planId: 'lifetime',
-                startTime: new Date().toISOString(),
-                amount,
+            const result = await fulfillVerifiedLifetimePurchase({
+              orderId,
+              customId,
+              amountValue: amount,
+            })
+            if (result.ok) {
+              return NextResponse.json({
+                status: 'success',
+                username: result.username,
+                autoVerified: true,
                 isLifetime: true,
-                verifiedWithPayPal: true,
-                verifiedAt: new Date().toISOString(),
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-              }
-              
-              await storeSubscription(subscription)
-              await upsertUserRole(username.toLowerCase(), 'subscriber_lifetime')
-              
-              // Log lifetime payment
-              await logActivity(username.toLowerCase(), 'lifetime_payment', `Lifetime membership purchased - $${amount} CAD (ID: ${orderId})`)
-              
-              console.log(`✅ Lifetime membership ACTIVATED for ${username}`)
-              return NextResponse.json({ status: 'success', username, autoVerified: true, isLifetime: true })
+                duplicate: result.duplicate,
+              })
             }
+            console.error(`❌ Lifetime fulfillment failed for ${orderId}:`, result.error)
+            return NextResponse.json(
+              { status: 'error', message: result.error },
+              { status: 400 }
+            )
           }
         }
         
