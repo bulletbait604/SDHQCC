@@ -355,8 +355,14 @@ export async function POST(req: NextRequest) {
           const status = verifiedSubscription.status
           
           if (verifiedCustomId) {
-            const [username, paypalEmail] = verifiedCustomId.split('|')
-            
+            const parts = verifiedCustomId.split('|')
+            const username = parts[0]?.trim()
+            const emailFromCustomId = parts[1]?.trim()
+            const sub = verifiedSubscription.subscriber as { email_address?: string } | undefined
+            const emailFromPayPal =
+              typeof sub?.email_address === 'string' ? sub.email_address.trim() : ''
+            const paypalEmail = emailFromCustomId || emailFromPayPal || ''
+
             if (username) {
               // Store verified user (legacy)
               const verifiedUser = {

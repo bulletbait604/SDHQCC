@@ -397,8 +397,6 @@ export default function HomePage() {
   // Payment states
   const [paypalLoaded, setPaypalLoaded] = useState(false)
   const [paypalLifetimeLoaded, setPaypalLifetimeLoaded] = useState(false)
-  const [subscriptionId, setSubscriptionId] = useState('')
-  const [paypalEmail, setPaypalEmail] = useState('')
   const [showLifetimePopup, setShowLifetimePopup] = useState(false)
   const [showDonatePopup, setShowDonatePopup] = useState(false)
   const [donateAmount, setDonateAmount] = useState<number>(2)
@@ -1732,17 +1730,11 @@ export default function HomePage() {
                 label: 'subscribe'
               },
               createSubscription: function(data: any, actions: any) {
-                const emailForPayPal = paypalEmail.trim()
-                if (!emailForPayPal || !emailForPayPal.includes('@')) {
-                  alert(
-                    'Please enter your PayPal account email in the field above before subscribing (use your sandbox buyer email when testing).'
-                  )
-                  return Promise.reject(new Error('PayPal email required'))
-                }
+                const uid = user.username.replace(/^@/, '').toLowerCase()
                 console.log('PayPal: Creating subscription with plan:', planId)
                 return actions.subscription.create({
                   plan_id: planId,
-                  custom_id: `${user.username}|${emailForPayPal}`
+                  custom_id: uid,
                 }).catch((err: any) => {
                   console.error('PayPal: Subscription creation failed:', err)
                   alert('Failed to create subscription. Please try again.')
@@ -1751,8 +1743,7 @@ export default function HomePage() {
               },
               onApprove: function(data: any, actions: any) {
                 console.log('Subscription approved:', data.subscriptionID)
-                setSubscriptionId(data.subscriptionID)
-                
+
                 // Close our subscribe popup
                 setShowSubscribePopup(false)
                 
@@ -1809,7 +1800,7 @@ export default function HomePage() {
         document.body.removeChild(script)
       }
     }
-  }, [showSubscribePopup, user, paypalLoaded, paypalEmail, paypalCfg?.clientId, paypalCfg?.planId, paypalCfg?.sandbox])
+  }, [showSubscribePopup, user, paypalLoaded, paypalCfg?.clientId, paypalCfg?.planId, paypalCfg?.sandbox])
 
   // Load PayPal SDK for lifetime membership - WORKS LIKE SUBSCRIPTION BUTTON
   useEffect(() => {
@@ -2199,123 +2190,6 @@ export default function HomePage() {
       }
     }, 1000) // Poll every 1 second
   }
-  
-  const checkPaymentStatus = async () => {
-    if (!paypalEmail || !user) {
-      alert('Please enter your PayPal email address to verify your subscription.')
-      return
-    }
-    
-    // Log verification attempt
-    const attemptEntry: ActivityLogEntry = {
-      id: Date.now().toString(),
-      username: user.username,
-      timestamp: new Date().toISOString(),
-      action: 'verification_attempt',
-      details: `Subscription verification attempt - PayPal Email: ${paypalEmail}, Subscription ID: ${subscriptionId || 'Not provided'}`
-    }
-    setActivityLog(prev => [attemptEntry, ...prev].slice(0, 100))
-    fetch('/api/activity-log', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        username: user.username,
-        action: 'verification_attempt',
-        details: `Subscription verification attempt - PayPal Email: ${paypalEmail}, Subscription ID: ${subscriptionId || 'Not provided'}`
-      })
-    }).catch(error => console.error('Failed to log verification attempt:', error))
-    
-    try {
-      const response = await fetch('/api/check-payment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: user.username,
-          paypalEmail,
-          subscriptionId,
-        }),
-      })
-      
-      const data = await response.json()
-      
-      if (data.verified) {
-        // Check if this is a lifetime purchase
-        const isLifetimePurchase = data.customId && data.customId.includes('lifetime')
-        
-        if (isLifetimePurchase) {
-          setIsLifetime(true)
-        } else {
-          setIsVerified(true)
-        }
-        
-        // Add to subscribers list for admin visibility
-        const verifiedUser = {
-          id: Date.now().toString(),
-          username: user.username,
-          addedAt: new Date().toISOString()
-        }
-        setSubscribers(prev => [...prev, verifiedUser])
-        
-        // Refresh users with roles for owner settings view
-        await fetchUsersWithRoles()
-        
-        // Log successful subscription
-        const successEntry: ActivityLogEntry = {
-          id: Date.now().toString(),
-          username: user.username,
-          timestamp: new Date().toISOString(),
-          action: 'payment_success',
-          details: `Subscription verified - Subscription ID: ${data.subscriptionId}, Status: ${data.status}`
-        }
-        setActivityLog(prev => [successEntry, ...prev].slice(0, 100))
-        fetch('/api/activity-log', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            username: user.username,
-            action: 'payment_success',
-            details: `Subscription verified - Subscription ID: ${data.subscriptionId}, Status: ${data.status}`
-          })
-        }).catch(error => console.error('Failed to log payment success:', error))
-        
-        alert(`Subscription verified! Subscription ID: ${data.subscriptionId}\nStatus: ${data.status}\n\nPremium features unlocked for 30 days!`)
-        setShowSubscribePopup(false)
-        
-        // Refresh the page to show updated role
-        window.location.reload()
-      } else {
-        // Log failed verification
-        const failedEntry: ActivityLogEntry = {
-          id: Date.now().toString(),
-          username: user.username,
-          timestamp: new Date().toISOString(),
-          action: 'payment_failed',
-          details: `Subscription verification failed - PayPal Email: ${paypalEmail}`
-        }
-        setActivityLog(prev => [failedEntry, ...prev].slice(0, 100))
-        fetch('/api/activity-log', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            username: user.username,
-            action: 'payment_failed',
-            details: `Subscription verification failed - PayPal Email: ${paypalEmail}`
-          })
-        }).catch(error => console.error('Failed to log payment failure:', error))
-        
-        alert(data.message || 'Subscription not found. Make sure you:\n1. Completed the PayPal subscription\n2. The subscription is active\n3. The PayPal email matches the one you entered')
-      }
-    } catch (error) {
-      console.error('Subscription check failed:', error)
-      alert('Failed to verify subscription. Please try again in a moment.')
-    }
-  }
-
 
   const handleLanguageChange = (lang: Language) => {
     setLanguage(lang)
@@ -4886,30 +4760,6 @@ export default function HomePage() {
                 <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PayPal Subscription:</p>
                 <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                   $9.50 CAD / month - Premium Access
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <label className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  PayPal account email <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  autoComplete="email"
-                  inputMode="email"
-                  value={paypalEmail}
-                  onChange={(e) => setPaypalEmail(e.target.value)}
-                  placeholder={paypalCfg?.sandbox ? 'Sandbox buyer e.g. sb-buyer@personal.example.com' : 'Same email as your PayPal login'}
-                  className={`w-full px-3 py-2 rounded-lg border text-base ${
-                    darkMode
-                      ? 'bg-sdhq-dark-700 border-sdhq-dark-600 text-white placeholder-gray-500'
-                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
-                  }`}
-                />
-                <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
-                  {paypalCfg?.sandbox
-                    ? 'Use the sandbox buyer email from PayPal Developer → Testing Tools → Sandbox Accounts (not your real email).'
-                    : 'Must match the email on the PayPal account used to subscribe.'}
                 </p>
               </div>
 

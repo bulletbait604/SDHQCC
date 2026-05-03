@@ -87,6 +87,11 @@ function emailsMatchVerification(
   const entered = paypalEmailEntered.toLowerCase().trim()
   const stored = (storedFromCustomId || '').toLowerCase().trim()
 
+  // No typed-in email: trust PayPal API + username match (subscription already verified ACTIVE).
+  if (!entered) {
+    return true
+  }
+
   // Canonical: PayPal subscriber email (always matches the paying sandbox/live account).
   if (subscriberEmail && subscriberEmail === entered) {
     return true
@@ -124,24 +129,30 @@ async function listPayPalSubscriptions(accessToken: string): Promise<any[]> {
 
 export async function POST(req: NextRequest) {
   try {
-    const { paypalEmail, username, subscriptionId } = await req.json()
+    const body = await req.json()
+    const username = typeof body.username === 'string' ? body.username : ''
+    const subscriptionId = typeof body.subscriptionId === 'string' ? body.subscriptionId : ''
+    const paypalEmailRaw = typeof body.paypalEmail === 'string' ? body.paypalEmail : ''
+    const paypalEmailEntered = paypalEmailRaw.trim()
 
-    if (!paypalEmail || !username) {
-      return NextResponse.json(
-        { error: 'Missing PayPal email or username' },
-        { status: 400 }
-      )
+    if (!username) {
+      return NextResponse.json({ error: 'Missing username' }, { status: 400 })
     }
 
     // First, check MongoDB for active subscription
     const client = await clientPromise
     const db = client.db('sdhq')
 
-    const dbSubscription = await db.collection('subscriptions').findOne({
-      username: username.toLowerCase(),
-      paypalEmail: paypalEmail.toLowerCase(),
-      status: 'ACTIVE'
-    })
+    const dbQuery =
+      paypalEmailEntered.length > 0
+        ? {
+            username: username.toLowerCase(),
+            paypalEmail: paypalEmailEntered.toLowerCase(),
+            status: 'ACTIVE' as const,
+          }
+        : { username: username.toLowerCase(), status: 'ACTIVE' as const }
+
+    const dbSubscription = await db.collection('subscriptions').findOne(dbQuery)
 
     if (dbSubscription) {
       return NextResponse.json({
@@ -193,10 +204,12 @@ export async function POST(req: NextRequest) {
           const customId = subscription.custom_id || ''
           const [subUsername, storedEmail] = customId.split('|')
           const payerEmail = subscriberEmailFromSubscription(subscription as Record<string, unknown>)
+          const resolvedPaypalEmail =
+            paypalEmailEntered || payerEmail || storedEmail || ''
 
           if (
             subUsername?.toLowerCase() === username.toLowerCase() &&
-            emailsMatchVerification(paypalEmail, storedEmail, payerEmail)
+            emailsMatchVerification(paypalEmailEntered, storedEmail, payerEmail)
           ) {
 
             // Persist to MongoDB
@@ -205,7 +218,7 @@ export async function POST(req: NextRequest) {
               {
                 $set: {
                   username,
-                  paypalEmail,
+                  paypalEmail: resolvedPaypalEmail,
                   subscriptionId: subscription.id,
                   status: subscription.status,
                   planId: subscription.plan_id,
@@ -224,7 +237,7 @@ export async function POST(req: NextRequest) {
               subscriptionId: subscription.id,
               verifiedAt: new Date().toISOString(),
               paymentStatus: subscription.status,
-              paypalEmail,
+              paypalEmail: resolvedPaypalEmail,
             })
 
             return NextResponse.json({
@@ -250,10 +263,12 @@ export async function POST(req: NextRequest) {
 
         const full = await getPayPalSubscription(accessToken, sub.id)
         const payerEmail = full ? subscriberEmailFromSubscription(full as Record<string, unknown>) : undefined
+        const resolvedPaypalEmail =
+          paypalEmailEntered || payerEmail || storedEmail || ''
 
         if (
           subUsername?.toLowerCase() === username.toLowerCase() &&
-          emailsMatchVerification(paypalEmail, storedEmail, payerEmail)
+          emailsMatchVerification(paypalEmailEntered, storedEmail, payerEmail)
         ) {
           // Persist to MongoDB
           await db.collection('subscriptions').updateOne(
@@ -261,7 +276,7 @@ export async function POST(req: NextRequest) {
             {
               $set: {
                 username,
-                paypalEmail,
+                paypalEmail: resolvedPaypalEmail,
                 subscriptionId: sub.id,
                 status: sub.status,
                 planId: sub.plan_id,
@@ -280,7 +295,7 @@ export async function POST(req: NextRequest) {
             subscriptionId: sub.id,
             verifiedAt: new Date().toISOString(),
             paymentStatus: sub.status,
-            paypalEmail,
+            paypalEmail: resolvedPaypalEmail,
           })
 
           return NextResponse.json({
@@ -298,7 +313,8 @@ export async function POST(req: NextRequest) {
     
     return NextResponse.json({
       verified: false,
-      message: 'Subscription not found. Make sure you:\n1. Completed the PayPal subscription\n2. The subscription is active\n3. The PayPal email you entered matches the one used for the subscription\n4. Your KICK username matches the one used during subscription',
+      message:
+        'Subscription not found. Make sure you:\n1. Completed the PayPal subscription\n2. The subscription is active\n3. Your KICK username matches the account used when subscribing',
     })
     
   } catch (error) {
