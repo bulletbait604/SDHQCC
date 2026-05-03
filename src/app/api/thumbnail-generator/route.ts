@@ -208,6 +208,17 @@ function falNanoBananaProResolution(): "1K" | "2K" | "4K" {
   return "1K";
 }
 
+/**
+ * Fal image bytes format. `jpeg` often encodes faster / smaller than `png` (slight quality tradeoff).
+ * Default stays `png` for lossless thumbs.
+ */
+function falThumbnailOutputFormat(): "png" | "jpeg" | "webp" {
+  const v = process.env.FAL_THUMBNAIL_OUTPUT_FORMAT?.trim().toLowerCase();
+  if (v === "jpeg" || v === "jpg") return "jpeg";
+  if (v === "webp") return "webp";
+  return "png";
+}
+
 /** Shared Fal Nano Banana API fields (Flash + Pro). Pro adds resolution + optional web search. */
 function nanoBananaBaseInput(params: {
   aspectRatio: string;
@@ -218,7 +229,7 @@ function nanoBananaBaseInput(params: {
     tolRaw && /^[1-6]$/.test(tolRaw) ? tolRaw : "4";
   const out: Record<string, unknown> = {
     num_images: 1,
-    output_format: "png",
+    output_format: falThumbnailOutputFormat(),
     aspect_ratio: params.aspectRatio,
     safety_tolerance: tol,
   };
@@ -823,9 +834,37 @@ async function generateThumbnailSchnell(params: {
       ? params.prompt.slice(0, maxPromptLength) + "..."
       : params.prompt;
 
+  const falOutFmt = falThumbnailOutputFormat();
+
   let geminiEnrichUsed = false;
   let instructionPrompt = truncatedPrompt;
-  if (thumbnailGeminiEnrichEnabled()) {
+  /** When enrich + reference run together, staging runs in parallel with Gemini to save wall time. */
+  let earlyStaged: { imageUrl: string; stagingKey: string | null } | null = null;
+
+  const enrichOn = thumbnailGeminiEnrichEnabled();
+  const hasRef = !!params.imageBase64;
+
+  if (enrichOn && hasRef) {
+    const [enriched, staged] = await Promise.all([
+      enrichThumbnailBriefWithGemini({
+        userPrompt: truncatedPrompt,
+        platforms: params.platforms,
+      }),
+      stagingImageUrlForFal({
+        imageBase64: params.imageBase64!,
+        mimeType: params.mimeType,
+        sessionId: params.sessionId,
+      }),
+    ]);
+    earlyStaged = staged;
+    if (enriched) {
+      geminiEnrichUsed = true;
+      instructionPrompt =
+        enriched.length > maxPromptLength
+          ? enriched.slice(0, maxPromptLength) + "..."
+          : enriched;
+    }
+  } else if (enrichOn) {
     const enriched = await enrichThumbnailBriefWithGemini({
       userPrompt: truncatedPrompt,
       platforms: params.platforms,
@@ -862,11 +901,13 @@ async function generateThumbnailSchnell(params: {
     let falSourceStagingKey: string | null = null;
 
     try {
-      const staged = await stagingImageUrlForFal({
-        imageBase64: params.imageBase64,
-        mimeType: params.mimeType,
-        sessionId: params.sessionId,
-      });
+      const staged =
+        earlyStaged ??
+        (await stagingImageUrlForFal({
+          imageBase64: params.imageBase64,
+          mimeType: params.mimeType,
+          sessionId: params.sessionId,
+        }));
       falSourceStagingKey = staged.stagingKey;
       const imageUrlForFal = staged.imageUrl;
 
@@ -878,7 +919,7 @@ async function generateThumbnailSchnell(params: {
               num_inference_steps: thumbnailSchnellReduxSteps(),
               num_images: 1,
               enable_safety_checker: true,
-              output_format: "png",
+              output_format: falOutFmt,
               acceleration: "regular",
             },
             logs: false,
@@ -905,7 +946,7 @@ async function generateThumbnailSchnell(params: {
                   num_images: 1,
                   enable_prompt_expansion: thumbnailFlux2PromptExpansionEnabled(),
                   enable_safety_checker: true,
-                  output_format: "png",
+                  output_format: falOutFmt,
                 },
                 logs: false,
               })
@@ -918,7 +959,7 @@ async function generateThumbnailSchnell(params: {
                   guidance_scale: 3.5,
                   num_images: 1,
                   enable_safety_checker: true,
-                  output_format: "png",
+                  output_format: falOutFmt,
                   acceleration: "regular",
                 },
                 logs: false,
@@ -975,7 +1016,7 @@ async function generateThumbnailSchnell(params: {
               num_images: 1,
               enable_prompt_expansion: thumbnailFlux2PromptExpansionEnabled(),
               enable_safety_checker: true,
-              output_format: "png",
+              output_format: falOutFmt,
             },
             logs: false,
           })
@@ -987,7 +1028,7 @@ async function generateThumbnailSchnell(params: {
               guidance_scale: 3.5,
               num_images: 1,
               enable_safety_checker: true,
-              output_format: "png",
+              output_format: falOutFmt,
               acceleration: "regular",
             },
             logs: false,

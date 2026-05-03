@@ -15,7 +15,9 @@ Thumbnails are generated **only** via Fal. Live endpoint IDs (OpenAPI):
 
 **Auth:** `SCHNELL_API_KEY` or `FAL_KEY` (or `FAL_API_KEY`).
 
-**Optional env:** `FAL_THUMBNAIL_IMAGE_STACK` (`flux` default; `nano_banana_pro` / `smart_nano` / `pro`), `FAL_THUMBNAIL_TXT2IMG_MODEL`, `FAL_THUMBNAIL_FLUX2_PROMPT_EXPANSION` (default on), `FAL_THUMBNAIL_FLUX2_GUIDANCE_SCALE` (default `2.5`), `FAL_THUMBNAIL_IMG2IMG_MODEL`, `FAL_THUMBNAIL_IMG2IMG_STRENGTH` (default `0.65`), `FAL_THUMBNAIL_IMG2IMG_STEPS` (default `28`; dev i2i allows 10–50), `FAL_THUMBNAIL_SCHNELL_REDUX_STEPS` (default `4`; Redux allows 1–12), Nano Pro: `FAL_THUMBNAIL_NANO_PRO_RESOLUTION`, `FAL_THUMBNAIL_NANO_PRO_WEB_SEARCH`, `FAL_THUMBNAIL_NANO_SAFETY_TOLERANCE`.
+**Optional env:** `FAL_THUMBNAIL_IMAGE_STACK` (`flux` default; `nano_banana_pro` / `smart_nano` / `pro`), `FAL_THUMBNAIL_TXT2IMG_MODEL`, `FAL_THUMBNAIL_FLUX2_PROMPT_EXPANSION` (default on; set `0` to trim FLUX.2 Turbo latency), `FAL_THUMBNAIL_FLUX2_GUIDANCE_SCALE` (default `2.5`), `FAL_THUMBNAIL_IMG2IMG_MODEL`, `FAL_THUMBNAIL_IMG2IMG_STRENGTH` (default `0.65`), `FAL_THUMBNAIL_IMG2IMG_STEPS` (default `28`; dev i2i allows 10–50), `FAL_THUMBNAIL_SCHNELL_REDUX_STEPS` (default `4`; Redux allows 1–12), `FAL_THUMBNAIL_OUTPUT_FORMAT` (`png` default; `jpeg` / `webp` for smaller outputs and slightly faster encode+download), Nano Pro: `FAL_THUMBNAIL_NANO_PRO_RESOLUTION`, `FAL_THUMBNAIL_NANO_PRO_WEB_SEARCH`, `FAL_THUMBNAIL_NANO_SAFETY_TOLERANCE`.
+
+**Latency:** When `THUMBNAIL_GEMINI_ENRICH=1` and a reference image is uploaded, Gemini enrich and R2→presigned staging run **in parallel** before Fal (saves wall time vs sequential).
 
 **Reference image → Fal:** By default the route uploads the reference to R2 under `thumbnails/.../fal-source-*`, sends Fal a **presigned GET URL** (small JSON body, like Fal’s `image_url: "https://..."` examples), then deletes the staging object after the Fal call. Set `FAL_THUMBNAIL_DISABLE_R2_SOURCE_STAGING=1` to embed base64 `data:` URIs instead. `FAL_THUMBNAIL_SOURCE_READ_URL_SEC` (default `7200`) controls presigned URL lifetime.
 
