@@ -108,6 +108,54 @@ export async function verifyCompletedOrderForFulfillment(orderId: string): Promi
   }
 }
 
+/**
+ * Confirms the Billing Plan exists for the current REST app (same sandbox/live as credentials).
+ * RESOURCE_NOT_FOUND in the SDK usually means wrong `P-` id or live vs sandbox mismatch.
+ */
+export async function getPayPalBillingPlan(planId: string): Promise<{
+  ok: boolean
+  status?: string
+  name?: string
+  httpStatus?: number
+}> {
+  const trimmed = typeof planId === 'string' ? planId.trim() : ''
+  if (!trimmed) return { ok: false }
+
+  try {
+    const accessToken = await getPayPalAccessToken()
+    if (!accessToken) return { ok: false }
+
+    const id = encodeURIComponent(trimmed)
+    const paypalUrl = `${paypalApiBase()}/v1/billing/plans/${id}`
+
+    const response = await fetch(paypalUrl, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (response.status === 404) {
+      return { ok: false, httpStatus: 404 }
+    }
+
+    if (!response.ok) {
+      return { ok: false, httpStatus: response.status }
+    }
+
+    const data = (await response.json()) as Record<string, unknown>
+    return {
+      ok: true,
+      status: typeof data.status === 'string' ? data.status : undefined,
+      name: typeof data.name === 'string' ? data.name : undefined,
+    }
+  } catch (error) {
+    console.error('getPayPalBillingPlan failed:', error)
+    return { ok: false }
+  }
+}
+
 export async function capturePayPalCheckoutOrder(orderId: string): Promise<Record<string, unknown> | null> {
   try {
     const accessToken = await getPayPalAccessToken()

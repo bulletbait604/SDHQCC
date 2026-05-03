@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "create-paypal-plan": "node scripts/create-paypal-plan.js"
+    "create-paypal-plan": "node scripts/create-paypal-plan.js",
+    "create-paypal-plan:sandbox": "node -e \"process.env.PAYPAL_MODE='sandbox'; require('./scripts/create-paypal-plan.js')\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.450.0",

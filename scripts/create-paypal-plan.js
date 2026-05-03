@@ -143,10 +143,15 @@ async function createPayPalPlan() {
     console.log(plan.id)
     console.log('========================================\n')
     
+    const envKey = isSandbox ? 'NEXT_PUBLIC_PAYPAL_PLAN_ID_SANDBOX' : 'NEXT_PUBLIC_PAYPAL_PLAN_ID'
     console.log('Next steps:')
     console.log('1. Copy the Plan ID above')
-    console.log('2. Go to Vercel Dashboard → Your Project → Settings → Environment Variables')
-    console.log('3. Add: NEXT_PUBLIC_PAYPAL_PLAN_ID=' + plan.id)
+    console.log('2. Vercel → Project → Settings → Environment Variables')
+    console.log('3. Add: ' + envKey + '=' + plan.id)
+    if (isSandbox) {
+      console.log('   (Sandbox must use this — live Plan IDs return RESOURCE_NOT_FOUND in sandbox.)')
+      console.log('   Ensure NEXT_PUBLIC_PAYPAL_MODE=sandbox matches.')
+    }
     console.log('4. Redeploy your application')
     
   } catch (error) {

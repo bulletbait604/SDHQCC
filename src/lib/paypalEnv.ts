@@ -87,6 +87,14 @@ export function paypalSdkPlanId(): string | undefined {
   return live || undefined
 }
 
+/** True when sandbox mode uses `NEXT_PUBLIC_PAYPAL_PLAN_ID` because `_SANDBOX` is unset — often a live Plan ID and breaks Subscribe in sandbox. */
+export function paypalSandboxUsingGenericPlanFallback(): boolean {
+  if (!isPayPalSandbox()) return false
+  const explicit = normalizePlanIdEnv(process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_SANDBOX)
+  const generic = normalizePlanIdEnv(process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID)
+  return !explicit && !!generic
+}
+
 /** @deprecated Prefer /api/paypal-public-config in client components (runtime env). */
 export function publicPayPalClientId(): string | undefined {
   return paypalSdkClientId()
