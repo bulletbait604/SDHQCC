@@ -47,13 +47,16 @@ export async function GET() {
   }
 
   let planResolvedOnPayPal: boolean | null = null
+  let planVerifyIssue: 'oauth' | 'not_found' | 'http' | null = null
   const secretPresent = !!paypalClientCredentials().clientSecret
   if (planId && paypalSubscriptionPlanIdFormatOk(planId) && secretPresent) {
     const pr = await getPayPalBillingPlan(planId)
     planResolvedOnPayPal = pr.ok
     if (!pr.ok) {
-      const msg =
-        pr.httpStatus === 404
+      planVerifyIssue = pr.oauthFailed ? 'oauth' : pr.httpStatus === 404 ? 'not_found' : 'http'
+      const msg = pr.oauthFailed
+        ? 'Could not verify subscription plan: PayPal OAuth failed. Check PAYPAL_CLIENT_SECRET_SANDBOX + PAYPAL_CLIENT_ID_SANDBOX (sandbox) or PAYPAL_CLIENT_SECRET + PAYPAL_CLIENT_ID (live) match Developer Dashboard for NEXT_PUBLIC_PAYPAL_MODE.'
+        : pr.httpStatus === 404
           ? 'RESOURCE_NOT_FOUND: PayPal has no Billing Plan with this ID for this REST app and environment. Create a plan with the same Sandbox (or Live) app as your Client ID and secret, then set NEXT_PUBLIC_PAYPAL_PLAN_ID_SANDBOX to that P- value.'
           : `PayPal Billing Plans API returned HTTP ${pr.httpStatus ?? 'error'} for this Plan ID — check Client ID, secret, and NEXT_PUBLIC_PAYPAL_MODE.`
       subscribePlanWarnings.push(msg)
@@ -70,6 +73,8 @@ export async function GET() {
     planIdFormatOk: planId ? paypalSubscriptionPlanIdFormatOk(planId) : null,
     /** null = could not verify (no server secret); false = PayPal returned error / 404 for this P- id */
     planResolvedOnPayPal,
+    /** Why plan verification failed — avoid showing RESOURCE_NOT_FOUND when OAuth is the real issue */
+    planVerifyIssue,
     /** All warnings (Subscribe popup, diagnostics). */
     warning: allWarnings.length ? allWarnings.join(' ') : null,
     /** One-time checkout only (coins, donations) — excludes subscription plan messages. */

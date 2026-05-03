@@ -4796,14 +4796,41 @@ export default function HomePage() {
               ) : null}
               {paypalCfg?.planResolvedOnPayPal === false ? (
                 <p className={`text-sm ${darkMode ? 'text-red-400' : 'text-red-700'}`}>
-                  PayPal cannot load this Plan ID for your current app (
-                  <span className="font-mono">RESOURCE_NOT_FOUND</span>). In{' '}
-                  <span className="font-semibold">sandbox</span>, set{' '}
-                  <span className="font-mono text-[11px]">NEXT_PUBLIC_PAYPAL_PLAN_ID_SANDBOX</span> to a{' '}
-                  <span className="font-mono">P-</span> plan created with the <em>same</em> Sandbox REST app as your
-                  Client ID (see Developer Dashboard). Do not reuse a live plan ID. Run{' '}
-                  <span className="font-mono text-[11px]">npm run create-paypal-plan</span> with{' '}
-                  <span className="font-mono text-[11px]">PAYPAL_MODE=sandbox</span> if needed.
+                  {paypalCfg?.planVerifyIssue === 'oauth' ? (
+                    <>
+                      PayPal could not verify your subscription plan: <strong>OAuth failed</strong>. Check that{' '}
+                      <span className="font-mono text-[11px]">PAYPAL_CLIENT_ID_SANDBOX</span> and{' '}
+                      <span className="font-mono text-[11px]">PAYPAL_CLIENT_SECRET_SANDBOX</span> (sandbox) or live{' '}
+                      <span className="font-mono text-[11px]">PAYPAL_CLIENT_ID</span> /{' '}
+                      <span className="font-mono text-[11px]">PAYPAL_CLIENT_SECRET</span> match the app in PayPal
+                      Developer Dashboard and match <span className="font-mono text-[11px]">NEXT_PUBLIC_PAYPAL_MODE</span>.
+                    </>
+                  ) : (
+                    <>
+                      PayPal cannot load this Plan ID for your current app (
+                      <span className="font-mono">RESOURCE_NOT_FOUND</span>).
+                    </>
+                  )}
+                  {paypalCfg?.planVerifyIssue === 'oauth'
+                    ? null
+                    : paypalCfg?.sandbox ? (
+                    <>
+                      {' '}
+                      Set <span className="font-mono text-[11px]">NEXT_PUBLIC_PAYPAL_PLAN_ID_SANDBOX</span> to a{' '}
+                      <span className="font-mono">P-</span> plan created with the <em>same</em> Sandbox REST app as your
+                      Client ID (Developer Dashboard). Do not reuse a live plan ID. Run{' '}
+                      <span className="font-mono text-[11px]">npm run create-paypal-plan:sandbox</span> (or{' '}
+                      <span className="font-mono text-[11px]">PAYPAL_MODE=sandbox npm run create-paypal-plan</span>) if
+                      needed.
+                    </>
+                  ) : (
+                    <>
+                      {' '}
+                      Set <span className="font-mono text-[11px]">NEXT_PUBLIC_PAYPAL_PLAN_ID</span> to a{' '}
+                      <span className="font-mono">P-</span> billing plan from PayPal → Subscription plans for your{' '}
+                      <em>live</em> REST app (same Client ID/secret). Sandbox plan IDs do not work in live mode.
+                    </>
+                  )}
                 </p>
               ) : null}
               {!paypalCfgLoading && !paypalCfg?.clientId && !paypalCfgError ? (

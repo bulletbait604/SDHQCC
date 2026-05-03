@@ -117,13 +117,15 @@ export async function getPayPalBillingPlan(planId: string): Promise<{
   status?: string
   name?: string
   httpStatus?: number
+  /** True when OAuth failed — wrong/missing client ID or secret for current mode, not necessarily a bad plan ID */
+  oauthFailed?: boolean
 }> {
   const trimmed = typeof planId === 'string' ? planId.trim() : ''
   if (!trimmed) return { ok: false }
 
   try {
     const accessToken = await getPayPalAccessToken()
-    if (!accessToken) return { ok: false }
+    if (!accessToken) return { ok: false, oauthFailed: true }
 
     const id = encodeURIComponent(trimmed)
     const paypalUrl = `${paypalApiBase()}/v1/billing/plans/${id}`
