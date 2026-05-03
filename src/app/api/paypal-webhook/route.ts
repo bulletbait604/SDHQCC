@@ -615,8 +615,67 @@ export async function POST(req: NextRequest) {
               })
             }
           }
+
+          // Donations (format: usernameLower|donation|amount|USD — PayPal JS SDK on client)
+          if (customId && customId.includes('|donation|')) {
+            const parts = customId.split('|')
+            const username = parts[0]?.toLowerCase()
+            const donationAmount = parseFloat(parts[2])
+            const currency = (parts[3] || 'USD').toUpperCase()
+
+            if (username && !isNaN(donationAmount)) {
+              const completedOk = await ensureCheckoutOrderCaptured(orderId)
+              if (!completedOk) {
+                console.error(`❌ Donation order ${orderId} verification/capture failed`)
+                return NextResponse.json({ status: 'error', message: 'Order verification failed' }, { status: 400 })
+              }
+
+              const client = await clientPromise
+              const db = client.db('sdhq')
+
+              const alreadyDone = await db.collection('donations').findOne({
+                orderId,
+                status: 'completed',
+              })
+              if (alreadyDone) {
+                return NextResponse.json({ status: 'success', duplicate: true, orderId })
+              }
+
+              await db.collection('donations').updateOne(
+                { orderId },
+                {
+                  $set: {
+                    userId: username,
+                    amount: donationAmount,
+                    currency,
+                    status: 'completed',
+                    completedAt: new Date().toISOString(),
+                  },
+                  $setOnInsert: {
+                    orderId,
+                    createdAt: new Date().toISOString(),
+                  },
+                },
+                { upsert: true }
+              )
+
+              await logActivity(
+                username,
+                'donation_completed',
+                `Donation completed: $${donationAmount} ${currency} (order ${orderId})`
+              )
+
+              console.log(`✅ Donation recorded for ${username}: $${donationAmount} ${currency}`)
+              return NextResponse.json({
+                status: 'success',
+                username,
+                type: 'donation',
+                verifiedWithPayPal: true,
+              })
+            }
+          }
           
-          // LEGACY: Check for token purchase (format: username|tokens|packageType|tokenCount)
+          // LEGACY: old PayPal custom_id used |tokens| (same balance as coins today)
           if (customId && customId.includes('tokens')) {
             const parts = customId.split('|')
             const username = parts[0]
@@ -673,9 +732,9 @@ export async function POST(req: NextRequest) {
                 }
               )
               
-              await logActivity(username.toLowerCase(), 'token_purchase', `Purchased ${tokenCount} tokens for $${amount} CAD (ID: ${orderId})`)
+              await logActivity(username.toLowerCase(), 'token_purchase', `Purchased ${tokenCount} coins for $${amount} CAD (ID: ${orderId})`)
               
-              console.log(`✅ ${tokenCount} tokens purchased for ${username}`)
+              console.log(`✅ ${tokenCount} coins purchased for ${username} (legacy custom_id)`)
               return NextResponse.json({ 
                 status: 'success', 
                 username, 

@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
           currency_code: 'CAD',
           value: price.toString()
         },
-        description: `${tokens} SDHQ Tokens`,
+        description: `${tokens} coins`,
         custom_id: `${userId}|tokens|${packageType}|${tokens}`
       }]
     }

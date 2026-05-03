@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
             currency_code: 'CAD',
             value: pkg.price.toString(),
           },
-          description: `${pkg.coins} SDHQ Coins - ${pkg.label}`,
+          description: `${pkg.coins} coins - ${pkg.label}`,
           custom_id: customId,
         },
       ],

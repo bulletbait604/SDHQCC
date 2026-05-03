@@ -102,7 +102,7 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
                 currency_code: 'CAD',
                 value: Number(selectedPackage.price).toFixed(2),
               },
-              description: `${selectedPackage.coins} SDHQ Coins — ${selectedPackage.label}`,
+              description: `${selectedPackage.coins} coins — ${selectedPackage.label}`,
               custom_id: customId,
             },
           ],

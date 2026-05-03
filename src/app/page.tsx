@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 
 // TypeScript declaration for PayPal
@@ -394,7 +394,7 @@ export default function HomePage() {
   const [paypalEmail, setPaypalEmail] = useState('')
   const [showLifetimePopup, setShowLifetimePopup] = useState(false)
   const [showDonatePopup, setShowDonatePopup] = useState(false)
-  const [donateAmount, setDonateAmount] = useState<number>(5)
+  const [donateAmount, setDonateAmount] = useState<number>(2)
   const [feedbackReplyEmail, setFeedbackReplyEmail] = useState('')
   const [feedbackMessage, setFeedbackMessage] = useState('')
   const [feedbackSending, setFeedbackSending] = useState(false)
@@ -1582,34 +1582,105 @@ export default function HomePage() {
     setPaypalLifetimeLoaded(false)
   }
 
-  const handleDonate = async () => {
-    try {
-      const response = await fetch('/api/donate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          amount: donateAmount,
-          currency: 'CAD'
-        })
-      })
+  const donateAmountRef = useRef(donateAmount)
+  useEffect(() => {
+    donateAmountRef.current = donateAmount
+  }, [donateAmount])
 
-      const data = await response.json()
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create donation')
-      }
+  const [paypalDonateSdkReady, setPaypalDonateSdkReady] = useState(false)
 
-      // Redirect to PayPal
-      if (data.paypalUrl) {
-        window.location.href = data.paypalUrl
-      } else if (data.orderId) {
-        window.location.href = `https://www.paypal.com/checkoutnow?token=${data.orderId}`
-      }
-    } catch (error) {
-      console.error('Donation error:', error)
-      alert('Failed to process donation. Please try again.')
+  /** PayPal JS SDK (popup / smart buttons) for donations — USD, matches webhook custom_id */
+  useEffect(() => {
+    if (!showDonatePopup) return
+    const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+    if (!clientId) return
+
+    type Win = Window & { paypal_donate?: typeof window.paypal }
+    const w = window as Win
+    if (w.paypal_donate) {
+      setPaypalDonateSdkReady(true)
+      return
     }
-  }
+
+    const existing = document.querySelector<HTMLScriptElement>('script[data-sdhq-paypal-donate-sdk]')
+    if (existing) {
+      if (w.paypal_donate) setPaypalDonateSdkReady(true)
+      else existing.addEventListener('load', () => setPaypalDonateSdkReady(true), { once: true })
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=USD&disable-funding=paylater`
+    script.setAttribute('data-sdhq-paypal-donate-sdk', '1')
+    script.setAttribute('data-namespace', 'paypal_donate')
+    script.setAttribute('data-sdk-integration-source', 'button-factory')
+    script.onload = () => setPaypalDonateSdkReady(true)
+    script.onerror = () => console.error('PayPal donate SDK failed to load')
+    document.body.appendChild(script)
+  }, [showDonatePopup])
+
+  useEffect(() => {
+    if (!showDonatePopup || !paypalDonateSdkReady || !user) return
+
+    const container = document.getElementById('paypal-donate-button-container')
+    type Win = Window & { paypal_donate?: typeof window.paypal }
+    const paypalSdk = (window as Win).paypal_donate
+    if (!container || !paypalSdk) return
+
+    container.innerHTML = ''
+
+    const buttons = paypalSdk.Buttons({
+      style: {
+        shape: 'pill',
+        color: 'gold',
+        layout: 'vertical',
+        label: 'pay',
+      },
+      createOrder: (
+        _data: unknown,
+        actions: { order: { create: (payload: unknown) => Promise<string> } }
+      ) => {
+        const amt = donateAmountRef.current
+        if (!amt || amt < 1) {
+          return Promise.reject(new Error('Please enter at least $1 USD.'))
+        }
+        const uid = user.username.replace(/^@/, '').toLowerCase()
+        return actions.order.create({
+          purchase_units: [
+            {
+              amount: {
+                currency_code: 'USD',
+                value: amt.toFixed(2),
+              },
+              description: 'Donation to Stream Dreams Creator Corner',
+              custom_id: `${uid}|donation|${amt.toFixed(2)}|USD`,
+            },
+          ],
+        })
+      },
+      onApprove: async (
+        _data: unknown,
+        actions: { order: { capture: () => Promise<unknown> } }
+      ) => {
+        await actions.order.capture()
+        setShowDonatePopup(false)
+        alert('Thank you for your donation!')
+      },
+      onError: (err: { message?: string }) => {
+        console.error('[Donate]', err)
+        alert(err?.message || 'PayPal could not process this donation.')
+      },
+      onCancel: () => {},
+    })
+
+    buttons.render(container).catch((err: unknown) => {
+      console.error('PayPal donate buttons render failed:', err)
+    })
+
+    return () => {
+      container.innerHTML = ''
+    }
+  }, [showDonatePopup, paypalDonateSdkReady, user, donateAmount])
 
   // Load PayPal SDK and render subscription button
   useEffect(() => {
@@ -2280,7 +2351,7 @@ export default function HomePage() {
 
   if (!mounted) {
     return (
-      <div className={`flex items-center justify-center min-h-screen ${darkMode ? 'bg-black' : ''}`}>
+      <div className="flex items-center justify-center min-h-screen bg-sdhq-dark-900">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sdhq-cyan-500"></div>
       </div>
     )
@@ -4922,9 +4993,15 @@ export default function HomePage() {
             </p>
 
             <div className="space-y-4">
+              {!process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ? (
+                <p className={`text-sm ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>
+                  PayPal is not configured for this build (NEXT_PUBLIC_PAYPAL_CLIENT_ID).
+                </p>
+              ) : null}
+
               <div>
                 <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Donation Amount (CAD)
+                  Donation amount (USD)
                 </label>
                 <div className="flex items-center space-x-2">
                   <span className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>$</span>
@@ -4939,16 +5016,16 @@ export default function HomePage() {
                         ? 'bg-sdhq-dark-700 border-sdhq-dark-600 text-white'
                         : 'bg-white border-gray-300 text-gray-900'
                     }`}
-                    placeholder="Enter amount"
+                    placeholder="Amount in USD"
                   />
                 </div>
               </div>
 
-              {/* Quick amounts */}
-              <div className="flex space-x-2">
-                {[5, 10, 25, 50].map((amount) => (
+              <div className="flex flex-wrap gap-2">
+                {[2, 5, 10, 25].map((amount) => (
                   <button
                     key={amount}
+                    type="button"
                     onClick={() => setDonateAmount(amount)}
                     className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
                       donateAmount === amount
@@ -4963,13 +5040,16 @@ export default function HomePage() {
                 ))}
               </div>
 
-              <Button
-                onClick={handleDonate}
-                className="w-full bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-bold"
-              >
-                <Heart className="w-4 h-4 mr-2" />
-                Donate ${donateAmount} CAD
-              </Button>
+              {process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ? (
+                <>
+                  {!paypalDonateSdkReady ? (
+                    <p className={`text-sm text-center ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      Loading PayPal…
+                    </p>
+                  ) : null}
+                  <div id="paypal-donate-button-container" className="min-h-[48px] w-full" />
+                </>
+              ) : null}
 
               <Button
                 variant="outline"
@@ -4981,7 +5061,7 @@ export default function HomePage() {
             </div>
 
             <p className={`mt-4 text-xs text-center ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-              Payments processed securely via PayPal. Thank you for your support!
+              Opens PayPal to complete your donation in USD. Thank you for your support!
             </p>
           </div>
         </div>

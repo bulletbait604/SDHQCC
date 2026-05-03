@@ -10,7 +10,7 @@ interface UseCoinsOptions {
 // Roles that get unlimited access (no coin deduction)
 const UNLIMITED_ROLES = ['subscriber', 'subscriber_lifetime', 'admin', 'owner', 'tester']
 
-// Coin costs per tool (renamed from tokens)
+// Coin costs per tool
 export const COIN_COSTS = {
   'tag-generator': 1,
   'thumbnail-generator': 2,
