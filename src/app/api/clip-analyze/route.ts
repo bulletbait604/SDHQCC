@@ -35,6 +35,41 @@ function checkRateLimit(identifier: string, maxUses: number): { allowed: boolean
   return { allowed: true, remaining: maxUses - record.count, resetTime: record.resetTime }
 }
 
+/**
+ * Gemini sometimes returns valid JSON plus trailing prose or a duplicate blob.
+ * JSON.parse(fullText) then fails with "Unexpected non-whitespace character after JSON".
+ */
+function extractFirstBalancedJsonObject(raw: string): string | null {
+  const s = raw.trim()
+  const start = s.indexOf('{')
+  if (start === -1) return null
+  let depth = 0
+  let inString = false
+  let escaped = false
+  for (let i = start; i < s.length; i++) {
+    const ch = s[i]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (inString) {
+      if (ch === '\\') escaped = true
+      else if (ch === '"') inString = false
+      continue
+    }
+    if (ch === '"') {
+      inString = true
+      continue
+    }
+    if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0) return s.slice(start, i + 1)
+    }
+  }
+  return null
+}
+
 export async function POST(request: NextRequest) {
   console.log('[DEBUG] Clip Analyze API: Request received - DEPLOY: f3366cc')
   
@@ -298,7 +333,14 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         }
         
         try {
-          analysisResult = JSON.parse(cleanContent)
+          try {
+            analysisResult = JSON.parse(cleanContent)
+          } catch {
+            const extracted = extractFirstBalancedJsonObject(cleanContent)
+            if (!extracted) throw new Error('No JSON object found in Gemini response')
+            analysisResult = JSON.parse(extracted)
+            console.log('[DEBUG] Parsed first balanced JSON object only (response had trailing content)')
+          }
           analysisSource = MODEL_NAME
           console.log('✅ [DEBUG] Gemini analysis successful - parsed JSON with keys:', Object.keys(analysisResult))
         } catch (parseError) {
