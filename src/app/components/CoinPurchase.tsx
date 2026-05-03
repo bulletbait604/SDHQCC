@@ -132,6 +132,21 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
             setLoading(false)
             return
           }
+          const fulfill = await fetch('/api/coins/complete-purchase', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: orderID }),
+          })
+          const fulfillJson = (await fulfill.json().catch(() => ({}))) as { error?: string; coins?: number }
+          if (!fulfill.ok) {
+            setError(
+              fulfillJson.error ||
+                'Payment captured but coins were not credited yet. Refresh in a moment; if your balance is still wrong, contact support with your PayPal receipt.'
+            )
+            setLoading(false)
+            return
+          }
           onClose()
           window.location.reload()
         } catch (e: unknown) {

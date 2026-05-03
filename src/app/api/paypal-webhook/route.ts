@@ -11,6 +11,7 @@ import {
   revokeMonthlySubscriberBenefits,
   upsertUserRole,
 } from '@/lib/subscriptionFulfillmentDb'
+import { fulfillVerifiedCoinPurchase } from '@/lib/coinPurchaseFulfillment'
 
 // Legacy in-memory storage - kept for backwards compatibility
 declare global {
@@ -411,94 +412,26 @@ export async function POST(req: NextRequest) {
 
           // Check for COIN purchase FIRST (format: usernameLower|coins|packageType|coinCount|price)
           if (customId.includes('coins')) {
-            const parts = customId.split('|')
-            const username = parts[0]?.toLowerCase()
-            const packageType = parts[2]
-            const coinCount = parseInt(parts[3], 10)
-            const pricePart = parts[4]
-
-            if (username && !isNaN(coinCount)) {
-              const client = await clientPromise
-              const db = client.db('sdhq')
-
-              const alreadyDone = await db.collection('coinPurchases').findOne({
-                orderId,
-                status: 'completed',
-              })
-              if (alreadyDone) {
-                return NextResponse.json({ status: 'success', duplicate: true, orderId })
-              }
-
-              await db.collection('coinBalances').updateOne(
-                { userId: username },
-                {
-                  $inc: {
-                    coins: coinCount,
-                    totalPurchased: coinCount,
-                  },
-                  $set: {
-                    updatedAt: new Date().toISOString(),
-                  },
-                  $setOnInsert: {
-                    userId: username,
-                    lastDailyReset: new Date().toISOString(),
-                    totalEarned: 0,
-                    totalSpent: 0,
-                    createdAt: new Date().toISOString(),
-                  },
-                },
-                { upsert: true }
-              )
-
-              /** Upsert: coins may be bought via PayPal JS SDK (no prior row from /api/coins/purchase). */
-              await db.collection('coinPurchases').updateOne(
-                { orderId },
-                {
-                  $set: {
-                    userId: username,
-                    username,
-                    packageType,
-                    coins: coinCount,
-                    price: pricePart,
-                    currency: 'CAD',
-                    status: 'completed',
-                    completedAt: new Date().toISOString(),
-                    verifiedWithPayPal: true,
-                  },
-                  $setOnInsert: {
-                    orderId,
-                    createdAt: new Date().toISOString(),
-                  },
-                },
-                { upsert: true }
-              )
-
-              await db.collection('coinTransactions').insertOne({
-                userId: username,
-                type: 'purchase',
-                amount: coinCount,
-                cost: amount,
-                currency: 'CAD',
-                orderId,
-                packageType,
-                timestamp: new Date().toISOString(),
-              })
-
-              await logActivity(
-                username,
-                'coin_purchase',
-                `Purchased ${coinCount} coins ($${pricePart ?? amount} CAD) — order ${orderId}`
-              )
-
-              console.log(`✅ ${coinCount} coins credited to ${username}`)
+            const result = await fulfillVerifiedCoinPurchase({
+              orderId,
+              customId,
+              amountValue: amount,
+            })
+            if (result.ok) {
               return NextResponse.json({
                 status: 'success',
-                username,
-                coins: coinCount,
+                username: result.username,
+                coins: result.coins,
+                duplicate: result.duplicate,
                 type: 'coin_purchase',
                 verifiedWithPayPal: true,
               })
             }
+            console.error(`❌ Coin fulfillment failed for ${orderId}:`, result.error)
+            return NextResponse.json(
+              { status: 'error', message: result.error },
+              { status: 400 }
+            )
           }
 
           // Donations (format: usernameLower|donation|amount|USD — PayPal JS SDK on client)
