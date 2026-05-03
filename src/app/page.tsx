@@ -13,7 +13,7 @@ declare global {
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
-import TokenPurchase from '@/app/components/CoinPurchase'
+import CoinPurchase from '@/app/components/CoinPurchase'
 import { useCoins, COIN_COSTS } from '@/hooks/useCoins'
 import {
   User,
@@ -89,6 +89,13 @@ interface ActivityLogEntry {
   timestamp: string
   action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh' | 'tag_generation' | 'clip_analysis' | 'clip_reanalysis' | 'content_analysis' | 'content_reanalysis' | 'subscriber_added' | 'subscriber_removed' | 'lifetime_added' | 'lifetime_removed' | 'admin_added' | 'admin_removed' | 'sync_completed' | 'role_updated' | 'thumbnail_generation' | 'token_grant' | 'token_purchase' | 'subscription_payment' | 'lifetime_payment' | 'coin_grant' | 'coin_remove' | 'coin_purchase' | 'donation_initiated' | 'donation_completed'
   details?: string
+}
+
+/** Display labels: legacy stored actions still use token_* keys in MongoDB */
+function formatActivityActionLabel(action: ActivityLogEntry['action']): string {
+  if (action === 'token_grant') return 'coin grant'
+  if (action === 'token_purchase') return 'coin purchase'
+  return action.replace(/_/g, ' ')
 }
 
 type Language = 'en' | 'es' | 'fr' | 'de';
@@ -332,9 +339,9 @@ export default function HomePage() {
   const [usersWithRoles, setUsersWithRoles] = useState<any[]>([])
   const [roleSearchUsername, setRoleSearchUsername] = useState('')
   const [selectedRole, setSelectedRole] = useState<Role>('free')
-  const [tokenGrantUsername, setTokenGrantUsername] = useState('')
-  const [tokenGrantAmount, setTokenGrantAmount] = useState<number>(10)
-  const [isGrantingTokens, setIsGrantingTokens] = useState(false)
+  const [coinGrantUsername, setCoinGrantUsername] = useState('')
+  const [coinGrantAmount, setCoinGrantAmount] = useState<number>(10)
+  const [isGrantingCoins, setIsGrantingCoins] = useState(false)
   
   // Usage tracking for limited roles (tester, etc.)
   const [usageCounts, setUsageCounts] = useState<{
@@ -391,7 +398,7 @@ export default function HomePage() {
   const [feedbackReplyEmail, setFeedbackReplyEmail] = useState('')
   const [feedbackMessage, setFeedbackMessage] = useState('')
   const [feedbackSending, setFeedbackSending] = useState(false)
-  const [showTokenPurchase, setShowTokenPurchase] = useState(false)
+  const [showCoinPurchase, setShowCoinPurchase] = useState(false)
   
   // Verification states
   const [isVerified, setIsVerified] = useState<boolean>(false)
@@ -680,17 +687,17 @@ export default function HomePage() {
     }
   }
 
-  const handleGrantTokens = async (amount: number) => {
-    if (!user || !tokenGrantUsername.trim() || amount === 0) return
+  const handleGrantCoins = async (amount: number) => {
+    if (!user || !coinGrantUsername.trim() || amount === 0) return
 
-    setIsGrantingTokens(true)
+    setIsGrantingCoins(true)
     try {
       const response = await fetch('/api/coins/admin-adjust', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          targetUsername: tokenGrantUsername.trim().toLowerCase(),
+          targetUsername: coinGrantUsername.trim().toLowerCase(),
           coins: amount
         })
       })
@@ -711,19 +718,19 @@ export default function HomePage() {
         username: user.username,
         timestamp: new Date().toISOString(),
         action: amount >= 0 ? 'coin_grant' : 'coin_remove',
-        details: `${amount >= 0 ? 'Granted' : 'Removed'} ${Math.abs(amount)} coins for ${tokenGrantUsername.trim().toLowerCase()}`
+        details: `${amount >= 0 ? 'Granted' : 'Removed'} ${Math.abs(amount)} coins for ${coinGrantUsername.trim().toLowerCase()}`
       }
       setActivityLog(prev => [entry, ...prev].slice(0, 100))
 
-      setTokenGrantUsername('')
-      setTokenGrantAmount(10)
+      setCoinGrantUsername('')
+      setCoinGrantAmount(10)
       const action = amount >= 0 ? 'Added' : 'Removed'
       alert(`${action} ${Math.abs(amount)} coins for ${data.targetUsername}. New balance: ${data.balance}`)
     } catch (error) {
       console.error('Error adjusting coins:', error)
       alert(error instanceof Error ? error.message : 'Failed to adjust coins')
     } finally {
-      setIsGrantingTokens(false)
+      setIsGrantingCoins(false)
     }
   }
 
@@ -2288,7 +2295,7 @@ export default function HomePage() {
             {/* Left side - User info */}
             <div className="flex items-center space-x-4">
               {user ? (
-                <div className="flex items-center space-x-3">
+                <div className="flex items-start gap-3">
                   {user.profile_image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -2297,83 +2304,87 @@ export default function HomePage() {
                       width={48}
                       height={48}
                       referrerPolicy="no-referrer"
-                      className={`w-12 h-12 rounded-full border-2 object-cover ${darkMode ? 'border-sdhq-cyan-500' : 'border-sdhq-cyan-300'}`}
+                      className={`w-12 h-12 shrink-0 rounded-full border-2 object-cover ${darkMode ? 'border-sdhq-cyan-500' : 'border-sdhq-cyan-300'}`}
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-r from-sdhq-cyan-400 to-sdhq-green-400 flex items-center justify-center">
+                    <div className="w-12 h-12 shrink-0 rounded-full bg-gradient-to-r from-sdhq-cyan-400 to-sdhq-green-400 flex items-center justify-center">
                       <User className="w-6 h-6 text-black" />
                     </div>
                   )}
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="flex items-center space-x-2 flex-wrap">
-                          <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                            {user.display_name}
-                          </p>
-                          {userRole === 'free' ? (
-                            <button
-                              onClick={() => setShowTokenPurchase(true)}
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border transition-all ${
-                                darkMode
-                                  ? 'bg-yellow-500/15 border-yellow-500/40 text-yellow-300 hover:bg-yellow-500/25'
-                                  : 'bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100'
-                              }`}
-                              title="Role and token balance"
-                            >
-                              <span className="text-sm leading-none">{ROLE_CONFIG[userRole]?.badge ?? '❓'}</span>
-                              <span className="leading-none">{ROLE_CONFIG[userRole]?.label ?? userRole}</span>
-                              <span className="opacity-70">•</span>
-                              <Coins className="w-3.5 h-3.5" />
-                              <span>{balance} coins</span>
-                              <Plus className="w-3 h-3" />
-                            </button>
-                          ) : (
-                            <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
-                                darkMode
-                                  ? 'bg-sdhq-dark-700/60 border-sdhq-cyan-500/30 text-sdhq-cyan-300'
-                                  : 'bg-cyan-50 border-sdhq-cyan-200 text-sdhq-cyan-700'
-                              }`}
-                              title={`Role: ${ROLE_CONFIG[userRole]?.label ?? userRole}`}
-                            >
-                              <span className="text-sm leading-none">{ROLE_CONFIG[userRole]?.badge ?? '❓'}</span>
-                              <span className="leading-none">{ROLE_CONFIG[userRole]?.label ?? userRole}</span>
-                            </span>
-                          )}
-                          {userRole !== 'free' ? (
-                            <button
-                              type="button"
-                              onClick={() => setShowDonatePopup(true)}
-                              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-semibold h-9 px-3 bg-blue-600 hover:bg-blue-700 text-black border-2 border-blue-800 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
-                            >
-                              Donate
-                            </button>
-                          ) : null}
-                        </div>
+                  <div className="flex min-w-0 flex-col gap-2">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                        {user.display_name}
+                      </p>
+                      {userRole === 'free' ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowCoinPurchase(true)}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border transition-all ${
+                            darkMode
+                              ? 'bg-yellow-500/15 border-yellow-500/40 text-yellow-300 hover:bg-yellow-500/25'
+                              : 'bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100'
+                          }`}
+                          title="Role and coin balance"
+                        >
+                          <span className="text-sm leading-none">{ROLE_CONFIG[userRole]?.badge ?? '❓'}</span>
+                          <span className="leading-none">{ROLE_CONFIG[userRole]?.label ?? userRole}</span>
+                          <span className="opacity-70">•</span>
+                          <Coins className="w-3.5 h-3.5" />
+                          <span>{balance} coins</span>
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      ) : (
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
+                            darkMode
+                              ? 'bg-sdhq-dark-700/60 border-sdhq-cyan-500/30 text-sdhq-cyan-300'
+                              : 'bg-cyan-50 border-sdhq-cyan-200 text-sdhq-cyan-700'
+                          }`}
+                          title={`Role: ${ROLE_CONFIG[userRole]?.label ?? userRole}`}
+                        >
+                          <span className="text-sm leading-none">{ROLE_CONFIG[userRole]?.badge ?? '❓'}</span>
+                          <span className="leading-none">{ROLE_CONFIG[userRole]?.label ?? userRole}</span>
+                        </span>
+                      )}
+                    </div>
+                    {userRole === 'free' ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleVerifySubscription}
+                          className={`max-w-[min(100vw-8rem,18rem)] whitespace-normal text-center leading-snug sm:max-w-none sm:whitespace-nowrap ${darkMode ? 'border-sdhq-dark-600 text-white' : ''}`}
+                        >
+                          <Shield className="w-4 h-4 mr-1 shrink-0" />
+                          {t.verifySubscription}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowDonatePopup(true)}
+                          className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
+                        >
+                          <Heart className="w-4 h-4 mr-1 shrink-0" />
+                          Donate
+                        </Button>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowDonatePopup(true)}
+                          className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
+                        >
+                          <Heart className="w-4 h-4 mr-1 shrink-0" />
+                          Donate
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                  {userRole === 'free' ? (
-                    <div className="flex items-center gap-2 ml-2 shrink-0">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleVerifySubscription}
-                        className="max-w-[min(100vw-8rem,18rem)] whitespace-normal text-center leading-snug sm:max-w-none sm:whitespace-nowrap"
-                      >
-                        <Shield className="w-4 h-4 mr-1 shrink-0" />
-                        {t.verifySubscription}
-                      </Button>
-                      <button
-                        type="button"
-                        onClick={() => setShowDonatePopup(true)}
-                        className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-semibold h-9 px-3 bg-blue-600 hover:bg-blue-700 text-black border-2 border-blue-800 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
-                      >
-                        Donate
-                      </button>
-                    </div>
-                  ) : null}
                 </div>
               ) : (
                 <div />
@@ -4289,7 +4300,7 @@ export default function HomePage() {
                                     <span className="text-base">{getActionIcon()}</span>
                                     <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{entry.username}</span>
                                     <span className={`text-sm font-semibold uppercase ${getActionColor()}`}>
-                                      {entry.action.replace('_', ' ')}
+                                      {formatActivityActionLabel(entry.action)}
                                     </span>
                                   </div>
                                   <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -4381,8 +4392,8 @@ export default function HomePage() {
                         <div className="flex space-x-2">
                           <input
                             type="text"
-                            value={tokenGrantUsername}
-                            onChange={(e) => setTokenGrantUsername(e.target.value.toLowerCase())}
+                            value={coinGrantUsername}
+                            onChange={(e) => setCoinGrantUsername(e.target.value.toLowerCase())}
                             placeholder="Enter username..."
                             className={`flex-1 px-3 py-2 rounded-md border ${
                               darkMode
@@ -4394,7 +4405,7 @@ export default function HomePage() {
                             darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-300'
                           }`}>
                             <button
-                              onClick={() => setTokenGrantAmount(Math.max(-1000, tokenGrantAmount - 1))}
+                              onClick={() => setCoinGrantAmount(Math.max(-1000, coinGrantAmount - 1))}
                               className={`p-1 rounded ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'hover:bg-gray-100 text-gray-700'}`}
                               type="button"
                             >
@@ -4402,14 +4413,14 @@ export default function HomePage() {
                             </button>
                             <input
                               type="number"
-                              value={tokenGrantAmount}
-                              onChange={(e) => setTokenGrantAmount(parseInt(e.target.value || '0', 10))}
+                              value={coinGrantAmount}
+                              onChange={(e) => setCoinGrantAmount(parseInt(e.target.value || '0', 10))}
                               className={`w-16 text-center bg-transparent border-none focus:outline-none ${
                                 darkMode ? 'text-white' : 'text-gray-900'
                               }`}
                             />
                             <button
-                              onClick={() => setTokenGrantAmount(Math.min(1000, tokenGrantAmount + 1))}
+                              onClick={() => setCoinGrantAmount(Math.min(1000, coinGrantAmount + 1))}
                               className={`p-1 rounded ${darkMode ? 'hover:bg-sdhq-dark-700 text-white' : 'hover:bg-gray-100 text-gray-700'}`}
                               type="button"
                             >
@@ -4417,15 +4428,15 @@ export default function HomePage() {
                             </button>
                           </div>
                           <Button
-                            onClick={() => handleGrantTokens(tokenGrantAmount)}
-                            disabled={!tokenGrantUsername.trim() || tokenGrantAmount === 0 || isGrantingTokens}
+                            onClick={() => handleGrantCoins(coinGrantAmount)}
+                            disabled={!coinGrantUsername.trim() || coinGrantAmount === 0 || isGrantingCoins}
                             className={`${
-                              tokenGrantAmount >= 0 
+                              coinGrantAmount >= 0 
                                 ? 'bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black'
                                 : 'bg-gradient-to-r from-red-500 to-orange-500 text-white'
                             }`}
                           >
-                            {isGrantingTokens ? 'Processing...' : tokenGrantAmount >= 0 ? 'Add Coins' : 'Remove Coins'}
+                            {isGrantingCoins ? 'Processing...' : coinGrantAmount >= 0 ? 'Add Coins' : 'Remove Coins'}
                           </Button>
                         </div>
                         <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
@@ -4537,9 +4548,9 @@ export default function HomePage() {
       </main>
 
       {user && (
-        <TokenPurchase
-          isOpen={showTokenPurchase}
-          onClose={() => setShowTokenPurchase(false)}
+        <CoinPurchase
+          isOpen={showCoinPurchase}
+          onClose={() => setShowCoinPurchase(false)}
           userId={user.username}
           darkMode={darkMode}
         />
