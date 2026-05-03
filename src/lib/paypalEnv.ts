@@ -11,6 +11,25 @@ function envTrim(s: string | undefined): string {
   return String(s).replace(/^\uFEFF/, '').trim()
 }
 
+/** Strip wrapping quotes some hosts add to env values */
+function normalizePlanIdEnv(v: string | undefined): string {
+  let s = envTrim(v)
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    s = s.slice(1, -1)
+  }
+  return envTrim(s)
+}
+
+/**
+ * PayPal Billing **Plan** IDs for subscriptions look like `P-xxxxxxxx` (Dashboard → Subscription plans).
+ * **Product** IDs (`PROD-...`) will cause RESOURCE_NOT_FOUND / INVALID_RESOURCE_ID on Subscribe.
+ */
+export function paypalSubscriptionPlanIdFormatOk(planId: string | undefined | null): boolean {
+  const id = typeof planId === 'string' ? planId.trim() : ''
+  if (!id) return false
+  return /^P-[A-Za-z0-9_-]+$/.test(id)
+}
+
 export function isPayPalSandbox(): boolean {
   const m = envTrim(process.env.NEXT_PUBLIC_PAYPAL_MODE) || envTrim(process.env.PAYPAL_MODE)
   return m.toLowerCase() === 'sandbox'
@@ -60,11 +79,12 @@ export function paypalSdkClientId(): string | undefined {
 export function paypalSdkPlanId(): string | undefined {
   if (isPayPalSandbox()) {
     const p =
-      envTrim(process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_SANDBOX) ||
-      envTrim(process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID)
+      normalizePlanIdEnv(process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_SANDBOX) ||
+      normalizePlanIdEnv(process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID)
     return p || undefined
   }
-  return envTrim(process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID) || undefined
+  const live = normalizePlanIdEnv(process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID)
+  return live || undefined
 }
 
 /** @deprecated Prefer /api/paypal-public-config in client components (runtime env). */

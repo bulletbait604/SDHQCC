@@ -1753,7 +1753,13 @@ export default function HomePage() {
               })
               .catch((err: unknown) => {
                 console.error('PayPal: Subscription creation failed:', err)
-                alert('Failed to create subscription. Please try again.')
+                const msg = err instanceof Error ? err.message : String(err)
+                const invalidPlan = /RESOURCE_NOT_FOUND|INVALID_RESOURCE_ID/i.test(msg)
+                alert(
+                  invalidPlan
+                    ? 'PayPal could not find this plan ID (RESOURCE_NOT_FOUND).\n\nUse the Billing Plan ID that starts with P- from PayPal Dashboard → Subscription plans (same Sandbox/Live as your client ID).\nDo not use a Product ID (PROD-…).\nUpdate NEXT_PUBLIC_PAYPAL_PLAN_ID_SANDBOX (or _PLAN_ID for live) and redeploy.'
+                    : 'Failed to create subscription. Please try again.'
+                )
                 throw err
               })
           },
@@ -1772,7 +1778,13 @@ export default function HomePage() {
           },
           onError: function (err: { message?: string }) {
             console.error('PayPal button error:', err)
-            alert('PayPal button error: ' + (err.message || 'Unknown error'))
+            const m = err?.message || 'Unknown error'
+            const invalidPlan = /RESOURCE_NOT_FOUND|INVALID_RESOURCE_ID/i.test(m)
+            alert(
+              invalidPlan
+                ? `${m}\n\nIf this mentions INVALID_RESOURCE_ID: set env to the Billing Plan ID (P-…) from Subscription plans, not PROD-. Same Sandbox app as your client ID.`
+                : 'PayPal button error: ' + m
+            )
           },
           onCancel: function () {
             console.log('PayPal subscription cancelled by user')
@@ -1921,7 +1933,7 @@ export default function HomePage() {
                 return
               }
               setShowLifetimePopup(false)
-              pollVerificationStatus(orderID)
+              pollVerificationStatus(orderID, 'checkout_order')
             },
             onError: function (err: { message?: string }) {
               console.error('PayPal lifetime button error:', err)
@@ -2260,51 +2272,83 @@ export default function HomePage() {
     }
   }
 
-  const pollVerificationStatus = (subscriptionId: string) => {
+  /**
+   * After PayPal approves payment, confirm on our side.
+   * - Monthly subscription: call `/api/check-payment` (PayPal GET + Mongo write). Does not rely on webhooks.
+   * - Lifetime / other checkout orders: poll Mongo only (fulfillment is webhook-driven after capture).
+   */
+  const pollVerificationStatus = (
+    id: string,
+    source: 'subscription' | 'checkout_order' = 'subscription'
+  ) => {
     if (!user) return
-    
-    console.log('🔍 Starting verification polling for:', subscriptionId, 'user:', user.username)
+
+    const uname = user.username.replace(/^@/, '').toLowerCase()
+    console.log('🔍 Starting verification polling for:', id, 'user:', uname, 'source:', source)
     setIsVerifying(true)
-    
+
     let pollCount = 0
     const maxPolls = 60 // 60 seconds total
-    
+
+    const confirmAndReload = () => {
+      const url = new URL(window.location.href)
+      url.searchParams.set('verified', Date.now().toString())
+      window.location.replace(url.toString())
+    }
+
     const poll = setInterval(async () => {
       pollCount++
-      
-      try {
-        const response = await fetch(`/api/paypal-webhook?username=${user.username.toLowerCase()}`)
-        const data = await response.json()
-        
-        if (data.verified) {
-          console.log('✅ VERIFIED on poll', pollCount, '- reloading...')
-          clearInterval(poll)
 
-          // Close modal and reload
+      try {
+        if (source === 'subscription') {
+          const checkRes = await fetch('/api/check-payment', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              username: uname,
+              subscriptionId: id,
+            }),
+          })
+          const checkData = checkRes.ok ? await checkRes.json() : null
+          if (checkData?.verified) {
+            console.log('✅ VERIFIED via check-payment (PayPal API + DB) on poll', pollCount, '- reloading...')
+            clearInterval(poll)
+            setIsVerifying(false)
+            confirmAndReload()
+            return
+          }
+        }
+
+        const response = await fetch(`/api/paypal-webhook?username=${encodeURIComponent(uname)}`)
+        const data = await response.json()
+
+        if (data.verified) {
+          console.log('✅ VERIFIED via Mongo/webhook poll', pollCount, '- reloading...')
+          clearInterval(poll)
           setIsVerifying(false)
-          
-          // Force reload with cache-busting parameter
-          const url = new URL(window.location.href)
-          url.searchParams.set('verified', Date.now().toString())
-          window.location.replace(url.toString())
+          confirmAndReload()
           return
         }
-        
-        // Log every 5th poll to avoid spam
+
         if (pollCount % 5 === 0) {
           console.log(`⏳ Poll ${pollCount}: not verified yet...`)
         }
-        
+
         if (pollCount >= maxPolls) {
           console.log('❌ Max polls reached, verification timeout')
           clearInterval(poll)
           setIsVerifying(false)
-          alert('Your payment was successful! It may take a minute to process your subscription. Please refresh the browser if you do not see your new badge.')
+          alert(
+            source === 'subscription'
+              ? 'Payment went through, but we could not confirm the subscription in time. Refresh the page — if your badge still does not appear, contact support with your PayPal receipt.'
+              : 'Your payment was successful! It may take a minute to process. Please refresh the browser if you do not see your new badge.'
+          )
         }
       } catch (error) {
         console.error('Polling error:', error)
       }
-    }, 1000) // Poll every 1 second
+    }, 1000)
   }
 
   const handleLanguageChange = (lang: Language) => {
@@ -4895,6 +4939,13 @@ export default function HomePage() {
               ) : null}
               {paypalCfg?.warning ? (
                 <p className={`text-sm ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>{paypalCfg.warning}</p>
+              ) : null}
+              {paypalCfg?.planIdFormatOk === false ? (
+                <p className={`text-sm ${darkMode ? 'text-red-400' : 'text-red-700'}`}>
+                  Plan ID must be a Billing Plan ID starting with <span className="font-mono">P-</span> (PayPal →
+                  Subscription plans). <span className="font-mono">PROD-</span> product IDs will fail with
+                  INVALID_RESOURCE_ID.
+                </p>
               ) : null}
               {!paypalCfgLoading && !paypalCfg?.clientId && !paypalCfgError ? (
                 <p className={`text-sm ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>

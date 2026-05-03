@@ -6,6 +6,8 @@ export type PayPalPublicConfig = {
   sandbox: boolean
   clientId: string | null
   planId: string | null
+  /** null if no planId; false if ID doesn’t look like PayPal Billing Plan `P-…` */
+  planIdFormatOk?: boolean | null
   warning: string | null
 }
 

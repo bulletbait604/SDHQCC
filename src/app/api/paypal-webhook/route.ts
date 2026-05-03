@@ -6,6 +6,11 @@ import {
   INTERNAL_API_SECRET_HEADER,
   getInternalApiSecret,
 } from '@/lib/internalApi'
+import {
+  fulfillSubscriberMembership,
+  revokeMonthlySubscriberBenefits,
+  upsertUserRole,
+} from '@/lib/subscriptionFulfillmentDb'
 
 // Legacy in-memory storage - kept for backwards compatibility
 declare global {
@@ -50,34 +55,6 @@ async function logActivity(username: string, action: string, details?: string) {
     })
   } catch (error) {
     console.error('Failed to log activity:', error)
-  }
-}
-
-// Helper function to update user role in MongoDB
-async function updateUserRole(username: string, role: string) {
-  try {
-    const client = await clientPromise
-    const db = client.db('sdhq')
-    
-    const normalizedUsername = username.toLowerCase()
-    
-    const result = await db.collection('users').updateOne(
-      { username: normalizedUsername },
-      {
-        $set: {
-          username: normalizedUsername,
-          role,
-          updatedAt: new Date().toISOString()
-        }
-      },
-      { upsert: true }
-    )
-    
-    console.log(`Role updated for ${username} to ${role}:`, result.modifiedCount || result.upsertedCount)
-    return true
-  } catch (error) {
-    console.error('Failed to update user role:', error)
-    return false
   }
 }
 
@@ -127,8 +104,8 @@ async function cancelSubscription(subscriptionId: string) {
         }
       )
       
-      // Downgrade user role to free
-      await updateUserRole(subscription.username, 'free')
+      // Downgrade monthly subscriber (preserves lifetime)
+      await revokeMonthlySubscriberBenefits(subscription.username)
       
       // Log cancellation from helper
       await logActivity(subscription.username, 'subscription_cancelled', `Subscription cancelled (ID: ${subscriptionId})`)
@@ -268,8 +245,8 @@ export async function POST(req: NextRequest) {
               
               await storeSubscription(subscription)
               
-              // Automatically upgrade user role to subscriber
-              await updateUserRole(username.toLowerCase(), 'subscriber')
+              // Same DB rows as check-payment client verification (`users` + `subscribers`)
+              await fulfillSubscriberMembership(username)
               
               console.log(`✅ Subscription ${subscriptionId} VERIFIED and activated for ${username}, role upgraded to subscriber`)
               
@@ -349,8 +326,7 @@ export async function POST(req: NextRequest) {
                 }
               )
               
-              // Suspend user access by downgrading role
-              await updateUserRole(subscription.username, 'free')
+              await revokeMonthlySubscriberBenefits(subscription.username)
               
               // Log suspension
               await logActivity(subscription.username, 'subscription_suspended', `Subscription suspended (ID: ${subscriptionId})`)
@@ -398,8 +374,7 @@ export async function POST(req: NextRequest) {
                 }
               )
               
-              // Downgrade user role
-              await updateUserRole(subscription.username, 'free')
+              await revokeMonthlySubscriberBenefits(subscription.username)
               
               // Log expiry
               await logActivity(subscription.username, 'subscription_expired', `Subscription expired (ID: ${subscriptionId})`)
@@ -663,7 +638,7 @@ export async function POST(req: NextRequest) {
               }
               
               await storeSubscription(subscription)
-              await updateUserRole(username.toLowerCase(), 'subscriber_lifetime')
+              await upsertUserRole(username.toLowerCase(), 'subscriber_lifetime')
               
               // Log lifetime payment
               await logActivity(username.toLowerCase(), 'lifetime_payment', `Lifetime membership purchased - $${amount} CAD (ID: ${orderId})`)
@@ -697,7 +672,7 @@ export async function POST(req: NextRequest) {
             if (newStatus !== 'ACTIVE') {
               const subscription = await db.collection('subscriptions').findOne({ subscriptionId })
               if (subscription) {
-                await updateUserRole(subscription.username, 'free')
+                await revokeMonthlySubscriberBenefits(subscription.username)
                 console.log(`Subscription ${subscriptionId} status changed to ${newStatus}, user ${subscription.username} downgraded`)
               }
             }

@@ -5,6 +5,7 @@ import {
   paypalApiBase,
   paypalClientCredentials,
 } from '@/lib/paypalEnv'
+import { fulfillSubscriberMembership } from '@/lib/subscriptionFulfillmentDb'
 
 // Reference to global verified payments from webhook (legacy)
 declare global {
@@ -155,6 +156,9 @@ export async function POST(req: NextRequest) {
     const dbSubscription = await db.collection('subscriptions').findOne(dbQuery)
 
     if (dbSubscription) {
+      await fulfillSubscriberMembership(
+        String(dbSubscription.username || username).toLowerCase()
+      )
       return NextResponse.json({
         verified: true,
         subscriptionId: dbSubscription.subscriptionId,
@@ -213,11 +217,12 @@ export async function POST(req: NextRequest) {
           ) {
 
             // Persist to MongoDB
+            const uname = username.toLowerCase()
             await db.collection('subscriptions').updateOne(
               { subscriptionId: subscription.id },
               {
                 $set: {
-                  username,
+                  username: uname,
                   paypalEmail: resolvedPaypalEmail,
                   subscriptionId: subscription.id,
                   status: subscription.status,
@@ -230,10 +235,12 @@ export async function POST(req: NextRequest) {
               { upsert: true }
             )
 
+            await fulfillSubscriberMembership(uname)
+
             // Store in webhook storage for future reference (legacy)
-            const storageKey = `${username}-${subscription.id}`
+            const storageKey = `${uname}-${subscription.id}`
             global.verifiedPayments.set(storageKey, {
-              username,
+              username: uname,
               subscriptionId: subscription.id,
               verifiedAt: new Date().toISOString(),
               paymentStatus: subscription.status,
@@ -271,11 +278,12 @@ export async function POST(req: NextRequest) {
           emailsMatchVerification(paypalEmailEntered, storedEmail, payerEmail)
         ) {
           // Persist to MongoDB
+          const uname = username.toLowerCase()
           await db.collection('subscriptions').updateOne(
             { subscriptionId: sub.id },
             {
               $set: {
-                username,
+                username: uname,
                 paypalEmail: resolvedPaypalEmail,
                 subscriptionId: sub.id,
                 status: sub.status,
@@ -288,10 +296,12 @@ export async function POST(req: NextRequest) {
             { upsert: true }
           )
 
+          await fulfillSubscriberMembership(uname)
+
           // Store in webhook storage for future reference (legacy)
-          const storageKey = `${username}-${sub.id}`
+          const storageKey = `${uname}-${sub.id}`
           global.verifiedPayments.set(storageKey, {
-            username,
+            username: uname,
             subscriptionId: sub.id,
             verifiedAt: new Date().toISOString(),
             paymentStatus: sub.status,
