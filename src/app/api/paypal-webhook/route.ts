@@ -254,6 +254,11 @@ export async function POST(req: NextRequest) {
               
               // Log subscription payment
               await logActivity(username.toLowerCase(), 'subscription_payment', `Subscribed - $6.99/month (ID: ${subscriptionId})`)
+              await logActivity(
+                username.toLowerCase(),
+                'subscription_activated',
+                `Subscription activated (ID: ${subscriptionId})`
+              )
               
               return NextResponse.json({ status: 'success', username, autoVerified: true, roleUpdated: true, verifiedWithPayPal: true })
             }
@@ -285,6 +290,11 @@ export async function POST(req: NextRequest) {
             // Log cancellation
             if (subToCancel) {
               await logActivity(subToCancel.username, 'subscription_cancelled', `Subscription cancelled (ID: ${subscriptionId})`)
+              await logActivity(
+                subToCancel.username,
+                'subscription_deactivated',
+                `Subscription deactivated by cancellation (ID: ${subscriptionId})`
+              )
             }
             
             console.log(`✅ Cancellation verified and processed for ${subscriptionId}`)
@@ -332,6 +342,11 @@ export async function POST(req: NextRequest) {
               
               // Log suspension
               await logActivity(subscription.username, 'subscription_suspended', `Subscription suspended (ID: ${subscriptionId})`)
+              await logActivity(
+                subscription.username,
+                'subscription_deactivated',
+                `Subscription deactivated by suspension (ID: ${subscriptionId})`
+              )
               
               console.log(`✅ Suspension verified and processed for ${subscriptionId}, user ${subscription.username} downgraded`)
             }
@@ -380,6 +395,11 @@ export async function POST(req: NextRequest) {
               
               // Log expiry
               await logActivity(subscription.username, 'subscription_expired', `Subscription expired (ID: ${subscriptionId})`)
+              await logActivity(
+                subscription.username,
+                'subscription_deactivated',
+                `Subscription deactivated by expiry (ID: ${subscriptionId})`
+              )
               
               console.log(`✅ Expiry verified and processed for ${subscriptionId}, user ${subscription.username} downgraded`)
             }
@@ -599,6 +619,11 @@ export async function POST(req: NextRequest) {
               const subscription = await db.collection('subscriptions').findOne({ subscriptionId })
               if (subscription) {
                 await revokeMonthlySubscriberBenefits(subscription.username)
+                await logActivity(
+                  subscription.username,
+                  'subscription_deactivated',
+                  `Subscription deactivated by status update to ${newStatus} (ID: ${subscriptionId})`
+                )
                 console.log(`Subscription ${subscriptionId} status changed to ${newStatus}, user ${subscription.username} downgraded`)
               }
             }

@@ -94,7 +94,7 @@ interface ActivityLogEntry {
   id: string
   username: string
   timestamp: string
-  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh' | 'tag_generation' | 'clip_analysis' | 'clip_reanalysis' | 'content_analysis' | 'content_reanalysis' | 'subscriber_added' | 'subscriber_removed' | 'lifetime_added' | 'lifetime_removed' | 'admin_added' | 'admin_removed' | 'sync_completed' | 'role_updated' | 'thumbnail_generation' | 'token_grant' | 'token_purchase' | 'subscription_payment' | 'lifetime_payment' | 'coin_grant' | 'coin_remove' | 'coin_purchase' | 'donation_initiated' | 'donation_completed'
+  action: 'login' | 'logout' | 'payment_success' | 'payment_failed' | 'verification_attempt' | 'access_expired' | 'algorithm_refresh' | 'tag_generation' | 'clip_analysis' | 'clip_reanalysis' | 'content_analysis' | 'content_reanalysis' | 'subscriber_added' | 'subscriber_removed' | 'lifetime_added' | 'lifetime_removed' | 'admin_added' | 'admin_removed' | 'sync_completed' | 'role_updated' | 'thumbnail_generation' | 'token_grant' | 'token_purchase' | 'subscription_payment' | 'subscription_activated' | 'subscription_deactivated' | 'subscription_cancelled' | 'subscription_suspended' | 'subscription_expired' | 'lifetime_payment' | 'coin_grant' | 'coin_remove' | 'coin_purchase' | 'donation_initiated' | 'donation_completed'
   details?: string
   /** Approximate USD (not invoicing); set by server-assisted features. */
   estimatedCostUsd?: number
@@ -4574,6 +4574,11 @@ export default function HomePage() {
                             <option value="tag_generation">Tag Generation</option>
                             <option value="thumbnail_generation">Thumbnail Generation</option>
                             <option value="clip_analysis">Clip Analysis</option>
+                            <option value="coin_purchase">Coin Purchase</option>
+                            <option value="lifetime_payment">Lifetime Purchase</option>
+                            <option value="subscription_payment">Subscription Payment</option>
+                            <option value="subscription_activated">Subscription Activated</option>
+                            <option value="subscription_deactivated">Subscription Deactivated</option>
                           </select>
                         </div>
                         <div>

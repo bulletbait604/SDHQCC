@@ -6,6 +6,10 @@ import {
   paypalClientCredentials,
 } from '@/lib/paypalEnv'
 import { fulfillSubscriberMembership } from '@/lib/subscriptionFulfillmentDb'
+import {
+  INTERNAL_API_SECRET_HEADER,
+  getInternalApiSecret,
+} from '@/lib/internalApi'
 
 // Reference to global verified payments from webhook (legacy)
 declare global {
@@ -128,6 +132,34 @@ async function listPayPalSubscriptions(accessToken: string): Promise<any[]> {
   }
 }
 
+async function logSubscriptionActivity(
+  username: string,
+  action: 'subscription_payment' | 'subscription_activated',
+  details: string
+) {
+  try {
+    const base = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || ''
+    if (!base) return
+    const secret = getInternalApiSecret()
+    if (!secret) return
+    await fetch(`${base.replace(/\/$/, '')}/api/activity-log`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        [INTERNAL_API_SECRET_HEADER]: secret,
+      },
+      body: JSON.stringify({
+        username,
+        action,
+        details,
+        timestamp: new Date().toISOString(),
+      }),
+    })
+  } catch (error) {
+    console.error('[check-payment] Failed to log subscription activity:', error)
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -236,6 +268,16 @@ export async function POST(req: NextRequest) {
             )
 
             await fulfillSubscriberMembership(uname)
+            await logSubscriptionActivity(
+              uname,
+              'subscription_activated',
+              `Subscription activated via manual verification (ID: ${subscription.id})`
+            )
+            await logSubscriptionActivity(
+              uname,
+              'subscription_payment',
+              `Subscribed - $6.99/month (ID: ${subscription.id})`
+            )
 
             // Store in webhook storage for future reference (legacy)
             const storageKey = `${uname}-${subscription.id}`
@@ -297,6 +339,16 @@ export async function POST(req: NextRequest) {
           )
 
           await fulfillSubscriberMembership(uname)
+          await logSubscriptionActivity(
+            uname,
+            'subscription_activated',
+            `Subscription activated via subscription lookup (ID: ${sub.id})`
+          )
+          await logSubscriptionActivity(
+            uname,
+            'subscription_payment',
+            `Subscribed - $6.99/month (ID: ${sub.id})`
+          )
 
           // Store in webhook storage for future reference (legacy)
           const storageKey = `${uname}-${sub.id}`
