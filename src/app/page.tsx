@@ -4786,17 +4786,26 @@ export default function HomePage() {
                           Manual Coin Grant (+/-)
                         </p>
                         <div className="flex space-x-2">
-                          <input
-                            type="text"
+                          <select
                             value={coinGrantUsername}
-                            onChange={(e) => setCoinGrantUsername(e.target.value.toLowerCase())}
-                            placeholder="Enter username..."
+                            onChange={(e) => setCoinGrantUsername(e.target.value)}
                             className={`flex-1 px-3 py-2 rounded-md border ${
                               darkMode
-                                ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white placeholder-gray-500'
-                                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                                ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white'
+                                : 'bg-white border-gray-300 text-gray-900'
                             }`}
-                          />
+                          >
+                            <option value="">Select user...</option>
+                            {usersWithRoles
+                              .map((u: any) => String(u.username || '').toLowerCase())
+                              .filter((u, idx, arr) => u && arr.indexOf(u) === idx)
+                              .sort((a, b) => a.localeCompare(b))
+                              .map((username) => (
+                                <option key={username} value={username}>
+                                  {username}
+                                </option>
+                              ))}
+                          </select>
                           <div className={`flex items-center space-x-1 rounded-md border px-2 ${
                             darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-gray-300'
                           }`}>
@@ -4836,7 +4845,7 @@ export default function HomePage() {
                           </Button>
                         </div>
                         <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                          Use + to add coins, - to remove. Username is auto-converted to lowercase.
+                          Use + to add coins, - to remove. User list is synced from Role Management.
                         </p>
                       </div>
                       
