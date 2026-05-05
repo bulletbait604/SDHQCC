@@ -8,6 +8,7 @@ export type FulfillVerifiedCoinPurchaseParams = {
   orderId: string
   customId: string
   amountValue?: string
+  amountCurrency?: string
   /** When set (client completion), custom_id username must match — prevents crediting someone else's order */
   assertUsername?: string
 }
@@ -34,17 +35,15 @@ function verifyCatalogAndPayPalAmount(
   if (def.coins !== coinCount) {
     return { ok: false, error: 'Coin count does not match package' }
   }
-  if (pricePart !== undefined && pricePart !== '') {
-    const metaPrice = parseFloat(pricePart)
-    if (!Number.isNaN(metaPrice) && Math.abs(metaPrice - def.price) > 0.009) {
-      return { ok: false, error: 'Package price in order metadata is invalid' }
-    }
+  const expected = pricePart !== undefined && pricePart !== '' ? parseFloat(pricePart) : def.price
+  if (Number.isNaN(expected) || expected <= 0) {
+    return { ok: false, error: 'Package price in order metadata is invalid' }
   }
   if (amountFromPayPal === undefined || amountFromPayPal === '') {
     return { ok: false, error: 'Could not verify captured amount from PayPal' }
   }
   const paid = parseFloat(amountFromPayPal)
-  if (Number.isNaN(paid) || Math.abs(paid - def.price) > 0.009) {
+  if (Number.isNaN(paid) || Math.abs(paid - expected) > 0.02) {
     return { ok: false, error: 'Payment amount does not match the selected coin package' }
   }
   return { ok: true }
@@ -76,13 +75,13 @@ async function logCoinPurchaseActivity(username: string, details: string) {
 
 /**
  * Credits coins for a COMPLETED PayPal order whose purchase_units custom_id matches:
- * `usernameLower|coins|packageType|coinCount|price`
+ * `usernameLower|coins|packageType|coinCount|price|currency`
  * Used by webhook and POST /api/coins/complete-purchase after client-side capture.
  */
 export async function fulfillVerifiedCoinPurchase(
   params: FulfillVerifiedCoinPurchaseParams
 ): Promise<FulfillVerifiedCoinPurchaseResult> {
-  const { orderId, customId, amountValue: amount, assertUsername } = params
+  const { orderId, customId, amountValue: amount, amountCurrency, assertUsername } = params
 
   if (!customId.includes('coins')) {
     return { ok: false, error: 'Not a coin purchase order' }
@@ -94,6 +93,7 @@ export async function fulfillVerifiedCoinPurchase(
   const packageType = parts[2]
   const coinCount = parseInt(parts[3], 10)
   const pricePart = parts[4]
+  const currency = (parts[5] || amountCurrency || 'CAD').toUpperCase()
 
   if (!username || Number.isNaN(coinCount)) {
     return { ok: false, error: 'Invalid coin purchase custom_id' }
@@ -166,7 +166,7 @@ export async function fulfillVerifiedCoinPurchase(
         packageType,
         coins: coinCount,
         price: pricePart,
-        currency: 'CAD',
+        currency,
         status: 'completed',
         completedAt: new Date().toISOString(),
         verifiedWithPayPal: true,
@@ -184,7 +184,7 @@ export async function fulfillVerifiedCoinPurchase(
     type: 'purchase',
     amount: coinCount,
     cost: amount,
-    currency: 'CAD',
+    currency,
     orderId,
     packageType,
     timestamp: new Date().toISOString(),
@@ -192,7 +192,7 @@ export async function fulfillVerifiedCoinPurchase(
 
   await logCoinPurchaseActivity(
     username,
-    `Purchased ${coinCount} coins ($${pricePart ?? amount} CAD) — order ${orderId}`
+    `Purchased ${coinCount} coins (${pricePart ?? amount} ${currency}) — order ${orderId}`
   )
 
   console.log(`✅ ${coinCount} coins credited to ${username} (order ${orderId})`)

@@ -107,6 +107,15 @@ export function getPurchaseUnitAmountValue(order: Record<string, unknown>): stri
   return typeof v === 'string' ? v : undefined
 }
 
+export function getPurchaseUnitCurrencyCode(order: Record<string, unknown>): string | undefined {
+  const units = order.purchase_units as unknown
+  if (!Array.isArray(units) || units.length === 0) return undefined
+  const u = units[0] as Record<string, unknown>
+  const amt = u?.amount as Record<string, unknown> | undefined
+  const c = amt?.currency_code
+  return typeof c === 'string' ? c : undefined
+}
+
 /**
  * Fulfillment gate: only orders PayPal reports as COMPLETED, with custom_id read from the API
  * (not the webhook JSON — avoids trusting tampered payloads without signature verification).
@@ -115,6 +124,7 @@ export async function verifyCompletedOrderForFulfillment(orderId: string): Promi
   order: Record<string, unknown>
   customId: string | undefined
   amountValue: string | undefined
+  currencyCode: string | undefined
 } | null> {
   const order = await getPayPalCheckoutOrder(orderId)
   if (!order || order.status !== 'COMPLETED') return null
@@ -122,6 +132,7 @@ export async function verifyCompletedOrderForFulfillment(orderId: string): Promi
     order,
     customId: getPurchaseUnitCustomId(order),
     amountValue: getPurchaseUnitAmountValue(order),
+    currencyCode: getPurchaseUnitCurrencyCode(order),
   }
 }
 

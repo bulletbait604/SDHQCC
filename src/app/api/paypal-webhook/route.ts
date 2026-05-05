@@ -428,6 +428,7 @@ export async function POST(req: NextRequest) {
 
           const customId = verified.customId
           const amount = verified.amountValue
+          const currency = verified.currencyCode
 
           console.log(`💰 CHECKOUT.ORDER.COMPLETED: ${orderId}, custom_id (from PayPal API): ${customId}`)
 
@@ -437,6 +438,7 @@ export async function POST(req: NextRequest) {
               orderId,
               customId,
               amountValue: amount,
+              amountCurrency: currency,
             })
             if (result.ok) {
               return NextResponse.json({
@@ -577,6 +579,7 @@ export async function POST(req: NextRequest) {
               orderId,
               customId,
               amountValue: amount,
+              amountCurrency: currency,
             })
             if (result.ok) {
               return NextResponse.json({

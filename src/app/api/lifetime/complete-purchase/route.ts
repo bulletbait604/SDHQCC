@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
       orderId,
       customId: verified.customId,
       amountValue: verified.amountValue,
+      amountCurrency: verified.currencyCode,
       assertUsername: user.username,
     })
 

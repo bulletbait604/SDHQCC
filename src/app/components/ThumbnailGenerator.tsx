@@ -261,10 +261,10 @@ export default function ThumbnailGenerator({
   /** Preview container matches selected platform aspect */
   const previewAspectClass = (() => {
     const id = selectedPlatform
-    if (id === 'instagram') return 'aspect-[4/5] w-full max-w-sm mx-auto'
+    if (id === 'instagram') return 'aspect-[4/5] w-full max-w-[220px] mx-auto'
     if (['youtube-shorts', 'tiktok', 'facebook-reels'].includes(id))
-      return 'aspect-[9/16] w-full max-w-sm mx-auto'
-    return 'aspect-video w-full'
+      return 'aspect-[9/16] w-full max-w-[220px] mx-auto'
+    return 'aspect-video w-full max-w-[300px] mx-auto'
   })()
 
   const presets = [
@@ -460,7 +460,7 @@ export default function ThumbnailGenerator({
                     width={800}
                     height={450}
                     unoptimized
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-contain bg-black/20"
                   />
                   <div className="absolute top-2 right-2 flex gap-2">
                     <button
@@ -532,7 +532,7 @@ export default function ThumbnailGenerator({
                         width={80}
                         height={48}
                         unoptimized
-                        className="w-20 h-12 object-cover rounded-lg border-2 border-transparent group-hover:border-cyan-500 transition-all"
+                        className="w-20 h-12 object-contain bg-black/20 rounded-lg border-2 border-transparent group-hover:border-cyan-500 transition-all"
                       />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 rounded-lg transition-opacity flex items-center justify-center">
                         <RotateCcw className="w-4 h-4 text-white" />

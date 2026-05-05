@@ -450,6 +450,10 @@ export default function HomePage() {
   const [showLifetimePopup, setShowLifetimePopup] = useState(false)
   const [showDonatePopup, setShowDonatePopup] = useState(false)
   const [donateAmount, setDonateAmount] = useState<number>(2)
+  const [checkoutCurrency, setCheckoutCurrency] = useState<string>('CAD')
+  const [subscriptionLocalPrice, setSubscriptionLocalPrice] = useState<number>(9.5)
+  const [lifetimeLocalPrice, setLifetimeLocalPrice] = useState<number>(89.99)
+  const [currencyQuoteNote, setCurrencyQuoteNote] = useState<string>('')
   const [feedbackReplyEmail, setFeedbackReplyEmail] = useState('')
   const [feedbackMessage, setFeedbackMessage] = useState('')
   const [feedbackSending, setFeedbackSending] = useState(false)
@@ -458,6 +462,28 @@ export default function HomePage() {
 
   /** Runtime PayPal mode + IDs from server (avoids stale NEXT_PUBLIC_* in client bundle). */
   const { config: paypalCfg, loading: paypalCfgLoading, error: paypalCfgError } = usePayPalPublicConfig()
+
+  useEffect(() => {
+    void fetch('/api/currency/quote?amountsCad=9.5,89.99', { credentials: 'include' })
+      .then(async (r) => {
+        if (!r.ok) throw new Error('Failed to load local currency quotes')
+        const data = (await r.json()) as {
+          currency?: string
+          note?: string
+          quotes?: Array<{ amountLocal: number }>
+        }
+        setCheckoutCurrency(data.currency || 'CAD')
+        setSubscriptionLocalPrice(data.quotes?.[0]?.amountLocal ?? 9.5)
+        setLifetimeLocalPrice(data.quotes?.[1]?.amountLocal ?? 89.99)
+        setCurrencyQuoteNote(data.note || '')
+      })
+      .catch(() => {
+        setCheckoutCurrency('CAD')
+        setSubscriptionLocalPrice(9.5)
+        setLifetimeLocalPrice(89.99)
+        setCurrencyQuoteNote('')
+      })
+  }, [])
 
   // Verification states
   const [isVerified, setIsVerified] = useState<boolean>(false)
@@ -2006,11 +2032,11 @@ export default function HomePage() {
                 purchase_units: [
                   {
                     amount: {
-                      value: '89.99',
-                      currency_code: 'CAD',
+                      value: lifetimeLocalPrice.toFixed(2),
+                      currency_code: checkoutCurrency,
                     },
                     description: 'Stream Dreams Creator Corner Lifetime Membership',
-                    custom_id: `${user.username.replace(/^@/, '').toLowerCase()}|lifetime`,
+                    custom_id: `${user.username.replace(/^@/, '').toLowerCase()}|lifetime|${lifetimeLocalPrice.toFixed(2)}|${checkoutCurrency}`,
                   },
                 ],
               })
@@ -2069,7 +2095,11 @@ export default function HomePage() {
 
       const existing = Array.from(
         document.querySelectorAll<HTMLScriptElement>('script[data-sdhq-paypal-lifetime-sdk]')
-      ).find((s) => s.getAttribute('data-paypal-client-id') === paypalClientId)
+      ).find(
+        (s) =>
+          s.getAttribute('data-paypal-client-id') === paypalClientId &&
+          s.getAttribute('data-paypal-currency') === checkoutCurrency
+      )
 
       if (existing) {
         const onLoad = () => mountLifetimeButtons()
@@ -2079,10 +2109,11 @@ export default function HomePage() {
       }
 
       const script = document.createElement('script')
-      script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(paypalClientId)}&currency=CAD&disable-funding=paylater`
+      script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(paypalClientId)}&currency=${encodeURIComponent(checkoutCurrency)}&disable-funding=paylater`
       script.setAttribute('data-sdk-integration-source', 'button-factory')
       script.setAttribute('data-sdhq-paypal-lifetime-sdk', '1')
       script.setAttribute('data-paypal-client-id', paypalClientId)
+      script.setAttribute('data-paypal-currency', checkoutCurrency)
       script.setAttribute('data-namespace', 'paypal_lifetime')
       script.onload = () => mountLifetimeButtons()
       script.onerror = () => console.error('PayPal lifetime SDK failed to load')
@@ -2092,7 +2123,7 @@ export default function HomePage() {
         if (script.parentNode) script.parentNode.removeChild(script)
       }
     }
-  }, [showLifetimePopup, user, paypalLifetimeLoaded, paypalCfg?.clientId, paypalCfg?.sandbox])
+  }, [showLifetimePopup, user, paypalLifetimeLoaded, paypalCfg?.clientId, paypalCfg?.sandbox, checkoutCurrency, lifetimeLocalPrice])
 
   // Reset PayPal embed state when modals close so buttons render again on next open
   useEffect(() => {
@@ -5071,7 +5102,9 @@ export default function HomePage() {
                     Lifetime Pass
                   </h4>
                   <p className={`text-sm mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Get lifetime access to all premium features for a one-time payment of $89.99 CAD.
+                    Get lifetime access to all premium features for a one-time payment of{' '}
+                    {lifetimeLocalPrice.toLocaleString(undefined, { style: 'currency', currency: checkoutCurrency })}{' '}
+                    {checkoutCurrency !== 'CAD' ? `(base $89.99 CAD)` : ''}.
                   </p>
                   <Button
                     onClick={handleLifetimePassCheckout}
@@ -5205,7 +5238,9 @@ export default function HomePage() {
             
             <div className="space-y-4">
               <p className={`text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                Subscribe to unlock all premium features for $9.50 CAD/month.
+                Subscribe to unlock all premium features for{' '}
+                {subscriptionLocalPrice.toLocaleString(undefined, { style: 'currency', currency: checkoutCurrency })}
+                /month.
               </p>
               
               <div className={`p-4 rounded-lg border ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
@@ -5213,8 +5248,14 @@ export default function HomePage() {
                   PayPal Subscription plan (monthly):
                 </p>
                 <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  $9.50 CAD / month — Premium Access
+                  {subscriptionLocalPrice.toLocaleString(undefined, { style: 'currency', currency: checkoutCurrency })} / month
+                  — Premium Access
                 </p>
+                {checkoutCurrency !== 'CAD' ? (
+                  <p className={`text-xs mt-2 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                    Final subscription charge is billed in CAD by the existing PayPal plan.
+                  </p>
+                ) : null}
               </div>
 
               {paypalCfgLoading ? (
@@ -5324,7 +5365,8 @@ export default function HomePage() {
                   className={`w-full ${darkMode ? 'border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10' : 'border-yellow-500 text-yellow-600 hover:bg-yellow-50'}`}
                 >
                   <Crown className="w-4 h-4 mr-2" />
-                  Want Lifetime Access? ($89.99)
+                  Want Lifetime Access? (
+                  {lifetimeLocalPrice.toLocaleString(undefined, { style: 'currency', currency: checkoutCurrency })})
                 </Button>
                 <Button
                   onClick={() => {
@@ -5334,7 +5376,8 @@ export default function HomePage() {
                   className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black"
                 >
                   <Crown className="w-4 h-4 mr-2" />
-                  Get Lifetime Pass — $89.99 CAD
+                  Get Lifetime Pass —{' '}
+                  {lifetimeLocalPrice.toLocaleString(undefined, { style: 'currency', currency: checkoutCurrency })}
                 </Button>
               </div>
               
@@ -5370,7 +5413,8 @@ export default function HomePage() {
             
             <div className="space-y-4">
               <p className={`text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                Get unlimited access to all current and upcoming features with a single one-time payment of $89.99 CAD.
+                Get unlimited access to all current and upcoming features with a single one-time payment of{' '}
+                {lifetimeLocalPrice.toLocaleString(undefined, { style: 'currency', currency: checkoutCurrency })}.
               </p>
               <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
                 This charges once through PayPal checkout — it is not a subscription plan and does not use{' '}
@@ -5380,8 +5424,13 @@ export default function HomePage() {
               <div className={`p-4 rounded-lg border ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}>
                 <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>PayPal one-time checkout:</p>
                 <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  $89.99 CAD - Lifetime Access
+                  {lifetimeLocalPrice.toLocaleString(undefined, { style: 'currency', currency: checkoutCurrency })} - Lifetime Access
                 </p>
+                {checkoutCurrency !== 'CAD' ? (
+                  <p className={`text-xs mt-2 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                    {currencyQuoteNote || 'Exchange rates are estimated and can shift slightly at payment time.'}
+                  </p>
+                ) : null}
               </div>
               
               <div id="paypal-lifetime-button-container" className="w-full"></div>

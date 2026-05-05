@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { fal } from "@fal-ai/client";
 import { GoogleGenAI, Modality } from "@google/genai";
 import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
@@ -23,11 +24,32 @@ function mimeFromThumbnailKey(key: string): string {
 
 /** Same stack as `src/app/api/tags/route.ts` — Flash is cheap and fast for short rewrite. */
 const THUMBNAIL_GEMINI_MODEL_DEFAULT = "gemini-2.5-flash";
+const THUMBNAIL_PROVIDER_DEFAULT = "gemini";
+const FAL_KONTEXT_MODEL_DEFAULT = "fal-ai/flux-2-pro/edit";
 
 function thumbnailGeminiModelId(): string {
   return (
     process.env.THUMBNAIL_GEMINI_MODEL?.trim() || THUMBNAIL_GEMINI_MODEL_DEFAULT
   );
+}
+
+type ThumbnailProvider = "gemini" | "fal_kontext";
+
+function thumbnailProvider(): ThumbnailProvider {
+  const v =
+    process.env.THUMBNAIL_IMAGE_PROVIDER?.trim().toLowerCase() ||
+    THUMBNAIL_PROVIDER_DEFAULT;
+  if (v === "fal_kontext" || v === "fal-kontext" || v === "kontext" || v === "fal") {
+    return "fal_kontext";
+  }
+  return "gemini";
+}
+
+function thumbnailGeminiThinkingBudget(): number {
+  const raw = process.env.THUMBNAIL_GEMINI_THINKING_BUDGET?.trim() ?? "0";
+  const n = Number.parseInt(raw, 10);
+  if (Number.isNaN(n)) return 0;
+  return Math.max(0, Math.min(1024, n));
 }
 
 /** When true and `GEMINI_API` is set, rewrite creator notes via Gemini before Schnell. */
@@ -713,6 +735,7 @@ function buildPromptText(
   /** Echo creator wording when an LLM rewrote instructions—keeps proper nouns (games, platforms). */
   literalAnchorSource?: string,
   platforms?: string[],
+  mustKeepBlock?: string,
   /** Extra spelling/legibility pressure for diffusion-rendered typography (FLUX family). */
   includeFluxTypographySpellingHints?: boolean
 ): string {
@@ -736,16 +759,44 @@ function buildPromptText(
   return hasImage
     ? `You are a professional multi-platform thumbnail designer. An image is provided—compose around it and honor the text below.${obeyLiteral}
 
-Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${fluxSpelling}${THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT}
+Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${fluxSpelling}${THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT}${mustKeepBlock ? `\n\nNon-negotiable request checklist:\n${mustKeepBlock}` : ""}
 
 Output dimensions: ${spec.pixels} (${spec.label}). ${spec.aspectNote}
 High contrast, bold colors, clear visual hierarchy—**all headline and sticker graphics must be fully rendered inside the image pixels** (never implied or left for post-production).`
     : `You are a professional multi-platform thumbnail designer.${obeyLiteral}
 
-Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${fluxSpelling}${THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT}
+Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${fluxSpelling}${THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT}${mustKeepBlock ? `\n\nNon-negotiable request checklist:\n${mustKeepBlock}` : ""}
 
 Output dimensions: ${spec.pixels} (${spec.label}). ${spec.aspectNote}
 High contrast, bold colors, clear visual hierarchy—**all headline and sticker graphics must be fully rendered inside the image pixels** (never implied or left for post-production).`;
+}
+
+function extractMustKeepChecklist(prompt: string): string {
+  const cleaned = prompt
+    .replace(/[\r\n]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) return "";
+
+  const quoted = Array.from(cleaned.matchAll(/"([^"]{2,80})"/g))
+    .map((m) => m[1].trim())
+    .filter(Boolean);
+  const chunks = cleaned
+    .split(/[.;,!?\-]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 3);
+  const merged = [...quoted, ...chunks].map((s) => s.replace(/^and\s+/i, ""));
+
+  const uniq: string[] = [];
+  const seen = new Set<string>();
+  for (const item of merged) {
+    const key = item.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniq.push(item);
+    if (uniq.length >= 8) break;
+  }
+  return uniq.map((u) => `- ${u}`).join("\n");
 }
 
 /**
@@ -794,6 +845,11 @@ Reply with plain prose only—no markdown, no bullets, no quotes wrapping the wh
     const response = await genAI.models.generateContent({
       model: thumbnailGeminiModelId(),
       contents: [{ role: "user", parts: [{ text: metaPrompt }] }],
+      config: {
+        thinkingConfig: {
+          thinkingBudget: thumbnailGeminiThinkingBudget(),
+        },
+      },
     });
 
     let rawText: string;
@@ -848,6 +904,11 @@ ${safeNotes}
     const response = await genAI.models.generateContent({
       model: thumbnailGeminiModelId(),
       contents: [{ role: "user", parts: [{ text: metaPrompt }] }],
+      config: {
+        thinkingConfig: {
+          thinkingBudget: thumbnailGeminiThinkingBudget(),
+        },
+      },
     });
 
     let rawText: string;
@@ -882,6 +943,31 @@ async function fetchImageBufferFromUrl(url: string): Promise<{ buffer: Buffer; c
   const buf = Buffer.from(await res.arrayBuffer());
   const contentType = res.headers.get("content-type") || "image/jpeg";
   return { buffer: buf, contentType };
+}
+
+function findFirstImageUrl(value: unknown): string | null {
+  if (!value) return null;
+  if (typeof value === "string") {
+    const s = value.trim();
+    if (!/^https?:\/\//i.test(s)) return null;
+    if (/\.(png|jpe?g|webp|gif)(\?|$)/i.test(s) || /images?\./i.test(s)) return s;
+    return s;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const hit = findFirstImageUrl(item);
+      if (hit) return hit;
+    }
+    return null;
+  }
+  if (typeof value === "object") {
+    const rec = value as Record<string, unknown>;
+    for (const entry of Object.values(rec)) {
+      const hit = findFirstImageUrl(entry);
+      if (hit) return hit;
+    }
+  }
+  return null;
 }
 
 /**
@@ -961,7 +1047,7 @@ type ThumbnailGenResult = {
   key: string;
   mimeType: string;
   description: string;
-  falModel: string;
+  model: string;
   geminiEnrichUsed: boolean;
   geminiSpellcheckUsed: boolean;
 };
@@ -1139,6 +1225,7 @@ async function generateThumbnailSchnell(params: {
     instructionPrompt.trim() !== truncatedPrompt.trim()
       ? truncatedPrompt
       : undefined;
+  const mustKeepChecklist = extractMustKeepChecklist(truncatedPrompt);
 
   const promptText = buildPromptText(
     instructionPrompt,
@@ -1147,6 +1234,7 @@ async function generateThumbnailSchnell(params: {
     domainKeywordSource,
     literalAnchorSource,
     params.platforms,
+    mustKeepChecklist,
     useFluxTypographySpellingHints
   );
   const firstPass = await generateGeminiImageWithModelFallback({
@@ -1206,10 +1294,113 @@ CRITICAL EDIT REQUIREMENT:
     key,
     mimeType: contentType,
     description: "Gemini-generated thumbnail",
-    falModel: "gemini-2.5-flash",
+    model: selectedImageModel,
     geminiEnrichUsed,
     geminiSpellcheckUsed,
   };
+}
+
+async function generateThumbnailFalKontext(params: {
+  prompt: string;
+  imageBase64: string | null;
+  mimeType: string;
+  platforms: string[] | undefined;
+  sessionId: string | undefined;
+}): Promise<ThumbnailGenResult> {
+  const falKey = process.env.FAL_KEY?.trim() || process.env.FAL_API_KEY?.trim();
+  if (!falKey) {
+    throw new Error("FAL_KEY (or FAL_API_KEY) is required for fal_kontext provider.");
+  }
+
+  fal.config({ credentials: falKey });
+  const modelId =
+    process.env.FAL_THUMBNAIL_MODEL?.trim() ||
+    process.env.FAL_THUMBNAIL_KONTEXT_MODEL?.trim() ||
+    FAL_KONTEXT_MODEL_DEFAULT;
+  const requiresImageInput =
+    modelId === "fal-ai/flux-2-pro/edit" || modelId.endsWith("/edit");
+  if (requiresImageInput && !params.imageBase64) {
+    throw new Error(`${modelId} requires a source image. Upload an image and try again.`);
+  }
+  const spec = thumbnailSpecFromPlatforms(params.platforms);
+  const mustKeepChecklist = extractMustKeepChecklist(params.prompt);
+  const promptText = buildPromptText(
+    params.prompt,
+    spec,
+    !!params.imageBase64,
+    params.prompt,
+    params.prompt,
+    params.platforms,
+    mustKeepChecklist,
+    true
+  );
+
+  const staged = params.imageBase64
+    ? await stagingImageUrlForFal({
+        imageBase64: params.imageBase64,
+        mimeType: params.mimeType,
+        sessionId: params.sessionId,
+      })
+    : { imageUrl: "", stagingKey: null as string | null };
+
+  try {
+    const input: Record<string, unknown> = { prompt: promptText };
+    if (staged.imageUrl) input.image_url = staged.imageUrl;
+
+    const result = await fal.subscribe(modelId, {
+      input,
+      logs: true,
+      onQueueUpdate: (update) => {
+        if (update.status === "IN_PROGRESS") {
+          for (const log of update.logs ?? []) {
+            console.log("[Thumbnail][FalKontext]", log.message);
+          }
+        }
+      },
+    });
+
+    const imageUrl =
+      findFirstImageUrl((result as { data?: unknown }).data) ||
+      findFirstImageUrl(result);
+    if (!imageUrl) {
+      throw new Error("Fal Kontext returned no image URL.");
+    }
+    const downloaded = await fetchImageBufferFromUrl(imageUrl);
+    const ext =
+      downloaded.contentType.includes("png")
+        ? "png"
+        : downloaded.contentType.includes("webp")
+          ? "webp"
+          : "jpeg";
+    const key = `thumbnails/${params.sessionId || uuidv4()}/${uuidv4()}.${ext}`;
+    const sanitizedPrompt = params.prompt
+      .replace(/[\r\n]+/g, " ")
+      .replace(/[^\x20-\x7E]/g, "")
+      .slice(0, 512);
+
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME!,
+        Key: key,
+        Body: downloaded.buffer,
+        ContentType: downloaded.contentType,
+        Metadata: { prompt: sanitizedPrompt },
+      })
+    );
+
+    return {
+      key,
+      mimeType: downloaded.contentType,
+      description: "Fal Flux generated thumbnail",
+      model: modelId,
+      geminiEnrichUsed: false,
+      geminiSpellcheckUsed: false,
+    };
+  } finally {
+    if (staged.stagingKey) {
+      await deleteFileFromR2(staged.stagingKey).catch(() => {});
+    }
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -1266,13 +1457,23 @@ export async function POST(req: NextRequest) {
       effectiveMime = mimeFromThumbnailKey(sk);
     }
 
-    const out = await generateThumbnailSchnell({
-      prompt,
-      imageBase64: effectiveB64,
-      mimeType: effectiveMime,
-      platforms,
-      sessionId,
-    });
+    const provider = thumbnailProvider();
+    const out =
+      provider === "fal_kontext"
+        ? await generateThumbnailFalKontext({
+            prompt,
+            imageBase64: effectiveB64,
+            mimeType: effectiveMime,
+            platforms,
+            sessionId,
+          })
+        : await generateThumbnailSchnell({
+            prompt,
+            imageBase64: effectiveB64,
+            mimeType: effectiveMime,
+            platforms,
+            sessionId,
+          });
 
     const estimate = {
       estimatedCostUsd: 0.003,
@@ -1287,8 +1488,8 @@ export async function POST(req: NextRequest) {
       key: out.key,
       mimeType: out.mimeType,
       description: out.description,
-      provider: "fal",
-      falModel: out.falModel,
+      provider: provider === "fal_kontext" ? "fal" : "gemini",
+      falModel: out.model,
       estimatedCostUsd: estimate.estimatedCostUsd,
       estimatedCostNote: estimate.estimatedCostNote,
     });

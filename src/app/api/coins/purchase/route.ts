@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { verifyAuth, AuthError } from '@/lib/auth/verifyAuth'
 import { paypalApiBase, paypalClientCredentials } from '@/lib/paypalEnv'
+import { convertCadAmount, SUPPORTED_PAYPAL_CURRENCIES } from '@/lib/currency'
 
 async function getPayPalAccessToken(): Promise<string | null> {
   const { clientId, clientSecret } = paypalClientCredentials()
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
     const usernameKey = user.username.toLowerCase()
 
     const body = await req.json()
-    const { packageType } = body
+    const { packageType, preferredCurrency } = body
 
     if (!packageType) {
       return NextResponse.json({ error: 'Package type required' }, { status: 400 })
@@ -66,6 +67,11 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       )
     }
+    const currencyCandidate =
+      typeof preferredCurrency === 'string' ? preferredCurrency.toUpperCase().trim() : 'CAD'
+    const currency = SUPPORTED_PAYPAL_CURRENCIES.has(currencyCandidate) ? currencyCandidate : 'CAD'
+    const localAmount =
+      currency === 'CAD' ? pkg.price : await convertCadAmount(pkg.price, currency)
 
     const accessToken = await getPayPalAccessToken()
     if (!accessToken) {
@@ -76,15 +82,15 @@ export async function POST(req: NextRequest) {
     const base = paypalApiBase()
 
     /** Webhook parses username from custom_id — must match coinBalances.userId */
-    const customId = `${usernameKey}|coins|${packageType}|${pkg.coins}|${pkg.price}`
+    const customId = `${usernameKey}|coins|${packageType}|${pkg.coins}|${localAmount.toFixed(2)}|${currency}`
 
     const orderData = {
       intent: 'CAPTURE',
       purchase_units: [
         {
           amount: {
-            currency_code: 'CAD',
-            value: pkg.price.toString(),
+            currency_code: currency,
+            value: localAmount.toFixed(2),
           },
           description: `${pkg.coins} coins - ${pkg.label}`,
           custom_id: customId,
@@ -127,7 +133,8 @@ export async function POST(req: NextRequest) {
       packageType,
       coins: pkg.coins,
       price: pkg.price,
-      currency: 'CAD',
+      localPrice: localAmount,
+      currency,
       status: 'pending',
       createdAt: new Date().toISOString(),
     })
@@ -138,11 +145,11 @@ export async function POST(req: NextRequest) {
       username: user.username,
       timestamp: new Date().toISOString(),
       action: 'coin_purchase_initiated',
-      details: `Coin purchase initiated: ${pkg.coins} coins for $${pkg.price} CAD (order: ${order.id})`,
+      details: `Coin purchase initiated: ${pkg.coins} coins for ${localAmount.toFixed(2)} ${currency} (base ${pkg.price.toFixed(2)} CAD, order: ${order.id})`,
     })
 
     console.log(
-      `[Coins] Purchase order created for ${user.username} (${usernameKey}): ${pkg.coins} coins for $${pkg.price} CAD`
+      `[Coins] Purchase order created for ${user.username} (${usernameKey}): ${pkg.coins} coins for ${localAmount.toFixed(2)} ${currency}`
     )
 
     const approveLink = order.links?.find((l: { rel?: string }) => l.rel === 'approve')?.href

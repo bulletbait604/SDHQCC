@@ -9,6 +9,7 @@ export type FulfillLifetimeParams = {
   orderId: string
   customId: string
   amountValue?: string
+  amountCurrency?: string
   assertUsername?: string
 }
 
@@ -47,7 +48,7 @@ async function logLifetimePayment(username: string, details: string) {
 export async function fulfillVerifiedLifetimePurchase(
   params: FulfillLifetimeParams
 ): Promise<FulfillLifetimeResult> {
-  const { orderId, customId, amountValue: amount, assertUsername } = params
+  const { orderId, customId, amountValue: amount, amountCurrency, assertUsername } = params
 
   if (!customId.includes('lifetime')) {
     return { ok: false, error: 'Not a lifetime purchase order' }
@@ -60,6 +61,10 @@ export async function fulfillVerifiedLifetimePurchase(
   }
 
   const username = rawUser.replace(/^@/, '').toLowerCase()
+  const amountFromCustomId = parts[2]
+  const currencyFromCustomId = parts[3]
+  const settledAmount = amountFromCustomId || amount || '89.99'
+  const settledCurrency = (currencyFromCustomId || amountCurrency || 'CAD').toUpperCase()
 
   if (assertUsername !== undefined) {
     const asserted = assertUsername.replace(/^@/, '').toLowerCase()
@@ -98,7 +103,8 @@ export async function fulfillVerifiedLifetimePurchase(
         status: 'ACTIVE',
         planId: 'lifetime',
         startTime: now,
-        amount,
+        amount: settledAmount,
+        currency: settledCurrency,
         isLifetime: true,
         verifiedWithPayPal: true,
         verifiedAt: now,
@@ -126,7 +132,7 @@ export async function fulfillVerifiedLifetimePurchase(
 
   await logLifetimePayment(
     username,
-    `Lifetime membership purchased - $${amount ?? '89.99'} CAD (ID: ${orderId})`
+    `Lifetime membership purchased - ${settledAmount} ${settledCurrency} (ID: ${orderId})`
   )
 
   console.log(`✅ Lifetime membership ACTIVATED for ${username} (order ${orderId})`)

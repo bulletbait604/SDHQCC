@@ -13,6 +13,11 @@ interface CoinPackage {
   label: string
 }
 
+type PackageQuote = {
+  amountCad: number
+  amountLocal: number
+}
+
 /** Must match /api/coins/purchase COIN_PACKAGES and paypal-webhook custom_id parsing */
 const COIN_PACKAGES: CoinPackage[] = [
   { id: 'small', coins: 12, price: 5, label: 'Starter Pack' },
@@ -38,8 +43,45 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [sdkReady, setSdkReady] = useState(false)
+  const [checkoutCurrency, setCheckoutCurrency] = useState('CAD')
+  const [packageQuotes, setPackageQuotes] = useState<Record<string, PackageQuote>>({})
+  const [quoteNote, setQuoteNote] = useState('')
+  const [loadingQuotes, setLoadingQuotes] = useState(false)
   const paypalContainerRef = useRef<HTMLDivElement>(null)
   const { config: paypalCfg, loading: paypalCfgLoading, error: paypalCfgError } = usePayPalPublicConfig()
+
+  useEffect(() => {
+    if (!isOpen) return
+    const amounts = COIN_PACKAGES.map((p) => p.price).join(',')
+    setLoadingQuotes(true)
+    void fetch(`/api/currency/quote?amountsCad=${encodeURIComponent(amounts)}`, {
+      credentials: 'include',
+    })
+      .then(async (r) => {
+        if (!r.ok) throw new Error('Failed to fetch pricing quotes')
+        const data = (await r.json()) as {
+          currency?: string
+          quotes?: PackageQuote[]
+          note?: string
+        }
+        const next: Record<string, PackageQuote> = {}
+        COIN_PACKAGES.forEach((pkg, i) => {
+          next[pkg.id] = data.quotes?.[i] ?? { amountCad: pkg.price, amountLocal: pkg.price }
+        })
+        setCheckoutCurrency(data.currency || 'CAD')
+        setQuoteNote(data.note || '')
+        setPackageQuotes(next)
+      })
+      .catch(() => {
+        const fallback: Record<string, PackageQuote> = {}
+        COIN_PACKAGES.forEach((pkg) => {
+          fallback[pkg.id] = { amountCad: pkg.price, amountLocal: pkg.price }
+        })
+        setCheckoutCurrency('CAD')
+        setPackageQuotes(fallback)
+      })
+      .finally(() => setLoadingQuotes(false))
+  }, [isOpen])
 
   // Load PayPal SDK once (same pattern as lifetime membership on page.tsx)
   useEffect(() => {
@@ -65,7 +107,11 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
 
     const existing = Array.from(
       document.querySelectorAll<HTMLScriptElement>('script[data-sdhq-paypal-coins-sdk]')
-    ).find((s) => s.getAttribute('data-paypal-client-id') === clientId)
+    ).find(
+      (s) =>
+        s.getAttribute('data-paypal-client-id') === clientId &&
+        s.getAttribute('data-paypal-currency') === checkoutCurrency
+    )
     if (existing) {
       if (w.paypal_coins) setSdkReady(true)
       else existing.addEventListener('load', () => setSdkReady(true), { once: true })
@@ -73,15 +119,16 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
     }
 
     const script = document.createElement('script')
-    script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=CAD&disable-funding=paylater`
+    script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=${encodeURIComponent(checkoutCurrency)}&disable-funding=paylater`
     script.setAttribute('data-sdhq-paypal-coins-sdk', '1')
     script.setAttribute('data-paypal-client-id', clientId)
+    script.setAttribute('data-paypal-currency', checkoutCurrency)
     script.setAttribute('data-namespace', 'paypal_coins')
     script.setAttribute('data-sdk-integration-source', 'button-factory')
     script.onload = () => setSdkReady(true)
     script.onerror = () => setError('Failed to load PayPal.')
     document.body.appendChild(script)
-  }, [isOpen, paypalCfg?.clientId, paypalCfgLoading, paypalCfgError])
+  }, [isOpen, paypalCfg?.clientId, paypalCfgLoading, paypalCfgError, checkoutCurrency])
 
   useEffect(() => {
     if (!isOpen || !sdkReady || !selectedPackage || !userId.trim()) return
@@ -94,8 +141,10 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
     setError('')
 
     const uid = userId.replace(/^@/, '').toLowerCase()
+    const selectedQuote = packageQuotes[selectedPackage.id]
+    const amount = selectedQuote?.amountLocal ?? selectedPackage.price
     /** Mirrors src/app/api/coins/purchase/route.ts custom_id */
-    const customId = `${uid}|coins|${selectedPackage.id}|${selectedPackage.coins}|${selectedPackage.price}`
+    const customId = `${uid}|coins|${selectedPackage.id}|${selectedPackage.coins}|${amount.toFixed(2)}|${checkoutCurrency}`
 
     const buttons = paypalSdk.Buttons({
       style: {
@@ -109,8 +158,8 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
           purchase_units: [
             {
               amount: {
-                currency_code: 'CAD',
-                value: Number(selectedPackage.price).toFixed(2),
+                currency_code: checkoutCurrency,
+                value: Number(amount).toFixed(2),
               },
               description: `${selectedPackage.coins} coins — ${selectedPackage.label}`,
               custom_id: customId,
@@ -174,7 +223,7 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
     }
     // onClose is not used in this effect; do not add it here — a new parent callback each render
     // would re-run this effect, tear down and re-render PayPal buttons, and make them unclickable.
-  }, [isOpen, sdkReady, selectedPackage, userId])
+  }, [isOpen, sdkReady, selectedPackage, userId, checkoutCurrency, packageQuotes])
 
   if (!isOpen) return null
 
@@ -234,9 +283,18 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
                 </div>
                 <div className="text-right">
                   <p className={`text-xl font-bold ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                    ${pkg.price}
+                    {(packageQuotes[pkg.id]?.amountLocal ?? pkg.price).toLocaleString(undefined, {
+                      style: 'currency',
+                      currency: checkoutCurrency,
+                    })}
                   </p>
-                  <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>CAD</p>
+                  <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                    {loadingQuotes
+                      ? 'Loading local price...'
+                      : checkoutCurrency === 'CAD'
+                        ? 'Charged in CAD'
+                        : `Final charge: ${pkg.price.toFixed(2)} CAD equivalent`}
+                  </p>
                 </div>
               </div>
             </button>
@@ -263,7 +321,11 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
           {selectedPackage && sdkReady && (
             <>
               <p className={`text-xs mb-3 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                Pay with PayPal — {selectedPackage.coins} coins for ${selectedPackage.price} CAD
+                Pay with PayPal — {selectedPackage.coins} coins for{' '}
+                {(packageQuotes[selectedPackage.id]?.amountLocal ?? selectedPackage.price).toLocaleString(undefined, {
+                  style: 'currency',
+                  currency: checkoutCurrency,
+                })}
               </p>
               <div ref={paypalContainerRef} className="flex flex-col items-stretch" />
             </>
@@ -288,7 +350,7 @@ export default function CoinPurchase({ isOpen, onClose, userId, darkMode = false
         </Button>
 
         <p className={`mt-4 text-xs text-center ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-          Uses the same PayPal client ID as lifetime membership. Server secrets are only needed for webhooks capturing orders.
+          {quoteNote || 'Uses localized pricing for display and checkout. Final bank conversion can vary slightly.'}
         </p>
         </div>
       </div>
