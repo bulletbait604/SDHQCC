@@ -38,6 +38,7 @@ type ThumbnailProvider = "gemini" | "fal_kontext" | "fal_nano_edit";
 
 function thumbnailProvider(): ThumbnailProvider {
   const v =
+    process.env.THUMBNAIL_GENERATOR_BACKEND?.trim().toLowerCase() ||
     process.env.THUMBNAIL_IMAGE_PROVIDER?.trim().toLowerCase() ||
     THUMBNAIL_PROVIDER_DEFAULT;
   if (v === "fal_nano_edit" || v === "fal-nano-edit" || v === "nano" || v === "nano_edit") {

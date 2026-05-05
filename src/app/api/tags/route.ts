@@ -11,7 +11,13 @@ const MODEL_NAME = 'gemini-2.5-flash'
 const FAL_OPENROUTER_URL = 'https://fal.run/openrouter/router'
 
 function tagGeneratorBackend(): 'gemini' | 'fal' {
-  const b = (process.env.TAG_GENERATOR_BACKEND || 'gemini').trim().toLowerCase()
+  const b = (
+    process.env.TAG_GENERATOR_BACKEND ||
+    process.env.TAG_GENERATOR_PROVIDER ||
+    'gemini'
+  )
+    .trim()
+    .toLowerCase()
   if (b === 'fal' || b === 'fal-openrouter') return 'fal'
   return 'gemini'
 }
@@ -100,7 +106,7 @@ async function generateTagsWithFalOpenRouter(
 ): Promise<{ tags: string[]; modelLabel: string }> {
   const key = falApiKey()
   if (!key) {
-    throw new Error('SCHNELL_API_KEY or FAL_KEY not configured (required when TAG_GENERATOR_BACKEND=fal)')
+    throw new Error('FAL_KEY (or legacy SCHNELL_API_KEY / FAL_API_KEY) not configured (required when TAG_GENERATOR_BACKEND=fal)')
   }
 
   const model = (process.env.FAL_TAG_LLM_MODEL || 'google/gemini-2.5-flash').trim()

@@ -28,6 +28,10 @@ const CLIP_MAX_BYTES = 250 * 1024 * 1024
 // Use gemini-2.5-flash model (stable release)
 const MODEL_NAME = 'gemini-2.5-flash'
 
+function clipAnalyzerBackend(): string {
+  return (process.env.CLIP_ANALYZER_BACKEND || 'gemini').trim().toLowerCase()
+}
+
 type ClipIngestionMode =
   | 'r2-presigned-url'
   | 'r2-gemini-files'
@@ -131,8 +135,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const backend = clipAnalyzerBackend()
     const geminiApiKey = process.env.GEMINI_API
     
+    if (backend !== 'gemini') {
+      return NextResponse.json(
+        {
+          error: 'Unsupported clip analyzer backend',
+          details: `CLIP_ANALYZER_BACKEND=${backend} is not supported yet`,
+        },
+        { status: 400 }
+      )
+    }
+
     if (!geminiApiKey) {
       console.log('[ACTIVITY_LOG] Clip Analyze: GEMINI_API key not configured')
       return NextResponse.json({ 
@@ -558,6 +573,7 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
       ...analysisResult,
       extractedData: extractedData,
       analysisSource: analysisSource,
+      backend,
       estimatedCostUsd: clipCost.estimatedCostUsd,
       estimatedCostNote: clipCost.estimatedCostNote,
     })
