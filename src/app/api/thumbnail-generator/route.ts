@@ -971,6 +971,36 @@ type GeminiImageOutput = {
   contentType: string;
 };
 
+const GEMINI_IMAGE_MODEL_FALLBACKS = [
+  "gemini-2.0-flash-preview-image-generation",
+  "gemini-2.0-flash-exp-image-generation",
+];
+
+function isModelNotFoundError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error || "");
+  const s = msg.toLowerCase();
+  return (
+    s.includes("not found") ||
+    s.includes('"code":404') ||
+    s.includes("status\":\"not_found\"") ||
+    s.includes("is not supported for generatecontent")
+  );
+}
+
+function buildImageModelCandidates(primaryModel: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const add = (m: string | undefined) => {
+    const v = (m || "").trim();
+    if (!v || seen.has(v)) return;
+    seen.add(v);
+    out.push(v);
+  };
+  add(primaryModel);
+  for (const m of GEMINI_IMAGE_MODEL_FALLBACKS) add(m);
+  return out;
+}
+
 async function generateGeminiImage(params: {
   genAI: GoogleGenAI;
   imageModel: string;
@@ -1013,6 +1043,34 @@ async function generateGeminiImage(params: {
     buffer: Buffer.from(imagePart.inlineData.data, "base64"),
     contentType: imagePart.inlineData.mimeType,
   };
+}
+
+async function generateGeminiImageWithModelFallback(params: {
+  genAI: GoogleGenAI;
+  primaryModel: string;
+  promptText: string;
+  imageBase64: string | null;
+  mimeType: string;
+}): Promise<{ output: GeminiImageOutput; model: string }> {
+  const candidates = buildImageModelCandidates(params.primaryModel);
+  let lastError: unknown = null;
+  for (const model of candidates) {
+    try {
+      const output = await generateGeminiImage({
+        genAI: params.genAI,
+        imageModel: model,
+        promptText: params.promptText,
+        imageBase64: params.imageBase64,
+        mimeType: params.mimeType,
+      });
+      return { output, model };
+    } catch (error) {
+      lastError = error;
+      if (!isModelNotFoundError(error)) throw error;
+      console.warn(`[Thumbnail] Model unavailable for generateContent: ${model}`);
+    }
+  }
+  throw lastError || new Error("No compatible Gemini image model found.");
 }
 
 async function generateThumbnailSchnell(params: {
@@ -1091,13 +1149,15 @@ async function generateThumbnailSchnell(params: {
     params.platforms,
     useFluxTypographySpellingHints
   );
-  let { buffer, contentType } = await generateGeminiImage({
+  const firstPass = await generateGeminiImageWithModelFallback({
     genAI,
-    imageModel,
+    primaryModel: imageModel,
     promptText,
     imageBase64: params.imageBase64,
     mimeType: params.mimeType,
   });
+  let { buffer, contentType } = firstPass.output;
+  const selectedImageModel = firstPass.model;
 
   // Guard against occasional no-op returns when a reference image is provided.
   if (params.imageBase64) {
@@ -1114,7 +1174,7 @@ CRITICAL EDIT REQUIREMENT:
 - Output must be a visibly edited thumbnail variant, not a copy of the source frame.`;
       const retry = await generateGeminiImage({
         genAI,
-        imageModel,
+        imageModel: selectedImageModel,
         promptText: hardEditPrompt,
         imageBase64: params.imageBase64,
         mimeType: params.mimeType,
