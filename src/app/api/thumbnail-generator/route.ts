@@ -1157,6 +1157,11 @@ const GEMINI_IMAGE_MODEL_FALLBACKS = [
   "gemini-2.0-flash-exp-image-generation",
 ];
 
+function thumbnailGeminiDisableImageFallback(): boolean {
+  const v = process.env.THUMBNAIL_GEMINI_DISABLE_IMAGE_FALLBACK?.trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
 function isModelNotFoundError(error: unknown): boolean {
   const msg = error instanceof Error ? error.message : String(error || "");
   const s = msg.toLowerCase();
@@ -1169,6 +1174,10 @@ function isModelNotFoundError(error: unknown): boolean {
 }
 
 function buildImageModelCandidates(primaryModel: string): string[] {
+  if (thumbnailGeminiDisableImageFallback()) {
+    const exact = primaryModel.trim();
+    return exact ? [exact] : [];
+  }
   const out: string[] = [];
   const seen = new Set<string>();
   const add = (m: string | undefined) => {
