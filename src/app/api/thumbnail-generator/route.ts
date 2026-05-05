@@ -723,13 +723,52 @@ function platformOverlayHintsFromPlatforms(platforms: string[] | undefined): str
 
 /** Universal contract so models don't return plain illustrations with empty "title safe" zones. */
 const THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT =
-  "\n\n**Mandatory graphic thumbnail treatment:** The final image must include **real painted typography**—at least a **dominant headline** plus a **second text line** (subtitle, stat, or callout)—with **thick stroke, hard shadow, or outer glow** so it reads at tiny preview size. Add **collage-style graphic layers**: arrows, starbursts, simple badges, sparkles, or emoji-like doodles as **flat stickers** around the focal subject. Phrases should echo the instructions (or invent short hooks if none given). **Invented / generic marks only**—do not copy official brand logos, game marks, or trademarked UI; stylized originals are required.";
+  "\n\n**Mandatory graphic thumbnail treatment:** The final image must include **real painted typography**—at least a **dominant headline** plus a **second text line** (subtitle, stat, or callout)—with **thick stroke, hard shadow, or outer glow** so it reads at tiny preview size. Add **collage-style graphic layers**: arrows, starbursts, simple badges, sparkles, or emoji-like doodles as **flat stickers** around the focal subject. Phrases should echo the instructions (or invent short hooks if none given).";
 
 /**
  * Diffusion models (FLUX, etc.) often garble painted text. Nano Banana skips this—its stack is separate.
  */
 const THUMBNAIL_FLUX_TYPOGRAPHY_SPELLING_BLOCK =
   "\n\n**On-image text—spelling accuracy (critical):** Every word you paint must match the instructions **letter-for-letter**—no swapped or missing letters, nonsense glyphs, mirror writing, or random characters. Prefer **short lines** of **simple bold block or clean sans-serif** type with a **thick outline**; avoid melting, ultra-warped, or hyper-ornate lettering that distorts letter shapes. Reproduce **proper nouns and titles exactly** as given. When inventing hook text, keep it **plain and easy to spell**.";
+
+/** Opt-in: allow recognizable platform/game logos when user asks for branded thumbnail treatment. */
+function thumbnailAllowBrandLogos(): boolean {
+  const v = process.env.THUMBNAIL_ALLOW_BRAND_LOGOS?.trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
+function brandLogoOverlayBlock(
+  userText: string,
+  platforms: string[] | undefined
+): string {
+  if (!thumbnailAllowBrandLogos()) return "";
+  const lower = userText.toLowerCase();
+  const ids = Array.isArray(platforms) ? platforms : [];
+  const streamPlatformMentioned =
+    ids.some((id) =>
+      ["youtube-long", "youtube-shorts", "tiktok", "instagram", "facebook-reels", "twitter"].includes(id)
+    ) || /\btwitch\b|\bkick\b|\byoutube\b|\btiktok\b|\binstagram\b|\bfacebook\b|\bx\b|\btwitter\b/i.test(userText);
+  const gameMentioned =
+    /\bgame\b|\bgaming\b|\bgameplay\b|\bfortnite\b|\bminecraft\b|\bvalorant\b|\broblox\b|\bzelda\b|\bmario\b|\bpokemon\b|\bgenshin\b|\bwarframe\b|\boverwatch\b|\bapex\b/i.test(
+      userText
+    );
+
+  if (!streamPlatformMentioned && !gameMentioned) return "";
+
+  const logoBits: string[] = [];
+  if (streamPlatformMentioned) {
+    logoBits.push(
+      "Include recognizable platform branding in-frame (wordmarks and logo badges) for any platforms explicitly named by the creator or selected in targets."
+    );
+  }
+  if (gameMentioned) {
+    logoBits.push(
+      "If a specific game or franchise is named, include that game title as clear painted text and add a recognizable game-themed logo/badge element."
+    );
+  }
+
+  return `\n\n**Branding mode (enabled):** ${logoBits.join(" ")} Keep logos clean, high-contrast, and legible at thumbnail size.`;
+}
 
 function buildPromptText(
   instructionText: string,
@@ -748,6 +787,7 @@ function buildPromptText(
   const keywordSource = domainKeywordSource ?? instructionText;
   const streamBlock = streamThumbnailTypographyBlock(keywordSource);
   const platformOverlay = platformOverlayHintsFromPlatforms(platforms);
+  const brandLogoBlock = brandLogoOverlayBlock(keywordSource, platforms);
   const fluxSpelling = includeFluxTypographySpellingHints
     ? THUMBNAIL_FLUX_TYPOGRAPHY_SPELLING_BLOCK
     : "";
@@ -759,18 +799,18 @@ function buildPromptText(
       : "";
 
   const obeyLiteral =
-    "\n\nPriority: The creator's topic comes first—avoid unrelated generic stock scenes. For stream/social thumbs, **spell out platform names and hooks as bold graphic type in-frame** when they said Twitch etc.; use original stylized icons (no pixel-perfect trademark copies). Games/platforms still guide palette and mood.";
+    "\n\nPriority: The creator's topic comes first—avoid unrelated generic stock scenes. For stream/social thumbs, **spell out platform names and hooks as bold graphic type in-frame** when they said Twitch etc. Games/platforms still guide palette and mood.";
 
   return hasImage
     ? `You are a professional multi-platform thumbnail designer. An image is provided—compose around it and honor the text below.${obeyLiteral}
 
-Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${fluxSpelling}${THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT}${mustKeepBlock ? `\n\nNon-negotiable request checklist:\n${mustKeepBlock}` : ""}
+Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${brandLogoBlock}${fluxSpelling}${THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT}${mustKeepBlock ? `\n\nNon-negotiable request checklist:\n${mustKeepBlock}` : ""}
 
 Output dimensions: ${spec.pixels} (${spec.label}). ${spec.aspectNote}
 High contrast, bold colors, clear visual hierarchy—**all headline and sticker graphics must be fully rendered inside the image pixels** (never implied or left for post-production).`
     : `You are a professional multi-platform thumbnail designer.${obeyLiteral}
 
-Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${fluxSpelling}${THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT}${mustKeepBlock ? `\n\nNon-negotiable request checklist:\n${mustKeepBlock}` : ""}
+Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${brandLogoBlock}${fluxSpelling}${THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT}${mustKeepBlock ? `\n\nNon-negotiable request checklist:\n${mustKeepBlock}` : ""}
 
 Output dimensions: ${spec.pixels} (${spec.label}). ${spec.aspectNote}
 High contrast, bold colors, clear visual hierarchy—**all headline and sticker graphics must be fully rendered inside the image pixels** (never implied or left for post-production).`;
@@ -833,8 +873,8 @@ async function enrichThumbnailBriefWithGemini(params: {
 CRITICAL—keep fidelity to what they wrote:
 • **Spelling:** Any exact phrase you tell the image model to paint must be **correctly spelled**; when the creator mistyped, use the **fixed** spelling in on-image strings. For new hook lines you invent, use **short, simple, easy-to-read** words (diffusion models often garble ornate type).
 • If they name a streaming platform (Twitch, Kick, YouTube Live, etc.), prescribe **busy stream-thumb layout**: purple/black Twitch energy when relevant, chunky outlined lettering, HUD corners; propose exact short phrases for on-image typography.
-• If they name a game, franchise, or title (e.g. indie games, RPGs, Windrose, etc.), translate it into matching genre art direction—fantasy forest vs sci-fi HUD vs anime RPG mood—even when you cannot show official logos or characters (describe original scenes "inspired by" that genre).
-• Do NOT drop proper nouns that carry meaning; you may name platforms and games as *theme anchors*. Do not reproduce official logos, trademark UI, or real people's likenesses—stylized original imagery only.
+• If they name a game, franchise, or title (e.g. indie games, RPGs, Windrose, etc.), translate it into matching genre art direction—fantasy forest vs sci-fi HUD vs anime RPG mood—and include the game name as clear on-image text when useful.
+• Do NOT drop proper nouns that carry meaning; name platforms and games as theme anchors and include logo/wordmark cues when requested.
 
 ${platformLine}
 
