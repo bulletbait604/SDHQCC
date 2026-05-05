@@ -384,24 +384,6 @@ function thumbnailSchnellReduxSteps(): number {
   return Math.min(12, Math.max(1, n));
 }
 
-function falApiKey(): string | undefined {
-  const k =
-    process.env.SCHNELL_API_KEY?.trim() ||
-    process.env.FAL_KEY?.trim() ||
-    process.env.FAL_API_KEY?.trim();
-  return k || undefined;
-}
-
-function configureFal(): void {
-  const key = falApiKey();
-  if (!key) {
-    throw new Error(
-      "Fal API key required for thumbnails: set SCHNELL_API_KEY or FAL_KEY"
-    );
-  }
-  fal.config({ credentials: key });
-}
-
 /** Aspect / pixel hints per platform (vertical shorts vs horizontal vs Instagram) */
 function thumbnailSpecFromPlatforms(platforms: string[] | undefined): {
   label: string;
