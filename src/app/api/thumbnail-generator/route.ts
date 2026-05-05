@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { GoogleGenAI, Modality } from "@google/genai";
+import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import {
   deleteFileFromR2,
@@ -965,6 +966,55 @@ type ThumbnailGenResult = {
   geminiSpellcheckUsed: boolean;
 };
 
+type GeminiImageOutput = {
+  buffer: Buffer;
+  contentType: string;
+};
+
+async function generateGeminiImage(params: {
+  genAI: GoogleGenAI;
+  imageModel: string;
+  promptText: string;
+  imageBase64: string | null;
+  mimeType: string;
+}): Promise<GeminiImageOutput> {
+  const parts: Array<
+    | { inlineData?: { data?: string; mimeType?: string } }
+    | { text?: string }
+  > = [];
+  if (params.imageBase64) {
+    parts.push({
+      inlineData: {
+        data: params.imageBase64,
+        mimeType: params.mimeType || "image/jpeg",
+      },
+    });
+  }
+  parts.push({ text: params.promptText });
+
+  const response = await params.genAI.models.generateContent({
+    model: params.imageModel,
+    contents: [{ role: "user", parts }],
+    config: {
+      responseModalities: [Modality.TEXT, Modality.IMAGE],
+    },
+  });
+
+  const responseParts = response.candidates?.[0]?.content?.parts ?? [];
+  const imagePart = responseParts.find((p: any) =>
+    p?.inlineData?.mimeType?.startsWith?.("image/")
+  ) as { inlineData?: { data?: string; mimeType?: string } } | undefined;
+
+  if (!imagePart?.inlineData?.data || !imagePart.inlineData.mimeType) {
+    throw new Error("Gemini did not return an image. Try rephrasing your prompt.");
+  }
+
+  return {
+    buffer: Buffer.from(imagePart.inlineData.data, "base64"),
+    contentType: imagePart.inlineData.mimeType,
+  };
+}
+
 async function generateThumbnailSchnell(params: {
   prompt: string;
   imageBase64: string | null;
@@ -1041,39 +1091,38 @@ async function generateThumbnailSchnell(params: {
     params.platforms,
     useFluxTypographySpellingHints
   );
-  const parts: Array<
-    | { inlineData?: { data?: string; mimeType?: string } }
-    | { text?: string }
-  > = [];
-  if (params.imageBase64) {
-    parts.push({
-      inlineData: {
-        data: params.imageBase64,
-        mimeType: params.mimeType || "image/jpeg",
-      },
-    });
-  }
-  parts.push({ text: promptText });
-
-  const response = await genAI.models.generateContent({
-    model: imageModel,
-    contents: [{ role: "user", parts }],
-    config: {
-      responseModalities: [Modality.TEXT, Modality.IMAGE],
-    },
+  let { buffer, contentType } = await generateGeminiImage({
+    genAI,
+    imageModel,
+    promptText,
+    imageBase64: params.imageBase64,
+    mimeType: params.mimeType,
   });
 
-  const responseParts = response.candidates?.[0]?.content?.parts ?? [];
-  const imagePart = responseParts.find((p: any) =>
-    p?.inlineData?.mimeType?.startsWith?.("image/")
-  ) as { inlineData?: { data?: string; mimeType?: string } } | undefined;
+  // Guard against occasional no-op returns when a reference image is provided.
+  if (params.imageBase64) {
+    const inputHash = createHash("sha256")
+      .update(Buffer.from(params.imageBase64, "base64"))
+      .digest("hex");
+    const outputHash = createHash("sha256").update(buffer).digest("hex");
+    if (inputHash === outputHash) {
+      const hardEditPrompt = `${promptText}
 
-  if (!imagePart?.inlineData?.data || !imagePart.inlineData.mimeType) {
-    throw new Error("Gemini did not return an image. Try rephrasing your prompt.");
+CRITICAL EDIT REQUIREMENT:
+- Do NOT return the original image unchanged.
+- Apply clear visual transformation: new background treatment, stronger lighting/color grade, added graphic overlays, and re-composed focal hierarchy.
+- Output must be a visibly edited thumbnail variant, not a copy of the source frame.`;
+      const retry = await generateGeminiImage({
+        genAI,
+        imageModel,
+        promptText: hardEditPrompt,
+        imageBase64: params.imageBase64,
+        mimeType: params.mimeType,
+      });
+      buffer = retry.buffer;
+      contentType = retry.contentType;
+    }
   }
-
-  const buffer = Buffer.from(imagePart.inlineData.data, "base64");
-  const contentType = imagePart.inlineData.mimeType;
   const ext =
     contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpeg";
   const key = `thumbnails/${params.sessionId || uuidv4()}/${uuidv4()}.${ext}`;
