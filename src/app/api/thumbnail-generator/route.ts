@@ -770,6 +770,24 @@ function brandLogoOverlayBlock(
   return `\n\n**Branding mode (enabled):** ${logoBits.join(" ")} Keep logos clean, high-contrast, and legible at thumbnail size.`;
 }
 
+/** Optional second refinement pass for logo/wordmark readability in FLUX edit pipelines. */
+function thumbnailBrandClaritySecondPassEnabled(): boolean {
+  const v = process.env.THUMBNAIL_BRAND_CLARITY_SECOND_PASS?.trim().toLowerCase();
+  if (v === "0" || v === "false" || v === "no") return false;
+  return true;
+}
+
+function brandClaritySecondPassPrompt(basePrompt: string): string {
+  return `${basePrompt}
+
+SECOND PASS PRIORITY (logo/wordmark clarity):
+- Keep the same composition and subject, but refine branding details.
+- Ensure platform/game names and logo-like badges are crisp, readable, and correctly spelled.
+- Increase contrast around brand marks with clean edge separation and subtle glow/outline.
+- Remove muddy or distorted letterforms; use clear blocky type for any brand words.
+- Preserve visual style while improving small-preview legibility.`;
+}
+
 function buildPromptText(
   instructionText: string,
   spec: ReturnType<typeof thumbnailSpecFromPlatforms>,
@@ -1418,7 +1436,37 @@ async function generateThumbnailFalKontext(params: {
     if (!imageUrl) {
       throw new Error("Fal Kontext returned no image URL.");
     }
-    const downloaded = await fetchImageBufferFromUrl(imageUrl);
+    let finalImageUrl = imageUrl;
+    const shouldRunBrandSecondPass =
+      thumbnailAllowBrandLogos() &&
+      thumbnailBrandClaritySecondPassEnabled() &&
+      isFlux2TurboEditModel(modelId);
+
+    if (shouldRunBrandSecondPass) {
+      try {
+        const secondPass = await fal.subscribe(modelId, {
+          input: buildFalEditInput(brandClaritySecondPassPrompt(promptText), finalImageUrl),
+          logs: true,
+          onQueueUpdate: (update) => {
+            if (update.status === "IN_PROGRESS") {
+              for (const log of update.logs ?? []) {
+                console.log("[Thumbnail][FalKontext][BrandPass]", log.message);
+              }
+            }
+          },
+        });
+        const secondImageUrl =
+          findFirstImageUrl((secondPass as { data?: unknown }).data) ||
+          findFirstImageUrl(secondPass);
+        if (secondImageUrl) {
+          finalImageUrl = secondImageUrl;
+        }
+      } catch (e) {
+        console.warn("[Thumbnail] Brand clarity second pass failed; using first pass output:", e);
+      }
+    }
+
+    const downloaded = await fetchImageBufferFromUrl(finalImageUrl);
     const ext =
       downloaded.contentType.includes("png")
         ? "png"
