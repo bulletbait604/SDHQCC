@@ -28,7 +28,11 @@ const CLIP_MAX_BYTES = 250 * 1024 * 1024
 // Use gemini-2.5-flash model (stable release)
 const MODEL_NAME = 'gemini-2.5-flash'
 
-type ClipIngestionMode = 'r2-presigned-url' | 'r2-gemini-files' | 'legacy-gemini-file'
+type ClipIngestionMode =
+  | 'r2-presigned-url'
+  | 'r2-gemini-files'
+  | 'legacy-gemini-file'
+  | 'external-url'
 
 /**
  * Gemini sometimes returns valid JSON plus trailing prose or a duplicate blob.
@@ -73,9 +77,10 @@ export async function POST(request: NextRequest) {
 
     console.log('[DEBUG] Clip Analyze API: Parsing request body...')
     const body = await request.json()
-    const { fileUri, r2FileKey, mimeType, fileName, fileSize, platform } = body as {
+    const { fileUri, r2FileKey, sourceUrl, mimeType, fileName, fileSize, platform } = body as {
       fileUri?: string
       r2FileKey?: string
+      sourceUrl?: string
       mimeType?: string
       fileName?: string
       fileSize?: number
@@ -85,7 +90,9 @@ export async function POST(request: NextRequest) {
     console.log('[DEBUG] Clip Analyze API: Request data:', {
       hasR2Key: !!r2FileKey,
       hasFileUri: !!fileUri,
+      hasSourceUrl: !!sourceUrl,
       fileUriPreview: fileUri ? fileUri.substring(0, 60) : 'none',
+      sourceUrlPreview: sourceUrl ? sourceUrl.substring(0, 60) : 'none',
       mimeType,
       fileName,
       fileSizeMB: fileSize ? (fileSize / (1024 * 1024)).toFixed(2) : 'unknown',
@@ -217,11 +224,15 @@ export async function POST(request: NextRequest) {
       analysisFileUri = fileUri
       clipIngestionMode = 'legacy-gemini-file'
       console.log('[DEBUG] Clip Analyze: Using client-provided Gemini fileUri (legacy)')
+    } else if (typeof sourceUrl === 'string' && /^https?:\/\//i.test(sourceUrl)) {
+      analysisFileUri = sourceUrl
+      clipIngestionMode = 'external-url'
+      console.log('[DEBUG] Clip Analyze: Using client-provided external sourceUrl')
     } else {
       return NextResponse.json(
         {
           error: 'Missing clip source',
-          details: 'Provide r2FileKey after R2 upload, or fileUri for legacy flow',
+          details: 'Provide r2FileKey after R2 upload, sourceUrl for public clips, or fileUri for legacy flow',
         },
         { status: 400 }
       )
@@ -236,6 +247,8 @@ export async function POST(request: NextRequest) {
         ? 'r2-presigned-url'
         : clipIngestionMode === 'r2-gemini-files'
           ? 'r2-then-gemini-files'
+          : clipIngestionMode === 'external-url'
+            ? 'external-url'
           : 'legacy-gemini-file-uri'
 
     // Create basic extracted data from file metadata

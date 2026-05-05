@@ -219,7 +219,7 @@ export default function ThumbnailGenerator({
             : undefined
         onLogActivity({
           action: 'thumbnail_generation',
-          details: `${result.falModel ? `[${result.falModel}] ` : ''}Generated thumbnail with prompt: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
+          details: `[Gemini 2.5 Flash] Generated thumbnail with prompt: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
           ...(est !== undefined ? { estimatedCostUsd: est } : {}),
           ...(note !== undefined ? { estimatedCostNote: note } : {}),
         })
@@ -506,9 +506,6 @@ export default function ThumbnailGenerator({
                   </button>
                 </div>
 
-                {result.description && (
-                  <p className={`text-xs italic ${subtle}`}>{result.description}</p>
-                )}
               </div>
             ) : (
               <div className={`flex flex-col items-center justify-center h-64 rounded-xl border-2 border-dashed ${card}`}>

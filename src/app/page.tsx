@@ -17,6 +17,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
 import CoinPurchase from '@/app/components/CoinPurchase'
 import ResourceHubTab from '@/app/components/ResourceHubTab'
+import NewToolTab from '@/app/components/NewToolTab'
+import { isNewToolTabEnabled } from '@/lib/newToolFeature'
 import { usePayPalPublicConfig } from '@/hooks/usePayPalPublicConfig'
 import { captureCheckoutOrderOnServer } from '@/lib/paypalCaptureOrderClient'
 import { useCoins, COIN_COSTS } from '@/hooks/useCoins'
@@ -170,6 +172,15 @@ interface AppSettings {
   darkMode: boolean;
 }
 
+interface KickClipItem {
+  id: string
+  title: string
+  thumbnailUrl: string | null
+  clipUrl: string
+  sourceVideoUrl: string | null
+  createdAt: string | null
+}
+
 const translations = {
   en: {
     welcome: 'Welcome to Stream Dreams Creator Corner',
@@ -179,6 +190,7 @@ const translations = {
     tagGeneratorFree: 'Tag Generator',
     tagGeneratorPaid: 'Thumbnail Generator',
     clipAnalyzer: 'Clip Analyzer',
+    newTool: 'New tool',
     contentAnalyzer: 'Content Analyzer',
     kickClips: 'KICK Clips',
     resourceHub: 'Resource Hub',
@@ -200,6 +212,7 @@ const translations = {
     tagFreeDesc: 'Generate basic tags for your content to improve discoverability across platforms.',
     tagPaidDesc: 'Advanced AI-powered tag generation with trending keywords, optimization suggestions, and platform-specific recommendations.',
     clipAnalyzerDesc: 'Analyze your video clips with AI to get insights on performance, engagement potential, and optimization recommendations.',
+    newToolDesc: 'A new Creator Corner tool — under construction.',
     contentAnalyzerDesc: 'Comprehensive content analysis with AI insights, trend detection, and optimization strategies for any platform.',
     footerCopyright: '© 2026 Stream Dreams Creator Corner. All rights reserved.',
     footerTagline: 'AI-powered content optimization for creators.',
@@ -212,6 +225,7 @@ const translations = {
     tagGeneratorFree: 'Generador de Etiquetas',
     tagGeneratorPaid: 'Generador de Miniaturas',
     clipAnalyzer: 'Analizador de Clips',
+    newTool: 'Nueva herramienta',
     contentAnalyzer: 'Analizador de Contenido',
     kickClips: 'KICK Clips',
     resourceHub: 'Centro de recursos',
@@ -233,6 +247,7 @@ const translations = {
     tagFreeDesc: 'Genera etiquetas básicas para tu contenido para mejorar la visibilidad en todas las plataformas.',
     tagPaidDesc: 'Generación avanzada de etiquetas con IA, palabras clave populares y recomendaciones específicas.',
     clipAnalyzerDesc: 'Analiza tus clips de video con IA para obtener información sobre rendimiento y recomendaciones.',
+    newToolDesc: 'Una nueva herramienta de Creator Corner — en construcción.',
     contentAnalyzerDesc: 'Análisis integral de contenido con información de IA, detección de tendencias y estrategias de optimización.',
     footerCopyright: '© 2026 Stream Dreams Creator Corner. Todos los derechos reservados.',
     footerTagline: 'Optimización de contenido impulsada por IA para creadores.',
@@ -245,6 +260,7 @@ const translations = {
     tagGeneratorFree: 'Générateur de Tags',
     tagGeneratorPaid: 'Générateur de Miniatures',
     clipAnalyzer: 'Analyseur de Clips',
+    newTool: 'Nouvel outil',
     contentAnalyzer: 'Analyseur de Contenu',
     kickClips: 'KICK Clips',
     resourceHub: 'Centre de ressources',
@@ -266,6 +282,7 @@ const translations = {
     tagFreeDesc: 'Générez des tags de base pour améliorer la découvrabilité de votre contenu.',
     tagPaidDesc: 'Génération avancée de tags avec IA, mots-clés tendance et recommandations spécifiques.',
     clipAnalyzerDesc: 'Analysez vos clips vidéo avec IA pour des insights sur les performances.',
+    newToolDesc: 'Un nouvel outil Creator Corner — en cours de création.',
     contentAnalyzerDesc: 'Analyse complète du contenu avec insights IA, détection de tendances et stratégies.',
     footerCopyright: '© 2026 Stream Dreams Creator Corner. Tous droits réservés.',
     footerTagline: 'Optimisation de contenu IA pour créateurs.',
@@ -278,6 +295,7 @@ const translations = {
     tagGeneratorFree: 'Tag Generator',
     tagGeneratorPaid: 'Thumbnail Generator',
     clipAnalyzer: 'Clip Analyzer',
+    newTool: 'New tool',
     contentAnalyzer: 'Content Analyzer',
     kickClips: 'KICK Clips',
     resourceHub: 'Ressourcen-Hub',
@@ -299,6 +317,7 @@ const translations = {
     tagFreeDesc: 'Generieren Sie grundlegende Tags für bessere Auffindbarkeit auf allen Plattformen.',
     tagPaidDesc: 'KI-gestützte Tag-Generierung mit Trends und plattformspezifischen Empfehlungen.',
     clipAnalyzerDesc: 'Analysieren Sie Clips mit KI für Performance-Einblicke und Optimierungen.',
+    newToolDesc: 'Ein neues Creator-Corner-Tool — in Arbeit.',
     contentAnalyzerDesc: 'Umfassende Content-Analyse mit KI-Einblicken, Trend-Erkennung und Strategien.',
     footerCopyright: '© 2026 Stream Dreams Creator Corner. Alle Rechte vorbehalten.',
     footerTagline: 'KI-gestützte Content-Optimierung für Creator.',
@@ -334,41 +353,49 @@ const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'algorithms-explained': true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
-    'clip-analyzer': true
+    'clip-analyzer': true,
+    'new-tool': true
   },
   subscriber: {
     'algorithms-explained': true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
-    'clip-analyzer': true
+    'clip-analyzer': true,
+    'new-tool': true
   },
   subscriber_lifetime: {
     'algorithms-explained': true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
-    'clip-analyzer': true
+    'clip-analyzer': true,
+    'new-tool': true
   },
   admin: {
     'algorithms-explained': true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
-    'clip-analyzer': true
+    'clip-analyzer': true,
+    'new-tool': true
   },
   owner: {
     'algorithms-explained': true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
-    'clip-analyzer': true
+    'clip-analyzer': true,
+    'new-tool': true
   },
   tester: {
     'algorithms-explained': true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
-    'clip-analyzer': true
+    'clip-analyzer': true,
+    'new-tool': true
   }
 };
 
 export default function HomePage() {
+  const showNewToolTab = isNewToolTabEnabled()
+
   const [user, setUser] = useState<KickUser | null>(null)
   const [mounted, setMounted] = useState(false)
   const [activeTab, setActiveTab] = useState('algorithms-explained')
@@ -391,6 +418,12 @@ export default function HomePage() {
   const hasTabAccess = (tabId: string): boolean => {
     return TAB_PERMISSIONS[userRole]?.[tabId] ?? true
   }
+
+  useEffect(() => {
+    if (!showNewToolTab && activeTab === 'new-tool') {
+      setActiveTab('algorithms-explained')
+    }
+  }, [showNewToolTab, activeTab])
   
   // Legacy state (will be removed after migration)
   const [subscribers, setSubscribers] = useState<Subscriber[]>([])
@@ -456,6 +489,11 @@ export default function HomePage() {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
   const [copiedTags, setCopiedTags] = useState<boolean>(false)
   const [copiedDescription, setCopiedDescription] = useState<boolean>(false)
+  const [kickClips, setKickClips] = useState<KickClipItem[]>([])
+  const [isLoadingKickClips, setIsLoadingKickClips] = useState<boolean>(false)
+  const [kickClipsError, setKickClipsError] = useState<string>('')
+  const [analyzingKickClipId, setAnalyzingKickClipId] = useState<string | null>(null)
+  const [kickClipPlatformSelections, setKickClipPlatformSelections] = useState<Record<string, string>>({})
 
   // Coin system
   const { 
@@ -475,6 +513,7 @@ export default function HomePage() {
     setActiveTab(value)
     refreshBalance()
   }
+
 
   /** Must be declared before getRecommendedTagCount / clipEditSuggestionTags (those read `platforms`). */
   const [platforms, setPlatforms] = useState<Platform[]>([
@@ -1339,6 +1378,107 @@ export default function HomePage() {
     setCopiedTags(false)
     setCopiedDescription(false)
   }
+
+  const loadKickClips = useCallback(async () => {
+    if (!user) return
+    setIsLoadingKickClips(true)
+    setKickClipsError('')
+    try {
+      const res = await fetch('/api/kick-clips', { credentials: 'include', cache: 'no-store' })
+      const payload = await res.json()
+      if (!res.ok) {
+        throw new Error(payload?.error || 'Could not load Kick clips.')
+      }
+      const incomingClips = Array.isArray(payload?.clips) ? payload.clips : []
+      setKickClips(incomingClips)
+      setKickClipPlatformSelections((prev) => {
+        const next: Record<string, string> = {}
+        for (const clip of incomingClips) {
+          if (clip && typeof clip.id === 'string') {
+            next[clip.id] = prev[clip.id] || 'tiktok'
+          }
+        }
+        return next
+      })
+    } catch (error) {
+      setKickClips([])
+      setKickClipsError(error instanceof Error ? error.message : 'Could not load Kick clips.')
+    } finally {
+      setIsLoadingKickClips(false)
+    }
+  }, [user])
+
+  const handleAnalyzeKickClip = async (clip: KickClipItem, selectedPlatformId: string) => {
+    const sourceUrl = clip.sourceVideoUrl || clip.clipUrl
+    if (!sourceUrl) {
+      setKickClipsError('This clip does not have a playable video URL.')
+      return
+    }
+    if (!hasUnlimitedAccess && !hasEnoughCoins('clip-analyzer')) {
+      setKickClipsError('Not enough coins to analyze this clip. Please purchase more coins or upgrade for unlimited access.')
+      return
+    }
+
+    setKickClipsError('')
+    setActiveTab('clip-analyzer')
+    setClipPlatform(selectedPlatformId)
+    setClipFile(null)
+    setClipError('')
+    setIsAnalyzingClip(true)
+    setClipAnalysisResult(null)
+    setExtractedData(null)
+    setShowReanalysis(false)
+    const selectedPlatformName =
+      platforms.find((platform) => platform.id === selectedPlatformId)?.name || selectedPlatformId
+    setLoadingStep(`Analyzing Kick clip for ${selectedPlatformName}...`)
+    setAnalyzingKickClipId(clip.id)
+
+    try {
+      const analyzeRes = await fetch('/api/clip-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          sourceUrl,
+          mimeType: 'video/mp4',
+          fileName: `${clip.title || 'kick-clip'}.mp4`,
+          platform: selectedPlatformId,
+          userId: user?.id || '',
+          userType,
+        }),
+      })
+
+      if (!analyzeRes.ok) {
+        const errorData = await analyzeRes.json().catch(() => ({}))
+        throw new Error(errorData.userMessage || errorData.error || 'Analysis failed')
+      }
+
+      const data = await analyzeRes.json()
+      setClipAnalysisResult(data)
+      setExtractedData(data.extractedData || null)
+      setShowReanalysis(true)
+
+      const deducted = await deductCoins('clip-analyzer')
+      if (!deducted) {
+        throw new Error('Clip analyzed, but coin deduction failed. Please refresh and check your coin balance.')
+      }
+      refreshBalance()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Analysis failed'
+      setClipError(message)
+      setKickClipsError(message)
+    } finally {
+      setAnalyzingKickClipId(null)
+      setIsAnalyzingClip(false)
+      setLoadingStep('')
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'kick-clips' && user) {
+      void loadKickClips()
+    }
+  }, [activeTab, user, loadKickClips])
 
   const toggleCard = (cardId: string) => {
     setExpandedCards(prev => {
@@ -2577,7 +2717,9 @@ export default function HomePage() {
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={handleMainTabChange} className="space-y-6">
-            <TabsList className={`grid w-full grid-cols-7 ${tabListClasses}`}>
+            <TabsList
+              className={`grid w-full grid-cols-4 ${showNewToolTab ? 'sm:grid-cols-8' : 'sm:grid-cols-7'} ${tabListClasses}`}
+            >
               <TabsTrigger 
                 value="algorithms-explained" 
                 className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
@@ -2606,6 +2748,15 @@ export default function HomePage() {
                 <Video className="w-4 h-4" />
                 <span className="hidden sm:inline">{t.clipAnalyzer}</span>
               </TabsTrigger>
+              {showNewToolTab && (
+                <TabsTrigger 
+                  value="new-tool"
+                  className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span className="hidden sm:inline">{t.newTool}</span>
+                </TabsTrigger>
+              )}
               <TabsTrigger 
                 value="kick-clips"
                 className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
@@ -4064,19 +4215,153 @@ export default function HomePage() {
               </div>
             </TabsContent>
 
+            {showNewToolTab && (
+              <TabsContent value="new-tool">
+                <div className={`relative py-2 ${!hasTabAccess('new-tool') ? 'pointer-events-none opacity-60' : ''}`}>
+                  {!hasTabAccess('new-tool') && (
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 rounded-xl flex flex-col items-center justify-center p-6">
+                      <div className="text-center">
+                        <p className="text-white text-xl font-bold mb-2">⛔ Access Restricted</p>
+                        <p className="text-gray-300 text-sm">
+                          This feature is currently disabled for your account.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  <NewToolTab
+                    darkMode={darkMode}
+                    cardClasses={cardClasses}
+                    title={t.newTool}
+                    description={t.newToolDesc}
+                  />
+                </div>
+              </TabsContent>
+            )}
+
             <TabsContent value="kick-clips">
               <div className={`py-8 ${cardClasses}`}>
                 <div className="flex flex-col items-center mb-6">
-                  <div className="flex items-center space-x-4 mb-3">
+                  <div className="flex items-center space-x-4 mb-2">
                     <Video className="w-10 h-10 text-sdhq-green-500" />
                     <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.kickClips}</h3>
-                    <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
-                      Powered By: Gemini 2.5 Flash
-                    </p>
                   </div>
-                  <p className={`${textClasses} text-base`}>Browse and download the latest KICK clips</p>
+                  <p className={`${textClasses} text-base text-center max-w-2xl`}>
+                    Pull your 6 most recent Kick clips and run one-click AI analysis.
+                  </p>
                 </div>
-                <p className={`text-center ${subtitleClasses}`}>{t.comingSoon}</p>
+
+                {!user ? (
+                  <p className={`text-center ${subtitleClasses}`}>Login required to load your Kick clips.</p>
+                ) : (
+                  <div className="max-w-6xl mx-auto px-4 space-y-4">
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        onClick={() => loadKickClips()}
+                        disabled={isLoadingKickClips}
+                        className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold"
+                      >
+                        {isLoadingKickClips ? 'Refreshing clips...' : 'Refresh Clips'}
+                      </Button>
+                    </div>
+
+                    {kickClipsError && (
+                      <div
+                        className={`rounded-xl border px-4 py-3 text-sm ${
+                          darkMode ? 'bg-red-900/25 border-red-500/40 text-red-300' : 'bg-red-50 border-red-300 text-red-700'
+                        }`}
+                      >
+                        {kickClipsError}
+                      </div>
+                    )}
+
+                    {isLoadingKickClips ? (
+                      <div className={`text-center ${subtitleClasses}`}>Loading your latest clips...</div>
+                    ) : kickClips.length === 0 ? (
+                      <div className={`text-center ${subtitleClasses}`}>No clips found yet on your Kick channel.</div>
+                    ) : (
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {kickClips.map((clip) => (
+                          <div
+                            key={clip.id}
+                            className={`rounded-2xl border overflow-hidden ${
+                              darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-sdhq-cyan-200'
+                            }`}
+                          >
+                            <a href={clip.clipUrl} target="_blank" rel="noreferrer" className="block">
+                              <div className={`aspect-video w-full ${darkMode ? 'bg-sdhq-dark-900' : 'bg-gray-100'}`}>
+                                {clip.thumbnailUrl ? (
+                                  <img src={clip.thumbnailUrl} alt={clip.title} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className={`w-full h-full flex items-center justify-center ${subtitleClasses}`}>
+                                    No thumbnail
+                                  </div>
+                                )}
+                              </div>
+                            </a>
+                            <div className="p-4 space-y-3">
+                              <p className={`font-semibold line-clamp-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                {clip.title || 'Untitled clip'}
+                              </p>
+                              {clip.createdAt && (
+                                <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                  Created:{' '}
+                                  {new Date(clip.createdAt).toLocaleString(undefined, {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                  })}
+                                </p>
+                              )}
+                              <div>
+                                <label
+                                  htmlFor={`platform-${clip.id}`}
+                                  className={`block text-xs font-semibold mb-1 ${
+                                    darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-700'
+                                  }`}
+                                >
+                                  Analyze for platform
+                                </label>
+                                <select
+                                  id={`platform-${clip.id}`}
+                                  value={kickClipPlatformSelections[clip.id] || 'tiktok'}
+                                  onChange={(e) =>
+                                    setKickClipPlatformSelections((prev) => ({
+                                      ...prev,
+                                      [clip.id]: e.target.value,
+                                    }))
+                                  }
+                                  disabled={isAnalyzingClip}
+                                  className={`w-full px-3 py-2 rounded-lg text-sm border ${
+                                    darkMode
+                                      ? 'bg-sdhq-dark-900 border-sdhq-cyan-500/30 text-gray-200'
+                                      : 'bg-white border-sdhq-cyan-300 text-gray-800'
+                                  }`}
+                                >
+                                  {platforms.map((platform) => (
+                                    <option key={platform.id} value={platform.id}>
+                                      {platform.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <Button
+                                type="button"
+                                onClick={() =>
+                                  handleAnalyzeKickClip(clip, kickClipPlatformSelections[clip.id] || 'tiktok')
+                                }
+                                disabled={isAnalyzingClip || analyzingKickClipId === clip.id}
+                                className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold"
+                              >
+                                {analyzingKickClipId === clip.id ? 'Analyzing...' : 'Analyse This Clip'}
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </TabsContent>
 

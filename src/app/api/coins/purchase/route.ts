@@ -40,8 +40,8 @@ async function getPayPalAccessToken(): Promise<string | null> {
 
 const COIN_PACKAGES = {
   small: { coins: 12, price: 5, label: 'Starter Pack' },
-  medium: { coins: 35, price: 10, label: 'Value Pack' },
-  large: { coins: 100, price: 20, label: 'Pro Pack' },
+  medium: { coins: 30, price: 10, label: 'Value Pack' },
+  large: { coins: 80, price: 20, label: 'Pro Pack' },
 } as const
 
 export async function POST(req: NextRequest) {

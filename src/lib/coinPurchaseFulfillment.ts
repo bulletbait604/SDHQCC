@@ -19,8 +19,8 @@ export type FulfillVerifiedCoinPurchaseResult =
 /** Must match CoinPurchase.tsx, /api/coins/purchase, and paypal-webhook custom_id parsing */
 const COIN_CATALOG: Record<string, { coins: number; price: number }> = {
   small: { coins: 12, price: 5 },
-  medium: { coins: 35, price: 10 },
-  large: { coins: 100, price: 20 },
+  medium: { coins: 30, price: 10 },
+  large: { coins: 80, price: 20 },
 }
 
 function verifyCatalogAndPayPalAmount(

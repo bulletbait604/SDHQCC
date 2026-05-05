@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { fal } from "@fal-ai/client";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 import { v4 as uuidv4 } from "uuid";
 import {
   deleteFileFromR2,
   generatePresignedReadUrl,
   getFileFromR2,
 } from "@/lib/r2";
-import { estimateThumbnailGenerationUsd } from "@/lib/estimatedInferenceCost";
 
 /** Vercel / long-running: Fal + R2 can exceed default 10s. */
 export const maxDuration = 120;
@@ -75,9 +73,9 @@ const r2 = new S3Client({
  * adds `resolution` (1K/2K/4K) and optional `enable_web_search`. Enable the whole stack with
  * `FAL_THUMBNAIL_IMAGE_STACK=nano_banana_pro` (overridable per-role with `FAL_THUMBNAIL_TXT2IMG_MODEL` / `FAL_THUMBNAIL_IMG2IMG_MODEL`).
  */
-const FAL_DEFAULT_TXT2IMG_SMART = "fal-ai/flux-2/turbo";
+const FAL_DEFAULT_TXT2IMG_SMART = "fal-ai/nano-banana";
 const FAL_LIVE_FLUX1_SCHNELL_REDUX = "fal-ai/flux-1/schnell/redux";
-const FAL_DEFAULT_IMG2IMG_FLUX2_EDIT = "fal-ai/flux-2/turbo/edit";
+const FAL_DEFAULT_IMG2IMG_FLUX2_EDIT = "fal-ai/nano-banana/edit";
 
 const FAL_NANO_PRO_T2I = "fal-ai/nano-banana-pro";
 const FAL_NANO_PRO_EDIT = "fal-ai/nano-banana-pro/edit";
@@ -992,47 +990,26 @@ async function generateThumbnailSchnell(params: {
   platforms: string[] | undefined;
   sessionId: string | undefined;
 }): Promise<ThumbnailGenResult> {
-  configureFal();
-
+  const apiKey = process.env.GEMINI_API?.trim();
+  if (!apiKey) {
+    throw new Error("GEMINI_API is required for thumbnail generation.");
+  }
+  const genAI = new GoogleGenAI({ apiKey });
+  const imageModel =
+    process.env.THUMBNAIL_GEMINI_IMAGE_MODEL?.trim() ||
+    "gemini-2.5-flash-image-preview";
   const maxPromptLength = 500;
   const truncatedPrompt =
     params.prompt.length > maxPromptLength
       ? params.prompt.slice(0, maxPromptLength) + "..."
       : params.prompt;
-
-  const falOutFmt = falThumbnailOutputFormat();
-
   let geminiEnrichUsed = false;
   let geminiSpellcheckUsed = false;
   let instructionPrompt = truncatedPrompt;
-  /** When enrich + reference run together, staging runs in parallel with Gemini to save wall time. */
-  let earlyStaged: { imageUrl: string; stagingKey: string | null } | null = null;
 
   const enrichOn = thumbnailGeminiEnrichEnabled();
   const spellcheckOn = thumbnailGeminiSpellcheckEnabled();
-  const hasRef = !!params.imageBase64;
-
-  if (enrichOn && hasRef) {
-    const [enriched, staged] = await Promise.all([
-      enrichThumbnailBriefWithGemini({
-        userPrompt: truncatedPrompt,
-        platforms: params.platforms,
-      }),
-      stagingImageUrlForFal({
-        imageBase64: params.imageBase64!,
-        mimeType: params.mimeType,
-        sessionId: params.sessionId,
-      }),
-    ]);
-    earlyStaged = staged;
-    if (enriched) {
-      geminiEnrichUsed = true;
-      instructionPrompt =
-        enriched.length > maxPromptLength
-          ? enriched.slice(0, maxPromptLength) + "..."
-          : enriched;
-    }
-  } else if (enrichOn) {
+  if (enrichOn) {
     const enriched = await enrichThumbnailBriefWithGemini({
       userPrompt: truncatedPrompt,
       platforms: params.platforms,
@@ -1060,9 +1037,7 @@ async function generateThumbnailSchnell(params: {
   }
 
   const spec = thumbnailSpecFromPlatforms(params.platforms);
-  const useFluxTypographySpellingHints = params.imageBase64
-    ? !isFalNanoBananaEditModel(falImg2imgModelId())
-    : !isFalNanoBananaT2iModel(falTxt2imgModelId());
+  const useFluxTypographySpellingHints = false;
 
   const domainKeywordSource = geminiEnrichUsed
     ? truncatedPrompt
@@ -1084,176 +1059,39 @@ async function generateThumbnailSchnell(params: {
     params.platforms,
     useFluxTypographySpellingHints
   );
-  const imageSize = falImageSizeFromPlatforms(params.platforms);
-  const nanoAspect = nanoBananaAspectRatioFromPlatforms(params.platforms);
-
-  let imageUrlForDownload: string;
-  let description: string;
-  let falModel: string;
-  const fluxSafety = thumbnailFluxSafetyCheckerEnabled();
-
+  const parts: Array<
+    | { inlineData?: { data?: string; mimeType?: string } }
+    | { text?: string }
+  > = [];
   if (params.imageBase64) {
-    const img2imgModel = falImg2imgModelId();
-    let falSourceStagingKey: string | null = null;
+    parts.push({
+      inlineData: {
+        data: params.imageBase64,
+        mimeType: params.mimeType || "image/jpeg",
+      },
+    });
+  }
+  parts.push({ text: promptText });
 
-    try {
-      const staged =
-        earlyStaged ??
-        (await stagingImageUrlForFal({
-          imageBase64: params.imageBase64,
-          mimeType: params.mimeType,
-          sessionId: params.sessionId,
-        }));
-      falSourceStagingKey = staged.stagingKey;
-      const imageUrlForFal = staged.imageUrl;
+  const response = await genAI.models.generateContent({
+    model: imageModel,
+    contents: [{ role: "user", parts }],
+    config: {
+      responseModalities: [Modality.TEXT, Modality.IMAGE],
+    },
+  });
 
-      const result = isFluxSchnellReduxModel(img2imgModel)
-        ? await fal.subscribe(img2imgModel, {
-            input: {
-              image_url: imageUrlForFal,
-              image_size: imageSize,
-              num_inference_steps: thumbnailSchnellReduxSteps(),
-              num_images: 1,
-              enable_safety_checker: fluxSafety,
-              output_format: falOutFmt,
-              acceleration: "regular",
-            },
-            logs: false,
-          })
-        : isFalNanoBananaEditModel(img2imgModel)
-          ? await fal.subscribe(img2imgModel, {
-              input: {
-                ...nanoBananaBaseInput({
-                  aspectRatio: nanoAspect,
-                  includeProResolution: isNanoBananaProEditModel(img2imgModel),
-                }),
-                prompt: promptText,
-                image_urls: [imageUrlForFal],
-              },
-              logs: false,
-            })
-          : isFlux2TurboEditModel(img2imgModel)
-            ? await fal.subscribe(img2imgModel, {
-                input: {
-                  prompt: promptText,
-                  image_urls: [imageUrlForFal],
-                  image_size: imageSize,
-                  guidance_scale: thumbnailFlux2GuidanceScale(),
-                  num_images: 1,
-                  enable_prompt_expansion: thumbnailFlux2PromptExpansionEnabled(),
-                  enable_safety_checker: fluxSafety,
-                  output_format: falOutFmt,
-                },
-                logs: false,
-              })
-            : await fal.subscribe(img2imgModel, {
-                input: {
-                  image_url: imageUrlForFal,
-                  prompt: promptText,
-                  strength: thumbnailImg2imgStrength(),
-                  num_inference_steps: thumbnailImg2imgSteps(),
-                  guidance_scale: 3.5,
-                  num_images: 1,
-                  enable_safety_checker: fluxSafety,
-                  output_format: falOutFmt,
-                  acceleration: "regular",
-                },
-                logs: false,
-              });
+  const responseParts = response.candidates?.[0]?.content?.parts ?? [];
+  const imagePart = responseParts.find((p: any) =>
+    p?.inlineData?.mimeType?.startsWith?.("image/")
+  ) as { inlineData?: { data?: string; mimeType?: string } } | undefined;
 
-      const data = result.data as {
-        images?: Array<{ url: string }>;
-        prompt?: string;
-        description?: string;
-      };
-      const first = data.images?.[0]?.url;
-      if (!first) {
-        throw new Error("Fal image-to-image did not return an image URL");
-      }
-      imageUrlForDownload = first;
-      falModel = img2imgModel;
-      description =
-        data.description?.trim() ||
-        data.prompt ||
-        (isFluxSchnellReduxModel(img2imgModel)
-          ? "FLUX.1 Schnell Redux (image remix)."
-          : isFalNanoBananaEditModel(img2imgModel)
-            ? isNanoBananaProEditModel(img2imgModel)
-              ? "Nano Banana Pro edit (reference + prompt)."
-              : "Nano Banana edit (reference + prompt)."
-            : isFlux2TurboEditModel(img2imgModel)
-              ? isFlux2FlashEditModel(img2imgModel)
-                ? "FLUX.2 Flash edit (reference + prompt)."
-                : "FLUX.2 Turbo edit (reference + prompt)."
-              : "FLUX image-to-image (reference + prompt).");
-    } finally {
-      if (falSourceStagingKey) {
-        await deleteFileFromR2(falSourceStagingKey).catch(() => {});
-      }
-    }
-  } else {
-    const txtModel = falTxt2imgModelId();
-
-    const result = isFalNanoBananaT2iModel(txtModel)
-      ? await fal.subscribe(txtModel, {
-          input: {
-            ...nanoBananaBaseInput({
-              aspectRatio: nanoAspect,
-              includeProResolution: isNanoBananaProT2iModel(txtModel),
-            }),
-            prompt: promptText,
-          },
-          logs: false,
-        })
-      : isFlux2TurboTxt2Img(txtModel)
-        ? await fal.subscribe(txtModel, {
-            input: {
-              prompt: promptText,
-              image_size: imageSize,
-              guidance_scale: thumbnailFlux2GuidanceScale(),
-              num_images: 1,
-              enable_prompt_expansion: thumbnailFlux2PromptExpansionEnabled(),
-              enable_safety_checker: fluxSafety,
-              output_format: falOutFmt,
-            },
-            logs: false,
-          })
-        : await fal.subscribe(txtModel, {
-            input: {
-              prompt: promptText,
-              image_size: imageSize,
-              num_inference_steps: 4,
-              guidance_scale: 3.5,
-              num_images: 1,
-              enable_safety_checker: fluxSafety,
-              output_format: falOutFmt,
-              acceleration: "regular",
-            },
-            logs: false,
-          });
-
-    const data = result.data as {
-      images?: Array<{ url: string }>;
-      prompt?: string;
-      description?: string;
-    };
-    const first = data.images?.[0]?.url;
-    if (!first) {
-      throw new Error("Fal text-to-image did not return an image URL");
-    }
-    imageUrlForDownload = first;
-    falModel = txtModel;
-    description =
-      data.description?.trim() ||
-      data.prompt ||
-      (isFalNanoBananaT2iModel(txtModel)
-        ? isNanoBananaProT2iModel(txtModel)
-          ? "Nano Banana Pro (text-to-image)."
-          : "Nano Banana (text-to-image)."
-        : "");
+  if (!imagePart?.inlineData?.data || !imagePart.inlineData.mimeType) {
+    throw new Error("Gemini did not return an image. Try rephrasing your prompt.");
   }
 
-  const { buffer, contentType } = await fetchImageBufferFromUrl(imageUrlForDownload);
+  const buffer = Buffer.from(imagePart.inlineData.data, "base64");
+  const contentType = imagePart.inlineData.mimeType;
   const ext =
     contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpeg";
   const key = `thumbnails/${params.sessionId || uuidv4()}/${uuidv4()}.${ext}`;
@@ -1276,8 +1114,8 @@ async function generateThumbnailSchnell(params: {
   return {
     key,
     mimeType: contentType,
-    description,
-    falModel,
+    description: "Gemini-generated thumbnail",
+    falModel: "gemini-2.5-flash",
     geminiEnrichUsed,
     geminiSpellcheckUsed,
   };
@@ -1345,13 +1183,11 @@ export async function POST(req: NextRequest) {
       sessionId,
     });
 
-    const estimate = estimateThumbnailGenerationUsd({
-      falModel: out.falModel,
-      platforms,
-      hadReferenceImage: !!effectiveB64,
-      geminiEnrichUsed: out.geminiEnrichUsed,
-      geminiSpellcheckUsed: out.geminiSpellcheckUsed,
-    });
+    const estimate = {
+      estimatedCostUsd: 0.003,
+      estimatedCostNote:
+        "Gemini 2.5 Flash image generation (rough estimate).",
+    };
 
     const encKey = encodeURIComponent(out.key);
 

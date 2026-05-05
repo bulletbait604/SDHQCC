@@ -16,8 +16,8 @@ interface CoinPackage {
 /** Must match /api/coins/purchase COIN_PACKAGES and paypal-webhook custom_id parsing */
 const COIN_PACKAGES: CoinPackage[] = [
   { id: 'small', coins: 12, price: 5, label: 'Starter Pack' },
-  { id: 'medium', coins: 35, price: 10, label: 'Value Pack' },
-  { id: 'large', coins: 100, price: 20, label: 'Pro Pack' },
+  { id: 'medium', coins: 30, price: 10, label: 'Value Pack' },
+  { id: 'large', coins: 80, price: 20, label: 'Pro Pack' },
 ]
 
 interface CoinPurchaseProps {
