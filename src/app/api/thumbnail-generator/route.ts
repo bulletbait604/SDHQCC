@@ -742,32 +742,53 @@ function brandLogoOverlayBlock(
   platforms: string[] | undefined
 ): string {
   if (!thumbnailAllowBrandLogos()) return "";
-  const lower = userText.toLowerCase();
   const ids = Array.isArray(platforms) ? platforms : [];
-  const streamPlatformMentioned =
-    ids.some((id) =>
-      ["youtube-long", "youtube-shorts", "tiktok", "instagram", "facebook-reels", "twitter"].includes(id)
-    ) || /\btwitch\b|\bkick\b|\byoutube\b|\btiktok\b|\binstagram\b|\bfacebook\b|\bx\b|\btwitter\b/i.test(userText);
-  const gameMentioned =
-    /\bgame\b|\bgaming\b|\bgameplay\b|\bfortnite\b|\bminecraft\b|\bvalorant\b|\broblox\b|\bzelda\b|\bmario\b|\bpokemon\b|\bgenshin\b|\bwarframe\b|\boverwatch\b|\bapex\b/i.test(
-      userText
-    );
+  const targets: string[] = [];
+  const seen = new Set<string>();
+  const add = (label: string) => {
+    const k = label.trim().toLowerCase();
+    if (!k || seen.has(k)) return;
+    seen.add(k);
+    targets.push(label.trim());
+  };
 
-  if (!streamPlatformMentioned && !gameMentioned) return "";
-
-  const logoBits: string[] = [];
-  if (streamPlatformMentioned) {
-    logoBits.push(
-      "Include recognizable platform branding in-frame (wordmarks and logo badges) for any platforms explicitly named by the creator or selected in targets."
-    );
-  }
-  if (gameMentioned) {
-    logoBits.push(
-      "If a specific game or franchise is named, include that game title as clear painted text and add a recognizable game-themed logo/badge element."
-    );
+  const platformNameById: Record<string, string> = {
+    "youtube-long": "YouTube",
+    "youtube-shorts": "YouTube Shorts",
+    tiktok: "TikTok",
+    instagram: "Instagram",
+    "facebook-reels": "Facebook Reels",
+    twitter: "X (Twitter)",
+  };
+  for (const id of ids) {
+    if (platformNameById[id]) add(platformNameById[id]);
   }
 
-  return `\n\n**Branding mode (enabled):** ${logoBits.join(" ")} Keep logos clean, high-contrast, and legible at thumbnail size.`;
+  const brandRules: Array<{ re: RegExp; label: string }> = [
+    { re: /\bkick\b/i, label: "Kick" },
+    { re: /\btwitch\b/i, label: "Twitch" },
+    { re: /\byoutube\b/i, label: "YouTube" },
+    { re: /\btiktok\b/i, label: "TikTok" },
+    { re: /\binstagram\b/i, label: "Instagram" },
+    { re: /\bfacebook\b/i, label: "Facebook" },
+    { re: /\bdiablo\s*(iv|4)\b/i, label: "Diablo 4" },
+    { re: /\bfortnite\b/i, label: "Fortnite" },
+    { re: /\bminecraft\b/i, label: "Minecraft" },
+    { re: /\bvalorant\b/i, label: "Valorant" },
+    { re: /\broblox\b/i, label: "Roblox" },
+    { re: /\boverwatch\b/i, label: "Overwatch" },
+    { re: /\bapex\b/i, label: "Apex Legends" },
+    { re: /\bwarframe\b/i, label: "Warframe" },
+    { re: /\bgenshin\b/i, label: "Genshin Impact" },
+    { re: /\bpokemon\b/i, label: "Pokemon" },
+  ];
+  for (const rule of brandRules) {
+    if (rule.re.test(userText)) add(rule.label);
+  }
+
+  if (targets.length === 0) return "";
+
+  return `\n\n**Branding mode (enabled):** Include recognizable, readable branding for these named entities: ${targets.join(", ")}. If any are platforms, include their logo/wordmark as visible badge elements. If any are games/franchises, include clear game title wordmarks and matching emblem-like badges. Keep all branding high-contrast and readable at thumbnail size.`;
 }
 
 /** Optional second refinement pass for logo/wordmark readability in FLUX edit pipelines. */
