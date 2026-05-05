@@ -26,6 +26,7 @@ function mimeFromThumbnailKey(key: string): string {
 const THUMBNAIL_GEMINI_MODEL_DEFAULT = "gemini-2.5-flash";
 const THUMBNAIL_PROVIDER_DEFAULT = "gemini";
 const FAL_KONTEXT_MODEL_DEFAULT = "fal-ai/flux-2-pro/edit";
+const FAL_NANO_EDIT_MODEL_DEFAULT = "fal-ai/nano-banana/edit";
 
 function thumbnailGeminiModelId(): string {
   return (
@@ -33,12 +34,15 @@ function thumbnailGeminiModelId(): string {
   );
 }
 
-type ThumbnailProvider = "gemini" | "fal_kontext";
+type ThumbnailProvider = "gemini" | "fal_kontext" | "fal_nano_edit";
 
 function thumbnailProvider(): ThumbnailProvider {
   const v =
     process.env.THUMBNAIL_IMAGE_PROVIDER?.trim().toLowerCase() ||
     THUMBNAIL_PROVIDER_DEFAULT;
+  if (v === "fal_nano_edit" || v === "fal-nano-edit" || v === "nano" || v === "nano_edit") {
+    return "fal_nano_edit";
+  }
   if (v === "fal_kontext" || v === "fal-kontext" || v === "kontext" || v === "fal") {
     return "fal_kontext";
   }
@@ -1314,9 +1318,7 @@ async function generateThumbnailFalKontext(params: {
 
   fal.config({ credentials: falKey });
   const modelId =
-    process.env.FAL_THUMBNAIL_MODEL?.trim() ||
-    process.env.FAL_THUMBNAIL_KONTEXT_MODEL?.trim() ||
-    FAL_KONTEXT_MODEL_DEFAULT;
+    process.env.FAL_THUMBNAIL_MODEL?.trim() || FAL_KONTEXT_MODEL_DEFAULT;
   const requiresImageInput =
     modelId === "fal-ai/flux-2-pro/edit" || modelId.endsWith("/edit");
   if (requiresImageInput && !params.imageBase64) {
@@ -1403,6 +1405,94 @@ async function generateThumbnailFalKontext(params: {
   }
 }
 
+async function generateThumbnailFalNanoEdit(params: {
+  prompt: string;
+  imageBase64: string | null;
+  mimeType: string;
+  platforms: string[] | undefined;
+  sessionId: string | undefined;
+}): Promise<ThumbnailGenResult> {
+  const falKey = process.env.FAL_KEY?.trim() || process.env.FAL_API_KEY?.trim();
+  if (!falKey) {
+    throw new Error("FAL_KEY (or FAL_API_KEY) is required for fal_nano_edit provider.");
+  }
+  if (!params.imageBase64) {
+    throw new Error("fal-ai/nano-banana/edit requires a source image. Upload an image and try again.");
+  }
+  fal.config({ credentials: falKey });
+  const modelId = process.env.FAL_THUMBNAIL_NANO_MODEL?.trim() || FAL_NANO_EDIT_MODEL_DEFAULT;
+  const spec = thumbnailSpecFromPlatforms(params.platforms);
+  const mustKeepChecklist = extractMustKeepChecklist(params.prompt);
+  const promptText = buildPromptText(
+    params.prompt,
+    spec,
+    true,
+    params.prompt,
+    params.prompt,
+    params.platforms,
+    mustKeepChecklist,
+    true
+  );
+  const staged = await stagingImageUrlForFal({
+    imageBase64: params.imageBase64,
+    mimeType: params.mimeType,
+    sessionId: params.sessionId,
+  });
+  try {
+    const result = await fal.subscribe(modelId, {
+      input: {
+        prompt: promptText,
+        image_url: staged.imageUrl,
+      },
+      logs: true,
+      onQueueUpdate: (update) => {
+        if (update.status === "IN_PROGRESS") {
+          for (const log of update.logs ?? []) {
+            console.log("[Thumbnail][FalNanoEdit]", log.message);
+          }
+        }
+      },
+    });
+    const imageUrl =
+      findFirstImageUrl((result as { data?: unknown }).data) ||
+      findFirstImageUrl(result);
+    if (!imageUrl) throw new Error("Fal nano edit returned no image URL.");
+    const downloaded = await fetchImageBufferFromUrl(imageUrl);
+    const ext =
+      downloaded.contentType.includes("png")
+        ? "png"
+        : downloaded.contentType.includes("webp")
+          ? "webp"
+          : "jpeg";
+    const key = `thumbnails/${params.sessionId || uuidv4()}/${uuidv4()}.${ext}`;
+    const sanitizedPrompt = params.prompt
+      .replace(/[\r\n]+/g, " ")
+      .replace(/[^\x20-\x7E]/g, "")
+      .slice(0, 512);
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME!,
+        Key: key,
+        Body: downloaded.buffer,
+        ContentType: downloaded.contentType,
+        Metadata: { prompt: sanitizedPrompt },
+      })
+    );
+    return {
+      key,
+      mimeType: downloaded.contentType,
+      description: "Fal Nano Banana edit generated thumbnail",
+      model: modelId,
+      geminiEnrichUsed: false,
+      geminiSpellcheckUsed: false,
+    };
+  } finally {
+    if (staged.stagingKey) {
+      await deleteFileFromR2(staged.stagingKey).catch(() => {});
+    }
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -1467,6 +1557,14 @@ export async function POST(req: NextRequest) {
             platforms,
             sessionId,
           })
+        : provider === "fal_nano_edit"
+          ? await generateThumbnailFalNanoEdit({
+              prompt,
+              imageBase64: effectiveB64,
+              mimeType: effectiveMime,
+              platforms,
+              sessionId,
+            })
         : await generateThumbnailSchnell({
             prompt,
             imageBase64: effectiveB64,
@@ -1488,7 +1586,7 @@ export async function POST(req: NextRequest) {
       key: out.key,
       mimeType: out.mimeType,
       description: out.description,
-      provider: provider === "fal_kontext" ? "fal" : "gemini",
+      provider: provider === "gemini" ? "gemini" : "fal",
       falModel: out.model,
       estimatedCostUsd: estimate.estimatedCostUsd,
       estimatedCostNote: estimate.estimatedCostNote,
