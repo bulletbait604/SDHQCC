@@ -13,6 +13,14 @@ type KickClip = {
   createdAt: string | null
 }
 
+function isLikelyPlayableVideoUrl(url: string): boolean {
+  const u = url.toLowerCase()
+  if (!u.startsWith('http')) return false
+  if (u.includes('.m3u8') || u.includes('.mp4') || u.includes('/stream/') || u.includes('/vod/')) return true
+  if (u.includes('thumbnail') || u.includes('.jpg') || u.includes('.jpeg') || u.includes('.png') || u.includes('.webp')) return false
+  return u.includes('video') || u.includes('playback')
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value != null && typeof value === 'object' ? (value as Record<string, unknown>) : null
 }
@@ -54,6 +62,39 @@ function normalizeClip(raw: Record<string, unknown>): KickClip | null {
   }
 }
 
+function collectPlayableVideoUrls(value: unknown, out: Set<string>) {
+  if (!value) return
+  if (typeof value === 'string') {
+    if (isLikelyPlayableVideoUrl(value)) out.add(value)
+    return
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectPlayableVideoUrls(item, out)
+    return
+  }
+  if (typeof value === 'object') {
+    const rec = value as Record<string, unknown>
+    for (const v of Object.values(rec)) collectPlayableVideoUrls(v, out)
+  }
+}
+
+async function resolveClipVideoUrl(id: string, fallbackUrl: string | null): Promise<string | null> {
+  const endpoints = [
+    `https://kick.com/api/v2/clips/${encodeURIComponent(id)}`,
+    `https://kick.com/api/v2/video_clips/${encodeURIComponent(id)}`,
+  ]
+  const found = new Set<string>()
+  for (const url of endpoints) {
+    const payload = await tryFetchJson(url)
+    if (!payload) continue
+    collectPlayableVideoUrls(payload, found)
+    if (found.size > 0) break
+  }
+  if (found.size > 0) return Array.from(found)[0]
+  if (fallbackUrl && isLikelyPlayableVideoUrl(fallbackUrl)) return fallbackUrl
+  return null
+}
+
 async function tryFetchJson(url: string): Promise<unknown | null> {
   const res = await fetch(url, {
     headers: {
@@ -86,7 +127,16 @@ export async function GET(request: NextRequest) {
     for (const url of candidates) {
       const payload = await tryFetchJson(url)
       if (!payload) continue
-      clips = getClipRows(payload).map(normalizeClip).filter((row): row is KickClip => row !== null).slice(0, 6)
+      const baseClips = getClipRows(payload)
+        .map(normalizeClip)
+        .filter((row): row is KickClip => row !== null)
+        .slice(0, 6)
+      clips = await Promise.all(
+        baseClips.map(async (clip) => ({
+          ...clip,
+          sourceVideoUrl: await resolveClipVideoUrl(clip.id, clip.sourceVideoUrl),
+        }))
+      )
       if (clips.length > 0) break
     }
 

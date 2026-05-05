@@ -1409,9 +1409,9 @@ export default function HomePage() {
   }, [user])
 
   const handleAnalyzeKickClip = async (clip: KickClipItem, selectedPlatformId: string) => {
-    const sourceUrl = clip.sourceVideoUrl || clip.clipUrl
+    const sourceUrl = clip.sourceVideoUrl
     if (!sourceUrl) {
-      setKickClipsError('This clip does not have a playable video URL.')
+      setKickClipsError('This clip does not expose a direct playable video URL from Kick yet. Try Refresh Clips or choose a different clip.')
       return
     }
     if (!hasUnlimitedAccess && !hasEnoughCoins('clip-analyzer')) {
