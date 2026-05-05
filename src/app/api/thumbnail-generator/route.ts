@@ -974,6 +974,17 @@ function findFirstImageUrl(value: unknown): string | null {
   return null;
 }
 
+function buildFalEditInput(prompt: string, imageUrl?: string): Record<string, unknown> {
+  const input: Record<string, unknown> = { prompt };
+  if (imageUrl) {
+    // Some Fal edit models expect `image_url`, while others expect `image_urls`.
+    // Provide both so re-edit always anchors to the intended source image.
+    input.image_url = imageUrl;
+    input.image_urls = [imageUrl];
+  }
+  return input;
+}
+
 /**
  * Upload reference bytes to R2 and pass a presigned HTTPS URL to Fal (same pattern as
  * `fal.queue.submit` docs with `image_url: "https://..."` — avoids huge `data:` bodies).
@@ -1346,8 +1357,7 @@ async function generateThumbnailFalKontext(params: {
     : { imageUrl: "", stagingKey: null as string | null };
 
   try {
-    const input: Record<string, unknown> = { prompt: promptText };
-    if (staged.imageUrl) input.image_url = staged.imageUrl;
+    const input = buildFalEditInput(promptText, staged.imageUrl || undefined);
 
     const result = await fal.subscribe(modelId, {
       input,
@@ -1440,10 +1450,7 @@ async function generateThumbnailFalNanoEdit(params: {
   });
   try {
     const result = await fal.subscribe(modelId, {
-      input: {
-        prompt: promptText,
-        image_url: staged.imageUrl,
-      },
+      input: buildFalEditInput(promptText, staged.imageUrl),
       logs: true,
       onQueueUpdate: (update) => {
         if (update.status === "IN_PROGRESS") {

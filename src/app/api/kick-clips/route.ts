@@ -102,15 +102,24 @@ async function resolveClipVideoUrl(id: string, fallbackUrl: string | null): Prom
 }
 
 async function tryFetchJson(url: string): Promise<unknown | null> {
-  const res = await fetch(url, {
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'SDHQ-Creator-Corner/1.0',
-    },
-    cache: 'no-store',
-  })
-  if (!res.ok) return null
-  return res.json()
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 8000)
+    const res = await fetch(url, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'Mozilla/5.0 (compatible; SDHQ-Creator-Corner/1.0)',
+      },
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+    clearTimeout(timer)
+    if (!res.ok) return null
+    return res.json()
+  } catch (error) {
+    console.warn('[api/kick-clips] Upstream fetch failed:', url, error)
+    return null
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -127,6 +136,8 @@ export async function GET(request: NextRequest) {
       `https://kick.com/api/v2/channels/${encodeURIComponent(username)}/clips?limit=6`,
       `https://kick.com/api/v2/channels/${encodeURIComponent(username)}/clips?page=1&limit=6`,
       ...(kickId ? [`https://kick.com/api/v2/channels/${encodeURIComponent(kickId)}/clips?limit=6`] : []),
+      `https://kick.com/api/v1/channels/${encodeURIComponent(username)}/clips?limit=6`,
+      ...(kickId ? [`https://kick.com/api/v1/channels/${encodeURIComponent(kickId)}/clips?limit=6`] : []),
     ]
 
     let clips: KickClip[] = []
