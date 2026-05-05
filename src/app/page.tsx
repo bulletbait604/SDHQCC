@@ -1414,6 +1414,10 @@ export default function HomePage() {
       setKickClipsError('This clip does not expose a direct playable video URL from Kick yet. Try Refresh Clips or choose a different clip.')
       return
     }
+    if (sourceUrl.toLowerCase().includes('.m3u8')) {
+      setKickClipsError('This clip currently resolves to an HLS playlist URL, which Gemini cannot analyze directly. Try Refresh Clips or choose a different clip.')
+      return
+    }
     if (!hasUnlimitedAccess && !hasEnoughCoins('clip-analyzer')) {
       setKickClipsError('Not enough coins to analyze this clip. Please purchase more coins or upgrade for unlimited access.')
       return

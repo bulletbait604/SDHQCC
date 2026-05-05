@@ -1087,7 +1087,7 @@ async function generateThumbnailSchnell(params: {
   const genAI = new GoogleGenAI({ apiKey });
   const imageModel =
     process.env.THUMBNAIL_GEMINI_IMAGE_MODEL?.trim() ||
-    "gemini-2.5-flash-image-preview";
+    "gemini-2.5-flash-image";
   const maxPromptLength = 500;
   const truncatedPrompt =
     params.prompt.length > maxPromptLength

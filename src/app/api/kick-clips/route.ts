@@ -16,7 +16,8 @@ type KickClip = {
 function isLikelyPlayableVideoUrl(url: string): boolean {
   const u = url.toLowerCase()
   if (!u.startsWith('http')) return false
-  if (u.includes('.m3u8') || u.includes('.mp4') || u.includes('/stream/') || u.includes('/vod/')) return true
+  if (u.includes('.m3u8')) return false
+  if (u.includes('.mp4') || u.includes('/stream/') || u.includes('/vod/')) return true
   if (u.includes('thumbnail') || u.includes('.jpg') || u.includes('.jpeg') || u.includes('.png') || u.includes('.webp')) return false
   return u.includes('video') || u.includes('playback')
 }
@@ -90,7 +91,12 @@ async function resolveClipVideoUrl(id: string, fallbackUrl: string | null): Prom
     collectPlayableVideoUrls(payload, found)
     if (found.size > 0) break
   }
-  if (found.size > 0) return Array.from(found)[0]
+  if (found.size > 0) {
+    const urls = Array.from(found)
+    const mp4 = urls.find((u) => u.toLowerCase().includes('.mp4'))
+    if (mp4) return mp4
+    return urls[0]
+  }
   if (fallbackUrl && isLikelyPlayableVideoUrl(fallbackUrl)) return fallbackUrl
   return null
 }
