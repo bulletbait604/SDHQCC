@@ -16,6 +16,8 @@ export const COIN_COSTS = {
   'thumbnail-generator': 2,
   'clip-analyzer': 2,
   'content-analyzer': 2,
+  'clip-editor-plan': 2,
+  'clip-editor-runway': 3,
 } as const
 
 export type ToolType = keyof typeof COIN_COSTS

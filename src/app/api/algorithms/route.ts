@@ -1,35 +1,18 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 import clientPromise from '@/lib/mongodb'
+import {
+  ALGORITHM_DOC_ID,
+  ALGORITHM_SNAPSHOT_COLLECTION,
+  readAlgorithmSnapshotFromMongo,
+  type AlgorithmSnapshotPayload,
+} from '@/lib/algorithmSnapshotRead'
 
 export const dynamic = 'force-dynamic'
 
-const ALGORITHM_SNAPSHOT_COLLECTION = 'algorithm_snapshots'
-const ALGORITHM_DOC_ID = 'current'
-
-type AlgorithmSnapshotPayload = {
-  data: Record<string, unknown>
-  lastUpdated: string | null
-  provider?: string
-  errors?: string[]
-}
-
 async function readDataFromMongo(): Promise<AlgorithmSnapshotPayload | null> {
   try {
-    const client = await clientPromise
-    const db = client.db('sdhq')
-    const doc = await db
-      .collection(ALGORITHM_SNAPSHOT_COLLECTION)
-      .findOne<{ payload: AlgorithmSnapshotPayload }>({ _id: ALGORITHM_DOC_ID })
-    const payload = doc?.payload
-    if (
-      payload?.data &&
-      typeof payload.data === 'object' &&
-      Object.keys(payload.data).length > 0
-    ) {
-      return payload
-    }
-    return null
+    return await readAlgorithmSnapshotFromMongo()
   } catch (error) {
     console.error('[Algorithms] MongoDB read failed:', error)
     return null

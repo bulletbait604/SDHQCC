@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
 import CoinPurchase from '@/app/components/CoinPurchase'
 import ResourceHubTab from '@/app/components/ResourceHubTab'
+import ClipEditorTab from '@/app/components/ClipEditorTab'
 import NewToolTab from '@/app/components/NewToolTab'
 import { isNewToolTabEnabled } from '@/lib/newToolFeature'
 import { usePayPalPublicConfig } from '@/hooks/usePayPalPublicConfig'
@@ -52,7 +53,8 @@ import {
   Mail,
   Download,
   Wand2,
-  BookOpen
+  BookOpen,
+  Film
 } from 'lucide-react'
 import { createKickAuthURL } from '@/lib/kick-oauth'
 import { getClientCookie, setClientCookie } from '@/lib/clientCookies'
@@ -193,6 +195,9 @@ const translations = {
     newTool: 'New tool',
     contentAnalyzer: 'Content Analyzer',
     kickClips: 'KICK Clips',
+    clipEditor: 'Clip Editor',
+    clipEditorDesc:
+      'A fully AI-optimized clip creator — smarter cuts, pacing, and platform-ready exports — is on the way.',
     resourceHub: 'Resource Hub',
     settings: 'Settings',
     logout: 'Logout',
@@ -228,6 +233,9 @@ const translations = {
     newTool: 'Nueva herramienta',
     contentAnalyzer: 'Analizador de Contenido',
     kickClips: 'KICK Clips',
+    clipEditor: 'Editor de clips',
+    clipEditorDesc:
+      'Un creador de clips totalmente optimizado por IA — cortes más inteligentes, ritmo y exportaciones listas para cada plataforma — está en camino.',
     resourceHub: 'Centro de recursos',
     settings: 'Configuración',
     logout: 'Cerrar sesión',
@@ -263,6 +271,9 @@ const translations = {
     newTool: 'Nouvel outil',
     contentAnalyzer: 'Analyseur de Contenu',
     kickClips: 'KICK Clips',
+    clipEditor: 'Éditeur de clips',
+    clipEditorDesc:
+      'Un créateur de clips entièrement optimisé par IA — découpes plus fines, rythme et exports prêts pour chaque plateforme — arrive bientôt.',
     resourceHub: 'Centre de ressources',
     settings: 'Paramètres',
     logout: 'Déconnexion',
@@ -298,6 +309,9 @@ const translations = {
     newTool: 'New tool',
     contentAnalyzer: 'Content Analyzer',
     kickClips: 'KICK Clips',
+    clipEditor: 'Clip-Editor',
+    clipEditorDesc:
+      'Ein vollständig KI-optimierter Clip-Creator — intelligentere Schnitte, Timing und exportfertige Ausgaben für jede Plattform — kommt bald.',
     resourceHub: 'Ressourcen-Hub',
     settings: 'Einstellungen',
     logout: 'Abmelden',
@@ -2753,7 +2767,7 @@ export default function HomePage() {
         ) : (
           <Tabs value={activeTab} onValueChange={handleMainTabChange} className="space-y-6">
             <TabsList
-              className={`grid w-full grid-cols-4 ${showNewToolTab ? 'sm:grid-cols-8' : 'sm:grid-cols-7'} ${tabListClasses}`}
+              className={`grid w-full grid-cols-4 ${showNewToolTab ? 'sm:grid-cols-9' : 'sm:grid-cols-8'} ${tabListClasses}`}
             >
               <TabsTrigger 
                 value="algorithms-explained" 
@@ -2798,6 +2812,13 @@ export default function HomePage() {
               >
                 <Video className="w-4 h-4" />
                 <span className="hidden sm:inline">{t.kickClips}</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="clip-editor"
+                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
+              >
+                <Film className="w-4 h-4" />
+                <span className="hidden sm:inline">{t.clipEditor}</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="resource-hub"
@@ -4398,6 +4419,22 @@ export default function HomePage() {
                   </div>
                 )}
               </div>
+            </TabsContent>
+
+            <TabsContent value="clip-editor">
+              <ClipEditorTab
+                darkMode={darkMode}
+                cardClasses={cardClasses}
+                textClasses={textClasses}
+                subtitleClasses={subtitleClasses}
+                title={t.clipEditor}
+                tagline={t.clipEditorDesc}
+                user={user}
+                hasEnoughCoins={hasEnoughCoins}
+                deductCoins={deductCoins}
+                hasUnlimitedAccess={hasUnlimitedAccess}
+                refreshBalance={refreshBalance}
+              />
             </TabsContent>
 
             <TabsContent value="resource-hub">

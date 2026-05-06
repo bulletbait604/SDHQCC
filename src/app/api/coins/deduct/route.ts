@@ -8,7 +8,9 @@ const VALID_TOOL_COSTS: Record<string, number> = {
   'tag-generator': 1,        // 1 coin for free users
   'thumbnail-generator': 2,  // 2 coins for free users
   'clip-analyzer': 2,        // 2 coins for free users
-  'content-analyzer': 2      // 2 coins for free users
+  'content-analyzer': 2,     // 2 coins for free users
+  'clip-editor-plan': 2,
+  'clip-editor-runway': 3,
 }
 
 export async function POST(req: NextRequest) {

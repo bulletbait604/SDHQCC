@@ -28,6 +28,25 @@ const CLIP_MAX_BYTES = 250 * 1024 * 1024
 // Use gemini-2.5-flash model (stable release)
 const MODEL_NAME = 'gemini-2.5-flash'
 
+type TargetPlatform = 'tiktok' | 'youtube' | 'reels'
+
+function normalizeTargetPlatform(platform: string): TargetPlatform {
+  const p = platform.trim().toLowerCase()
+  if (p === 'youtube' || p === 'youtube-shorts' || p === 'shorts') return 'youtube'
+  if (p === 'instagram' || p === 'instagram-reels' || p === 'reels') return 'reels'
+  return 'tiktok'
+}
+
+function platformEditingDirective(platform: TargetPlatform): string {
+  if (platform === 'youtube') {
+    return `Focus on the "Loop." Ensure the last 2 seconds lead back into the first 2 seconds for infinite loop potential.`
+  }
+  if (platform === 'reels') {
+    return `Focus on "Cinematic Quality." Use longer cuts (3-4 seconds) and ensure the center of the frame is the priority for the Grid view.`
+  }
+  return `Focus on a 3-second visual hook. Edit for "Chaos Pacing"—cut every 1.5 seconds to keep retention high.`
+}
+
 function clipAnalyzerBackend(): string {
   return (process.env.CLIP_ANALYZER_BACKEND || 'gemini').trim().toLowerCase()
 }
@@ -110,6 +129,7 @@ export async function POST(request: NextRequest) {
       console.error('[DEBUG] Clip Analyze API: platform is required')
       return NextResponse.json({ error: 'Platform is required' }, { status: 400 })
     }
+    const targetPlatform = normalizeTargetPlatform(platform)
 
     // Note: 150MB limit is enforced on the frontend for direct URLs
     // Videos larger than 150MB may not be accessible for analysis
@@ -315,6 +335,9 @@ export async function POST(request: NextRequest) {
                 },
                 {
                   text: `You are an expert social media algorithm analyst and content strategist. Analyze this video file IN-DEPTH for ${platform} optimization.
+
+PLATFORM EDITING DIRECTIVE:
+${platformEditingDirective(targetPlatform)}
 
 CRITICAL ANALYSIS REQUIREMENTS:
 1. **SUBJECT MATTER IDENTIFICATION**: 
