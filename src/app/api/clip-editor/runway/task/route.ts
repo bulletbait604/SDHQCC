@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import RunwayML from '@runwayml/sdk'
-import { verifyAuth, AuthError } from '@/lib/auth/verifyAuth'
+import { verifyAuth, hasClipEditorAccess, AuthError } from '@/lib/auth/verifyAuth'
 import { resolveRunwayApiSecret } from '@/lib/clipEditorServerKeys'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    await verifyAuth(request)
+    const user = await verifyAuth(request)
+    if (!hasClipEditorAccess(user)) {
+      return NextResponse.json({ error: 'Clip Editor requires the Editor badge.' }, { status: 403 })
+    }
     const runwaySecret = resolveRunwayApiSecret()
     if (!runwaySecret) {
       return NextResponse.json(

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateUploadUrl } from '@/lib/r2'
-import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
+import {
+  verifyAuth,
+  hasClipEditorAccess,
+  AuthError,
+  createAuthErrorResponse,
+} from '@/lib/auth/verifyAuth'
 
 const isProd = process.env.NODE_ENV === 'production'
 
@@ -14,6 +19,9 @@ export async function POST(request: NextRequest) {
       filename?: string
       contentType?: string
       purpose?: string
+    }
+    if (purpose === 'clip-editor' && !hasClipEditorAccess(user)) {
+      return NextResponse.json({ error: 'Clip Editor requires the Editor badge.' }, { status: 403 })
     }
     console.log('Upload URL API: Request body:', { filename, contentType, purpose })
 

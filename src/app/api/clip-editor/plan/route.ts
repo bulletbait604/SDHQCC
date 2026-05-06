@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
-import { verifyAuth, hasUnlimitedAccess, AuthError } from '@/lib/auth/verifyAuth'
+import { verifyAuth, hasClipEditorAccess, hasUnlimitedAccess, AuthError } from '@/lib/auth/verifyAuth'
 import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
 import clientPromise from '@/lib/mongodb'
 import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
@@ -49,6 +49,9 @@ function extractFirstJsonObject(raw: string): string | null {
 export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth(request)
+    if (!hasClipEditorAccess(user)) {
+      return NextResponse.json({ error: 'Clip Editor requires the Editor badge.' }, { status: 403 })
+    }
     const openaiKey = resolveOpenAiApiKey()
     if (!openaiKey) {
       return NextResponse.json(

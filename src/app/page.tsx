@@ -345,20 +345,22 @@ const ROLE_HIERARCHY = {
   free: 1,
   subscriber: 2,
   subscriber_lifetime: 3,
-  admin: 4,
-  owner: 5,
-  tester: 6
+  editor: 4,
+  admin: 5,
+  owner: 6,
+  tester: 7
 } as const;
 
 type Role = keyof typeof ROLE_HIERARCHY;
 
 const ROLE_CONFIG = {
-  owner: { badge: '👑', rank: 5, label: 'Owner', badgeClass: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' },
-  admin: { badge: '🛡', rank: 4, label: 'Admin', badgeClass: 'bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black' },
+  owner: { badge: '👑', rank: 6, label: 'Owner', badgeClass: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' },
+  admin: { badge: '🛡', rank: 5, label: 'Admin', badgeClass: 'bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black' },
+  editor: { badge: '🎬', rank: 4, label: 'Editor', badgeClass: 'bg-gradient-to-r from-fuchsia-500 to-cyan-500 text-white' },
   subscriber_lifetime: { badge: '💎', rank: 3, label: 'Lifetime Subscriber', badgeClass: 'bg-gradient-to-r from-yellow-500 to-orange-500 text-black' },
   subscriber: { badge: '⭐', rank: 2, label: 'Subscriber', badgeClass: 'bg-gradient-to-r from-sdhq-green-500 to-sdhq-cyan-500 text-black' },
   free: { badge: '🙂', rank: 1, label: 'Free User', badgeClass: 'bg-gray-500 text-white' },
-  tester: { badge: '🧪', rank: 6, label: 'Tester', badgeClass: 'bg-gradient-to-r from-blue-500 to-purple-500 text-white' }
+  tester: { badge: '🧪', rank: 7, label: 'Tester', badgeClass: 'bg-gradient-to-r from-blue-500 to-purple-500 text-white' }
 } as const;
 
 // Tab permissions configuration - each role can have specific tabs enabled/disabled
@@ -368,42 +370,56 @@ const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
-    'new-tool': true
+    'new-tool': true,
+    'clip-editor': false
   },
   subscriber: {
     'algorithms-explained': true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
-    'new-tool': true
+    'new-tool': true,
+    'clip-editor': false
   },
   subscriber_lifetime: {
     'algorithms-explained': true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
-    'new-tool': true
+    'new-tool': true,
+    'clip-editor': false
+  },
+  editor: {
+    'algorithms-explained': true,
+    'tag-generator-free': true,
+    'thumbnail-generator': true,
+    'clip-analyzer': true,
+    'new-tool': true,
+    'clip-editor': true
   },
   admin: {
     'algorithms-explained': true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
-    'new-tool': true
+    'new-tool': true,
+    'clip-editor': false
   },
   owner: {
     'algorithms-explained': true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
-    'new-tool': true
+    'new-tool': true,
+    'clip-editor': true
   },
   tester: {
     'algorithms-explained': true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
-    'new-tool': true
+    'new-tool': true,
+    'clip-editor': false
   }
 };
 
@@ -438,6 +454,13 @@ export default function HomePage() {
       setActiveTab('algorithms-explained')
     }
   }, [showNewToolTab, activeTab])
+
+  useEffect(() => {
+    const canAccessClipEditor = TAB_PERMISSIONS[userRole]?.['clip-editor'] ?? true
+    if (!canAccessClipEditor && activeTab === 'clip-editor') {
+      setActiveTab('algorithms-explained')
+    }
+  }, [activeTab, userRole])
   
   // Legacy state (will be removed after migration)
   const [subscribers, setSubscribers] = useState<Subscriber[]>([])
@@ -896,6 +919,8 @@ export default function HomePage() {
       setUserRole('free')
     } else if (dbRole === 'subscriber' || sessionRole === 'subscriber' || isSubscribedValue) {
       setUserRole('subscriber')
+    } else if (dbRole === 'editor' || sessionRole === 'editor') {
+      setUserRole('editor')
     } else if (dbRole === 'tester' || sessionRole === 'tester' || isTesterValue) {
       setUserRole('tester')
     } else if (dbRole) {
@@ -2813,13 +2838,15 @@ export default function HomePage() {
                 <Video className="w-4 h-4" />
                 <span className="hidden sm:inline">{t.kickClips}</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="clip-editor"
-                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
-              >
-                <Film className="w-4 h-4" />
-                <span className="hidden sm:inline">{t.clipEditor}</span>
-              </TabsTrigger>
+              {hasTabAccess('clip-editor') && (
+                <TabsTrigger
+                  value="clip-editor"
+                  className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
+                >
+                  <Film className="w-4 h-4" />
+                  <span className="hidden sm:inline">{t.clipEditor}</span>
+                </TabsTrigger>
+              )}
               <TabsTrigger 
                 value="resource-hub"
                 className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
@@ -4421,21 +4448,23 @@ export default function HomePage() {
               </div>
             </TabsContent>
 
-            <TabsContent value="clip-editor">
-              <ClipEditorTab
-                darkMode={darkMode}
-                cardClasses={cardClasses}
-                textClasses={textClasses}
-                subtitleClasses={subtitleClasses}
-                title={t.clipEditor}
-                tagline={t.clipEditorDesc}
-                user={user}
-                hasEnoughCoins={hasEnoughCoins}
-                deductCoins={deductCoins}
-                hasUnlimitedAccess={hasUnlimitedAccess}
-                refreshBalance={refreshBalance}
-              />
-            </TabsContent>
+            {hasTabAccess('clip-editor') && (
+              <TabsContent value="clip-editor">
+                <ClipEditorTab
+                  darkMode={darkMode}
+                  cardClasses={cardClasses}
+                  textClasses={textClasses}
+                  subtitleClasses={subtitleClasses}
+                  title={t.clipEditor}
+                  tagline={t.clipEditorDesc}
+                  user={user}
+                  hasEnoughCoins={hasEnoughCoins}
+                  deductCoins={deductCoins}
+                  hasUnlimitedAccess={hasUnlimitedAccess}
+                  refreshBalance={refreshBalance}
+                />
+              </TabsContent>
+            )}
 
             <TabsContent value="resource-hub">
               <ResourceHubTab darkMode={darkMode} cardClasses={cardClasses} />
@@ -4837,6 +4866,7 @@ export default function HomePage() {
                             <option value="free">Free User</option>
                             <option value="subscriber">Subscriber</option>
                             <option value="subscriber_lifetime">Lifetime Subscriber</option>
+                            <option value="editor">Editor</option>
                             <option value="admin">Admin</option>
                             <option value="tester">Tester</option>
                             <option value="owner">Owner</option>
@@ -4966,6 +4996,7 @@ export default function HomePage() {
                                   <option value="free">Free</option>
                                   <option value="subscriber">Subscriber</option>
                                   <option value="subscriber_lifetime">Lifetime</option>
+                                  <option value="editor">Editor</option>
                                   <option value="admin">Admin</option>
                                   <option value="tester">Tester</option>
                                   <option value="owner" disabled={userRole !== 'owner'}>Owner</option>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import RunwayML from '@runwayml/sdk'
-import { verifyAuth, hasUnlimitedAccess, AuthError } from '@/lib/auth/verifyAuth'
+import { verifyAuth, hasClipEditorAccess, hasUnlimitedAccess, AuthError } from '@/lib/auth/verifyAuth'
 import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
 import clientPromise from '@/lib/mongodb'
 import { getFileFromR2, getR2ObjectMetadata } from '@/lib/r2'
@@ -18,6 +18,9 @@ const MAX_RUNWAY_EPHEMERAL_VIDEO_BYTES = 200 * 1024 * 1024
 export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth(request)
+    if (!hasClipEditorAccess(user)) {
+      return NextResponse.json({ error: 'Clip Editor requires the Editor badge.' }, { status: 403 })
+    }
     const runwaySecret = resolveRunwayApiSecret()
     if (!runwaySecret) {
       return NextResponse.json(

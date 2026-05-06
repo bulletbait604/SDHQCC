@@ -23,8 +23,9 @@ const ROLE_HIERARCHY = {
   free: 1,
   subscriber: 2,
   subscriber_lifetime: 3,
-  admin: 4,
-  owner: 5
+  editor: 4,
+  admin: 5,
+  owner: 6
 } as const;
 
 type Role = keyof typeof ROLE_HIERARCHY;

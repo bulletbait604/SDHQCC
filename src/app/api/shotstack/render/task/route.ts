@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
+import {
+  verifyAuth,
+  hasClipEditorAccess,
+  AuthError,
+  createAuthErrorResponse,
+} from '@/lib/auth/verifyAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,7 +15,10 @@ function shotstackBaseUrl(): string {
 
 export async function GET(request: NextRequest) {
   try {
-    await verifyAuth(request)
+    const user = await verifyAuth(request)
+    if (!hasClipEditorAccess(user)) {
+      return NextResponse.json({ error: 'Clip Editor requires the Editor badge.' }, { status: 403 })
+    }
     const apiKey = process.env.SHOTSTACK_API_KEY
     if (!apiKey) {
       return NextResponse.json({ error: 'SHOTSTACK_API_KEY is not configured' }, { status: 503 })

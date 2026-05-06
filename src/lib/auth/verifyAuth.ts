@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { verifySessionJwt, getSessionSecret } from '@/lib/auth/sessionJwt'
 
-export type UserRole = 'free' | 'subscriber' | 'subscriber_lifetime' | 'admin' | 'owner' | 'tester'
+export type UserRole =
+  | 'free'
+  | 'subscriber'
+  | 'subscriber_lifetime'
+  | 'editor'
+  | 'admin'
+  | 'owner'
+  | 'tester'
 
 export interface VerifiedUser {
   id: string
@@ -141,6 +148,11 @@ export function requireRole(
  */
 export function hasUnlimitedAccess(user: VerifiedUser): boolean {
   return UNLIMITED_ROLES.includes(user.role)
+}
+
+/** Clip Editor entitlement: Editor badge or Owner override. */
+export function hasClipEditorAccess(user: VerifiedUser): boolean {
+  return user.role === 'editor' || user.role === 'owner'
 }
 
 /**

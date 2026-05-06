@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
-import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
+import {
+  verifyAuth,
+  hasClipEditorAccess,
+  AuthError,
+  createAuthErrorResponse,
+} from '@/lib/auth/verifyAuth'
 import {
   platformEditingDirective,
   platformSafeZoneOffsets,
@@ -50,6 +55,9 @@ function extractFirstJsonObject(raw: string): string | null {
 export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth(request)
+    if (!hasClipEditorAccess(user)) {
+      return NextResponse.json({ error: 'Clip Editor requires the Editor badge.' }, { status: 403 })
+    }
     const body = (await request.json()) as {
       platform?: string
       clipBrief?: string
