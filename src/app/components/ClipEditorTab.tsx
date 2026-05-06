@@ -86,14 +86,14 @@ export default function ClipEditorTab({
     setClipFile(f)
   }
 
-  const handleUploadToR2 = async () => {
+  const handleUploadToR2 = async (): Promise<string | null> => {
     if (!user) {
       setError('Log in with Kick first.')
-      return
+      return null
     }
     if (!clipFile) {
       setError('Pick a clip file first.')
-      return
+      return null
     }
     setBusy('upload')
     setError('')
