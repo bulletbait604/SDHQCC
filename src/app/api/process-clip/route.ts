@@ -12,8 +12,6 @@ import { generatePresignedReadUrl } from '@/lib/r2'
 export const dynamic = 'force-dynamic'
 
 const MODEL_NAME = 'gemini-2.5-flash'
-const DEFAULT_RATIO: '720:1280' | '1280:720' = '720:1280'
-
 function isTargetPlatform(value: string): value is TargetPlatform {
   return value === 'tiktok' || value === 'youtube' || value === 'reels'
 }
@@ -57,7 +55,6 @@ export async function POST(request: NextRequest) {
       clipBrief?: string
       sourceUrl?: string
       r2FileKey?: string
-      facecamAssetUrl?: string
     }
 
     if (!body.platform || !isTargetPlatform(body.platform)) {
@@ -121,11 +118,7 @@ Return valid JSON only:
   "hookPlan": "string",
   "pacePlan": "string",
   "facecamGuidance": "string",
-  "runwayPromptText": "string (max 980 chars)",
-  "runwayModel": "gen4_aleph" | "seedance2" | "gen4.5",
-  "seedanceDuration": 4-15 or null,
-  "gen45Duration": 2-10 or null,
-  "gen45Ratio": "720:1280" | "1280:720" | null,
+  "shotstackEditPrompt": "string (clear editing instructions for Shotstack timeline setup, pacing, visual emphasis, and platform-safe framing)",
   "publishPackage": {
     "tiktok": {
       "captionWithEmojisAndTags": "string with emojis and hashtags"
@@ -167,11 +160,7 @@ ${body.clipBrief.trim()}`,
       hookPlan?: string
       pacePlan?: string
       facecamGuidance?: string
-      runwayPromptText?: string
-      runwayModel?: 'gen4_aleph' | 'seedance2' | 'gen4.5'
-      seedanceDuration?: number | null
-      gen45Duration?: number | null
-      gen45Ratio?: '720:1280' | '1280:720' | null
+      shotstackEditPrompt?: string
       publishPackage?: {
         tiktok?: { captionWithEmojisAndTags?: string }
         instagramReels?: { captionWithEmojisAndTags?: string }
@@ -183,9 +172,10 @@ ${body.clipBrief.trim()}`,
     const shotstack = generateShotstackJSON({
       title: `Viral Architect ${platform}`,
       sourceUrl,
+      platform,
       captionText: parsed.captionText,
-      facecamAssetUrl: body.facecamAssetUrl,
       safeZone,
+      shotstackEditPrompt: parsed.shotstackEditPrompt,
     })
 
     return NextResponse.json({
@@ -193,15 +183,9 @@ ${body.clipBrief.trim()}`,
       model: MODEL_NAME,
       safeZone,
       analysis: parsed,
-      runway: {
-        promptText: parsed.runwayPromptText || `${parsed.hookPlan || ''} ${parsed.pacePlan || ''}`.trim(),
-        model: parsed.runwayModel || 'gen4_aleph',
-        seedanceDuration:
-          typeof parsed.seedanceDuration === 'number' ? parsed.seedanceDuration : 8,
-        gen45Duration:
-          typeof parsed.gen45Duration === 'number' ? parsed.gen45Duration : 5,
-        gen45Ratio: parsed.gen45Ratio || DEFAULT_RATIO,
-      },
+      shotstackEditPrompt:
+        parsed.shotstackEditPrompt ||
+        `${parsed.hookPlan || ''} ${parsed.pacePlan || ''} ${parsed.facecamGuidance || ''}`.trim(),
       publishPackage: parsed.publishPackage || null,
       shotstack,
       source: hasR2FileKey ? 'r2-presigned-url' : 'source-url',

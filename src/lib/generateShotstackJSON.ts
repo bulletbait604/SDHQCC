@@ -1,72 +1,132 @@
 import type { SafeZoneOffsets } from '@/lib/platformEditing'
+import type { TargetPlatform } from '@/lib/platformEditing'
 
 export interface GenerateShotstackInput {
   title?: string
   sourceUrl: string
+  platform: TargetPlatform
   captionText?: string
-  facecamAssetUrl?: string
   safeZone: SafeZoneOffsets
+  shotstackEditPrompt?: string
+}
+
+type PacingProfile = {
+  chunkSeconds: number
+  introHookSeconds: number
+  renderSeconds: number
+}
+
+function resolvePacingProfile(platform: TargetPlatform, prompt?: string): PacingProfile {
+  const p = (prompt || '').toLowerCase()
+  if (platform === 'youtube') {
+    if (p.includes('fast') || p.includes('chaos')) {
+      return { chunkSeconds: 1.8, introHookSeconds: 2, renderSeconds: 24 }
+    }
+    return { chunkSeconds: 2.2, introHookSeconds: 2, renderSeconds: 24 }
+  }
+  if (platform === 'reels') {
+    if (p.includes('cinematic')) {
+      return { chunkSeconds: 3.8, introHookSeconds: 3, renderSeconds: 24 }
+    }
+    return { chunkSeconds: 3.2, introHookSeconds: 3, renderSeconds: 24 }
+  }
+  // TikTok default: high cadence.
+  return { chunkSeconds: 1.5, introHookSeconds: 3, renderSeconds: 24 }
+}
+
+function chunkCaption(text: string, wordsPerChunk: number): string[] {
+  const words = text
+    .trim()
+    .split(/\s+/)
+    .map((w) => w.trim())
+    .filter(Boolean)
+  if (!words.length) return []
+  const chunks: string[] = []
+  for (let i = 0; i < words.length; i += wordsPerChunk) {
+    chunks.push(words.slice(i, i + wordsPerChunk).join(' '))
+  }
+  return chunks
 }
 
 export function generateShotstackJSON({
   title = 'Viral Architect Output',
   sourceUrl,
+  platform,
   captionText,
-  facecamAssetUrl,
   safeZone,
+  shotstackEditPrompt,
 }: GenerateShotstackInput) {
+  const pacing = resolvePacingProfile(platform, shotstackEditPrompt)
   const tracks: Array<{ clips: Array<Record<string, unknown>> }> = [{ clips: [] }]
 
-  tracks[0].clips.push({
-    asset: {
-      type: 'video',
-      src: sourceUrl,
-    },
-    start: 0,
-    length: 90,
-    fit: 'cover',
-  })
-
-  if (captionText) {
-    tracks.push({
-      clips: [
-        {
-          asset: {
-            type: 'title',
-            text: captionText,
-            style: 'minimal',
-            size: 'small',
-          },
-          start: 0,
-          length: 90,
-          offset: {
-            x: safeZone.captionX,
-            y: safeZone.captionY,
-          },
-        },
-      ],
+  // Build the full edit from cuts of the uploaded source only.
+  const cutLen =
+    platform === 'reels' ? 3.5 : platform === 'youtube' ? 2.2 : 1.5
+  let timelineCursor = 0
+  let sourceCursor = 0
+  while (timelineCursor < pacing.renderSeconds - 0.2) {
+    const clipLen = Math.min(cutLen, pacing.renderSeconds - timelineCursor)
+    tracks[0].clips.push({
+      asset: {
+        type: 'video',
+        src: sourceUrl,
+      },
+      start: Number(timelineCursor.toFixed(2)),
+      length: Number(clipLen.toFixed(2)),
+      trim: Number(sourceCursor.toFixed(2)),
+      fit: 'cover',
     })
+    timelineCursor += clipLen
+    sourceCursor += clipLen
   }
 
-  if (facecamAssetUrl) {
-    tracks.push({
-      clips: [
-        {
-          asset: {
-            type: 'video',
-            src: facecamAssetUrl,
-          },
-          start: 0,
-          length: 90,
-          scale: 0.28,
-          position: 'bottomRight',
-          offset: {
-            x: safeZone.facecamX,
-            y: safeZone.facecamY,
-          },
-          opacity: 1,
+  if (captionText) {
+    const wordsPerChunk = platform === 'reels' ? 8 : platform === 'youtube' ? 6 : 4
+    const chunks = chunkCaption(captionText, wordsPerChunk)
+    const captionClips: Array<Record<string, unknown>> = []
+    let cursor = 0
+
+    for (const chunk of chunks) {
+      if (cursor >= pacing.renderSeconds - 0.2) break
+      const maxLen = Math.max(0.9, Math.min(pacing.chunkSeconds, pacing.renderSeconds - cursor))
+      captionClips.push({
+        asset: {
+          type: 'title',
+          text: chunk,
+          style: 'minimal',
+          size: 'small',
         },
-      ],
+        start: Number(cursor.toFixed(2)),
+        length: Number(maxLen.toFixed(2)),
+        offset: {
+          x: safeZone.captionX,
+          y: safeZone.captionY,
+        },
+      })
+      cursor += pacing.chunkSeconds
+    }
+
+    // Shorts loop behavior: mirror first caption in final 2 seconds.
+    if (platform === 'youtube' && captionClips.length > 0) {
+      const firstText = (captionClips[0].asset as Record<string, unknown>).text
+      captionClips.push({
+        asset: {
+          type: 'title',
+          text: firstText,
+          style: 'minimal',
+          size: 'small',
+        },
+        start: Math.max(0, pacing.renderSeconds - 2),
+        length: 2,
+        offset: {
+          x: safeZone.captionX,
+          y: safeZone.captionY,
+        },
+      })
+    }
+
+    tracks.push({
+      clips: captionClips,
     })
   }
 
@@ -86,6 +146,16 @@ export function generateShotstackJSON({
     metadata: {
       title,
       safeZoneClearBottomPct: safeZone.clearBottomPct,
+      platform,
+      pacingProfile: {
+        chunkSeconds: pacing.chunkSeconds,
+        introHookSeconds: pacing.introHookSeconds,
+      },
+      ...(shotstackEditPrompt
+        ? {
+            aiShotstackEditPrompt: shotstackEditPrompt,
+          }
+        : {}),
     },
   }
 }
