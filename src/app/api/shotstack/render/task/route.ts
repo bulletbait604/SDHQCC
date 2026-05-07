@@ -5,7 +5,12 @@ import {
   AuthError,
   createAuthErrorResponse,
 } from '@/lib/auth/verifyAuth'
-import { shotstackEditApiRoot } from '@/lib/shotstackEditUrl'
+import {
+  shotstackEditApiRoot,
+  shotstackEditApiVersion,
+  shotstackAuthEnvironmentHint,
+  shotstackSubmitUserMessage,
+} from '@/lib/shotstackEditUrl'
 import {
   resolveShotstackApiKey,
   SHOTSTACK_KEY_MISSING_USER_MESSAGE,
@@ -42,15 +47,21 @@ export async function GET(request: NextRequest) {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        Accept: 'application/json',
         'x-api-key': apiKey,
       },
       cache: 'no-store',
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
+      const base = shotstackSubmitUserMessage(data)
+      const userMessage = (base + shotstackAuthEnvironmentHint(res.status)).trim()
       return NextResponse.json(
         {
-          error: (data as { message?: string }).message || 'Shotstack status fetch failed',
+          error: userMessage,
+          userMessage,
+          shotstackHttpStatus: res.status,
+          shotstackEditVersion: shotstackEditApiVersion(),
           provider: data,
         },
         { status: 502 }

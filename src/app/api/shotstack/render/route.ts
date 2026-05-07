@@ -5,7 +5,12 @@ import {
   AuthError,
   createAuthErrorResponse,
 } from '@/lib/auth/verifyAuth'
-import { shotstackEditApiRoot } from '@/lib/shotstackEditUrl'
+import {
+  shotstackEditApiRoot,
+  shotstackEditApiVersion,
+  shotstackAuthEnvironmentHint,
+  shotstackSubmitUserMessage,
+} from '@/lib/shotstackEditUrl'
 import {
   resolveShotstackApiKey,
   SHOTSTACK_KEY_MISSING_USER_MESSAGE,
@@ -13,43 +18,6 @@ import {
 } from '@/lib/clipEditorServerKeys'
 
 export const dynamic = 'force-dynamic'
-
-/** Best-effort message from Shotstack non-2xx JSON (shape varies by error type). */
-function shotstackSubmitUserMessage(data: unknown): string {
-  if (!data || typeof data !== 'object') {
-    return 'Shotstack rejected the render request. If your key is sandbox, leave SHOTSTACK_STAGE unset or use stage; production keys need v1.'
-  }
-  const d = data as Record<string, unknown>
-  const parts: string[] = []
-  if (typeof d.message === 'string' && d.message.trim()) parts.push(d.message.trim())
-  if (typeof d.error === 'string' && d.error.trim()) parts.push(d.error.trim())
-  if (Array.isArray(d.errors)) {
-    for (const item of d.errors.slice(0, 6)) {
-      if (typeof item === 'string' && item.trim()) {
-        parts.push(item.trim())
-        continue
-      }
-      if (item && typeof item === 'object') {
-        const e = item as Record<string, unknown>
-        const bit = [e.title, e.detail, e.message, e.description].find(
-          (x) => typeof x === 'string' && String(x).trim()
-        ) as string | undefined
-        if (bit) parts.push(bit.trim())
-      }
-    }
-  }
-  const seen = new Set<string>()
-  const unique: string[] = []
-  for (const p of parts) {
-    if (!seen.has(p)) {
-      seen.add(p)
-      unique.push(p)
-    }
-  }
-  const merged = unique.join(' — ')
-  if (merged) return merged.length > 500 ? `${merged.slice(0, 497)}…` : merged
-  return 'Shotstack rejected the render request. Check API key, SHOTSTACK_STAGE (stage vs v1), and that the source video URL is publicly reachable by Shotstack.'
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -93,11 +61,14 @@ export async function POST(request: NextRequest) {
 
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
-      const userMessage = shotstackSubmitUserMessage(data)
+      const base = shotstackSubmitUserMessage(data)
+      const userMessage = (base + shotstackAuthEnvironmentHint(res.status)).trim()
       return NextResponse.json(
         {
           error: userMessage,
           userMessage,
+          shotstackHttpStatus: res.status,
+          shotstackEditVersion: shotstackEditApiVersion(),
           provider: data,
         },
         { status: 502 }
