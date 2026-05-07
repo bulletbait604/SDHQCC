@@ -70,11 +70,13 @@ export function generateShotstackJSON({
       asset: {
         type: 'video',
         src: sourceUrl,
+        trim: Number(sourceCursor.toFixed(2)),
       },
       start: Number(timelineCursor.toFixed(2)),
       length: Number(clipLen.toFixed(2)),
-      trim: Number(sourceCursor.toFixed(2)),
-      fit: 'cover',
+      // Shotstack: `crop` = scale to fill viewport while keeping aspect (like CSS object-fit: cover).
+      // `cover` in Shotstack means stretch without preserving aspect ratio.
+      fit: 'crop',
     })
     timelineCursor += clipLen
     sourceCursor += clipLen
@@ -137,11 +139,12 @@ export function generateShotstackJSON({
     },
     output: {
       format: 'mp4',
-      resolution: 'sd',
+      // Custom size: Shotstack docs say to omit `resolution` and `aspectRatio` when using `size`.
       size: {
         width: 1080,
         height: 1920,
       },
+      fps: 30,
     },
     metadata: {
       title,
