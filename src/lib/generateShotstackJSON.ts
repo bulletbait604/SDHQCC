@@ -48,6 +48,38 @@ function chunkCaption(text: string, wordsPerChunk: number): string[] {
   return chunks
 }
 
+/** Shotstack TextAsset (replaces deprecated TitleAsset). @see https://shotstack.io/docs/api/ */
+function buildCaptionTextAsset(text: string, platform: TargetPlatform): Record<string, unknown> {
+  const fontSize = platform === 'reels' ? 36 : platform === 'youtube' ? 32 : 40
+  return {
+    type: 'text',
+    text,
+    width: 960,
+    height: 260,
+    font: {
+      family: 'Montserrat ExtraBold',
+      color: '#ffffff',
+      size: fontSize,
+      weight: 700,
+      lineHeight: 1.12,
+    },
+    alignment: {
+      horizontal: 'center',
+      vertical: 'center',
+    },
+    stroke: {
+      width: 2,
+      color: '#000000',
+    },
+    background: {
+      color: '#000000',
+      opacity: 0.42,
+      padding: 10,
+      borderRadius: 6,
+    },
+  }
+}
+
 export function generateShotstackJSON({
   title = 'Viral Architect Output',
   sourceUrl,
@@ -92,12 +124,7 @@ export function generateShotstackJSON({
       if (cursor >= pacing.renderSeconds - 0.2) break
       const maxLen = Math.max(0.9, Math.min(pacing.chunkSeconds, pacing.renderSeconds - cursor))
       captionClips.push({
-        asset: {
-          type: 'title',
-          text: chunk,
-          style: 'minimal',
-          size: 'small',
-        },
+        asset: buildCaptionTextAsset(chunk, platform),
         start: Number(cursor.toFixed(2)),
         length: Number(maxLen.toFixed(2)),
         offset: {
@@ -112,12 +139,7 @@ export function generateShotstackJSON({
     if (platform === 'youtube' && captionClips.length > 0) {
       const firstText = (captionClips[0].asset as Record<string, unknown>).text
       captionClips.push({
-        asset: {
-          type: 'title',
-          text: firstText,
-          style: 'minimal',
-          size: 'small',
-        },
+        asset: buildCaptionTextAsset(String(firstText), platform),
         start: Math.max(0, pacing.renderSeconds - 2),
         length: 2,
         offset: {
