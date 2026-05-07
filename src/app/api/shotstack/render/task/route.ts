@@ -5,13 +5,9 @@ import {
   AuthError,
   createAuthErrorResponse,
 } from '@/lib/auth/verifyAuth'
+import { shotstackEditApiRoot } from '@/lib/shotstackEditUrl'
 
 export const dynamic = 'force-dynamic'
-
-function shotstackBaseUrl(): string {
-  const stage = (process.env.SHOTSTACK_STAGE || 'sandbox').trim().toLowerCase()
-  return `https://api.shotstack.io/${stage}`
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -29,7 +25,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'renderId query parameter is required' }, { status: 400 })
     }
 
-    const res = await fetch(`${shotstackBaseUrl()}/render/${encodeURIComponent(renderId)}`, {
+    const res = await fetch(`${shotstackEditApiRoot()}/render/${encodeURIComponent(renderId)}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
