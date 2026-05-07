@@ -5,7 +5,11 @@ import {
   AuthError,
   createAuthErrorResponse,
 } from '@/lib/auth/verifyAuth'
-import { shotstackEditApiRoot } from '@/lib/shotstackEditUrl'
+import {
+  shotstackEditApiRoot,
+  resolveShotstackApiKey,
+  SHOTSTACK_KEY_MISSING_USER_MESSAGE,
+} from '@/lib/shotstackEditUrl'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,9 +19,15 @@ export async function POST(request: NextRequest) {
     if (!hasClipEditorAccess(user)) {
       return NextResponse.json({ error: 'Clip Editor requires the Editor badge.' }, { status: 403 })
     }
-    const apiKey = process.env.SHOTSTACK_API_KEY
+    const apiKey = resolveShotstackApiKey()
     if (!apiKey) {
-      return NextResponse.json({ error: 'SHOTSTACK_API_KEY is not configured' }, { status: 503 })
+      return NextResponse.json(
+        {
+          error: 'SHOTSTACK_API_KEY is not configured',
+          userMessage: SHOTSTACK_KEY_MISSING_USER_MESSAGE,
+        },
+        { status: 503 }
+      )
     }
 
     const body = (await request.json()) as {
