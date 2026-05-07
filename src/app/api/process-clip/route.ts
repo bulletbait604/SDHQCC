@@ -178,13 +178,20 @@ ${body.clipBrief.trim()}`,
       }
     }
 
+    const captionForVideo =
+      (parsed.captionText && parsed.captionText.trim()) ||
+      (parsed.hookPlan && parsed.hookPlan.trim()) ||
+      ''
+
     const shotstack = generateShotstackJSON({
       title: `Viral Architect ${platform}`,
       sourceUrl,
       platform,
-      captionText: parsed.captionText,
+      captionText: captionForVideo || undefined,
       safeZone,
       shotstackEditPrompt: parsed.shotstackEditPrompt,
+      hookPlan: parsed.hookPlan,
+      pacePlan: parsed.pacePlan,
     })
 
     return NextResponse.json({
