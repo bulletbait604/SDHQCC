@@ -5,11 +5,12 @@ import {
   AuthError,
   createAuthErrorResponse,
 } from '@/lib/auth/verifyAuth'
+import { shotstackEditApiRoot } from '@/lib/shotstackEditUrl'
 import {
-  shotstackEditApiRoot,
   resolveShotstackApiKey,
   SHOTSTACK_KEY_MISSING_USER_MESSAGE,
-} from '@/lib/shotstackEditUrl'
+  shotstackKeyMissingEnvHint,
+} from '@/lib/clipEditorServerKeys'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,10 +22,12 @@ export async function GET(request: NextRequest) {
     }
     const apiKey = resolveShotstackApiKey()
     if (!apiKey) {
+      const envHint = shotstackKeyMissingEnvHint()
       return NextResponse.json(
         {
           error: 'SHOTSTACK_API_KEY is not configured',
           userMessage: SHOTSTACK_KEY_MISSING_USER_MESSAGE,
+          ...(envHint ? { envHint } : {}),
         },
         { status: 503 }
       )
