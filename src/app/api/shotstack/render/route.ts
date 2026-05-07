@@ -38,7 +38,15 @@ function shotstackSubmitUserMessage(data: unknown): string {
       }
     }
   }
-  const merged = [...new Set(parts)].join(' — ')
+  const seen = new Set<string>()
+  const unique: string[] = []
+  for (const p of parts) {
+    if (!seen.has(p)) {
+      seen.add(p)
+      unique.push(p)
+    }
+  }
+  const merged = unique.join(' — ')
   if (merged) return merged.length > 500 ? `${merged.slice(0, 497)}…` : merged
   return 'Shotstack rejected the render request. Check API key, SHOTSTACK_STAGE (stage vs v1), and that the source video URL is publicly reachable by Shotstack.'
 }
