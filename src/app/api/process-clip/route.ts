@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
       clipBrief?: string
       sourceUrl?: string
       r2FileKey?: string
+      landscapeMode?: 'crop' | 'letterbox'
     }
 
     if (!body.platform || !isTargetPlatform(body.platform)) {
@@ -147,6 +148,7 @@ Return valid JSON only:
 }
 
 Rules:
+- Final video is always 9:16 vertical (1080×1920). Sources may be landscape or webcam; the editor reframes to vertical (center-crop to fill by default, or letterbox the full wide frame if the user requests it). Keep faces and key action in the safe caption zone.
 - If target platform is reels, still provide Instagram + Facebook Reels variants.
 - If target platform is tiktok, still provide TikTok + Reels + Shorts variants.
 - If target platform is youtube, prioritize Shorts fields quality and keep title under 70 chars.
@@ -183,6 +185,8 @@ ${body.clipBrief.trim()}`,
       (parsed.hookPlan && parsed.hookPlan.trim()) ||
       ''
 
+    const lm = body.landscapeMode === 'letterbox' ? 'letterbox' : 'crop'
+
     const shotstack = generateShotstackJSON({
       title: `Viral Architect ${platform}`,
       sourceUrl,
@@ -192,6 +196,7 @@ ${body.clipBrief.trim()}`,
       shotstackEditPrompt: parsed.shotstackEditPrompt,
       hookPlan: parsed.hookPlan,
       pacePlan: parsed.pacePlan,
+      landscapeMode: lm,
     })
 
     return NextResponse.json({

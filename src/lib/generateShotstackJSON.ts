@@ -11,6 +11,12 @@ export interface GenerateShotstackInput {
   /** Optional AI copy — used to pick motion intensity and hook text fallback. */
   hookPlan?: string
   pacePlan?: string
+  /**
+   * Landscape / webcam → 9:16 vertical output (1080×1920).
+   * `crop` (default): scale and center-crop to fill the frame (typical Shorts/TikTok look).
+   * `letterbox`: fit entire horizontal frame inside vertical with black bars top/bottom.
+   */
+  landscapeMode?: 'crop' | 'letterbox'
 }
 
 type PacingProfile = {
@@ -169,10 +175,13 @@ export function generateShotstackJSON({
   shotstackEditPrompt,
   hookPlan,
   pacePlan,
+  landscapeMode = 'crop',
 }: GenerateShotstackInput) {
   const mood = combinedMood(platform, shotstackEditPrompt, hookPlan, pacePlan)
   const pacing = resolvePacingProfile(platform, shotstackEditPrompt)
   const palette = motionPalette(platform, mood)
+  /** Main full-frame video: fill vertical with center crop, or letterbox horizontal sources. */
+  const mainFit = landscapeMode === 'letterbox' ? 'contain' : 'crop'
 
   const cutLen =
     platform === 'reels' ? 3.5 : platform === 'youtube' ? 2.2 : 1.5
@@ -202,7 +211,8 @@ export function generateShotstackJSON({
       },
       start: s.start,
       length: s.length,
-      fit: 'crop',
+      fit: mainFit,
+      position: 'center',
       effect,
       transition: {
         in: index === 0 ? 'fade' : 'fadeFast',
@@ -325,6 +335,7 @@ export function generateShotstackJSON({
         chunkSeconds: pacing.chunkSeconds,
         introHookSeconds: pacing.introHookSeconds,
       },
+      landscapeToVertical: landscapeMode,
       ...(shotstackEditPrompt
         ? {
             aiShotstackEditPrompt: shotstackEditPrompt,

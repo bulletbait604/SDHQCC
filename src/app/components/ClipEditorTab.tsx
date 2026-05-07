@@ -37,6 +37,7 @@ export default function ClipEditorTab({
   refreshBalance,
 }: ClipEditorTabProps) {
   const [targetPlatform, setTargetPlatform] = useState<TargetPlatform>('tiktok')
+  const [landscapeLetterbox, setLandscapeLetterbox] = useState(false)
   const [clipFile, setClipFile] = useState<File | null>(null)
   const [r2FileKey, setR2FileKey] = useState<string | null>(null)
   const [renderId, setRenderId] = useState<string | null>(null)
@@ -186,6 +187,7 @@ export default function ClipEditorTab({
           platform: targetPlatform,
           clipBrief: `Create a high-performing ${targetPlatform} short from this uploaded clip. Prioritize strong hook, retention pacing, clear captions, and platform-safe framing.`,
           r2FileKey: key,
+          landscapeMode: landscapeLetterbox ? 'letterbox' : 'crop',
         }),
       })
       const processData = await processRes.json().catch(() => ({}))
@@ -307,6 +309,29 @@ export default function ClipEditorTab({
                 setTargetPlatform={setTargetPlatform}
                 disabled={busy !== null}
               />
+            </div>
+
+            <div className="space-y-2 max-w-xl mx-auto">
+              <label
+                className={`flex items-start gap-3 cursor-pointer text-left ${subtitleClasses}`}
+              >
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 shrink-0 rounded border-sdhq-cyan-500 text-sdhq-cyan-600"
+                  checked={landscapeLetterbox}
+                  onChange={(e) => setLandscapeLetterbox(e.target.checked)}
+                  disabled={busy !== null}
+                />
+                <span>
+                  <span className={`block text-sm font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+                    Letterbox landscape (full wide frame)
+                  </span>
+                  <span className="block text-xs opacity-90 mt-0.5">
+                    Off (default): horizontal or webcam footage is scaled and center-cropped to fill 9:16 vertical.
+                    On: entire wide frame stays visible with black bars top and bottom.
+                  </span>
+                </span>
+              </label>
             </div>
 
             <div className="space-y-3">
