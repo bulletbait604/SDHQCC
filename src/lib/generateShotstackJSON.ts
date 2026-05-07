@@ -103,6 +103,8 @@ export function generateShotstackJSON({
         type: 'video',
         src: sourceUrl,
         trim: Number(sourceCursor.toFixed(2)),
+        // User uploads may be variable codecs; Shotstack recommends transcode for reliable preprocessing.
+        transcode: true,
       },
       start: Number(timelineCursor.toFixed(2)),
       length: Number(clipLen.toFixed(2)),

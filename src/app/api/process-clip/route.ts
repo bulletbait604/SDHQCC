@@ -99,7 +99,8 @@ export async function POST(request: NextRequest) {
       if (!key.startsWith(prefix) || key.includes('..') || key.length > 500) {
         return NextResponse.json({ error: 'Invalid r2FileKey for current user' }, { status: 400 })
       }
-      const readUrl = await generatePresignedReadUrl(key, 3600)
+      // Long TTL: Shotstack fetches this URL when the render runs (queue can be long); Gemini also uses it during planning.
+      const readUrl = await generatePresignedReadUrl(key, 86400)
       if (!readUrl) {
         return NextResponse.json(
           { error: 'Could not prepare uploaded clip for processing' },

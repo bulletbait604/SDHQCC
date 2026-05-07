@@ -138,10 +138,23 @@ export default function ClipEditorTab({
   const extractShotstackVideoUrl = (snapshot: unknown): string | null => {
     const s = snapshot as Record<string, unknown> | null
     if (!s || typeof s !== 'object') return null
+    if (s.success === false && typeof s.message === 'string') return null
     const response = s.response as Record<string, unknown> | undefined
-    const directUrl = response?.url
-    if (typeof directUrl === 'string' && /^https?:\/\//i.test(directUrl)) return directUrl
+    const candidates = [response?.url, s.url]
+    for (const u of candidates) {
+      if (typeof u === 'string' && /^https?:\/\//i.test(u)) return u
+    }
     return null
+  }
+
+  const readShotstackPollError = (snapRes: Response, snapData: Record<string, unknown>): string => {
+    if (typeof snapData.error === 'string' && snapData.error.trim()) return snapData.error
+    if (typeof snapData.message === 'string' && snapData.message.trim() && snapData.success === false) {
+      return snapData.message
+    }
+    return snapRes.status === 502
+      ? 'Could not reach Shotstack (bad gateway). Retry in a moment.'
+      : `Render status request failed (${snapRes.status}).`
   }
 
   const handleOneClickCreate = async () => {
@@ -217,14 +230,25 @@ export default function ClipEditorTab({
       refreshBalance()
 
       const maxAttempts = 90
+      let doneWithoutUrlAttempts = 0
       for (let i = 0; i < maxAttempts; i++) {
         await sleep(4000)
         const snapRes = await fetch(`/api/shotstack/render/task?renderId=${encodeURIComponent(id)}`, {
           credentials: 'include',
         })
-        const snapData = await snapRes.json().catch(() => ({}))
+        const snapData = (await snapRes.json().catch(() => ({}))) as Record<string, unknown>
+        if (!snapRes.ok) {
+          throw new Error(readShotstackPollError(snapRes, snapData))
+        }
+        if (snapData.success === false) {
+          throw new Error(
+            typeof snapData.message === 'string' && snapData.message.trim()
+              ? snapData.message
+              : 'Shotstack could not return render status.'
+          )
+        }
         const status = String(
-          (snapData as { response?: { status?: string } }).response?.status || ''
+          (snapData.response as { status?: string } | undefined)?.status || ''
         ).toUpperCase()
         setStatusText(`Rendering... ${status || 'RUNNING'}`)
         const clipUrl = extractShotstackVideoUrl(snapData)
@@ -234,7 +258,21 @@ export default function ClipEditorTab({
           return
         }
         if (status === 'FAILED' || status === 'CANCELLED') {
-          throw new Error('Shotstack render failed. Try a shorter clip or simpler overlays.')
+          const errDetail =
+            typeof (snapData.response as { error?: string } | undefined)?.error === 'string'
+              ? ` ${(snapData.response as { error: string }).error}`
+              : ''
+          throw new Error(`Shotstack render failed.${errDetail} Try a shorter clip or simpler overlays.`)
+        }
+        if (status === 'DONE') {
+          doneWithoutUrlAttempts += 1
+          if (doneWithoutUrlAttempts >= 15) {
+            throw new Error(
+              'Render finished but no video URL was returned yet. Wait a minute and check Shotstack, or retry.'
+            )
+          }
+        } else {
+          doneWithoutUrlAttempts = 0
         }
       }
       throw new Error('Render timed out before completion. Please retry.')
