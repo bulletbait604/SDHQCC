@@ -42,7 +42,6 @@ export default function ClipEditorTab({
   const [renderId, setRenderId] = useState<string | null>(null)
   const [uploadStatus, setUploadStatus] = useState<string>('')
   const [finalClipUrl, setFinalClipUrl] = useState<string | null>(null)
-  const [finalPublishPackage, setFinalPublishPackage] = useState<unknown>(null)
   const [error, setError] = useState<string>('')
   const [statusText, setStatusText] = useState<string>('')
   const [busy, setBusy] = useState<'upload' | 'oneclick' | null>(null)
@@ -197,8 +196,6 @@ export default function ClipEditorTab({
             'Could not process clip'
         )
       }
-      setFinalPublishPackage((processData as { publishPackage?: unknown }).publishPackage ?? null)
-
       const shotstackPackage = (processData as { shotstack?: Record<string, unknown> }).shotstack
       if (!shotstackPackage) {
         throw new Error('AI package did not include Shotstack render data.')
@@ -375,16 +372,6 @@ export default function ClipEditorTab({
                 >
                   {finalClipUrl}
                 </a>
-              </div>
-            )}
-
-            {finalPublishPackage != null && (
-              <div
-                className={`rounded-xl border p-4 text-left text-xs font-mono overflow-auto max-h-64 ${
-                  darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-gray-200' : 'bg-gray-50 border-sdhq-cyan-200'
-                }`}
-              >
-                <pre>{JSON.stringify(finalPublishPackage, null, 2)}</pre>
               </div>
             )}
           </>
