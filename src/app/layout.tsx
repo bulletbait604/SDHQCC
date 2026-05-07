@@ -1,4 +1,5 @@
 import { Inter } from 'next/font/google'
+import Script from 'next/script'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import Providers from './providers'
@@ -27,13 +28,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8352204611358668"
-          crossOrigin="anonymous"
-        />
-      </head>
       <body className={inter.className}>
         <div className="min-h-screen bg-gradient-to-br from-sdhq-cyan-50 via-white to-sdhq-green-50 flex flex-col">
           <Providers>
@@ -72,6 +66,13 @@ export default function RootLayout({
           </footer>
           </Providers>
         </div>
+        {/* AdSense: uBlock / Brave / etc. show net::ERR_BLOCKED_BY_CLIENT — expected, not an app bug. */}
+        <Script
+          id="google-adsense"
+          strategy="afterInteractive"
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8352204611358668"
+          crossOrigin="anonymous"
+        />
         <Analytics />
       </body>
     </html>
