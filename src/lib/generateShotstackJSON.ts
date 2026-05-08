@@ -17,6 +17,14 @@ export interface GenerateShotstackInput {
    * `letterbox`: fit entire horizontal frame inside vertical with black bars top/bottom.
    */
   landscapeMode?: 'crop' | 'letterbox'
+  editBlueprint?: {
+    cutSeconds?: number
+    introHookSeconds?: number
+    renderSeconds?: number
+    captionWordsPerChunk?: number
+    overlayTexts?: string[]
+    preferredTransitions?: string[]
+  }
 }
 
 type PacingProfile = {
@@ -29,6 +37,39 @@ type VideoSeg = {
   start: number
   length: number
   trim: number
+}
+
+type TransitionName =
+  | 'fade'
+  | 'reveal'
+  | 'wipeLeft'
+  | 'wipeRight'
+  | 'slideLeft'
+  | 'slideRight'
+  | 'slideUp'
+  | 'slideDown'
+  | 'zoom'
+
+const SAFE_TRANSITIONS: readonly TransitionName[] = [
+  'fade',
+  'reveal',
+  'wipeLeft',
+  'wipeRight',
+  'slideLeft',
+  'slideRight',
+  'slideUp',
+  'slideDown',
+  'zoom',
+] as const
+
+function clamp(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min
+  return Math.min(max, Math.max(min, value))
+}
+
+function normalizeTransition(value: string): TransitionName | null {
+  const v = value.trim()
+  return (SAFE_TRANSITIONS as readonly string[]).includes(v) ? (v as TransitionName) : null
 }
 
 function resolvePacingProfile(platform: TargetPlatform, prompt?: string): PacingProfile {
@@ -76,20 +117,21 @@ function motionPalette(
   platform: TargetPlatform,
   mood: string
 ): readonly [string, string, string, string] {
+  // Use only stable built-in effect names supported across Edit API environments.
   if (mood.includes('cinematic') || mood.includes('slow')) {
-    return ['zoomInSlow', 'slideUpSlow', 'zoomOutSlow', 'slideRightSlow'] as const
+    return ['zoomIn', 'slideUp', 'zoomOut', 'slideRight'] as const
   }
   if (platform === 'reels') {
-    return ['zoomInSlow', 'slideUp', 'zoomOut', 'slideRight'] as const
+    return ['zoomIn', 'slideUp', 'zoomOut', 'slideRight'] as const
   }
   if (platform === 'youtube') {
     return ['zoomIn', 'slideLeft', 'zoomOut', 'slideRight'] as const
   }
-  // TikTok / chaos pacing
+  // TikTok / high-energy cadence still uses compatible effect names.
   if (mood.includes('chaos') || mood.includes('fast')) {
-    return ['zoomInFast', 'slideRightFast', 'zoomOutFast', 'slideLeftFast'] as const
+    return ['zoomIn', 'slideRight', 'zoomOut', 'slideLeft'] as const
   }
-  return ['zoomInFast', 'slideRightFast', 'zoomOutFast', 'slideLeftFast'] as const
+  return ['zoomIn', 'slideRight', 'zoomOut', 'slideLeft'] as const
 }
 
 function pickEffect(
@@ -100,7 +142,7 @@ function pickEffect(
 ): string {
   const hookBoost = segStart < introHookSeconds - 0.05
   if (hookBoost) {
-    return palette[0].includes('Fast') ? 'zoomInFast' : 'zoomInSlow'
+    return 'zoomIn'
   }
   return palette[index % palette.length]!
 }
@@ -176,15 +218,20 @@ export function generateShotstackJSON({
   hookPlan,
   pacePlan,
   landscapeMode = 'crop',
+  editBlueprint,
 }: GenerateShotstackInput) {
   const mood = combinedMood(platform, shotstackEditPrompt, hookPlan, pacePlan)
-  const pacing = resolvePacingProfile(platform, shotstackEditPrompt)
+  const pacingBase = resolvePacingProfile(platform, shotstackEditPrompt)
+  const pacing: PacingProfile = {
+    chunkSeconds: clamp(editBlueprint?.cutSeconds ?? pacingBase.chunkSeconds, 1.0, 4.5),
+    introHookSeconds: clamp(editBlueprint?.introHookSeconds ?? pacingBase.introHookSeconds, 1.0, 5.0),
+    renderSeconds: clamp(editBlueprint?.renderSeconds ?? pacingBase.renderSeconds, 8.0, 45.0),
+  }
   const palette = motionPalette(platform, mood)
   /** Main full-frame video: fill vertical with center crop, or letterbox horizontal sources. */
   const mainFit = landscapeMode === 'letterbox' ? 'contain' : 'crop'
 
-  const cutLen =
-    platform === 'reels' ? 3.5 : platform === 'youtube' ? 2.2 : 1.5
+  const cutLen = pacing.chunkSeconds
   const segments: VideoSeg[] = []
   let timelineCursor = 0
   let sourceCursor = 0
@@ -199,9 +246,21 @@ export function generateShotstackJSON({
     sourceCursor += clipLen
   }
 
+  const requestedTransitions = (editBlueprint?.preferredTransitions || [])
+    .map((t) => normalizeTransition(t))
+    .filter((t): t is TransitionName => t !== null)
+  const fallbackTransitions: readonly TransitionName[] =
+    platform === 'reels'
+      ? (['fade', 'slideUp', 'slideLeft'] as const)
+      : platform === 'youtube'
+        ? (['fade', 'slideLeft', 'wipeLeft'] as const)
+        : (['fade', 'slideRight', 'wipeRight'] as const)
+  const transitionPool = requestedTransitions.length ? requestedTransitions : fallbackTransitions
+
   const mainClips: Array<Record<string, unknown>> = []
   segments.forEach((s, index) => {
     const effect = pickEffect(index, s.start, palette, pacing.introHookSeconds)
+    const transition = transitionPool[index % transitionPool.length] || 'fade'
     mainClips.push({
       asset: {
         type: 'video',
@@ -214,10 +273,7 @@ export function generateShotstackJSON({
       fit: mainFit,
       position: 'center',
       effect,
-      transition: {
-        in: index === 0 ? 'fade' : 'fadeFast',
-        out: 'fadeFast',
-      },
+      transition,
     })
   })
 
@@ -244,8 +300,8 @@ export function generateShotstackJSON({
       scale: 0.36,
       position: i % 2 === 0 ? 'topRight' : 'bottomLeft',
       offset: { x: i % 2 === 0 ? 0.04 : -0.04, y: i % 2 === 0 ? 0.06 : -0.06 },
-      transition: { in: 'fade', out: 'fade' },
-      effect: i % 3 === 0 ? 'zoomInSlow' : 'none',
+      transition: 'fade',
+      effect: i % 3 === 0 ? 'zoomIn' : 'none',
     })
   })
   if (pipClips.length) {
@@ -266,7 +322,7 @@ export function generateShotstackJSON({
           asset: buildHookSplashAsset(hookLine, platform),
           start: 0,
           length: 1.65,
-          transition: { in: 'fade', out: 'fadeFast' },
+          transition: 'fade',
         },
       ],
     })
@@ -274,7 +330,10 @@ export function generateShotstackJSON({
   }
 
   if (onScreenCopy) {
-    const wordsPerChunk = platform === 'reels' ? 8 : platform === 'youtube' ? 6 : 4
+    const defaultWordsPerChunk = platform === 'reels' ? 8 : platform === 'youtube' ? 6 : 4
+    const wordsPerChunk = Math.round(
+      clamp(editBlueprint?.captionWordsPerChunk ?? defaultWordsPerChunk, 3, 14)
+    )
     const chunks = chunkCaption(onScreenCopy, wordsPerChunk)
     const captionClips: Array<Record<string, unknown>> = []
     let cursor = captionStartOffset
@@ -290,7 +349,7 @@ export function generateShotstackJSON({
           x: safeZone.captionX,
           y: safeZone.captionY,
         },
-        transition: { in: 'fade', out: 'fadeFast' },
+        transition: 'fade',
       })
       cursor += pacing.chunkSeconds
     })
@@ -305,13 +364,56 @@ export function generateShotstackJSON({
           x: safeZone.captionX,
           y: safeZone.captionY,
         },
-        transition: { in: 'fade', out: 'fade' },
+        transition: 'fade',
       })
     }
 
     tracks.push({
       clips: captionClips,
     })
+  }
+
+  const overlayTexts = (editBlueprint?.overlayTexts || [])
+    .map((line) => line.trim())
+    .filter((line) => line.length >= 3)
+    .slice(0, 6)
+  if (overlayTexts.length) {
+    const overlayStep = Math.max(1.8, pacing.renderSeconds / (overlayTexts.length + 1))
+    const overlayClips: Array<Record<string, unknown>> = []
+    overlayTexts.forEach((line, i) => {
+      const start = Number((0.8 + i * overlayStep).toFixed(2))
+      if (start >= pacing.renderSeconds - 0.5) return
+      overlayClips.push({
+        asset: {
+          type: 'text',
+          text: line.slice(0, 70),
+          width: 700,
+          height: 120,
+          font: {
+            family: 'Montserrat ExtraBold',
+            color: '#f5f8ff',
+            size: platform === 'reels' ? 34 : platform === 'youtube' ? 30 : 36,
+            weight: 700,
+          },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          background: {
+            color: '#04121f',
+            opacity: 0.45,
+            padding: 8,
+            borderRadius: 8,
+          },
+          stroke: { width: 2, color: '#000000' },
+        },
+        start,
+        length: 1.25,
+        offset: {
+          x: 0,
+          y: safeZone.captionY + 0.28,
+        },
+        transition: 'slideUp',
+      })
+    })
+    if (overlayClips.length) tracks.push({ clips: overlayClips })
   }
 
   return {

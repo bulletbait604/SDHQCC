@@ -13,6 +13,7 @@ import {
 } from '@/lib/platformEditing'
 import { generateShotstackJSON } from '@/lib/generateShotstackJSON'
 import { generatePresignedReadUrl } from '@/lib/r2'
+import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,6 +51,15 @@ function extractFirstJsonObject(raw: string): string | null {
     }
   }
   return null
+}
+
+type EditBlueprint = {
+  cutSeconds?: number
+  introHookSeconds?: number
+  renderSeconds?: number
+  captionWordsPerChunk?: number
+  overlayTexts?: string[]
+  preferredTransitions?: string[]
 }
 
 export async function POST(request: NextRequest) {
@@ -91,6 +101,8 @@ export async function POST(request: NextRequest) {
 
     const platform = body.platform
     const safeZone = platformSafeZoneOffsets(platform)
+    const snapshot = await readAlgorithmSnapshotFromMongo()
+    const platformAlgorithmNotes = snapshot?.data?.[platform] ?? null
     const gemini = new GoogleGenAI({ apiKey })
     let sourceUrl = body.sourceUrl || ''
     if (!sourceUrl && hasR2FileKey) {
@@ -121,6 +133,8 @@ export async function POST(request: NextRequest) {
               text: `You are the "Viral Architect" engine. Build an upload-click-done package for a short-form video.
 Target platform: ${platform}
 Platform directive: ${platformEditingDirective(platform)}
+Platform safe-zone offsets: ${JSON.stringify(safeZone)}
+Stored algorithm notes for this platform (JSON): ${JSON.stringify(platformAlgorithmNotes)}
 
 Return valid JSON only:
 {
@@ -129,6 +143,14 @@ Return valid JSON only:
   "pacePlan": "string",
   "facecamGuidance": "string",
   "shotstackEditPrompt": "string (clear editing instructions for Shotstack timeline setup, pacing, visual emphasis, and platform-safe framing)",
+  "editBlueprint": {
+    "cutSeconds": "number 1.0..4.5",
+    "introHookSeconds": "number 1.0..5.0",
+    "renderSeconds": "number 8..45",
+    "captionWordsPerChunk": "number 3..14",
+    "overlayTexts": ["short overlay callouts, max 6"],
+    "preferredTransitions": ["fade|reveal|wipeLeft|wipeRight|slideLeft|slideRight|slideUp|slideDown|zoom"]
+  },
   "publishPackage": {
     "tiktok": {
       "captionWithEmojisAndTags": "string with emojis and hashtags"
@@ -154,6 +176,8 @@ Rules:
 - If target platform is youtube, prioritize Shorts fields quality and keep title under 70 chars.
 - Include at least 8 hashtags for TikTok/Reels captions.
 - Keep YouTube Shorts tags array between 10 and 20 items.
+- Make the editBlueprint concrete: specify cut cadence, hook intensity, overlays, and transitions aligned with the platform directive and algorithm notes.
+- Overlay text must be short, high-retention callouts and avoid covering the primary caption safe zone.
 
 CLIP_BRIEF:
 ${body.clipBrief.trim()}`,
@@ -172,6 +196,7 @@ ${body.clipBrief.trim()}`,
       pacePlan?: string
       facecamGuidance?: string
       shotstackEditPrompt?: string
+      editBlueprint?: EditBlueprint
       publishPackage?: {
         tiktok?: { captionWithEmojisAndTags?: string }
         instagramReels?: { captionWithEmojisAndTags?: string }
@@ -186,6 +211,7 @@ ${body.clipBrief.trim()}`,
       ''
 
     const lm = body.landscapeMode === 'letterbox' ? 'letterbox' : 'crop'
+    const editBlueprint = parsed.editBlueprint
 
     const shotstack = generateShotstackJSON({
       title: `Viral Architect ${platform}`,
@@ -197,6 +223,7 @@ ${body.clipBrief.trim()}`,
       hookPlan: parsed.hookPlan,
       pacePlan: parsed.pacePlan,
       landscapeMode: lm,
+      editBlueprint,
     })
 
     return NextResponse.json({
@@ -207,6 +234,7 @@ ${body.clipBrief.trim()}`,
       shotstackEditPrompt:
         parsed.shotstackEditPrompt ||
         `${parsed.hookPlan || ''} ${parsed.pacePlan || ''} ${parsed.facecamGuidance || ''}`.trim(),
+      editBlueprint: editBlueprint || null,
       publishPackage: parsed.publishPackage || null,
       shotstack,
       source: hasR2FileKey ? 'r2-presigned-url' : 'source-url',
