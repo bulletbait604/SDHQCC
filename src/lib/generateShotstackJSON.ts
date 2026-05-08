@@ -273,7 +273,10 @@ export function generateShotstackJSON({
       fit: mainFit,
       position: 'center',
       effect,
-      transition,
+      transition: {
+        in: transition,
+        out: 'fade',
+      },
     })
   })
 
@@ -300,7 +303,10 @@ export function generateShotstackJSON({
       scale: 0.36,
       position: i % 2 === 0 ? 'topRight' : 'bottomLeft',
       offset: { x: i % 2 === 0 ? 0.04 : -0.04, y: i % 2 === 0 ? 0.06 : -0.06 },
-      transition: 'fade',
+      transition: {
+        in: 'fade',
+        out: 'fade',
+      },
       effect: i % 3 === 0 ? 'zoomIn' : 'none',
     })
   })
@@ -322,7 +328,10 @@ export function generateShotstackJSON({
           asset: buildHookSplashAsset(hookLine, platform),
           start: 0,
           length: 1.65,
-          transition: 'fade',
+          transition: {
+            in: 'fade',
+            out: 'fade',
+          },
         },
       ],
     })
@@ -349,7 +358,10 @@ export function generateShotstackJSON({
           x: safeZone.captionX,
           y: safeZone.captionY,
         },
-        transition: 'fade',
+        transition: {
+          in: 'fade',
+          out: 'fade',
+        },
       })
       cursor += pacing.chunkSeconds
     })
@@ -364,7 +376,10 @@ export function generateShotstackJSON({
           x: safeZone.captionX,
           y: safeZone.captionY,
         },
-        transition: 'fade',
+        transition: {
+          in: 'fade',
+          out: 'fade',
+        },
       })
     }
 
@@ -410,7 +425,10 @@ export function generateShotstackJSON({
           x: 0,
           y: safeZone.captionY + 0.28,
         },
-        transition: 'slideUp',
+        transition: {
+          in: 'slideUp',
+          out: 'fade',
+        },
       })
     })
     if (overlayClips.length) tracks.push({ clips: overlayClips })
