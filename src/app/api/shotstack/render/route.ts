@@ -19,6 +19,139 @@ import {
 
 export const dynamic = 'force-dynamic'
 
+type ClipLike = Record<string, unknown>
+type TrackLike = { clips?: ClipLike[] }
+
+const ALLOWED_EFFECTS = new Set([
+  'zoomIn',
+  'zoomInSlow',
+  'zoomInFast',
+  'zoomOut',
+  'zoomOutSlow',
+  'zoomOutFast',
+  'slideLeft',
+  'slideLeftSlow',
+  'slideLeftFast',
+  'slideRight',
+  'slideRightSlow',
+  'slideRightFast',
+  'slideUp',
+  'slideUpSlow',
+  'slideUpFast',
+  'slideDown',
+  'slideDownSlow',
+  'slideDownFast',
+])
+
+const ALLOWED_TRANSITIONS = new Set([
+  'fade',
+  'fadeSlow',
+  'fadeFast',
+  'reveal',
+  'revealSlow',
+  'revealFast',
+  'wipeLeft',
+  'wipeLeftSlow',
+  'wipeLeftFast',
+  'wipeRight',
+  'wipeRightSlow',
+  'wipeRightFast',
+  'slideLeft',
+  'slideLeftSlow',
+  'slideLeftFast',
+  'slideRight',
+  'slideRightSlow',
+  'slideRightFast',
+  'slideUp',
+  'slideUpSlow',
+  'slideUpFast',
+  'slideDown',
+  'slideDownSlow',
+  'slideDownFast',
+  'carouselLeft',
+  'carouselLeftSlow',
+  'carouselLeftFast',
+  'carouselRight',
+  'carouselRightSlow',
+  'carouselRightFast',
+  'carouselUp',
+  'carouselUpSlow',
+  'carouselUpFast',
+  'carouselDown',
+  'carouselDownSlow',
+  'carouselDownFast',
+  'shuffleTopRight',
+  'shuffleTopRightSlow',
+  'shuffleTopRightFast',
+  'shuffleRightTop',
+  'shuffleRightTopSlow',
+  'shuffleRightTopFast',
+  'shuffleRightBottom',
+  'shuffleRightBottomSlow',
+  'shuffleRightBottomFast',
+  'shuffleBottomRight',
+  'shuffleBottomRightSlow',
+  'shuffleBottomRightFast',
+  'shuffleBottomLeft',
+  'shuffleBottomLeftSlow',
+  'shuffleBottomLeftFast',
+  'shuffleLeftBottom',
+  'shuffleLeftBottomSlow',
+  'shuffleLeftBottomFast',
+  'shuffleLeftTop',
+  'shuffleLeftTopSlow',
+  'shuffleLeftTopFast',
+  'shuffleTopLeft',
+  'shuffleTopLeftSlow',
+  'shuffleTopLeftFast',
+  'zoom',
+  'zoomSlow',
+  'zoomFast',
+])
+
+function sanitizeClip(clip: ClipLike): ClipLike {
+  const out: ClipLike = { ...clip }
+  const effect = out.effect
+  if (typeof effect === 'string' && !ALLOWED_EFFECTS.has(effect)) {
+    delete out.effect
+  }
+
+  const transition = out.transition
+  if (transition && typeof transition === 'object' && !Array.isArray(transition)) {
+    const t = transition as Record<string, unknown>
+    const next: Record<string, string> = {}
+    if (typeof t.in === 'string' && ALLOWED_TRANSITIONS.has(t.in)) next.in = t.in
+    if (typeof t.out === 'string' && ALLOWED_TRANSITIONS.has(t.out)) next.out = t.out
+    if (Object.keys(next).length > 0) out.transition = next
+    else delete out.transition
+  } else if (typeof transition === 'string') {
+    if (ALLOWED_TRANSITIONS.has(transition)) {
+      out.transition = { in: transition, out: 'fade' }
+    } else {
+      delete out.transition
+    }
+  } else if (transition != null) {
+    delete out.transition
+  }
+
+  return out
+}
+
+function sanitizeTimeline(timeline: Record<string, unknown>): Record<string, unknown> {
+  const tracks = Array.isArray(timeline.tracks) ? (timeline.tracks as TrackLike[]) : []
+  const safeTracks = tracks
+    .map((track) => {
+      const clips = Array.isArray(track.clips) ? track.clips.map((clip) => sanitizeClip(clip)) : []
+      return { ...track, clips }
+    })
+    .filter((track) => Array.isArray(track.clips) && track.clips.length > 0)
+
+  return {
+    ...timeline,
+    tracks: safeTracks,
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth(request)
@@ -46,6 +179,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'timeline and output are required' }, { status: 400 })
     }
 
+    const timeline = sanitizeTimeline(body.timeline)
     const res = await fetch(`${shotstackEditApiRoot()}/render`, {
       method: 'POST',
       headers: {
@@ -54,7 +188,7 @@ export async function POST(request: NextRequest) {
         'x-api-key': apiKey,
       },
       body: JSON.stringify({
-        timeline: body.timeline,
+        timeline,
         output: body.output,
       }),
     })

@@ -290,7 +290,7 @@ export function generateShotstackJSON({
     const pipStart = Number((s.start + Math.max(0.12, (s.length - pipLen) * 0.28)).toFixed(2))
     const trimOffset = Math.min(2.8, Math.max(0.35, s.length * 0.22))
     const pipTrim = Number((s.trim + trimOffset).toFixed(2))
-    pipClips.push({
+    const pipClip: Record<string, unknown> = {
       asset: {
         type: 'video',
         src: sourceUrl,
@@ -307,8 +307,12 @@ export function generateShotstackJSON({
         in: 'fade',
         out: 'fade',
       },
-      effect: i % 3 === 0 ? 'zoomIn' : 'none',
-    })
+    }
+    // Clip effect enum does not include "none" - omit the field when unused.
+    if (i % 3 === 0) {
+      pipClip.effect = 'zoomIn'
+    }
+    pipClips.push(pipClip)
   })
   if (pipClips.length) {
     tracks.push({ clips: pipClips })
