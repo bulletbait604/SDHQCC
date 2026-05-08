@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
       sourceUrl?: string
       r2FileKey?: string
       landscapeMode?: 'crop' | 'letterbox'
+      sourceDurationSeconds?: number
     }
 
     if (!body.platform || !isTargetPlatform(body.platform)) {
@@ -212,6 +213,10 @@ ${body.clipBrief.trim()}`,
 
     const lm = body.landscapeMode === 'letterbox' ? 'letterbox' : 'crop'
     const editBlueprint = parsed.editBlueprint
+    const sourceDurationSeconds =
+      typeof body.sourceDurationSeconds === 'number' && Number.isFinite(body.sourceDurationSeconds)
+        ? body.sourceDurationSeconds
+        : undefined
 
     const shotstack = generateShotstackJSON({
       title: `Viral Architect ${platform}`,
@@ -224,6 +229,7 @@ ${body.clipBrief.trim()}`,
       pacePlan: parsed.pacePlan,
       landscapeMode: lm,
       editBlueprint,
+      sourceDurationSeconds,
     })
 
     return NextResponse.json({

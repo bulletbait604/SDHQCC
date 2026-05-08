@@ -39,6 +39,7 @@ export default function ClipEditorTab({
   const [targetPlatform, setTargetPlatform] = useState<TargetPlatform>('tiktok')
   const [landscapeLetterbox, setLandscapeLetterbox] = useState(false)
   const [clipFile, setClipFile] = useState<File | null>(null)
+  const [clipDurationSeconds, setClipDurationSeconds] = useState<number | null>(null)
   const [r2FileKey, setR2FileKey] = useState<string | null>(null)
   const [renderId, setRenderId] = useState<string | null>(null)
   const [uploadStatus, setUploadStatus] = useState<string>('')
@@ -67,6 +68,7 @@ export default function ClipEditorTab({
   const onPickFile = async (f: File | null) => {
     setError('')
     setClipFile(null)
+    setClipDurationSeconds(null)
     setR2FileKey(null)
     if (!f) return
     if (!f.type.startsWith('video/')) {
@@ -79,6 +81,7 @@ export default function ClipEditorTab({
         setError(`Clip Editor currently accepts videos up to ${MAX_CLIP_SECONDS} seconds.`)
         return
       }
+      setClipDurationSeconds(dur)
     } catch {
       setError('Could not read video duration.')
       return
@@ -188,6 +191,9 @@ export default function ClipEditorTab({
           clipBrief: `Create a high-performing ${targetPlatform} short from this uploaded clip. Prioritize strong hook, retention pacing, clear captions, and platform-safe framing.`,
           r2FileKey: key,
           landscapeMode: landscapeLetterbox ? 'letterbox' : 'crop',
+          ...(typeof clipDurationSeconds === 'number' && Number.isFinite(clipDurationSeconds)
+            ? { sourceDurationSeconds: clipDurationSeconds }
+            : {}),
         }),
       })
       const processData = await processRes.json().catch(() => ({}))

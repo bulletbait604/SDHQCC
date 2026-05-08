@@ -25,6 +25,8 @@ export interface GenerateShotstackInput {
     overlayTexts?: string[]
     preferredTransitions?: string[]
   }
+  /** Optional detected source duration in seconds from client metadata. */
+  sourceDurationSeconds?: number
 }
 
 type PacingProfile = {
@@ -219,31 +221,55 @@ export function generateShotstackJSON({
   pacePlan,
   landscapeMode = 'crop',
   editBlueprint,
+  sourceDurationSeconds,
 }: GenerateShotstackInput) {
   const mood = combinedMood(platform, shotstackEditPrompt, hookPlan, pacePlan)
   const pacingBase = resolvePacingProfile(platform, shotstackEditPrompt)
+  const requestedRenderSeconds = clamp(editBlueprint?.renderSeconds ?? pacingBase.renderSeconds, 8.0, 45.0)
+  const sourceDurationCap =
+    typeof sourceDurationSeconds === 'number' && Number.isFinite(sourceDurationSeconds)
+      ? clamp(sourceDurationSeconds - 0.2, 2.5, 90)
+      : null
   const pacing: PacingProfile = {
     chunkSeconds: clamp(editBlueprint?.cutSeconds ?? pacingBase.chunkSeconds, 1.0, 4.5),
     introHookSeconds: clamp(editBlueprint?.introHookSeconds ?? pacingBase.introHookSeconds, 1.0, 5.0),
-    renderSeconds: clamp(editBlueprint?.renderSeconds ?? pacingBase.renderSeconds, 8.0, 45.0),
+    renderSeconds:
+      sourceDurationCap != null
+        ? Math.min(requestedRenderSeconds, sourceDurationCap)
+        : requestedRenderSeconds,
   }
   const palette = motionPalette(platform, mood)
   /** Main full-frame video: fill vertical with center crop, or letterbox horizontal sources. */
   const mainFit = landscapeMode === 'letterbox' ? 'contain' : 'crop'
 
   const cutLen = pacing.chunkSeconds
+  const maxSourceTrimStart =
+    sourceDurationCap != null ? Math.max(0, sourceDurationCap - 0.9) : Number.POSITIVE_INFINITY
   const segments: VideoSeg[] = []
   let timelineCursor = 0
   let sourceCursor = 0
+  let segIndex = 0
   while (timelineCursor < pacing.renderSeconds - 0.2) {
-    const clipLen = Math.min(cutLen, pacing.renderSeconds - timelineCursor)
+    const jitterScale = segIndex % 3 === 0 ? 1.16 : segIndex % 3 === 1 ? 0.86 : 1.02
+    const desiredLen = clamp(cutLen * jitterScale, Math.max(0.9, cutLen * 0.72), cutLen * 1.28)
+    const clipLen = Math.min(desiredLen, pacing.renderSeconds - timelineCursor)
+    const boundedTrim =
+      maxSourceTrimStart === Number.POSITIVE_INFINITY
+        ? sourceCursor
+        : Math.min(sourceCursor, maxSourceTrimStart)
     segments.push({
       start: Number(timelineCursor.toFixed(2)),
       length: Number(clipLen.toFixed(2)),
-      trim: Number(sourceCursor.toFixed(2)),
+      trim: Number(boundedTrim.toFixed(2)),
     })
     timelineCursor += clipLen
-    sourceCursor += clipLen
+    // Move through source with a slight stride offset to reduce mechanical repetition.
+    sourceCursor += clipLen * (segIndex % 2 === 0 ? 1.08 : 0.93)
+    if (sourceDurationCap != null && sourceCursor > maxSourceTrimStart) {
+      // Wrap into a different interior region instead of holding on the last frames.
+      sourceCursor = Math.max(0.4, (sourceCursor - maxSourceTrimStart) * 0.35)
+    }
+    segIndex += 1
   }
 
   const requestedTransitions = (editBlueprint?.preferredTransitions || [])
@@ -289,7 +315,11 @@ export function generateShotstackJSON({
     const pipLen = Number(Math.min(1.45, s.length * 0.52).toFixed(2))
     const pipStart = Number((s.start + Math.max(0.12, (s.length - pipLen) * 0.28)).toFixed(2))
     const trimOffset = Math.min(2.8, Math.max(0.35, s.length * 0.22))
-    const pipTrim = Number((s.trim + trimOffset).toFixed(2))
+    const rawPipTrim = s.trim + trimOffset
+    const pipTrim =
+      maxSourceTrimStart === Number.POSITIVE_INFINITY
+        ? Number(rawPipTrim.toFixed(2))
+        : Number(Math.min(rawPipTrim, maxSourceTrimStart).toFixed(2))
     const pipClip: Record<string, unknown> = {
       asset: {
         type: 'video',
