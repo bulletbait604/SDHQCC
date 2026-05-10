@@ -1,76 +1,76 @@
 {
   "data": {
     "youtube-shorts": {
-      "keyChanges": "Algorithm now prioritizes watch time, engagement rate, and content freshness; uses AI to detect relevance; Shorts playlist boosting; shifts from upload date to behavioral signals.",
-      "editingTips": "Keep first 3 seconds hook; vertical 9:16; 15‑60 seconds; use captions; dynamic cuts; sound quality; brand consistency; use trending sounds; frame transitions; add end screens; maintain high bitrate.",
-      "postingTips": "Post 1‑2 times daily; best times 8‑10am or 6‑8pm PST; vary time zones; use analytics to test; aim for 30‑60 sec; consistency is key.",
-      "titleTips": "Include primary keyword; keep under 30 chars; use emojis sparingly; create curiosity; avoid clickbait; keep descriptive.",
-      "descriptionTips": "Add hashtags (#Shorts); include 3‑5 keywords; add link to channel; keep under 100 chars; call to action.",
+      "keyChanges": "YouTube Shorts now prioritizes watch‑time and completion metrics over mere clicks, employs AI to surface trending formats, gives new creators a short‑term exposure boost if early engagement spikes, and refines thumbnails and titles automatically for higher relevance.",
+      "editingTips": "Keep videos vertical and under 60 seconds, hook viewers in the first 3 seconds, use on‑screen captions, minimal transitions, and a clear call‑to‑action at the end.",
+      "postingTips": "Post during peak U.S. morning hours (7‑10 am ET), aim for 3–4 Shorts per week, align with trending topics, and maintain a consistent schedule to build momentum.",
+      "titleTips": "Include a keyword, create a hook, keep under 70 characters, and avoid clickbait while ensuring clarity.",
+      "descriptionTips": "Add relevant keywords, a short CTA, up to 3–4 hashtags (#Shorts included), a link to your channel, and keep the description concise (≤100 words).",
       "summaries": [
-        "Hook matters more than length",
-        "AI prioritizes viewer retention",
-        "Consistent uploads build momentum",
-        "Use trending sounds, not just visuals"
+        "Completion rate drives Shorts visibility",
+        "AI spotlights trending formats",
+        "Consistent posting builds momentum",
+        "Captions boost accessibility and retention"
       ],
       "provider": "pollinations"
     },
     "tiktok": {
-      "keyChanges": "Algorithm now prioritizes creator authenticity, engagement depth, and content originality, while penalizing repetitive audio and copyrighted clips.",
-      "editingTips": "Use vertical 9:16 format, keep videos 15‑30 s, add captions, leverage trending sounds, apply quick cuts, use color grading, include a strong hook in first 3 s, keep transitions smooth, add text overlays for emphasis, and test video stability by previewing before posting.",
-      "postingTips": "Post 2–3 times daily, targeting 6‑9 am, 12‑3 pm, and 7‑10 pm local time. Monitor analytics to find personal peak engagement, avoid over‑posting, and schedule during high‑traffic windows on weekdays and weekends.",
-      "titleTips": "Hook in first 3 s, use emojis sparingly, keep under 10 chars, include keyword, reference trend or challenge.",
-      "descriptionTips": "Add 2–3 relevant hashtags, include a CTA, add location if applicable, keep description concise (≤140 chars), and use line breaks to improve readability.",
+      "keyChanges": "Algorithm now prioritizes micro‑engagements, AI‑derived intent signals, and real‑time trend clustering.",
+      "editingTips": "Use 15‑second hooks, vertical framing, and dynamic captions; keep content under 60 s for higher completion rates; add trending sounds early; use on‑screen text to reinforce key points.",
+      "postingTips": "Post 3–4 times per day, spaced 3–5 hours apart; peak times are 9‑11 am and 6‑8 pm local time; experiment with early‑morning content for niche audiences.",
+      "titleTips": "Include a clear value statement, use emojis sparingly, and keep titles under 6 words; emphasize curiosity or benefit.",
+      "descriptionTips": "Add 1–2 relevant hashtags, use calls‑to‑action, and embed timestamps for longer videos; keep description concise and keyword‑rich.",
       "summaries": [
-        "Authenticity drives recommendation scores",
-        "Engagement depth outpaces view count",
-        "Shorter videos retain attention",
-        "Trending audio amplifies reach"
+        "AI predicts intent, not just views",
+        "Micro‑engagements now dominate feed",
+        "Timely posting boosts discovery",
+        "Caption hooks increase watch time"
       ],
       "provider": "pollinations"
     },
     "instagram": {
-      "keyChanges": "Algorithm now prioritizes Reels, engagement depth, and real‑time interaction signals; hashtags have diminished influence, and AI-driven content personalization dominates the Explore feed.",
-      "editingTips": "Use vertical 9:16 format, add captions, keep edits under 15 seconds for Reels, apply color grading for mood, include eye‑catching text overlays, and leverage AI tools for automatic sound matching and trend overlays.",
-      "postingTips": "Post 1–2 feed posts per day, 3–5 Reels weekly, daily Stories; schedule around 7–9 am, 12–1 pm, and 7–9 pm local time; monitor analytics for audience peak times and adjust accordingly.",
-      "titleTips": "Use emojis, concise hooks, include keyword, keep under 10 characters, add urgency, and end with a clear CTA.",
-      "descriptionTips": "Start with a strong hook, ask a question, add a CTA, use line breaks for readability, place hashtags at the end, and keep captions under 200 characters for higher algorithm favor.",
+      "keyChanges": "Instagram’s 2026 algorithm prioritizes Reels and AI‑driven content curation, placing new videos at the top of feeds, enhancing story relevance through predictive engagement, and tightening privacy‑first data usage. The platform now rewards authenticity, consistent posting, and creator‑centric metrics such as completion rate and interaction velocity.",
+      "editingTips": "Use vertical 9:16 formats, keep first 3 seconds hooky, add dynamic text overlays that match brand tone, apply color grading for emotional impact, compress files for fast loading, and leverage built‑in AI filters to reduce editing time.",
+      "postingTips": "Post during peak user activity (7‑9 am and 8‑10 pm local time) and maintain a cadence of 2–3 posts per day for growth; post Stories daily for real‑time engagement and Reels at least once a day to tap into the feed‑first placement. Monitor analytics to adjust times and frequency.",
+      "titleTips": "Create concise, keyword‑rich hooks; use emojis sparingly for personality; keep titles under 10 words; start with a question or bold statement; brand‑align the tone; end with a subtle call to action.",
+      "descriptionTips": "Write 1–2 short paragraphs with a clear CTA; sprinkle brand‑relevant hashtags (5–10) in the first line; add line breaks for readability; tag collaborators and location; include a link in the bio or use the new link‑in‑bio feature for traffic.",
       "summaries": [
-        "Reels dominate algorithmic reach",
-        "Engagement depth beats follower count",
-        "AI personalizes content discovery",
-        "Story Highlights boost profile visibility"
+        "Reels dominate feed visibility",
+        "AI curates personalized content streams",
+        "Engage early to boost reach",
+        "Leverage hashtags strategically for discovery"
       ],
       "provider": "pollinations"
     },
     "youtube-long": {
-      "keyChanges": "Algorithm now prioritizes viewer retention, contextual relevance, and cross‑format signals, using AI to surface longer content with high engagement and community interaction.",
-      "editingTips": "Use punchy intros, keep pacing brisk, incorporate on‑screen prompts, diversify shots, embed cues for comments.",
-      "postingTips": "Post during peak weekday hours (8‑10 am EST), maintain 2–3 uploads per week, and schedule consistent release slots.",
-      "titleTips": "Include primary keyword, emotion trigger, and CTA; keep under 70 characters.",
-      "descriptionTips": "Add timestamped sections, links to resources, and a question to encourage replies; keep first 100 characters keyword‑rich.",
+      "keyChanges": "YouTube’s 2026 algorithm now prioritizes long-form content that maintains high retention and engagement throughout the video. The recommendation engine uses content clustering and semantic relevance to surface longer videos, and early watch‑time signals (first 2–3 minutes) are amplified. Channels that consistently post series or episodic content receive a boost in discoverability, and new \"long‑form tags\" help the algorithm identify and promote videos over 10 minutes.",
+      "editingTips": "Start with a 5‑second hook, use dynamic pacing, and incorporate engaging visuals or text overlays to keep viewers on track. Add chapters every 3–5 minutes and edit for smooth transitions to reduce drop‑off. Keep the first 30 seconds crisp, sprinkle key points throughout, and end with a strong call‑to‑action that encourages comments, likes, and shares.",
+      "postingTips": "Publish during peak engagement times for your audience (typically 9 AM–12 PM or 6 PM–9 PM PST). Aim for 2–3 consistent uploads per week to maintain momentum without overloading viewers. Use scheduling tools to stagger releases evenly, and monitor watch‑time data to refine timing and frequency over time.",
+      "titleTips": "Use clear, keyword‑rich titles that promise value. Keep it under 70 characters, include the primary keyword at the beginning, and add a subtle hook that hints at a benefit or solution. Avoid clickbait that misleads, as that hurts retention signals.",
+      "descriptionTips": "Start with a concise summary of the video’s main points and a primary keyword. Add timestamps for chapters, a brief call‑to‑action, and links to related playlists or social media. Include a transcript snippet to improve SEO and accessibility, and use the first 1‑2 sentences as a compelling summary for search results.",
       "summaries": [
-        "Retention drives discovery more than views.",
-        "Cross‑format signals boost recommendation.",
-        "Short hooks retain early viewers.",
-        "Community replies amplify watch time."
+        "Retention is top ranking factor",
+        "Long videos get prioritized exposure",
+        "Series structure boosts channel authority",
+        "Chapters improve viewer engagement"
       ],
       "provider": "pollinations"
     },
     "facebook-reels": {
-      "keyChanges": "Reels now drive the main feed, prioritizing engagement metrics, watch time, and AI‑generated relevance scores over commenter count; new auto‑Reels feature pulls user content; algorithm favors short, high‑quality clips with interactive stickers and trending audio, while reducing reliance on hashtags alone.",
-      "editingTips": "Keep videos under 30 seconds, use vertical 9:16 format, add bold captions for silent viewers, incorporate stickers or AR effects early, maintain high bitrate, and end with a clear call‑to‑action.",
-      "postingTips": "Post 2–3 times weekly, schedule between 11 am–1 pm or 6–9 pm (user timezone), use the Reels editor’s automated post‑time feature, and monitor performance to adjust times.",
-      "titleTips": "Use concise, keyword‑rich titles; avoid clickbait; include emojis sparingly; keep titles under 40 characters; test different hooks in the first 2 seconds.",
-      "descriptionTips": "Add 3–5 relevant hashtags, include a brief summary of the reel’s value, link to other content, and add a question to prompt comments; keep descriptions short (≤ 200 characters).",
+      "keyChanges": "Algorithm now prioritizes completion rate, uses AI for content classification, emphasizes audio trends, integrates cross‑platform distribution, introduces Reel Boost for paid amplification.",
+      "editingTips": "1. Capture interest in first 3 seconds.\n2. Use trending audio and captions.\n3. Keep videos 30–60 seconds.\n4. Add subtitles for silent autoplay.\n5. Use high‑contrast visuals and quick cuts.\n6. Include brand logo or CTA in frame.",
+      "postingTips": "Post 3–5 times per week.\nOptimal times: 7‑9 am, 12‑1 pm, 6‑8 pm (local time).\nLeverage Audience Insights to test days.\nUse scheduling tools to maintain consistency.\nEngage with comments within 30 minutes.",
+      "titleTips": "Use keyword‑rich, concise titles. Include emojis, keep under 40 characters. Add a call‑to‑action or tease the content.",
+      "descriptionTips": "Include 3–5 relevant hashtags.\nMention collaborators or brands.\nAdd a short CTA or link.\nWrite within 200 characters.\nUse line breaks for readability.",
       "summaries": [
-        "Reels lead Facebook’s main feed",
-        "Watch time outweighs likes now",
-        "Short clips win engagement",
-        "Use stickers early, boost visibility"
+        "Completion rate drives visibility",
+        "Audio trends boost discovery",
+        "Consistent posting fuels growth",
+        "AI classifies content faster"
       ],
       "provider": "pollinations"
     }
   },
-  "lastUpdated": "2026-05-01T01:03:26.856Z",
+  "lastUpdated": "2026-05-10T10:13:56.020Z",
   "provider": "pollinations"
 }
