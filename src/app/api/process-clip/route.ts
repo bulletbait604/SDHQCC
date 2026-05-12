@@ -12,16 +12,22 @@ import {
   type TargetPlatform,
 } from '@/lib/platformEditing'
 import { generateShotstackJSON } from '@/lib/generateShotstackJSON'
-import { generatePresignedReadUrl } from '@/lib/r2'
+import { generatePresignedReadUrl, getFileFromR2, getR2ObjectMetadata } from '@/lib/r2'
 import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
 import {
   resolveClipEditorAlgorithmNotes,
   summarizeClipEditorAlgorithmSources,
 } from '@/lib/clipEditorAlgorithmNotes'
+import {
+  deleteGeminiUploadedFile,
+  pollGeminiFileUntilActive,
+  uploadBufferToGeminiFilesApi,
+} from '@/lib/geminiFiles'
 
 export const dynamic = 'force-dynamic'
 
 const MODEL_NAME = 'gemini-2.5-flash'
+const GEMINI_EXTERNAL_URL_MAX_BYTES = 100 * 1024 * 1024
 function isTargetPlatform(value: string): value is TargetPlatform {
   return value === 'tiktok' || value === 'youtube' || value === 'reels'
 }
@@ -64,6 +70,11 @@ type EditBlueprint = {
   captionWordsPerChunk?: number
   overlayTexts?: string[]
   preferredTransitions?: string[]
+  sourceMoments?: Array<{
+    startSeconds?: number
+    endSeconds?: number
+    reason?: string
+  }>
 }
 
 export async function POST(request: NextRequest) {
@@ -79,6 +90,8 @@ export async function POST(request: NextRequest) {
       r2FileKey?: string
       landscapeMode?: 'crop' | 'letterbox'
       sourceDurationSeconds?: number
+      mimeType?: string
+      fileName?: string
     }
 
     if (!body.platform || !isTargetPlatform(body.platform)) {
@@ -110,6 +123,9 @@ export async function POST(request: NextRequest) {
     const platformAlgorithmNotes = resolveClipEditorAlgorithmNotes(snapshot, platform)
     const gemini = new GoogleGenAI({ apiKey })
     let sourceUrl = body.sourceUrl || ''
+    let geminiFileUri = sourceUrl
+    let effectiveMime = typeof body.mimeType === 'string' && body.mimeType ? body.mimeType : 'video/mp4'
+    let cleanupGeminiName: string | null = null
     if (!sourceUrl && hasR2FileKey) {
       const storageUser = user.username.replace(/^@/, '').toLowerCase()
       const prefix = `uploads/clips/${storageUser}/`
@@ -117,6 +133,14 @@ export async function POST(request: NextRequest) {
       if (!key.startsWith(prefix) || key.includes('..') || key.length > 500) {
         return NextResponse.json({ error: 'Invalid r2FileKey for current user' }, { status: 400 })
       }
+      const meta = await getR2ObjectMetadata(key)
+      if (!meta) {
+        return NextResponse.json(
+          { error: 'Could not read uploaded clip metadata' },
+          { status: 404 }
+        )
+      }
+      effectiveMime = meta.contentType || effectiveMime
       // Long TTL: Shotstack fetches this URL when the render runs (queue can be long); Gemini also uses it during planning.
       const readUrl = await generatePresignedReadUrl(key, 86400)
       if (!readUrl) {
@@ -126,8 +150,29 @@ export async function POST(request: NextRequest) {
         )
       }
       sourceUrl = readUrl
+      geminiFileUri = readUrl
+
+      if (meta.contentLength > GEMINI_EXTERNAL_URL_MAX_BYTES) {
+        const buffer = await getFileFromR2(key)
+        if (!buffer) {
+          return NextResponse.json(
+            { error: 'Could not load uploaded clip for Gemini analysis' },
+            { status: 404 }
+          )
+        }
+        const uploaded = await uploadBufferToGeminiFilesApi({
+          apiKey,
+          buffer,
+          mimeType: effectiveMime,
+          displayName: typeof body.fileName === 'string' ? body.fileName : 'clip.mp4',
+        })
+        cleanupGeminiName = uploaded.name
+        await pollGeminiFileUntilActive(apiKey, uploaded.uri)
+        geminiFileUri = uploaded.uri
+      }
     }
 
+    try {
     const response = await gemini.models.generateContent({
       model: MODEL_NAME,
       contents: [
@@ -135,11 +180,18 @@ export async function POST(request: NextRequest) {
           role: 'user',
           parts: [
             {
+              fileData: {
+                mimeType: effectiveMime,
+                fileUri: geminiFileUri,
+              },
+            },
+            {
               text: `You are the "Viral Architect" engine. Build an upload-click-done package for a short-form video.
 Target platform: ${platform}
 Platform directive: ${platformEditingDirective(platform)}
 Platform safe-zone offsets: ${JSON.stringify(safeZone)}
 Clip-editor algorithm context (JSON): ${JSON.stringify(platformAlgorithmNotes)}
+Source duration seconds: ${typeof body.sourceDurationSeconds === 'number' ? body.sourceDurationSeconds : 'unknown'}
 
 Return valid JSON only:
 {
@@ -154,7 +206,10 @@ Return valid JSON only:
     "renderSeconds": "number 8..45",
     "captionWordsPerChunk": "number 3..14",
     "overlayTexts": ["short overlay callouts, max 6"],
-    "preferredTransitions": ["fade|reveal|wipeLeft|wipeRight|slideLeft|slideRight|slideUp|slideDown|zoom"]
+    "preferredTransitions": ["fade|reveal|wipeLeft|wipeRight|slideLeft|slideRight|slideUp|slideDown|zoom"],
+    "sourceMoments": [
+      { "startSeconds": "number", "endSeconds": "number", "reason": "why this exact moment should be used" }
+    ]
   },
   "publishPackage": {
     "tiktok": {
@@ -175,6 +230,9 @@ Return valid JSON only:
 }
 
 Rules:
+- Analyze the supplied video file directly. Do not create a generic edit plan from the text brief alone.
+- Pick 3-8 sourceMoments from the strongest visual/audio moments in the actual clip. Order them in final edit order with the best hook first. Use exact timestamps and prefer moments with clear action, speech payoff, reactions, surprises, or loop potential.
+- The generated render should start on the strongest hook moment, not automatically at 0:00 unless 0:00 is genuinely the best hook.
 - Final video is always 9:16 vertical (1080×1920). Sources may be landscape or webcam; the editor reframes to vertical (center-crop to fill by default, or letterbox the full wide frame if the user requests it). Keep faces and key action in the safe caption zone.
 - Use every available source in the clip-editor algorithm context. For Reels, blend Instagram Reels and Facebook Reels advice; for YouTube, prioritize Shorts while borrowing applicable long-form retention/title lessons.
 - If target platform is reels, still provide Instagram + Facebook Reels variants.
@@ -251,6 +309,13 @@ ${body.clipBrief.trim()}`,
       shotstack,
       source: hasR2FileKey ? 'r2-presigned-url' : 'source-url',
     })
+    } finally {
+      if (cleanupGeminiName) {
+        await deleteGeminiUploadedFile(apiKey, cleanupGeminiName).catch((e) =>
+          console.warn('[process-clip] Gemini temp file cleanup:', e)
+        )
+      }
+    }
   } catch (error) {
     if (error instanceof AuthError) return createAuthErrorResponse(error)
     console.error('[process-clip]', error)

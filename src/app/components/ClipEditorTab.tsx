@@ -22,6 +22,8 @@ export interface ClipEditorTabProps {
 }
 
 const MAX_CLIP_SECONDS = 90
+const RENDER_PROGRESS_START = 65
+const RENDER_PROGRESS_RANGE = 33
 
 export default function ClipEditorTab({
   darkMode,
@@ -46,7 +48,12 @@ export default function ClipEditorTab({
   const [finalClipUrl, setFinalClipUrl] = useState<string | null>(null)
   const [error, setError] = useState<string>('')
   const [statusText, setStatusText] = useState<string>('')
+  const [progressPercent, setProgressPercent] = useState<number | null>(null)
   const [busy, setBusy] = useState<'upload' | 'oneclick' | null>(null)
+
+  const setProgress = useCallback((value: number) => {
+    setProgressPercent(Math.min(100, Math.max(0, Math.round(value))))
+  }, [])
 
   const inspectVideoDuration = useCallback((file: File): Promise<number> => {
     return new Promise((resolve, reject) => {
@@ -70,6 +77,9 @@ export default function ClipEditorTab({
     setClipFile(null)
     setClipDurationSeconds(null)
     setR2FileKey(null)
+    setProgressPercent(null)
+    setStatusText('')
+    setFinalClipUrl(null)
     if (!f) return
     if (!f.type.startsWith('video/')) {
       setError('Choose a video file (MP4, WebM, MOV, …).')
@@ -89,7 +99,7 @@ export default function ClipEditorTab({
     setClipFile(f)
   }
 
-  const handleUploadToR2 = async (): Promise<string | null> => {
+  const handleUploadToR2 = async (manageBusy = true): Promise<string | null> => {
     if (!user) {
       setError('Log in with Kick first.')
       return null
@@ -98,10 +108,12 @@ export default function ClipEditorTab({
       setError('Pick a clip file first.')
       return null
     }
-    setBusy('upload')
+    if (manageBusy) setBusy('upload')
+    setProgress(8)
     setError('')
     setUploadStatus('')
     try {
+      setProgress(12)
       const presignRes = await fetch('/api/upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -118,6 +130,7 @@ export default function ClipEditorTab({
       }
       const { uploadUrl, fileKey } = presignBody as { uploadUrl: string; fileKey: string }
 
+      setProgress(20)
       const putRes = await fetch(uploadUrl, {
         method: 'PUT',
         headers: { 'Content-Type': clipFile.type },
@@ -126,12 +139,13 @@ export default function ClipEditorTab({
       if (!putRes.ok) throw new Error('Upload failed. Try again.')
       setR2FileKey(fileKey)
       setUploadStatus('Uploaded.')
+      setProgress(25)
       return fileKey
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed.')
       return null
     } finally {
-      setBusy(null)
+      if (manageBusy) setBusy(null)
       refreshBalance()
     }
   }
@@ -163,6 +177,7 @@ export default function ClipEditorTab({
   const handleOneClickCreate = async () => {
     setError('')
     setFinalClipUrl(null)
+    setProgressPercent(null)
     if (!clipFile) {
       setError('Pick a video file first.')
       return
@@ -174,14 +189,18 @@ export default function ClipEditorTab({
 
     setBusy('oneclick')
     try {
+      setProgress(5)
       setStatusText('Uploading clip...')
       let key = r2FileKey
       if (!key) {
-        key = await handleUploadToR2()
+        key = await handleUploadToR2(false)
+      } else {
+        setProgress(25)
       }
       if (!key) throw new Error('Upload did not complete.')
 
       setStatusText('Analyzing and building edit plan...')
+      setProgress(35)
       const processRes = await fetch('/api/process-clip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -191,6 +210,8 @@ export default function ClipEditorTab({
           clipBrief: `Create a high-performing ${targetPlatform} short from this uploaded clip. Prioritize strong hook, retention pacing, clear captions, and platform-safe framing.`,
           r2FileKey: key,
           landscapeMode: landscapeLetterbox ? 'letterbox' : 'crop',
+          mimeType: clipFile.type,
+          fileName: clipFile.name,
           ...(typeof clipDurationSeconds === 'number' && Number.isFinite(clipDurationSeconds)
             ? { sourceDurationSeconds: clipDurationSeconds }
             : {}),
@@ -208,8 +229,10 @@ export default function ClipEditorTab({
       if (!shotstackPackage) {
         throw new Error('AI package did not include Shotstack render data.')
       }
+      setProgress(50)
 
       setStatusText('Submitting Shotstack render...')
+      setProgress(58)
       const shotstackRes = await fetch('/api/shotstack/render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -227,6 +250,7 @@ export default function ClipEditorTab({
       const id = (shotstackData as { renderId?: string }).renderId
       if (!id) throw new Error('No Shotstack render id was returned')
       setRenderId(id)
+      setProgress(RENDER_PROGRESS_START)
 
       const coinOk = await deductCoins('clip-editor-runway')
       if (!coinOk && !hasUnlimitedAccess) {
@@ -255,11 +279,13 @@ export default function ClipEditorTab({
         const status = String(
           (snapData.response as { status?: string } | undefined)?.status || ''
         ).toUpperCase()
+        setProgress(RENDER_PROGRESS_START + ((i + 1) / maxAttempts) * RENDER_PROGRESS_RANGE)
         setStatusText(`Rendering... ${status || 'RUNNING'}`)
         const clipUrl = extractShotstackVideoUrl(snapData)
         if (clipUrl) {
           setFinalClipUrl(clipUrl)
           setStatusText('Done. Your clip is ready.')
+          setProgress(100)
           return
         }
         if (status === 'FAILED' || status === 'CANCELLED') {
@@ -292,6 +318,7 @@ export default function ClipEditorTab({
   const inputShell = darkMode
     ? 'bg-sdhq-dark-900 border-sdhq-cyan-500/30 text-gray-200'
     : 'bg-white border-sdhq-cyan-300 text-gray-900'
+  const showProgress = progressPercent !== null && (busy !== null || Boolean(statusText) || Boolean(finalClipUrl))
 
   return (
     <div className={`py-8 ${cardClasses}`}>
@@ -389,6 +416,29 @@ export default function ClipEditorTab({
                 'Create final clip (upload, click, done)'
               )}
             </Button>
+            {showProgress && (
+              <div
+                className={`rounded-xl border p-3 ${darkMode ? 'bg-sdhq-dark-800/80 border-sdhq-cyan-500/20' : 'bg-white border-sdhq-cyan-200'}`}
+              >
+                <div className={`flex items-center justify-between text-xs font-semibold mb-2 ${subtitleClasses}`}>
+                  <span>Editing progress</span>
+                  <span>{progressPercent}%</span>
+                </div>
+                <div
+                  className={`h-3 w-full overflow-hidden rounded-full ${darkMode ? 'bg-sdhq-dark-900' : 'bg-gray-200'}`}
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={progressPercent}
+                  aria-label="Clip editing progress"
+                >
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-sdhq-cyan-500 to-sdhq-green-400 transition-all duration-500 ease-out"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </div>
+            )}
             {statusText && <p className={`text-sm text-center ${subtitleClasses}`}>{statusText}</p>}
             {renderId && <p className={`text-xs text-center ${subtitleClasses}`}>render id: {renderId}</p>}
 

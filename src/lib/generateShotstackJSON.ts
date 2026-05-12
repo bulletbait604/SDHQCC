@@ -24,6 +24,7 @@ export interface GenerateShotstackInput {
     captionWordsPerChunk?: number
     overlayTexts?: string[]
     preferredTransitions?: string[]
+    sourceMoments?: SourceMoment[]
   }
   /** Optional detected source duration in seconds from client metadata. */
   sourceDurationSeconds?: number
@@ -39,6 +40,14 @@ type VideoSeg = {
   start: number
   length: number
   trim: number
+}
+
+type SourceMoment = {
+  startSeconds?: number
+  endSeconds?: number
+  start?: number
+  end?: number
+  reason?: string
 }
 
 type TransitionName =
@@ -149,6 +158,64 @@ function pickEffect(
   return palette[index % palette.length]!
 }
 
+function readMomentTime(moment: SourceMoment, primary: 'startSeconds' | 'endSeconds', fallback: 'start' | 'end'): number | null {
+  const value = moment[primary] ?? moment[fallback]
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function normalizeSourceMoments(
+  sourceMoments: SourceMoment[] | undefined,
+  sourceDurationCap: number | null
+): Array<{ start: number; end: number }> {
+  const maxEnd = sourceDurationCap ?? 90
+  return (sourceMoments || [])
+    .map((moment) => {
+      const rawStart = readMomentTime(moment, 'startSeconds', 'start')
+      const rawEnd = readMomentTime(moment, 'endSeconds', 'end')
+      if (rawStart == null || rawEnd == null) return null
+      const start = clamp(rawStart, 0, maxEnd)
+      const end = clamp(rawEnd, start, maxEnd)
+      if (end - start < 0.45) return null
+      return { start, end }
+    })
+    .filter((moment): moment is { start: number; end: number } => moment !== null)
+    .slice(0, 12)
+}
+
+function buildSourceMomentSegments(
+  sourceMoments: SourceMoment[] | undefined,
+  pacing: PacingProfile,
+  sourceDurationCap: number | null
+): VideoSeg[] {
+  const moments = normalizeSourceMoments(sourceMoments, sourceDurationCap)
+  if (!moments.length) return []
+
+  const cutLen = pacing.chunkSeconds
+  const segments: VideoSeg[] = []
+  let timelineCursor = 0
+  let segIndex = 0
+
+  for (const moment of moments) {
+    let sourceCursor = moment.start
+    while (sourceCursor < moment.end - 0.3 && timelineCursor < pacing.renderSeconds - 0.2) {
+      const jitterScale = segIndex % 3 === 0 ? 1.16 : segIndex % 3 === 1 ? 0.86 : 1.02
+      const desiredLen = clamp(cutLen * jitterScale, Math.max(0.9, cutLen * 0.72), cutLen * 1.28)
+      const clipLen = Math.min(desiredLen, moment.end - sourceCursor, pacing.renderSeconds - timelineCursor)
+      if (clipLen < 0.45) break
+      segments.push({
+        start: Number(timelineCursor.toFixed(2)),
+        length: Number(clipLen.toFixed(2)),
+        trim: Number(sourceCursor.toFixed(2)),
+      })
+      timelineCursor += clipLen
+      sourceCursor += clipLen * (segIndex % 2 === 0 ? 1.02 : 0.94)
+      segIndex += 1
+    }
+  }
+
+  return segments
+}
+
 /** Shotstack TextAsset. @see https://shotstack.io/docs/api/ */
 function buildCaptionTextAsset(
   text: string,
@@ -245,10 +312,14 @@ export function generateShotstackJSON({
   const cutLen = pacing.chunkSeconds
   const maxSourceTrimStart =
     sourceDurationCap != null ? Math.max(0, sourceDurationCap - 0.9) : Number.POSITIVE_INFINITY
-  const segments: VideoSeg[] = []
-  let timelineCursor = 0
+  const segments: VideoSeg[] = buildSourceMomentSegments(
+    editBlueprint?.sourceMoments,
+    pacing,
+    sourceDurationCap
+  )
+  let timelineCursor = segments.reduce((sum, segment) => sum + segment.length, 0)
   let sourceCursor = 0
-  let segIndex = 0
+  let segIndex = segments.length
   while (timelineCursor < pacing.renderSeconds - 0.2) {
     const jitterScale = segIndex % 3 === 0 ? 1.16 : segIndex % 3 === 1 ? 0.86 : 1.02
     const desiredLen = clamp(cutLen * jitterScale, Math.max(0.9, cutLen * 0.72), cutLen * 1.28)
