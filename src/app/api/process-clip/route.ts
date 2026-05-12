@@ -74,12 +74,26 @@ type EditBlueprint = {
   introHookSeconds?: number
   renderSeconds?: number
   captionWordsPerChunk?: number
-  overlayTexts?: string[]
   preferredTransitions?: string[]
   sourceMoments?: Array<{
     startSeconds?: number
     endSeconds?: number
     reason?: string
+    visualTreatment?: 'none' | 'slowZoomIn' | 'slowZoomOut'
+  }>
+  textOverlays?: Array<{
+    text?: string
+    startSeconds?: number
+    durationSeconds?: number
+    position?: 'top' | 'middle' | 'bottom'
+    type?: 'callout'
+  }>
+  subtitles?: Array<{
+    text?: string
+    startSeconds?: number
+    durationSeconds?: number
+    position?: 'bottom'
+    type?: 'subtitle'
   }>
 }
 
@@ -127,8 +141,10 @@ Return one JSON object using the same high-level shape. Your job is to improve o
 
 Rules:
 - Respect Gemini's actual video understanding. Prefer its timestamped sourceMoments; only reorder or trim them if the draft itself supports it.
-- The renderer is intentionally conservative: one video track, no picture-in-picture, no AI text overlays, no stylized transition stack.
-- Do not add overlay text just to be flashy. Set overlayTexts to [] unless the words are directly grounded in visible or spoken clip content.
+- The renderer supports one video track, at most 3 slow zooms, up to 3 timed callouts, and up to 8 timed subtitle snippets. It does not support picture-in-picture or transition stacks.
+- Use visualTreatment on sourceMoments only when a slow zoom helps attention: "slowZoomIn", "slowZoomOut", or "none".
+- Use textOverlays only for grounded callouts from visible/spoken clip content. No generic hype text, no unrelated slogans.
+- Use subtitles only for short spoken lines you are confident were said in the clip. If unsure, return [].
 - Keep sourceMoments in final edit order with the strongest hook first.
 - Choose 3-8 sourceMoments, each with startSeconds, endSeconds, and reason.
 - Avoid repeated adjacent source ranges that would look like screen flashing.
@@ -359,10 +375,15 @@ Return valid JSON only:
     "introHookSeconds": "number 1.0..5.0",
     "renderSeconds": "number 8..45",
     "captionWordsPerChunk": "number 3..14",
-    "overlayTexts": ["short overlay callouts, max 6"],
     "preferredTransitions": ["fade|reveal|wipeLeft|wipeRight|slideLeft|slideRight|slideUp|slideDown|zoom"],
     "sourceMoments": [
-      { "startSeconds": "number", "endSeconds": "number", "reason": "why this exact moment should be used" }
+      { "startSeconds": "number", "endSeconds": "number", "reason": "why this exact moment should be used", "visualTreatment": "none|slowZoomIn|slowZoomOut" }
+    ],
+    "textOverlays": [
+      { "text": "short grounded callout from visible/spoken clip content", "startSeconds": "number", "durationSeconds": "number 0.8..2.2", "position": "top|middle|bottom", "type": "callout" }
+    ],
+    "subtitles": [
+      { "text": "short spoken line from the clip", "startSeconds": "number", "durationSeconds": "number 0.8..3.2", "position": "bottom", "type": "subtitle" }
     ]
   },
   "publishPackage": {
@@ -387,6 +408,9 @@ Rules:
 - Analyze the supplied video file directly. Do not create a generic edit plan from the text brief alone.
 - Pick 3-8 sourceMoments from the strongest visual/audio moments in the actual clip. Order them in final edit order with the best hook first. Use exact timestamps and prefer moments with clear action, speech payoff, reactions, surprises, or loop potential.
 - The generated render should start on the strongest hook moment, not automatically at 0:00 unless 0:00 is genuinely the best hook.
+- Use visualTreatment sparingly: mark at most 3 sourceMoments for slowZoomIn or slowZoomOut when it improves focus. Otherwise use none.
+- textOverlays must be grounded in visible/spoken clip content and timed to the relevant moment. Use 0-3 total. Do not invent unrelated text.
+- subtitles must be short spoken lines from the clip with timestamps. Use [] if speech is unclear.
 - Final video is always 9:16 vertical (1080×1920). Sources may be landscape or webcam; the editor reframes to vertical (center-crop to fill by default, or letterbox the full wide frame if the user requests it). Keep faces and key action in the safe caption zone.
 - Use every available source in the clip-editor algorithm context. For Reels, blend Instagram Reels and Facebook Reels advice; for YouTube, prioritize Shorts while borrowing applicable long-form retention/title lessons.
 - If target platform is reels, still provide Instagram + Facebook Reels variants.
@@ -394,8 +418,7 @@ Rules:
 - If target platform is youtube, prioritize Shorts fields quality and keep title under 70 chars.
 - Include at least 8 hashtags for TikTok/Reels captions.
 - Keep YouTube Shorts tags array between 10 and 20 items.
-- Make the editBlueprint concrete: specify cut cadence, hook intensity, overlays, and transitions aligned with the platform directive and algorithm notes.
-- Overlay text must be short, high-retention callouts and avoid covering the primary caption safe zone.
+- Make the editBlueprint concrete: specify cut cadence, hook intensity, source moments, selective zooms, grounded text overlays/subtitles, and platform pacing aligned with the platform directive and algorithm notes.
 
 CLIP_BRIEF:
 ${clipBrief}`,

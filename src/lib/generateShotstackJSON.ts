@@ -25,6 +25,8 @@ export interface GenerateShotstackInput {
     overlayTexts?: string[]
     preferredTransitions?: string[]
     sourceMoments?: SourceMoment[]
+    textOverlays?: TimedTextOverlay[]
+    subtitles?: TimedTextOverlay[]
   }
   /** Optional detected source duration in seconds from client metadata. */
   sourceDurationSeconds?: number
@@ -40,6 +42,7 @@ type VideoSeg = {
   start: number
   length: number
   trim: number
+  effect?: 'zoomInSlow' | 'zoomOutSlow'
 }
 
 type SourceMoment = {
@@ -48,6 +51,17 @@ type SourceMoment = {
   start?: number
   end?: number
   reason?: string
+  visualTreatment?: 'none' | 'slowZoomIn' | 'slowZoomOut'
+}
+
+type TimedTextOverlay = {
+  text?: string
+  startSeconds?: number
+  start?: number
+  durationSeconds?: number
+  length?: number
+  position?: 'top' | 'middle' | 'bottom'
+  type?: 'subtitle' | 'callout'
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -78,23 +92,30 @@ function readMomentTime(moment: SourceMoment, primary: 'startSeconds' | 'endSeco
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
+function normalizeVisualTreatment(value: SourceMoment['visualTreatment']): VideoSeg['effect'] | undefined {
+  if (value === 'slowZoomOut') return 'zoomOutSlow'
+  if (value === 'slowZoomIn') return 'zoomInSlow'
+  return undefined
+}
+
 function normalizeSourceMoments(
   sourceMoments: SourceMoment[] | undefined,
   sourceDurationCap: number | null
-): Array<{ start: number; end: number }> {
+): Array<{ start: number; end: number; effect?: VideoSeg['effect'] }> {
   const maxEnd = sourceDurationCap ?? 90
-  return (sourceMoments || [])
-    .map((moment) => {
-      const rawStart = readMomentTime(moment, 'startSeconds', 'start')
-      const rawEnd = readMomentTime(moment, 'endSeconds', 'end')
-      if (rawStart == null || rawEnd == null) return null
-      const start = clamp(rawStart, 0, maxEnd)
-      const end = clamp(rawEnd, start, maxEnd)
-      if (end - start < 0.45) return null
-      return { start, end }
-    })
-    .filter((moment): moment is { start: number; end: number } => moment !== null)
-    .slice(0, 12)
+  const moments: Array<{ start: number; end: number; effect?: VideoSeg['effect'] }> = []
+  for (const moment of sourceMoments || []) {
+    const rawStart = readMomentTime(moment, 'startSeconds', 'start')
+    const rawEnd = readMomentTime(moment, 'endSeconds', 'end')
+    if (rawStart == null || rawEnd == null) continue
+    const start = clamp(rawStart, 0, maxEnd)
+    const end = clamp(rawEnd, start, maxEnd)
+    if (end - start < 0.45) continue
+    const effect = normalizeVisualTreatment(moment.visualTreatment)
+    moments.push(effect ? { start, end, effect } : { start, end })
+    if (moments.length >= 12) break
+  }
+  return moments
 }
 
 function buildSourceMomentSegments(
@@ -121,6 +142,7 @@ function buildSourceMomentSegments(
         start: Number(timelineCursor.toFixed(2)),
         length: Number(clipLen.toFixed(2)),
         trim: Number(sourceCursor.toFixed(2)),
+        effect: segments.length < 3 && sourceCursor === moment.start ? moment.effect : undefined,
       })
       timelineCursor += clipLen
       sourceCursor += clipLen * (segIndex % 2 === 0 ? 1.02 : 0.94)
@@ -129,6 +151,79 @@ function buildSourceMomentSegments(
   }
 
   return segments
+}
+
+function cleanOverlayText(text: string | undefined, maxChars: number): string | null {
+  if (!text) return null
+  const cleaned = text
+    .replace(/\s+/g, ' ')
+    .replace(/[^\w\s.,!?'"#@:-]/g, '')
+    .trim()
+  if (cleaned.length < 3) return null
+  return cleaned.slice(0, maxChars).trim()
+}
+
+function buildTextAsset(text: string, platform: TargetPlatform, type: 'subtitle' | 'callout'): Record<string, unknown> {
+  const isSubtitle = type === 'subtitle'
+  return {
+    type: 'text',
+    text,
+    width: isSubtitle ? 960 : 820,
+    height: isSubtitle ? 220 : 150,
+    font: {
+      family: 'Montserrat ExtraBold',
+      color: '#ffffff',
+      size: isSubtitle ? (platform === 'youtube' ? 32 : 36) : 40,
+      weight: 700,
+      lineHeight: 1.08,
+    },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    stroke: { width: 2, color: '#000000' },
+    background: {
+      color: '#000000',
+      opacity: isSubtitle ? 0.34 : 0.48,
+      padding: isSubtitle ? 8 : 10,
+      borderRadius: 8,
+    },
+  }
+}
+
+function overlayY(position: TimedTextOverlay['position'], safeZone: SafeZoneOffsets): number {
+  if (position === 'top') return 0.28
+  if (position === 'middle') return 0.02
+  return safeZone.captionY
+}
+
+function buildTimedTextClips(params: {
+  overlays?: TimedTextOverlay[]
+  platform: TargetPlatform
+  safeZone: SafeZoneOffsets
+  renderSeconds: number
+  type: 'subtitle' | 'callout'
+  maxItems: number
+}): Array<Record<string, unknown>> {
+  const clips: Array<Record<string, unknown>> = []
+  for (const overlay of params.overlays || []) {
+    if (clips.length >= params.maxItems) break
+    const text = cleanOverlayText(overlay.text, params.type === 'subtitle' ? 84 : 54)
+    const rawStart = overlay.startSeconds ?? overlay.start
+    if (!text || typeof rawStart !== 'number' || !Number.isFinite(rawStart)) continue
+    const start = clamp(rawStart, 0, Math.max(0, params.renderSeconds - 0.5))
+    const rawLength = overlay.durationSeconds ?? overlay.length ?? (params.type === 'subtitle' ? 1.6 : 1.25)
+    const length = clamp(rawLength, 0.8, params.type === 'subtitle' ? 3.2 : 2.2)
+    if (start >= params.renderSeconds - 0.25) continue
+    clips.push({
+      asset: buildTextAsset(text, params.platform, params.type),
+      start: Number(start.toFixed(2)),
+      length: Number(Math.min(length, params.renderSeconds - start).toFixed(2)),
+      offset: {
+        x: 0,
+        y: overlayY(overlay.position || (params.type === 'subtitle' ? 'bottom' : 'top'), params.safeZone),
+      },
+      transition: { in: 'fadeFast', out: 'fadeFast' },
+    })
+  }
+  return clips
 }
 
 export function generateShotstackJSON({
@@ -207,6 +302,15 @@ export function generateShotstackJSON({
       fit: mainFit,
       position: 'center',
     }
+    if (landscapeMode === 'crop') {
+      if (s.effect) {
+        clip.effect = s.effect
+      } else if (index === 0) {
+        clip.effect = 'zoomInSlow'
+      } else if (index === 2 && s.length >= 1.2) {
+        clip.effect = 'zoomOutSlow'
+      }
+    }
     if (index === 0) {
       clip.transition = { in: 'fade' }
     }
@@ -214,6 +318,29 @@ export function generateShotstackJSON({
   })
 
   const tracks: Array<{ clips: Array<Record<string, unknown>> }> = [{ clips: mainClips }]
+  const calloutClips = buildTimedTextClips({
+    overlays: editBlueprint?.textOverlays,
+    platform,
+    safeZone,
+    renderSeconds: pacing.renderSeconds,
+    type: 'callout',
+    maxItems: 3,
+  })
+  if (calloutClips.length) {
+    tracks.push({ clips: calloutClips })
+  }
+
+  const subtitleClips = buildTimedTextClips({
+    overlays: editBlueprint?.subtitles,
+    platform,
+    safeZone,
+    renderSeconds: pacing.renderSeconds,
+    type: 'subtitle',
+    maxItems: 8,
+  })
+  if (subtitleClips.length) {
+    tracks.push({ clips: subtitleClips })
+  }
 
   return {
     timeline: {
