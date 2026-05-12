@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
+import OpenAI from 'openai'
 import {
   verifyAuth,
   hasClipEditorAccess,
@@ -23,6 +24,11 @@ import {
   pollGeminiFileUntilActive,
   uploadBufferToGeminiFilesApi,
 } from '@/lib/geminiFiles'
+import {
+  clipEditorOpenAiModel,
+  resolveDeepSeekApiKey,
+  resolveOpenAiApiKey,
+} from '@/lib/clipEditorServerKeys'
 
 export const dynamic = 'force-dynamic'
 
@@ -75,6 +81,151 @@ type EditBlueprint = {
     endSeconds?: number
     reason?: string
   }>
+}
+
+type ClipEditPlan = {
+  captionText?: string
+  hookPlan?: string
+  pacePlan?: string
+  facecamGuidance?: string
+  shotstackEditPrompt?: string
+  editBlueprint?: EditBlueprint
+  publishPackage?: {
+    tiktok?: { captionWithEmojisAndTags?: string }
+    instagramReels?: { captionWithEmojisAndTags?: string }
+    facebookReels?: { captionWithEmojisAndTags?: string }
+    youtubeShorts?: { title?: string; description?: string; tags?: string[] }
+  }
+  aiProvidersUsed?: string[]
+}
+
+function buildDirectorPrompt(params: {
+  platform: TargetPlatform
+  clipBrief: string
+  sourceDurationSeconds?: number
+  platformAlgorithmNotes: unknown
+  geminiPlan: ClipEditPlan
+  priorPlan?: ClipEditPlan
+  role: 'director' | 'critic'
+}): string {
+  const planToReview = params.priorPlan || params.geminiPlan
+  return `You are the ${params.role === 'critic' ? 'final quality-control editor' : 'senior edit director'} for a short-form clip editor.
+
+Target platform: ${params.platform}
+Platform directive: ${platformEditingDirective(params.platform)}
+Source duration seconds: ${typeof params.sourceDurationSeconds === 'number' ? params.sourceDurationSeconds : 'unknown'}
+Creator brief: ${params.clipBrief}
+Algorithm context JSON: ${JSON.stringify(params.platformAlgorithmNotes)}
+
+Gemini video-understanding draft JSON:
+${JSON.stringify(params.geminiPlan)}
+
+Plan to review JSON:
+${JSON.stringify(planToReview)}
+
+Return one JSON object using the same high-level shape. Your job is to improve only the edit plan and publishing copy.
+
+Rules:
+- Respect Gemini's actual video understanding. Prefer its timestamped sourceMoments; only reorder or trim them if the draft itself supports it.
+- The renderer is intentionally conservative: one video track, no picture-in-picture, no AI text overlays, no stylized transition stack.
+- Do not add overlay text just to be flashy. Set overlayTexts to [] unless the words are directly grounded in visible or spoken clip content.
+- Keep sourceMoments in final edit order with the strongest hook first.
+- Choose 3-8 sourceMoments, each with startSeconds, endSeconds, and reason.
+- Avoid repeated adjacent source ranges that would look like screen flashing.
+- Keep renderSeconds realistic for the useful source moments.
+- Return valid JSON only, no markdown.`
+}
+
+async function refineWithOpenAI(params: Parameters<typeof buildDirectorPrompt>[0]): Promise<ClipEditPlan | null> {
+  const apiKey = resolveOpenAiApiKey()
+  if (!apiKey) return null
+  const client = new OpenAI({ apiKey })
+  const completion = await client.chat.completions.create({
+    model: clipEditorOpenAiModel(),
+    response_format: { type: 'json_object' },
+    messages: [
+      {
+        role: 'system',
+        content: 'You are a practical video editor. Return only valid JSON.',
+      },
+      { role: 'user', content: buildDirectorPrompt(params) },
+    ],
+    temperature: 0.35,
+  })
+  const raw = completion.choices[0]?.message?.content?.trim() || ''
+  const jsonSlice = extractFirstJsonObject(raw) || raw
+  return JSON.parse(jsonSlice || '{}') as ClipEditPlan
+}
+
+async function refineWithDeepSeek(params: Parameters<typeof buildDirectorPrompt>[0]): Promise<ClipEditPlan | null> {
+  const apiKey = resolveDeepSeekApiKey()
+  if (!apiKey) return null
+  const res = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a practical video editor and quality-control reviewer. Return only valid JSON.',
+        },
+        { role: 'user', content: buildDirectorPrompt(params) },
+      ],
+      temperature: 0.35,
+      max_tokens: 2500,
+    }),
+  })
+  if (!res.ok) {
+    throw new Error(`DeepSeek edit director failed: ${res.status}`)
+  }
+  const data = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string } }>
+  }
+  const raw = data.choices?.[0]?.message?.content?.trim() || ''
+  const jsonSlice = extractFirstJsonObject(raw) || raw
+  return JSON.parse(jsonSlice || '{}') as ClipEditPlan
+}
+
+async function refineClipEditPlan(params: {
+  platform: TargetPlatform
+  clipBrief: string
+  sourceDurationSeconds?: number
+  platformAlgorithmNotes: unknown
+  geminiPlan: ClipEditPlan
+}): Promise<ClipEditPlan> {
+  let plan = params.geminiPlan
+  const providersUsed = ['gemini-video']
+
+  try {
+    const openAiPlan = await refineWithOpenAI({ ...params, role: 'director' })
+    if (openAiPlan) {
+      plan = openAiPlan
+      providersUsed.push('openai-director')
+    }
+  } catch (error) {
+    console.warn('[process-clip] OpenAI edit director failed:', error)
+  }
+
+  try {
+    const deepSeekPlan = await refineWithDeepSeek({
+      ...params,
+      priorPlan: plan,
+      role: providersUsed.includes('openai-director') ? 'critic' : 'director',
+    })
+    if (deepSeekPlan) {
+      plan = deepSeekPlan
+      providersUsed.push(providersUsed.includes('openai-director') ? 'deepseek-critic' : 'deepseek-director')
+    }
+  } catch (error) {
+    console.warn('[process-clip] DeepSeek edit director failed:', error)
+  }
+
+  return { ...plan, aiProvidersUsed: providersUsed }
 }
 
 export async function POST(request: NextRequest) {
@@ -288,20 +439,18 @@ ${clipBrief}`,
     const raw = typeof response.text === 'string' ? response.text : ''
     const clean = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
     const jsonSlice = extractFirstJsonObject(clean) || clean
-    const parsed = JSON.parse(jsonSlice || '{}') as {
-      captionText?: string
-      hookPlan?: string
-      pacePlan?: string
-      facecamGuidance?: string
-      shotstackEditPrompt?: string
-      editBlueprint?: EditBlueprint
-      publishPackage?: {
-        tiktok?: { captionWithEmojisAndTags?: string }
-        instagramReels?: { captionWithEmojisAndTags?: string }
-        facebookReels?: { captionWithEmojisAndTags?: string }
-        youtubeShorts?: { title?: string; description?: string; tags?: string[] }
-      }
-    }
+    const geminiPlan = JSON.parse(jsonSlice || '{}') as ClipEditPlan
+    const sourceDurationSeconds =
+      typeof body.sourceDurationSeconds === 'number' && Number.isFinite(body.sourceDurationSeconds)
+        ? body.sourceDurationSeconds
+        : undefined
+    const parsed = await refineClipEditPlan({
+      platform,
+      clipBrief,
+      sourceDurationSeconds,
+      platformAlgorithmNotes,
+      geminiPlan,
+    })
 
     const captionForVideo =
       (parsed.captionText && parsed.captionText.trim()) ||
@@ -310,10 +459,6 @@ ${clipBrief}`,
 
     const lm = body.landscapeMode === 'letterbox' ? 'letterbox' : 'crop'
     const editBlueprint = parsed.editBlueprint
-    const sourceDurationSeconds =
-      typeof body.sourceDurationSeconds === 'number' && Number.isFinite(body.sourceDurationSeconds)
-        ? body.sourceDurationSeconds
-        : undefined
 
     const shotstack = generateShotstackJSON({
       title: `Viral Architect ${platform}`,
@@ -332,6 +477,7 @@ ${clipBrief}`,
     return NextResponse.json({
       platform,
       model: MODEL_NAME,
+      aiProvidersUsed: parsed.aiProvidersUsed || ['gemini-video'],
       safeZone,
       analysis: parsed,
       shotstackEditPrompt:

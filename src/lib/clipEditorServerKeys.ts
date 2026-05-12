@@ -8,6 +8,11 @@ export function resolveOpenAiApiKey(): string | undefined {
   return key
 }
 
+export function resolveDeepSeekApiKey(): string | undefined {
+  const key = (process.env.DEEPSEEK_API_KEY || '').trim() || undefined
+  return key
+}
+
 export function resolveRunwayApiSecret(): string | undefined {
   const key =
     (process.env.RUNWAYML_API_SECRET || process.env.RUNWAY_API || '').trim() || undefined
