@@ -72,6 +72,7 @@ type TimedTextOverlay = {
 type OverlayPlacement = {
   start: number
   maxEnd: number
+  minStart: number
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -166,6 +167,56 @@ function buildSourceMomentSegments(
   return segments
 }
 
+function nextFallbackTrim(segments: VideoSeg[], sourceDurationCap: number | null): number {
+  const lastSegment = segments[segments.length - 1]
+  if (!lastSegment) return 0
+
+  const nextTrim = lastSegment.trim + lastSegment.length + 0.35
+  if (sourceDurationCap == null) return nextTrim
+
+  const maxTrimStart = Math.max(0, sourceDurationCap - 0.9)
+  if (nextTrim <= maxTrimStart) return nextTrim
+
+  const usedStarts = new Set(segments.map((segment) => Math.round(segment.trim * 10)))
+  for (const candidate of [0, 1.25, 2.5, 4, 6, 8, 10, 14, 18, 24, 30]) {
+    const bounded = Math.min(candidate, maxTrimStart)
+    if (!usedStarts.has(Math.round(bounded * 10))) return bounded
+  }
+
+  return Math.max(0, maxTrimStart * 0.5)
+}
+
+function fillTimelineToTarget(
+  segments: VideoSeg[],
+  pacing: PacingProfile,
+  sourceDurationCap: number | null
+): void {
+  let timelineCursor = segments.reduce((sum, segment) => sum + segment.length, 0)
+  let segIndex = segments.length
+
+  while (timelineCursor < pacing.renderSeconds - 0.2) {
+    const jitterScale = segIndex % 3 === 0 ? 1.16 : segIndex % 3 === 1 ? 0.86 : 1.02
+    const desiredLen = clamp(pacing.chunkSeconds * jitterScale, Math.max(0.9, pacing.chunkSeconds * 0.72), pacing.chunkSeconds * 1.28)
+    const remainingTimeline = pacing.renderSeconds - timelineCursor
+    const trim = nextFallbackTrim(segments, sourceDurationCap)
+    const sourceRemaining =
+      sourceDurationCap != null
+        ? Math.max(0, sourceDurationCap - trim)
+        : Number.POSITIVE_INFINITY
+    const clipLen = Math.min(desiredLen, remainingTimeline, sourceRemaining)
+
+    if (clipLen < 0.45) break
+
+    segments.push({
+      start: Number(timelineCursor.toFixed(2)),
+      length: Number(clipLen.toFixed(2)),
+      trim: Number(trim.toFixed(2)),
+    })
+    timelineCursor += clipLen
+    segIndex += 1
+  }
+}
+
 function cleanOverlayText(text: string | undefined, maxChars: number): string | null {
   if (!text) return null
   const cleaned = text
@@ -213,6 +264,7 @@ function placementForSegment(segment: VideoSeg, offsetSeconds: number, renderSec
   return {
     start: clamp(segment.start + offsetSeconds, segment.start, Math.max(segment.start, segmentEnd - 0.25)),
     maxEnd: segmentEnd,
+    minStart: segment.start,
   }
 }
 
@@ -223,6 +275,7 @@ function placementForTimelineStart(timelineStartSeconds: number, segments: Video
   return {
     start,
     maxEnd: segment ? Math.min(renderSeconds, segment.start + segment.length) : renderSeconds,
+    minStart: segment ? segment.start : 0,
   }
 }
 
@@ -288,12 +341,17 @@ function buildTimedTextClips(params: {
     const text = cleanOverlayText(overlay.text, params.type === 'subtitle' ? 84 : 54)
     const placement = resolveOverlayPlacement(overlay, params.segments, params.renderSeconds)
     if (!text || placement == null) continue
-    const start = placement.start
-    const rawLength = overlay.durationSeconds ?? overlay.length ?? (params.type === 'subtitle' ? 1.6 : 1.25)
-    const length = clamp(rawLength, 0.8, params.type === 'subtitle' ? 3.2 : 2.2)
+    const minReadableSeconds = params.type === 'subtitle' ? 1.35 : 1.6
+    const rawLength = overlay.durationSeconds ?? overlay.length ?? (params.type === 'subtitle' ? 2.0 : 2.1)
+    const length = clamp(rawLength, minReadableSeconds, params.type === 'subtitle' ? 3.2 : 3.0)
+    let start = placement.start
     if (start >= params.renderSeconds - 0.25) continue
-    const availableSeconds = Math.min(params.renderSeconds, placement.maxEnd) - start
-    if (availableSeconds < 0.35) continue
+    let availableSeconds = Math.min(params.renderSeconds, placement.maxEnd) - start
+    if (availableSeconds < minReadableSeconds) {
+      start = Math.max(placement.minStart, Math.min(start, placement.maxEnd - minReadableSeconds))
+      availableSeconds = Math.min(params.renderSeconds, placement.maxEnd) - start
+    }
+    if (availableSeconds < minReadableSeconds) continue
     clips.push({
       asset: buildTextAsset(text, params.platform, params.type),
       start: Number(start.toFixed(2)),
@@ -336,39 +394,12 @@ export function generateShotstackJSON({
   const mainFit = landscapeMode === 'letterbox' ? 'contain' : 'crop'
 
   const cutLen = pacing.chunkSeconds
-  const maxSourceTrimStart =
-    sourceDurationCap != null ? Math.max(0, sourceDurationCap - 0.9) : Number.POSITIVE_INFINITY
   const segments: VideoSeg[] = buildSourceMomentSegments(
     editBlueprint?.sourceMoments,
     pacing,
     sourceDurationCap
   )
-  const hasUsableSourceMoments = segments.length > 0
-  let timelineCursor = segments.reduce((sum, segment) => sum + segment.length, 0)
-  let sourceCursor = 0
-  let segIndex = segments.length
-  while (!hasUsableSourceMoments && timelineCursor < pacing.renderSeconds - 0.2) {
-    const jitterScale = segIndex % 3 === 0 ? 1.16 : segIndex % 3 === 1 ? 0.86 : 1.02
-    const desiredLen = clamp(cutLen * jitterScale, Math.max(0.9, cutLen * 0.72), cutLen * 1.28)
-    const clipLen = Math.min(desiredLen, pacing.renderSeconds - timelineCursor)
-    const boundedTrim =
-      maxSourceTrimStart === Number.POSITIVE_INFINITY
-        ? sourceCursor
-        : Math.min(sourceCursor, maxSourceTrimStart)
-    segments.push({
-      start: Number(timelineCursor.toFixed(2)),
-      length: Number(clipLen.toFixed(2)),
-      trim: Number(boundedTrim.toFixed(2)),
-    })
-    timelineCursor += clipLen
-    // Move through source with a slight stride offset to reduce mechanical repetition.
-    sourceCursor += clipLen * (segIndex % 2 === 0 ? 1.08 : 0.93)
-    if (sourceDurationCap != null && sourceCursor > maxSourceTrimStart) {
-      // Wrap into a different interior region instead of holding on the last frames.
-      sourceCursor = Math.max(0.4, (sourceCursor - maxSourceTrimStart) * 0.35)
-    }
-    segIndex += 1
-  }
+  fillTimelineToTarget(segments, { ...pacing, chunkSeconds: cutLen }, sourceDurationCap)
 
   const mainClips: Array<Record<string, unknown>> = []
   segments.forEach((s, index) => {

@@ -123,12 +123,14 @@ const SHOTSTACK_RENDERER_CONTRACT = `SHOTSTACK_RENDERER_CONTRACT:
 - Output is a vertical 9:16 Shotstack edit (1080x1920).
 - Renderer builds ONE main video track from sourceMoments. It does not support duplicate video layers, picture-in-picture, music beds, sound effects, stickers, stock b-roll, or transition stacks.
 - Renderer supports sourceMoments ordered in final edit order. Each sourceMoment uses original SOURCE timestamps.
+- Renderer will target at least 8 seconds unless the uploaded source is shorter. Select enough sourceMoments to cover the requested renderSeconds.
 - Renderer supports visualTreatment on sourceMoments: "slowZoomIn", "slowZoomOut", or "none". Use this for emphasis, not on every cut.
 - Renderer supports timed textOverlays: max 3 callouts. Use sourceMomentIndex + offsetSeconds whenever possible so the text appears over that selected moment in the final cut.
 - Renderer supports timed subtitles: max 8 short snippets. Use sourceMomentIndex + offsetSeconds whenever possible.
 - sourceMomentIndex is the 0-based index of the sourceMoments array AFTER your final ordering, not a source timestamp and not a timeline segment index.
 - timelineStartSeconds means seconds in the FINAL rendered clip. sourceStartSeconds means seconds in the ORIGINAL uploaded source. Do not confuse them.
 - Prefer sourceMomentIndex + offsetSeconds for every overlay/subtitle; only use timelineStartSeconds when you have computed the final rendered timeline position and it is inside the clip.
+- Keep textOverlays readable: durationSeconds should usually be 1.6 to 3.0 seconds. Do not flash text for less than 1.5 seconds.
 - Unsupported requests in shotstackEditPrompt will be ignored. Make the JSON fields do the work.`
 
 function buildDirectorPrompt(params: {
@@ -167,6 +169,7 @@ Rules:
 - Use subtitles only for short spoken lines you are confident were said in the clip. Prefer sourceMomentIndex + offsetSeconds. If unsure, return [].
 - Keep sourceMoments in final edit order with the strongest hook first.
 - Choose 3-8 sourceMoments, each with startSeconds, endSeconds, reason, and visualTreatment.
+- The combined selected sourceMoments should cover at least 10-18 seconds for normal source clips. Do not return a 1-3 second final edit unless the uploaded source itself is that short.
 - Avoid repeated adjacent source ranges that would look like screen flashing.
 - Keep renderSeconds realistic for the useful source moments.
 - Timing contract: sourceMoments use original source timestamps. textOverlays/subtitles should use either sourceMomentIndex plus offsetSeconds, or timelineStartSeconds in the final rendered clip. Do not use source timestamps as timelineStartSeconds.
@@ -404,10 +407,10 @@ Return valid JSON only:
       { "startSeconds": "number", "endSeconds": "number", "reason": "why this exact moment should be used", "visualTreatment": "none|slowZoomIn|slowZoomOut" }
     ],
     "textOverlays": [
-      { "text": "short grounded callout from visible/spoken clip content", "sourceMomentIndex": "number 0-based", "offsetSeconds": "number within that selected moment", "timelineStartSeconds": "optional number in final render timeline", "durationSeconds": "number 0.8..2.2", "position": "top|middle|bottom", "type": "callout" }
+      { "text": "short grounded callout from visible/spoken clip content", "sourceMomentIndex": "number 0-based", "offsetSeconds": "number within that selected moment", "timelineStartSeconds": "optional number in final render timeline", "durationSeconds": "number 1.6..3.0", "position": "top|middle|bottom", "type": "callout" }
     ],
     "subtitles": [
-      { "text": "short spoken line from the clip", "sourceMomentIndex": "number 0-based", "offsetSeconds": "number within that selected moment", "timelineStartSeconds": "optional number in final render timeline", "durationSeconds": "number 0.8..3.2", "position": "bottom", "type": "subtitle" }
+      { "text": "short spoken line from the clip", "sourceMomentIndex": "number 0-based", "offsetSeconds": "number within that selected moment", "timelineStartSeconds": "optional number in final render timeline", "durationSeconds": "number 1.4..3.2", "position": "bottom", "type": "subtitle" }
     ]
   },
   "publishPackage": {
@@ -433,6 +436,7 @@ Rules:
 - Build this like a viral human editor using a StreamLadder/OpusClip style workflow: find the strongest hook, cut dead air, preserve context, escalate, deliver payoff, then optionally end on a loopable beat.
 - First 0-2 seconds: start on the highest-retention source moment. It can be a reaction, impact frame, surprising line, visible outcome, or conflict point. Do not start with setup unless setup itself is compelling.
 - Pick 3-8 sourceMoments from the strongest visual/audio moments in the actual clip. Order them in FINAL EDIT ORDER, not chronological order, with the best hook first.
+- Select enough sourceMoments to make the final edit feel complete: usually 10-18 seconds total for a normal uploaded clip, never 1-3 seconds unless the source video is only that long.
 - For each sourceMoment, use exact original source timestamps, a reason tied to what is seen/heard, and visualTreatment.
 - Every selected moment must serve one role: hook, context, escalation, punchline/payoff, proof, or loop.
 - Remove dead air, menus, loading screens, long pauses, repeated frames, streamer silence, and context that does not raise retention.
@@ -444,6 +448,7 @@ Rules:
 - Do not place overlays/subtitles after the last useful cut. Every text clip must appear while its relevant selected sourceMoment is visible.
 - Avoid generic overlays like "Wait for it", "You won't believe this", "Epic moment", unless that phrase is actually spoken/visible or specifically true for the clip.
 - Prefer 1 strong callout in the first 1.5 seconds if it clarifies the hook. Otherwise skip callouts and rely on subtitles.
+- Make text readable. Callouts should stay on screen about 1.6-3.0 seconds; subtitles about 1.4-3.2 seconds.
 - For gameplay/stream clips: prioritize kills, fails, clutch moments, rage/reaction, chat-worthy lines, visual outcome, scoreboard/proof, or sudden reversal.
 - For talking clips: prioritize bold claim, contradiction, actionable takeaway, emotional reaction, or concise quote.
 - Optimize by platform:
