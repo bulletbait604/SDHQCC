@@ -36,6 +36,24 @@ export function clipEditorRenderBackend(): 'shotstack' | 'vizard' {
     : 'shotstack'
 }
 
+export type VizardCaptionMode = 'vizard' | 'deepgram-shotstack'
+
+export function vizardCaptionMode(): VizardCaptionMode {
+  const raw = process.env.CLIP_EDITOR_VIZARD_CAPTION_MODE?.trim().toLowerCase()
+  return raw === 'deepgram' || raw === 'deepgram-shotstack' || raw === 'shotstack'
+    ? 'deepgram-shotstack'
+    : 'vizard'
+}
+
+function vizardLanguage(): string {
+  return process.env.CLIP_EDITOR_VIZARD_LANG?.trim() || 'auto'
+}
+
+function vizardRemoveSilenceSwitch(): 0 | 1 {
+  const raw = process.env.CLIP_EDITOR_VIZARD_REMOVE_SILENCE?.trim()
+  return raw === '0' || raw?.toLowerCase() === 'false' ? 0 : 1
+}
+
 function vizardStatusMessage(code: number | undefined, fallback: string): string {
   switch (code) {
     case 1000:
@@ -94,16 +112,17 @@ export async function submitVizardClip(params: {
     throw new Error('VIZARDAI_API_KEY is not configured')
   }
 
+  const captionMode = vizardCaptionMode()
   const body = {
-    lang: 'auto',
+    lang: vizardLanguage(),
     preferLength: [0],
     videoUrl: params.sourceUrl,
     videoType: 1,
     ext: sourceExtension(params.fileName, params.mimeType),
     ratioOfClip: 1,
-    removeSilenceSwitch: 1,
+    removeSilenceSwitch: vizardRemoveSilenceSwitch(),
     maxClipNumber: 1,
-    subtitleSwitch: 1,
+    subtitleSwitch: captionMode === 'deepgram-shotstack' ? 0 : 1,
     headlineSwitch: 1,
     emojiSwitch: params.platform === 'tiktok' ? 1 : 0,
     highlightSwitch: 1,

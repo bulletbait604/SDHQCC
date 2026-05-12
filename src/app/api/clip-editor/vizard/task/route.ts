@@ -5,7 +5,7 @@ import {
   AuthError,
   createAuthErrorResponse,
 } from '@/lib/auth/verifyAuth'
-import { pickBestVizardVideo, queryVizardProject, vizardUserMessage } from '@/lib/vizard'
+import { pickBestVizardVideo, queryVizardProject, vizardCaptionMode, vizardUserMessage } from '@/lib/vizard'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
       status: data.code === 1000 ? 'processing' : bestVideo ? 'done' : 'processing',
       videoUrl: bestVideo?.videoUrl || null,
       bestVideo,
+      captionMode: vizardCaptionMode(),
       userMessage: data.code === 1000 ? 'Vizard is still editing your clip.' : undefined,
     })
   } catch (error) {

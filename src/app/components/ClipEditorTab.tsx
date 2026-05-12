@@ -196,6 +196,12 @@ export default function ClipEditorTab({
     return null
   }
 
+  const extractVizardDurationMs = (snapshot: Record<string, unknown>): number | null => {
+    const bestVideo = snapshot.bestVideo as Record<string, unknown> | undefined
+    const duration = bestVideo?.videoMsDuration
+    return typeof duration === 'number' && Number.isFinite(duration) ? duration : null
+  }
+
   const readVizardPollError = (snapRes: Response, snapData: Record<string, unknown>): string => {
     if (typeof snapData.userMessage === 'string' && snapData.userMessage.trim()) return snapData.userMessage
     if (typeof snapData.error === 'string' && snapData.error.trim()) return snapData.error
@@ -281,6 +287,59 @@ export default function ClipEditorTab({
           setStatusText('Vizard is editing your clip...')
           const clipUrl = extractVizardVideoUrl(snapData)
           if (clipUrl) {
+            if (snapData.captionMode === 'deepgram-shotstack') {
+              setStatusText('Adding Deepgram captions...')
+              const captionRes = await fetch('/api/clip-editor/vizard/caption', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                  videoUrl: clipUrl,
+                  platform: targetPlatform,
+                  ...(extractVizardDurationMs(snapData) != null
+                    ? { videoMsDuration: extractVizardDurationMs(snapData) }
+                    : {}),
+                }),
+              })
+              const captionData = await captionRes.json().catch(() => ({}))
+              if (!captionRes.ok) {
+                throw new Error(
+                  (captionData as { userMessage?: string }).userMessage ||
+                    (captionData as { error?: string }).error ||
+                    'Could not add Deepgram captions'
+                )
+              }
+              const captionRenderId = (captionData as { renderId?: string }).renderId
+              if (!captionRenderId) throw new Error('No caption render id was returned')
+              setRenderId(`vizard-caption:${captionRenderId}`)
+
+              for (let j = 0; j < 90; j++) {
+                await sleep(4000)
+                const captionSnapRes = await fetch(
+                  `/api/shotstack/render/task?renderId=${encodeURIComponent(captionRenderId)}`,
+                  { credentials: 'include' }
+                )
+                const captionSnapData = (await captionSnapRes.json().catch(() => ({}))) as Record<string, unknown>
+                if (!captionSnapRes.ok) {
+                  throw new Error(readShotstackPollError(captionSnapRes, captionSnapData))
+                }
+                const status = String(
+                  (captionSnapData.response as { status?: string } | undefined)?.status || ''
+                ).toUpperCase()
+                setStatusText(`Rendering Deepgram captions... ${status || 'RUNNING'}`)
+                const captionedUrl = extractShotstackVideoUrl(captionSnapData)
+                if (captionedUrl) {
+                  setFinalClipUrl(captionedUrl)
+                  setStatusText('Done. Your captioned Vizard clip is ready.')
+                  setProgress(100)
+                  return
+                }
+                if (status === 'FAILED' || status === 'CANCELLED') {
+                  throw new Error('Caption render failed. Try the Vizard caption mode or retry.')
+                }
+              }
+              throw new Error('Caption render timed out before completion. Please retry.')
+            }
             setFinalClipUrl(clipUrl)
             setStatusText('Done. Your Vizard clip is ready.')
             setProgress(100)
