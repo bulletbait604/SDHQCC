@@ -196,7 +196,7 @@ export default function BackgroundRemoverTab({
                 className={`w-full rounded-xl border px-4 py-3 text-sm ${inputShell}`}
               />
               <p className={`text-xs ${subtitleClasses}`}>
-                Note: Bria removes the main subject's background automatically. The prompt is for your notes only and is not sent to the model.
+                Note: Bria removes the background behind the main subject automatically. The prompt is for your notes only and is not sent to the model.
               </p>
             </div>
 
