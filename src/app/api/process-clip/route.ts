@@ -103,6 +103,7 @@ export async function POST(request: NextRequest) {
     if (!body.clipBrief || body.clipBrief.trim().length < 10) {
       return NextResponse.json({ error: 'clipBrief is required' }, { status: 400 })
     }
+    const clipBrief = body.clipBrief.trim()
     const hasSourceUrl = typeof body.sourceUrl === 'string' && /^https?:\/\//i.test(body.sourceUrl)
     const hasR2FileKey = typeof body.r2FileKey === 'string' && body.r2FileKey.length > 0
     if (!hasSourceUrl && !hasR2FileKey) {
@@ -126,6 +127,7 @@ export async function POST(request: NextRequest) {
     let geminiFileUri = sourceUrl
     let effectiveMime = typeof body.mimeType === 'string' && body.mimeType ? body.mimeType : 'video/mp4'
     let cleanupGeminiName: string | null = null
+    let r2KeyForGeminiFallback: string | null = null
     if (!sourceUrl && hasR2FileKey) {
       const storageUser = user.username.replace(/^@/, '').toLowerCase()
       const prefix = `uploads/clips/${storageUser}/`
@@ -133,6 +135,7 @@ export async function POST(request: NextRequest) {
       if (!key.startsWith(prefix) || key.includes('..') || key.length > 500) {
         return NextResponse.json({ error: 'Invalid r2FileKey for current user' }, { status: 400 })
       }
+      r2KeyForGeminiFallback = key
       const meta = await getR2ObjectMetadata(key)
       if (!meta) {
         return NextResponse.json(
@@ -173,20 +176,20 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-    const response = await gemini.models.generateContent({
-      model: MODEL_NAME,
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              fileData: {
-                mimeType: effectiveMime,
-                fileUri: geminiFileUri,
+      const createGeminiRequest = () => ({
+        model: MODEL_NAME,
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                fileData: {
+                  mimeType: effectiveMime,
+                  fileUri: geminiFileUri,
+                },
               },
-            },
-            {
-              text: `You are the "Viral Architect" engine. Build an upload-click-done package for a short-form video.
+              {
+                text: `You are the "Viral Architect" engine. Build an upload-click-done package for a short-form video.
 Target platform: ${platform}
 Platform directive: ${platformEditingDirective(platform)}
 Platform safe-zone offsets: ${JSON.stringify(safeZone)}
@@ -244,12 +247,43 @@ Rules:
 - Overlay text must be short, high-retention callouts and avoid covering the primary caption safe zone.
 
 CLIP_BRIEF:
-${body.clipBrief.trim()}`,
-            },
-          ],
-        },
-      ],
-    })
+${clipBrief}`,
+              },
+            ],
+          },
+        ],
+      })
+
+      let response
+      try {
+        response = await gemini.models.generateContent(createGeminiRequest())
+      } catch (geminiError) {
+        if (!r2KeyForGeminiFallback || cleanupGeminiName) {
+          throw geminiError
+        }
+
+        console.warn(
+          '[process-clip] Presigned URL analysis failed; retrying via Gemini Files API:',
+          geminiError instanceof Error ? geminiError.message : geminiError
+        )
+        const buffer = await getFileFromR2(r2KeyForGeminiFallback)
+        if (!buffer) {
+          return NextResponse.json(
+            { error: 'Could not load uploaded clip for Gemini analysis' },
+            { status: 404 }
+          )
+        }
+        const uploaded = await uploadBufferToGeminiFilesApi({
+          apiKey,
+          buffer,
+          mimeType: effectiveMime,
+          displayName: typeof body.fileName === 'string' ? body.fileName : 'clip.mp4',
+        })
+        cleanupGeminiName = uploaded.name
+        await pollGeminiFileUntilActive(apiKey, uploaded.uri)
+        geminiFileUri = uploaded.uri
+        response = await gemini.models.generateContent(createGeminiRequest())
+      }
 
     const raw = typeof response.text === 'string' ? response.text : ''
     const clean = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
