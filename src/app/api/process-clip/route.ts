@@ -119,6 +119,18 @@ type ClipEditPlan = {
   aiProvidersUsed?: string[]
 }
 
+const SHOTSTACK_RENDERER_CONTRACT = `SHOTSTACK_RENDERER_CONTRACT:
+- Output is a vertical 9:16 Shotstack edit (1080x1920).
+- Renderer builds ONE main video track from sourceMoments. It does not support duplicate video layers, picture-in-picture, music beds, sound effects, stickers, stock b-roll, or transition stacks.
+- Renderer supports sourceMoments ordered in final edit order. Each sourceMoment uses original SOURCE timestamps.
+- Renderer supports visualTreatment on sourceMoments: "slowZoomIn", "slowZoomOut", or "none". Use this for emphasis, not on every cut.
+- Renderer supports timed textOverlays: max 3 callouts. Use sourceMomentIndex + offsetSeconds whenever possible so the text appears over that selected moment in the final cut.
+- Renderer supports timed subtitles: max 8 short snippets. Use sourceMomentIndex + offsetSeconds whenever possible.
+- sourceMomentIndex is the 0-based index of the sourceMoments array AFTER your final ordering, not a source timestamp and not a timeline segment index.
+- timelineStartSeconds means seconds in the FINAL rendered clip. sourceStartSeconds means seconds in the ORIGINAL uploaded source. Do not confuse them.
+- Prefer sourceMomentIndex + offsetSeconds for every overlay/subtitle; only use timelineStartSeconds when you have computed the final rendered timeline position and it is inside the clip.
+- Unsupported requests in shotstackEditPrompt will be ignored. Make the JSON fields do the work.`
+
 function buildDirectorPrompt(params: {
   platform: TargetPlatform
   clipBrief: string
@@ -137,6 +149,8 @@ Source duration seconds: ${typeof params.sourceDurationSeconds === 'number' ? pa
 Creator brief: ${params.clipBrief}
 Algorithm context JSON: ${JSON.stringify(params.platformAlgorithmNotes)}
 
+${SHOTSTACK_RENDERER_CONTRACT}
+
 Gemini video-understanding draft JSON:
 ${JSON.stringify(params.geminiPlan)}
 
@@ -147,15 +161,16 @@ Return one JSON object using the same high-level shape. Your job is to improve o
 
 Rules:
 - Respect Gemini's actual video understanding. Prefer its timestamped sourceMoments; only reorder or trim them if the draft itself supports it.
-- The renderer supports one video track, at most 3 slow zooms, up to 3 timed callouts, and up to 8 timed subtitle snippets. It does not support picture-in-picture or transition stacks.
-- Use visualTreatment on sourceMoments only when a slow zoom helps attention: "slowZoomIn", "slowZoomOut", or "none".
+- Think like StreamLadder/OpusClip: clip selection first, then reframing/zoom, captions/callouts, pacing, metadata.
+- Use visualTreatment on sourceMoments only when a slow zoom helps attention. Leave most moments as "none".
 - Use textOverlays only for grounded callouts from visible/spoken clip content. No generic hype text, no unrelated slogans. Prefer sourceMomentIndex + offsetSeconds so text lands inside the final cut.
 - Use subtitles only for short spoken lines you are confident were said in the clip. Prefer sourceMomentIndex + offsetSeconds. If unsure, return [].
 - Keep sourceMoments in final edit order with the strongest hook first.
-- Choose 3-8 sourceMoments, each with startSeconds, endSeconds, and reason.
+- Choose 3-8 sourceMoments, each with startSeconds, endSeconds, reason, and visualTreatment.
 - Avoid repeated adjacent source ranges that would look like screen flashing.
 - Keep renderSeconds realistic for the useful source moments.
 - Timing contract: sourceMoments use original source timestamps. textOverlays/subtitles should use either sourceMomentIndex plus offsetSeconds, or timelineStartSeconds in the final rendered clip. Do not use source timestamps as timelineStartSeconds.
+- If text cannot be placed confidently inside a selected sourceMoment, omit it.
 - Return valid JSON only, no markdown.`
 }
 
@@ -370,6 +385,8 @@ Platform safe-zone offsets: ${JSON.stringify(safeZone)}
 Clip-editor algorithm context (JSON): ${JSON.stringify(platformAlgorithmNotes)}
 Source duration seconds: ${typeof body.sourceDurationSeconds === 'number' ? body.sourceDurationSeconds : 'unknown'}
 
+${SHOTSTACK_RENDERER_CONTRACT}
+
 Return valid JSON only:
 {
   "captionText": "string (on-video caption)",
@@ -413,16 +430,22 @@ Return valid JSON only:
 
 Rules:
 - Analyze the supplied video file directly. Do not create a generic edit plan from the text brief alone.
-- Build this like a viral human editor: hook, escalation, payoff, optional loop. Every cut must earn retention.
-- First 0-2 seconds: start on the most attention-grabbing source moment, not automatically at 0:00 unless 0:00 is genuinely strongest.
+- Build this like a viral human editor using a StreamLadder/OpusClip style workflow: find the strongest hook, cut dead air, preserve context, escalate, deliver payoff, then optionally end on a loopable beat.
+- First 0-2 seconds: start on the highest-retention source moment. It can be a reaction, impact frame, surprising line, visible outcome, or conflict point. Do not start with setup unless setup itself is compelling.
 - Pick 3-8 sourceMoments from the strongest visual/audio moments in the actual clip. Order them in FINAL EDIT ORDER, not chronological order, with the best hook first.
-- For each sourceMoment, use exact original source timestamps and a reason tied to what is seen/heard.
-- Use visualTreatment sparingly: mark at most 3 sourceMoments for slowZoomIn or slowZoomOut when it improves focus. Otherwise use none.
+- For each sourceMoment, use exact original source timestamps, a reason tied to what is seen/heard, and visualTreatment.
+- Every selected moment must serve one role: hook, context, escalation, punchline/payoff, proof, or loop.
+- Remove dead air, menus, loading screens, long pauses, repeated frames, streamer silence, and context that does not raise retention.
+- Use visualTreatment sparingly: mark at most 3 sourceMoments for slowZoomIn or slowZoomOut when it improves focus on a face, gameplay action, reaction, or readable UI. Otherwise use none.
 - textOverlays must be grounded in visible/spoken clip content and timed to the relevant selected moment. Use 0-3 total. Do not invent unrelated text.
 - subtitles must be short spoken lines from the clip. Use [] if speech is unclear.
 - CRITICAL TIMING: sourceMoments use original source timestamps. textOverlays/subtitles should use sourceMomentIndex + offsetSeconds, or timelineStartSeconds in the final rendered clip. Do not put original source timestamps in timelineStartSeconds.
+- sourceMomentIndex is the 0-based index of your final ordered sourceMoments array. If sourceMoments[0] is the hook, sourceMomentIndex 0 means text appears during that hook in the final rendered clip.
 - Do not place overlays/subtitles after the last useful cut. Every text clip must appear while its relevant selected sourceMoment is visible.
 - Avoid generic overlays like "Wait for it", "You won't believe this", "Epic moment", unless that phrase is actually spoken/visible or specifically true for the clip.
+- Prefer 1 strong callout in the first 1.5 seconds if it clarifies the hook. Otherwise skip callouts and rely on subtitles.
+- For gameplay/stream clips: prioritize kills, fails, clutch moments, rage/reaction, chat-worthy lines, visual outcome, scoreboard/proof, or sudden reversal.
+- For talking clips: prioritize bold claim, contradiction, actionable takeaway, emotional reaction, or concise quote.
 - Optimize by platform:
   - TikTok: fastest hook, dense cuts, visible payoff, punchy captions, no slow intro.
   - YouTube Shorts: immediate clarity, title/description strong SEO, loop ending when possible.

@@ -42,6 +42,7 @@ type VideoSeg = {
   start: number
   length: number
   trim: number
+  sourceMomentIndex?: number
   effect?: 'zoomInSlow' | 'zoomOutSlow'
 }
 
@@ -66,6 +67,11 @@ type TimedTextOverlay = {
   length?: number
   position?: 'top' | 'middle' | 'bottom'
   type?: 'subtitle' | 'callout'
+}
+
+type OverlayPlacement = {
+  start: number
+  maxEnd: number
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -105,10 +111,12 @@ function normalizeVisualTreatment(value: SourceMoment['visualTreatment']): Video
 function normalizeSourceMoments(
   sourceMoments: SourceMoment[] | undefined,
   sourceDurationCap: number | null
-): Array<{ start: number; end: number; effect?: VideoSeg['effect'] }> {
+): Array<{ start: number; end: number; effect?: VideoSeg['effect']; sourceMomentIndex: number }> {
   const maxEnd = sourceDurationCap ?? 90
-  const moments: Array<{ start: number; end: number; effect?: VideoSeg['effect'] }> = []
-  for (const moment of sourceMoments || []) {
+  const moments: Array<{ start: number; end: number; effect?: VideoSeg['effect']; sourceMomentIndex: number }> = []
+  const sourceList = sourceMoments || []
+  for (let sourceMomentIndex = 0; sourceMomentIndex < sourceList.length; sourceMomentIndex++) {
+    const moment = sourceList[sourceMomentIndex]!
     const rawStart = readMomentTime(moment, 'startSeconds', 'start')
     const rawEnd = readMomentTime(moment, 'endSeconds', 'end')
     if (rawStart == null || rawEnd == null) continue
@@ -116,7 +124,7 @@ function normalizeSourceMoments(
     const end = clamp(rawEnd, start, maxEnd)
     if (end - start < 0.45) continue
     const effect = normalizeVisualTreatment(moment.visualTreatment)
-    moments.push(effect ? { start, end, effect } : { start, end })
+    moments.push(effect ? { start, end, effect, sourceMomentIndex } : { start, end, sourceMomentIndex })
     if (moments.length >= 12) break
   }
   return moments
@@ -146,6 +154,7 @@ function buildSourceMomentSegments(
         start: Number(timelineCursor.toFixed(2)),
         length: Number(clipLen.toFixed(2)),
         trim: Number(sourceCursor.toFixed(2)),
+        sourceMomentIndex: moment.sourceMomentIndex,
         effect: segments.length < 3 && sourceCursor === moment.start ? moment.effect : undefined,
       })
       timelineCursor += clipLen
@@ -198,47 +207,70 @@ function overlayY(position: TimedTextOverlay['position'], safeZone: SafeZoneOffs
   return safeZone.captionY
 }
 
-function mapSourceTimeToTimeline(sourceSecond: number, segments: VideoSeg[]): number | null {
+function placementForSegment(segment: VideoSeg, offsetSeconds: number, renderSeconds: number): OverlayPlacement | null {
+  const segmentEnd = Math.min(renderSeconds, segment.start + segment.length)
+  if (segmentEnd - segment.start < 0.35) return null
+  return {
+    start: clamp(segment.start + offsetSeconds, segment.start, Math.max(segment.start, segmentEnd - 0.25)),
+    maxEnd: segmentEnd,
+  }
+}
+
+function placementForTimelineStart(timelineStartSeconds: number, segments: VideoSeg[], renderSeconds: number): OverlayPlacement | null {
+  if (timelineStartSeconds >= renderSeconds - 0.25) return null
+  const start = clamp(timelineStartSeconds, 0, Math.max(0, renderSeconds - 0.25))
+  const segment = segments.find((s) => start >= s.start && start < s.start + s.length)
+  return {
+    start,
+    maxEnd: segment ? Math.min(renderSeconds, segment.start + segment.length) : renderSeconds,
+  }
+}
+
+function mapSourceTimeToTimeline(sourceSecond: number, segments: VideoSeg[], renderSeconds: number): OverlayPlacement | null {
   for (const segment of segments) {
     const segmentSourceEnd = segment.trim + segment.length
     if (sourceSecond >= segment.trim && sourceSecond <= segmentSourceEnd) {
-      return segment.start + (sourceSecond - segment.trim)
+      return placementForSegment(segment, sourceSecond - segment.trim, renderSeconds)
     }
   }
   return null
 }
 
-function resolveOverlayStart(
+function resolveOverlayPlacement(
   overlay: TimedTextOverlay,
   segments: VideoSeg[],
   renderSeconds: number
-): number | null {
-  if (typeof overlay.timelineStartSeconds === 'number' && Number.isFinite(overlay.timelineStartSeconds)) {
-    return clamp(overlay.timelineStartSeconds, 0, Math.max(0, renderSeconds - 0.5))
-  }
-
+): OverlayPlacement | null {
   if (typeof overlay.sourceMomentIndex === 'number' && Number.isFinite(overlay.sourceMomentIndex)) {
     const index = Math.max(0, Math.floor(overlay.sourceMomentIndex))
-    const segment = segments[index]
+    const segment = segments.find((s) => s.sourceMomentIndex === index) || segments[index]
     if (segment) {
       const offset = typeof overlay.offsetSeconds === 'number' && Number.isFinite(overlay.offsetSeconds)
         ? overlay.offsetSeconds
         : 0
-      return clamp(segment.start + offset, segment.start, Math.min(renderSeconds - 0.5, segment.start + segment.length))
+      return placementForSegment(segment, offset, renderSeconds)
     }
   }
 
   const sourceStart = overlay.sourceStartSeconds
   if (typeof sourceStart === 'number' && Number.isFinite(sourceStart)) {
-    return mapSourceTimeToTimeline(sourceStart, segments)
+    return mapSourceTimeToTimeline(sourceStart, segments, renderSeconds)
+  }
+
+  if (typeof overlay.timelineStartSeconds === 'number' && Number.isFinite(overlay.timelineStartSeconds)) {
+    if (overlay.timelineStartSeconds <= renderSeconds) {
+      return placementForTimelineStart(overlay.timelineStartSeconds, segments, renderSeconds)
+    }
+    // If the model accidentally put a source timestamp here, map it instead of clamping it to the end.
+    return mapSourceTimeToTimeline(overlay.timelineStartSeconds, segments, renderSeconds)
   }
 
   const start = overlay.startSeconds ?? overlay.start
   if (typeof start !== 'number' || !Number.isFinite(start)) return null
   if (start <= renderSeconds) {
-    return clamp(start, 0, Math.max(0, renderSeconds - 0.5))
+    return placementForTimelineStart(start, segments, renderSeconds)
   }
-  return mapSourceTimeToTimeline(start, segments)
+  return mapSourceTimeToTimeline(start, segments, renderSeconds)
 }
 
 function buildTimedTextClips(params: {
@@ -254,15 +286,18 @@ function buildTimedTextClips(params: {
   for (const overlay of params.overlays || []) {
     if (clips.length >= params.maxItems) break
     const text = cleanOverlayText(overlay.text, params.type === 'subtitle' ? 84 : 54)
-    const start = resolveOverlayStart(overlay, params.segments, params.renderSeconds)
-    if (!text || start == null) continue
+    const placement = resolveOverlayPlacement(overlay, params.segments, params.renderSeconds)
+    if (!text || placement == null) continue
+    const start = placement.start
     const rawLength = overlay.durationSeconds ?? overlay.length ?? (params.type === 'subtitle' ? 1.6 : 1.25)
     const length = clamp(rawLength, 0.8, params.type === 'subtitle' ? 3.2 : 2.2)
     if (start >= params.renderSeconds - 0.25) continue
+    const availableSeconds = Math.min(params.renderSeconds, placement.maxEnd) - start
+    if (availableSeconds < 0.35) continue
     clips.push({
       asset: buildTextAsset(text, params.platform, params.type),
       start: Number(start.toFixed(2)),
-      length: Number(Math.min(length, params.renderSeconds - start).toFixed(2)),
+      length: Number(Math.min(length, availableSeconds).toFixed(2)),
       offset: {
         x: 0,
         y: overlayY(overlay.position || (params.type === 'subtitle' ? 'bottom' : 'top'), params.safeZone),
