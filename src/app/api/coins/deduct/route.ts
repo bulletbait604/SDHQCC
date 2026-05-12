@@ -8,7 +8,7 @@ const VALID_TOOL_COSTS: Record<string, number> = {
   'tag-generator': 1,        // 1 coin for free users
   'thumbnail-generator': 2,  // 2 coins for free users
   'clip-analyzer': 2,        // 2 coins for free users
-  'background-remover': 1,   // 1 coin for free users
+  'background-remover': 0,   // free for all users
   'content-analyzer': 2,     // 2 coins for free users
   'clip-editor-plan': 2,
   'clip-editor-runway': 3,
@@ -37,6 +37,49 @@ export async function POST(req: NextRequest) {
     }
 
     const client = await clientPromise
+
+    if (cost === 0) {
+      const dbZero = client.db('sdhq')
+      const balanceUserIdZero = await resolveCoinBalanceUserId(dbZero, user)
+      if (hasUnlimitedAccess(user)) {
+        await dbZero.collection('coinTransactions').insertOne({
+          userId: user.username.toLowerCase(),
+          username: user.username,
+          type: 'spend',
+          amount: 0,
+          tool,
+          balanceAfter: 999999,
+          unlimited: true,
+          role: user.role,
+          timestamp: new Date().toISOString()
+        })
+        return NextResponse.json({
+          success: true,
+          remainingCoins: 999999,
+          deducted: 0,
+          unlimited: true
+        })
+      }
+      const coinBalanceZero = await dbZero.collection('coinBalances').findOne({ userId: balanceUserIdZero })
+      const remainingZero = typeof coinBalanceZero?.coins === 'number' ? coinBalanceZero.coins : 0
+      await dbZero.collection('coinTransactions').insertOne({
+        userId: balanceUserIdZero,
+        username: user.username,
+        type: 'spend',
+        amount: 0,
+        tool,
+        balanceAfter: remainingZero,
+        role: user.role,
+        timestamp: new Date().toISOString()
+      })
+      return NextResponse.json({
+        success: true,
+        remainingCoins: remainingZero,
+        deducted: 0,
+        unlimited: false
+      })
+    }
+
     const db = client.db('sdhq')
 
     const balanceUserId = await resolveCoinBalanceUserId(db, user)

@@ -4,8 +4,6 @@ import { useRef, useState } from 'react'
 import NextImage from 'next/image'
 import { Download, Image as ImageIcon, Loader2, RotateCcw, Scissors, Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import type { ToolType } from '@/hooks/useCoins'
-
 type BackgroundRemoverResult = {
   imageUrl: string
   mimeType?: string
@@ -24,13 +22,8 @@ export interface BackgroundRemoverTabProps {
   title: string
   description: string
   user: { username: string } | null
-  hasEnoughCoins: (tool: ToolType) => boolean
-  deductCoins: (tool: ToolType) => Promise<boolean>
-  hasUnlimitedAccess: boolean
-  refreshBalance: () => void
 }
 
-const TOOL_ID: ToolType = 'background-remover'
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
 export default function BackgroundRemoverTab({
@@ -41,15 +34,10 @@ export default function BackgroundRemoverTab({
   title,
   description,
   user,
-  hasEnoughCoins,
-  deductCoins,
-  hasUnlimitedAccess,
-  refreshBalance,
 }: BackgroundRemoverTabProps) {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null)
   const [keepPrompt, setKeepPrompt] = useState('')
-  const [cropToSubject, setCropToSubject] = useState(false)
   const [isRemoving, setIsRemoving] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<BackgroundRemoverResult | null>(null)
@@ -107,10 +95,6 @@ export default function BackgroundRemoverTab({
       setError('Upload an image first.')
       return
     }
-    if (!hasUnlimitedAccess && !hasEnoughCoins(TOOL_ID)) {
-      setError('Background removal needs 1 coin. Purchase coins or claim daily coins.')
-      return
-    }
 
     setIsRemoving(true)
     try {
@@ -121,7 +105,6 @@ export default function BackgroundRemoverTab({
         body: JSON.stringify({
           imageDataUrl,
           keepPrompt: keepPrompt.trim() || undefined,
-          cropToSubject,
         }),
       })
       const data = (await res.json().catch(() => ({}))) as BackgroundRemoverResult & {
@@ -131,11 +114,6 @@ export default function BackgroundRemoverTab({
         throw new Error(data.error || 'Background removal failed.')
       }
       setResult(data)
-      const deducted = await deductCoins(TOOL_ID)
-      if (!deducted && !hasUnlimitedAccess) {
-        setError('Background was removed, but coin deduction failed.')
-      }
-      refreshBalance()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Background removal failed.')
     } finally {
@@ -151,7 +129,7 @@ export default function BackgroundRemoverTab({
           <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{title}</h3>
         </div>
         <p className={`max-w-xl ${textClasses} text-base`}>{description}</p>
-        <p className={`mt-2 text-xs ${subtitleClasses}`}>Powered by fal-ai/imageutils/rembg</p>
+        <p className={`mt-2 text-xs ${subtitleClasses}`}>Powered by fal-ai/bria/background/remove (Bria RMBG 2.0)</p>
       </div>
 
       {!user ? (
@@ -218,26 +196,9 @@ export default function BackgroundRemoverTab({
                 className={`w-full rounded-xl border px-4 py-3 text-sm ${inputShell}`}
               />
               <p className={`text-xs ${subtitleClasses}`}>
-                Note: this Fal model auto-detects the foreground subject. The prompt is captured for intent, but this model does not support prompt-guided masking.
+                Note: Bria removes the main subject's background automatically. The prompt is for your notes only and is not sent to the model.
               </p>
             </div>
-
-            <label className={`flex items-start gap-3 cursor-pointer ${subtitleClasses}`}>
-              <input
-                type="checkbox"
-                className="mt-1 h-4 w-4 rounded border-sdhq-cyan-500 text-sdhq-cyan-600"
-                checked={cropToSubject}
-                onChange={(event) => setCropToSubject(event.target.checked)}
-              />
-              <span>
-                <span className={`block text-sm font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
-                  Crop to subject
-                </span>
-                <span className="block text-xs opacity-90 mt-0.5">
-                  Trim empty transparent space around the detected object.
-                </span>
-              </span>
-            </label>
 
             <Button
               type="button"
@@ -251,7 +212,7 @@ export default function BackgroundRemoverTab({
                   Removing background...
                 </>
               ) : (
-                'Remove Background (1 coin)'
+                'Remove Background (free)'
               )}
             </Button>
 

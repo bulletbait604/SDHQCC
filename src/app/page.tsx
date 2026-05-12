@@ -412,7 +412,7 @@ const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'thumbnail-generator': true,
     'clip-analyzer': true,
     'new-tool': true,
-    'clip-editor': true,
+    'clip-editor': false,
     'background-remover': true
   },
   admin: {
@@ -2852,13 +2852,15 @@ export default function HomePage() {
                   <span className="hidden sm:inline">{t.clipEditor}</span>
                 </TabsTrigger>
               )}
-              <TabsTrigger
-                value="background-remover"
-                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
-              >
-                <Scissors className="w-4 h-4" />
-                <span className="hidden sm:inline">{t.backgroundRemover}</span>
-              </TabsTrigger>
+              {hasTabAccess('background-remover') && (
+                <TabsTrigger
+                  value="background-remover"
+                  className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
+                >
+                  <Scissors className="w-4 h-4" />
+                  <span className="hidden sm:inline">{t.backgroundRemover}</span>
+                </TabsTrigger>
+              )}
               {showNewToolTab && (
                 <TabsTrigger 
                   value="new-tool"
@@ -4367,21 +4369,19 @@ export default function HomePage() {
               </TabsContent>
             )}
 
-            <TabsContent value="background-remover">
-              <BackgroundRemoverTab
-                darkMode={darkMode}
-                cardClasses={cardClasses}
-                textClasses={textClasses}
-                subtitleClasses={subtitleClasses}
-                title={t.backgroundRemover}
-                description={t.backgroundRemoverDesc}
-                user={user}
-                hasEnoughCoins={hasEnoughCoins}
-                deductCoins={deductCoins}
-                hasUnlimitedAccess={hasUnlimitedAccess}
-                refreshBalance={refreshBalance}
-              />
-            </TabsContent>
+            {hasTabAccess('background-remover') && (
+              <TabsContent value="background-remover">
+                <BackgroundRemoverTab
+                  darkMode={darkMode}
+                  cardClasses={cardClasses}
+                  textClasses={textClasses}
+                  subtitleClasses={subtitleClasses}
+                  title={t.backgroundRemover}
+                  description={t.backgroundRemoverDesc}
+                  user={user}
+                />
+              </TabsContent>
+            )}
 
             <TabsContent value="kick-clips">
               <div className={`py-8 ${cardClasses}`}>
