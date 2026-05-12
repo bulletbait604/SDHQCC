@@ -52,6 +52,36 @@ function extractFirstJsonObject(raw: string): string | null {
   return null
 }
 
+function parseGeminiPlan(raw: string): unknown | null {
+  const clean = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+  const jsonSlice = extractFirstJsonObject(clean) || clean
+  try {
+    return JSON.parse(jsonSlice)
+  } catch (error) {
+    console.warn('[clip-editor/plan] Gemini returned invalid JSON:', error)
+    return null
+  }
+}
+
+function buildFallbackPlan(platform: TargetPlatform, clipBrief: string) {
+  return {
+    platformFitSummary: `Create a vertical ${platform} short from the supplied clip brief.`,
+    viralHypothesis: 'A fast hook, clear captions, and a concise payoff should improve retention.',
+    recommendedRunwayModel: 'gen4_aleph',
+    seedanceDuration: null,
+    gen45Duration: null,
+    gen45Ratio: null,
+    runwayPromptText: clipBrief.replace(/\s+/g, ' ').trim().slice(0, 900),
+    editChecklist: [
+      'Lead with the strongest moment.',
+      'Cut dead air and repeated frames.',
+      'Keep text inside the vertical safe zone.',
+    ],
+    risksAndDisclaimers: ['Fallback plan used because Gemini returned malformed JSON.'],
+    modelChoiceRationale: 'Use a conservative edit plan when structured AI planning is unavailable.',
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth(request)
@@ -150,6 +180,9 @@ Model choice:
 
     const response = await gemini.models.generateContent({
       model,
+      config: {
+        responseMimeType: 'application/json',
+      },
       contents: [
         {
           role: 'user',
@@ -159,16 +192,7 @@ Model choice:
     })
 
     const raw = typeof response.text === 'string' ? response.text.trim() : ''
-    const jsonSlice = extractFirstJsonObject(raw) || raw
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(jsonSlice)
-    } catch {
-      return NextResponse.json(
-        { error: 'Planner returned non-JSON', raw: raw.slice(0, 2000) },
-        { status: 502 }
-      )
-    }
+    const parsed = parseGeminiPlan(raw) || buildFallbackPlan(platform, clipBrief)
 
     return NextResponse.json({
       plan: parsed,

@@ -162,6 +162,38 @@ async function refineClipEditPlan(params: {
   return { ...params.geminiPlan, aiProvidersUsed: providersUsed }
 }
 
+function parseGeminiClipPlan(raw: string): ClipEditPlan | null {
+  const clean = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+  const jsonSlice = extractFirstJsonObject(clean) || clean
+  try {
+    return JSON.parse(jsonSlice || '{}') as ClipEditPlan
+  } catch (error) {
+    console.warn('[process-clip] Gemini returned invalid JSON:', error)
+    return null
+  }
+}
+
+function buildFallbackClipPlan(platform: TargetPlatform, clipBrief: string): ClipEditPlan {
+  const captionText = clipBrief.replace(/\s+/g, ' ').trim().slice(0, 120)
+  return {
+    captionText,
+    hookPlan: 'Start on the strongest visible or spoken moment, then cut dead air and keep the pacing tight.',
+    pacePlan: 'Use quick, readable cuts and let Shotstack build a simple source-driven edit if no timestamped plan is available.',
+    facecamGuidance: 'Keep faces and key action centered inside the vertical safe zone.',
+    shotstackEditPrompt: `Create a concise ${platform} short from the uploaded clip with a strong hook, clean captions, and platform-safe 9:16 framing.`,
+    editBlueprint: {
+      cutSeconds: platform === 'youtube' ? 2.2 : platform === 'reels' ? 2.6 : 1.8,
+      introHookSeconds: 2,
+      renderSeconds: 14,
+      captionWordsPerChunk: platform === 'youtube' ? 6 : 5,
+      preferredTransitions: ['fade'],
+      textOverlays: [],
+      subtitles: [],
+    },
+    aiProvidersUsed: ['gemini-video-fallback'],
+  }
+}
+
 function cleanSubtitleText(text: string | undefined): string | null {
   if (!text) return null
   const cleaned = text
@@ -390,6 +422,9 @@ export async function POST(request: NextRequest) {
     try {
       const createGeminiRequest = () => ({
         model: MODEL_NAME,
+        config: {
+          responseMimeType: 'application/json',
+        },
         contents: [
           {
             role: 'user',
@@ -524,9 +559,7 @@ ${clipBrief}`,
       }
 
     const raw = typeof response.text === 'string' ? response.text : ''
-    const clean = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-    const jsonSlice = extractFirstJsonObject(clean) || clean
-    const geminiPlan = JSON.parse(jsonSlice || '{}') as ClipEditPlan
+    const geminiPlan = parseGeminiClipPlan(raw) || buildFallbackClipPlan(platform, clipBrief)
     const sourceDurationSeconds =
       typeof body.sourceDurationSeconds === 'number' && Number.isFinite(body.sourceDurationSeconds)
         ? body.sourceDurationSeconds
