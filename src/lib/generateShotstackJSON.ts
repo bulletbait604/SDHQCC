@@ -56,6 +56,10 @@ type SourceMoment = {
 
 type TimedTextOverlay = {
   text?: string
+  timelineStartSeconds?: number
+  sourceStartSeconds?: number
+  sourceMomentIndex?: number
+  offsetSeconds?: number
   startSeconds?: number
   start?: number
   durationSeconds?: number
@@ -194,8 +198,52 @@ function overlayY(position: TimedTextOverlay['position'], safeZone: SafeZoneOffs
   return safeZone.captionY
 }
 
+function mapSourceTimeToTimeline(sourceSecond: number, segments: VideoSeg[]): number | null {
+  for (const segment of segments) {
+    const segmentSourceEnd = segment.trim + segment.length
+    if (sourceSecond >= segment.trim && sourceSecond <= segmentSourceEnd) {
+      return segment.start + (sourceSecond - segment.trim)
+    }
+  }
+  return null
+}
+
+function resolveOverlayStart(
+  overlay: TimedTextOverlay,
+  segments: VideoSeg[],
+  renderSeconds: number
+): number | null {
+  if (typeof overlay.timelineStartSeconds === 'number' && Number.isFinite(overlay.timelineStartSeconds)) {
+    return clamp(overlay.timelineStartSeconds, 0, Math.max(0, renderSeconds - 0.5))
+  }
+
+  if (typeof overlay.sourceMomentIndex === 'number' && Number.isFinite(overlay.sourceMomentIndex)) {
+    const index = Math.max(0, Math.floor(overlay.sourceMomentIndex))
+    const segment = segments[index]
+    if (segment) {
+      const offset = typeof overlay.offsetSeconds === 'number' && Number.isFinite(overlay.offsetSeconds)
+        ? overlay.offsetSeconds
+        : 0
+      return clamp(segment.start + offset, segment.start, Math.min(renderSeconds - 0.5, segment.start + segment.length))
+    }
+  }
+
+  const sourceStart = overlay.sourceStartSeconds
+  if (typeof sourceStart === 'number' && Number.isFinite(sourceStart)) {
+    return mapSourceTimeToTimeline(sourceStart, segments)
+  }
+
+  const start = overlay.startSeconds ?? overlay.start
+  if (typeof start !== 'number' || !Number.isFinite(start)) return null
+  if (start <= renderSeconds) {
+    return clamp(start, 0, Math.max(0, renderSeconds - 0.5))
+  }
+  return mapSourceTimeToTimeline(start, segments)
+}
+
 function buildTimedTextClips(params: {
   overlays?: TimedTextOverlay[]
+  segments: VideoSeg[]
   platform: TargetPlatform
   safeZone: SafeZoneOffsets
   renderSeconds: number
@@ -206,9 +254,8 @@ function buildTimedTextClips(params: {
   for (const overlay of params.overlays || []) {
     if (clips.length >= params.maxItems) break
     const text = cleanOverlayText(overlay.text, params.type === 'subtitle' ? 84 : 54)
-    const rawStart = overlay.startSeconds ?? overlay.start
-    if (!text || typeof rawStart !== 'number' || !Number.isFinite(rawStart)) continue
-    const start = clamp(rawStart, 0, Math.max(0, params.renderSeconds - 0.5))
+    const start = resolveOverlayStart(overlay, params.segments, params.renderSeconds)
+    if (!text || start == null) continue
     const rawLength = overlay.durationSeconds ?? overlay.length ?? (params.type === 'subtitle' ? 1.6 : 1.25)
     const length = clamp(rawLength, 0.8, params.type === 'subtitle' ? 3.2 : 2.2)
     if (start >= params.renderSeconds - 0.25) continue
@@ -320,6 +367,7 @@ export function generateShotstackJSON({
   const tracks: Array<{ clips: Array<Record<string, unknown>> }> = [{ clips: mainClips }]
   const calloutClips = buildTimedTextClips({
     overlays: editBlueprint?.textOverlays,
+    segments,
     platform,
     safeZone,
     renderSeconds: pacing.renderSeconds,
@@ -332,6 +380,7 @@ export function generateShotstackJSON({
 
   const subtitleClips = buildTimedTextClips({
     overlays: editBlueprint?.subtitles,
+    segments,
     platform,
     safeZone,
     renderSeconds: pacing.renderSeconds,
