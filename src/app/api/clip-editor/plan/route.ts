@@ -8,12 +8,21 @@ import {
   clipEditorOpenAiModel,
   resolveOpenAiApiKey,
 } from '@/lib/clipEditorServerKeys'
+import {
+  resolveClipEditorAlgorithmNotes,
+  summarizeClipEditorAlgorithmSources,
+} from '@/lib/clipEditorAlgorithmNotes'
+import type { TargetPlatform } from '@/lib/platformEditing'
 
 export const dynamic = 'force-dynamic'
 
 const PLAN_COIN_COST = 2
 
 export type ClipEditorPlanModel = 'gen4_aleph' | 'seedance2'
+
+function isTargetPlatform(value: string): value is TargetPlatform {
+  return value === 'tiktok' || value === 'youtube' || value === 'reels'
+}
 
 function extractFirstJsonObject(raw: string): string | null {
   const s = raw.trim()
@@ -89,8 +98,11 @@ export async function POST(request: NextRequest) {
       clipBrief?: string
     }
 
-    if (!platform || typeof platform !== 'string') {
-      return NextResponse.json({ error: 'platform is required' }, { status: 400 })
+    if (!platform || typeof platform !== 'string' || !isTargetPlatform(platform)) {
+      return NextResponse.json(
+        { error: "platform is required and must be one of: 'tiktok' | 'youtube' | 'reels'" },
+        { status: 400 }
+      )
     }
     if (!clipBrief || typeof clipBrief !== 'string' || clipBrief.trim().length < 20) {
       return NextResponse.json(
@@ -103,18 +115,18 @@ export async function POST(request: NextRequest) {
     }
 
     const snapshot = await readAlgorithmSnapshotFromMongo()
-    const algorithmBlock = snapshot?.data?.[platform] ?? null
+    const algorithmBlock = resolveClipEditorAlgorithmNotes(snapshot, platform)
 
     const model = clipEditorOpenAiModel()
     const client = new OpenAI({ apiKey: openaiKey })
 
     const sys = `You are a senior short-form video strategist and editor for social platforms.
-You receive (1) Creator Corner stored algorithm notes for the TARGET platform and (2) a text brief describing the source clip (up to ~90s 1080p may be edited later with external video models).
+You receive (1) Creator Corner stored algorithm notes mapped to the TARGET platform and (2) a text brief describing the source clip (up to ~90s 1080p may be edited later with external video models).
 Produce a concrete plan optimized for discovery and retention. Be specific about pacing, hook, captions, framing, and what instructions to send to Runway — including pure text-to-video (Gen-4.5), video-guided generations, or video-to-video transforms.`
 
     const userMsg = `TARGET_PLATFORM_ID: ${platform}
 
-STORED_ALGORITHM_NOTES_JSON:
+CLIP_EDITOR_ALGORITHM_CONTEXT_JSON:
 ${JSON.stringify(algorithmBlock, null, 2)}
 
 CLIP_BRIEF_FROM_CREATOR:
@@ -165,6 +177,7 @@ Model choice:
       plan: parsed,
       openaiModel: model,
       algorithmLastUpdated: snapshot?.lastUpdated ?? null,
+      algorithmContext: summarizeClipEditorAlgorithmSources(algorithmBlock),
     })
   } catch (error) {
     if (error instanceof AuthError) {

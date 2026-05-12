@@ -14,6 +14,10 @@ import {
 import { generateShotstackJSON } from '@/lib/generateShotstackJSON'
 import { generatePresignedReadUrl } from '@/lib/r2'
 import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
+import {
+  resolveClipEditorAlgorithmNotes,
+  summarizeClipEditorAlgorithmSources,
+} from '@/lib/clipEditorAlgorithmNotes'
 
 export const dynamic = 'force-dynamic'
 
@@ -103,7 +107,7 @@ export async function POST(request: NextRequest) {
     const platform = body.platform
     const safeZone = platformSafeZoneOffsets(platform)
     const snapshot = await readAlgorithmSnapshotFromMongo()
-    const platformAlgorithmNotes = snapshot?.data?.[platform] ?? null
+    const platformAlgorithmNotes = resolveClipEditorAlgorithmNotes(snapshot, platform)
     const gemini = new GoogleGenAI({ apiKey })
     let sourceUrl = body.sourceUrl || ''
     if (!sourceUrl && hasR2FileKey) {
@@ -135,7 +139,7 @@ export async function POST(request: NextRequest) {
 Target platform: ${platform}
 Platform directive: ${platformEditingDirective(platform)}
 Platform safe-zone offsets: ${JSON.stringify(safeZone)}
-Stored algorithm notes for this platform (JSON): ${JSON.stringify(platformAlgorithmNotes)}
+Clip-editor algorithm context (JSON): ${JSON.stringify(platformAlgorithmNotes)}
 
 Return valid JSON only:
 {
@@ -172,6 +176,7 @@ Return valid JSON only:
 
 Rules:
 - Final video is always 9:16 vertical (1080×1920). Sources may be landscape or webcam; the editor reframes to vertical (center-crop to fill by default, or letterbox the full wide frame if the user requests it). Keep faces and key action in the safe caption zone.
+- Use every available source in the clip-editor algorithm context. For Reels, blend Instagram Reels and Facebook Reels advice; for YouTube, prioritize Shorts while borrowing applicable long-form retention/title lessons.
 - If target platform is reels, still provide Instagram + Facebook Reels variants.
 - If target platform is tiktok, still provide TikTok + Reels + Shorts variants.
 - If target platform is youtube, prioritize Shorts fields quality and keep title under 70 chars.
@@ -242,6 +247,7 @@ ${body.clipBrief.trim()}`,
         `${parsed.hookPlan || ''} ${parsed.pacePlan || ''} ${parsed.facecamGuidance || ''}`.trim(),
       editBlueprint: editBlueprint || null,
       publishPackage: parsed.publishPackage || null,
+      algorithmContext: summarizeClipEditorAlgorithmSources(platformAlgorithmNotes),
       shotstack,
       source: hasR2FileKey ? 'r2-presigned-url' : 'source-url',
     })

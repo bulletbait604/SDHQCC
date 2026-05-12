@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
+import OpenAI from 'openai'
 import clientPromise from '@/lib/mongodb'
 import {
   ALGORITHM_DOC_ID,
@@ -7,6 +8,10 @@ import {
   readAlgorithmSnapshotFromMongo,
   type AlgorithmSnapshotPayload,
 } from '@/lib/algorithmSnapshotRead'
+import {
+  clipEditorOpenAiModel,
+  resolveOpenAiApiKey,
+} from '@/lib/clipEditorServerKeys'
 
 export const dynamic = 'force-dynamic'
 
@@ -158,9 +163,16 @@ async function writeData(data: AlgorithmSnapshotPayload) {
   }
 }
 
-// Primary: Gemini 3.1 Pro for thorough algorithm analysis
-async function researchWithGemini(platform: string, geminiApiKey: string): Promise<any> {
-  const prompt = `You are an expert social media algorithm analyst. Conduct a THOROUGH and COMPREHENSIVE analysis of the current ${platform} algorithm as of 2026.
+function parseAlgorithmJsonContent(content: string): any {
+  let cleanContent = content.trim()
+  if (cleanContent.includes('```')) {
+    cleanContent = cleanContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+  }
+  return JSON.parse(cleanContent || '{}')
+}
+
+function buildAlgorithmResearchPrompt(platform: string): string {
+  return `You are an expert social media algorithm analyst. Conduct a THOROUGH and COMPREHENSIVE analysis of the current ${platform} algorithm as of 2026.
 
 Your analysis should be based on current industry reports, platform announcements, creator feedback, and observable patterns. Review the following aspects in depth:
 
@@ -223,6 +235,11 @@ Requirements:
 - Focus on what's working NOW in 2026, not outdated advice
 - Use professional tone while remaining accessible
 - Return ONLY valid JSON, no markdown code blocks or explanations outside the JSON structure`
+}
+
+// Primary: Gemini 3.1 Pro for thorough algorithm analysis
+async function researchWithGemini(platform: string, geminiApiKey: string): Promise<any> {
+  const prompt = buildAlgorithmResearchPrompt(platform)
 
   try {
     console.log(`[Algorithms] Trying Gemini 3.1 Pro for ${platform}...`)
@@ -241,21 +258,81 @@ Requirements:
       throw new Error('No content in Gemini response')
     }
 
-    // Strip markdown code blocks if present
-    let cleanContent = content
-    if (content.includes('```')) {
-      cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-    }
-
-    return JSON.parse(cleanContent || '{}')
+    return parseAlgorithmJsonContent(content)
   } catch (error) {
     console.error(`[Algorithms] Gemini failed for ${platform}:`, error)
     throw error
   }
 }
 
+async function researchWithOpenAI(platform: string, openAiApiKey: string, maxTokens: number = 2500): Promise<any> {
+  const client = new OpenAI({ apiKey: openAiApiKey })
+  const completion = await client.chat.completions.create({
+    model: clipEditorOpenAiModel(),
+    response_format: { type: 'json_object' },
+    messages: [
+      {
+        role: 'system',
+        content: 'You are an expert social media algorithm analyst. Return only valid JSON.',
+      },
+      { role: 'user', content: buildAlgorithmResearchPrompt(platform) },
+    ],
+    temperature: 0.4,
+    max_tokens: maxTokens,
+  })
+
+  const content = completion.choices[0]?.message?.content
+  if (!content) {
+    throw new Error('No content in OpenAI response')
+  }
+
+  return parseAlgorithmJsonContent(content)
+}
+
+async function researchWithDeepSeekApi(
+  platform: string,
+  deepSeekApiKey: string,
+  maxTokens: number = 2500
+): Promise<any> {
+  const response = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${deepSeekApiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert social media algorithm analyst. Return only valid JSON.',
+        },
+        { role: 'user', content: buildAlgorithmResearchPrompt(platform) },
+      ],
+      temperature: 0.5,
+      max_tokens: maxTokens,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`DeepSeek API error: ${response.status}`)
+  }
+
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>
+  }
+  const content = data.choices?.[0]?.message?.content
+
+  if (!content) {
+    throw new Error('No content in DeepSeek API response')
+  }
+
+  return parseAlgorithmJsonContent(content)
+}
+
 // Fallback: DeepSeek via RapidAPI
-async function researchWithDeepSeek(platform: string, rapidApiKey: string, maxTokens: number = 2500): Promise<any> {
+async function researchWithDeepSeekRapidApi(platform: string, rapidApiKey: string, maxTokens: number = 2500): Promise<any> {
   const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
 {
   "keyChanges": "Comprehensive 300-400 word analysis of how the ${platform} algorithm currently works, including ranking factors and recent changes",
@@ -303,13 +380,7 @@ Focus on recent changes and best practices as of 2026. Be EXTREMELY specific and
     throw new Error('No content in DeepSeek response')
   }
 
-  // Strip markdown code blocks if present
-  let cleanContent = content
-  if (content.includes('```')) {
-    cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-  }
-
-  return JSON.parse(cleanContent || '{}')
+  return parseAlgorithmJsonContent(content)
 }
 
 // Backup: Pollinations API
@@ -359,12 +430,7 @@ Focus on recent changes and best practices as of 2026.`
     throw new Error('No content in Pollinations response')
   }
 
-  let cleanContent = content
-  if (content.includes('```')) {
-    cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-  }
-
-  return JSON.parse(cleanContent || '{}')
+  return parseAlgorithmJsonContent(content)
 }
 
 /** Shown when Gemini is unavailable for algorithm research (client uses userMessage). */
@@ -380,28 +446,43 @@ class GeminiAlgorithmUnavailableError extends Error {
 }
 
 /** Dedicated algo key, or shared keys used elsewhere (match Vercel naming). */
+function readEnvTrim(name: string): string | undefined {
+  const raw = process.env[name]
+  if (typeof raw !== 'string') return undefined
+  const trimmed = raw.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
 function resolveGeminiAlgorithmApiKey(): string | undefined {
   return (
-    process.env.GEMINI_ALGORITHM_API_KEY ||
-    process.env.GEMINI_ALGO_API ||
-    process.env.GEMINI_API ||
+    readEnvTrim('GEMINI_ALGORITHM_API_KEY') ||
+    readEnvTrim('GEMINI_ALGO_API') ||
+    readEnvTrim('GEMINI_API') ||
     undefined
   )
+}
+
+function resolveDeepSeekAlgorithmApiKey(): string | undefined {
+  return readEnvTrim('DEEPSEEK_API_KEY')
 }
 
 function hasAlgorithmAiProviderConfigured(): boolean {
   return !!(
     resolveGeminiAlgorithmApiKey() ||
-    process.env.RAPID_API_KEY ||
-    process.env.POLLINATIONS_API_KEY
+    resolveOpenAiApiKey() ||
+    resolveDeepSeekAlgorithmApiKey() ||
+    readEnvTrim('RAPID_API_KEY') ||
+    readEnvTrim('POLLINATIONS_API_KEY')
   )
 }
 
 // Main research function with cascading fallbacks
 async function researchAlgorithm(platform: string, maxTokens: number = 1000): Promise<any> {
   const geminiApiKey = resolveGeminiAlgorithmApiKey()
-  const rapidApiKey = process.env.RAPID_API_KEY
-  const pollinationsApiKey = process.env.POLLINATIONS_API_KEY
+  const openAiApiKey = resolveOpenAiApiKey()
+  const deepSeekApiKey = resolveDeepSeekAlgorithmApiKey()
+  const rapidApiKey = readEnvTrim('RAPID_API_KEY')
+  const pollinationsApiKey = readEnvTrim('POLLINATIONS_API_KEY')
 
   let geminiFailed = false
 
@@ -415,21 +496,45 @@ async function researchAlgorithm(platform: string, maxTokens: number = 1000): Pr
     } catch (error) {
       geminiFailed = true
       console.error(`[Algorithms] Gemini failed for ${platform}:`, error)
-      if (!rapidApiKey && !pollinationsApiKey) {
+      if (!openAiApiKey && !deepSeekApiKey && !rapidApiKey && !pollinationsApiKey) {
         throw new GeminiAlgorithmUnavailableError()
       }
     }
   }
 
-  // Fallback to DeepSeek (RapidAPI)
-  if (rapidApiKey) {
+  // Fallback to OpenAI (matches the uploaded setup guide and Clip Editor env names).
+  if (openAiApiKey) {
     try {
-      console.log(`[Algorithms] Falling back to DeepSeek for ${platform}...`)
-      const result = await researchWithDeepSeek(platform, rapidApiKey, maxTokens)
-      console.log(`[Algorithms] DeepSeek succeeded for ${platform}`)
+      console.log(`[Algorithms] Falling back to OpenAI for ${platform}...`)
+      const result = await researchWithOpenAI(platform, openAiApiKey, maxTokens)
+      console.log(`[Algorithms] OpenAI succeeded for ${platform}`)
+      return { ...result, provider: 'openai' }
+    } catch (error) {
+      console.error(`[Algorithms] OpenAI failed for ${platform}:`, error)
+    }
+  }
+
+  // Fallback to DeepSeek's native API.
+  if (deepSeekApiKey) {
+    try {
+      console.log(`[Algorithms] Falling back to DeepSeek API for ${platform}...`)
+      const result = await researchWithDeepSeekApi(platform, deepSeekApiKey, maxTokens)
+      console.log(`[Algorithms] DeepSeek API succeeded for ${platform}`)
       return { ...result, provider: 'deepseek' }
     } catch (error) {
-      console.error(`[Algorithms] DeepSeek failed for ${platform}:`, error)
+      console.error(`[Algorithms] DeepSeek API failed for ${platform}:`, error)
+    }
+  }
+
+  // Fallback to DeepSeek (RapidAPI legacy path).
+  if (rapidApiKey) {
+    try {
+      console.log(`[Algorithms] Falling back to DeepSeek RapidAPI for ${platform}...`)
+      const result = await researchWithDeepSeekRapidApi(platform, rapidApiKey, maxTokens)
+      console.log(`[Algorithms] DeepSeek RapidAPI succeeded for ${platform}`)
+      return { ...result, provider: 'deepseek-rapidapi' }
+    } catch (error) {
+      console.error(`[Algorithms] DeepSeek RapidAPI failed for ${platform}:`, error)
     }
   }
 
@@ -445,7 +550,7 @@ async function researchAlgorithm(platform: string, maxTokens: number = 1000): Pr
     }
   }
 
-  if (geminiFailed) {
+  if (geminiFailed && !openAiApiKey && !deepSeekApiKey && !rapidApiKey && !pollinationsApiKey) {
     throw new GeminiAlgorithmUnavailableError()
   }
 
@@ -540,14 +645,21 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          'No AI API key configured for algorithm research. Set GEMINI_ALGORITHM_API_KEY (or GEMINI_ALGO_API / GEMINI_API), and/or RAPID_API_KEY, and/or POLLINATIONS_API_KEY.',
+          'No AI API key configured for algorithm research. Set OPENAI_API_KEY (or OPENAI_API), DEEPSEEK_API_KEY, GEMINI_ALGORITHM_API_KEY (or GEMINI_ALGO_API / GEMINI_API), RAPID_API_KEY, and/or POLLINATIONS_API_KEY.',
       },
       { status: 500 }
     )
   }
 
-  const body = await request.json()
-  const platformId = body.platformId // Optional: specific platform to refresh
+  const body = (await request.json().catch(() => ({}))) as { platformId?: unknown }
+  const platformId = typeof body.platformId === 'string' ? body.platformId : undefined // Optional: specific platform to refresh
+
+  if (platformId && !platforms.some((p) => p.id === platformId)) {
+    return NextResponse.json(
+      { error: `Unknown platformId: ${platformId}` },
+      { status: 400 }
+    )
+  }
   
   // Read existing data first
   const existingData = await readData()
@@ -589,6 +701,13 @@ export async function POST(request: Request) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error'
       errors.push(`${platform.name}: ${errorMsg}`)
     }
+  }
+
+  if (errors.length === platformsToRefresh.length && providersUsed.length === 0) {
+    return NextResponse.json({
+      error: 'Failed to research requested platform data',
+      details: errors,
+    }, { status: 500 })
   }
 
   if (Object.keys(data.data).length === 0) {

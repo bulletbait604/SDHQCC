@@ -8,14 +8,28 @@ async function runAlgorithmsUpdate(): Promise<Response> {
     `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/algorithms`,
     {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
     }
   )
+  const data = await response.json().catch(() => ({}))
 
   if (!response.ok) {
-    throw new Error('Failed to update algorithms')
+    const message =
+      typeof data.userMessage === 'string'
+        ? data.userMessage
+        : typeof data.error === 'string'
+          ? data.error
+          : 'Failed to update algorithms'
+    throw new Error(message)
   }
 
-  return NextResponse.json({ success: true, message: 'Algorithm data updated successfully' })
+  return NextResponse.json({
+    success: true,
+    message: 'Algorithm data updated successfully',
+    provider: typeof data.provider === 'string' ? data.provider : undefined,
+    lastUpdated: typeof data.lastUpdated === 'string' ? data.lastUpdated : undefined,
+  })
 }
 
 export async function POST(req: NextRequest) {
