@@ -34,6 +34,7 @@ export const dynamic = 'force-dynamic'
 
 const MODEL_NAME = 'gemini-2.5-flash'
 const GEMINI_EXTERNAL_URL_MAX_BYTES = 100 * 1024 * 1024
+const OPENAI_TRANSCRIPTION_MAX_BYTES = 24 * 1024 * 1024
 function isTargetPlatform(value: string): value is TargetPlatform {
   return value === 'tiktok' || value === 'youtube' || value === 'reels'
 }
@@ -119,6 +120,16 @@ type ClipEditPlan = {
   aiProvidersUsed?: string[]
 }
 
+type TimedSubtitle = NonNullable<EditBlueprint['subtitles']>[number]
+type OpenAiVerboseTranscription = {
+  text?: string
+  segments?: Array<{
+    start?: number
+    end?: number
+    text?: string
+  }>
+}
+
 const SHOTSTACK_RENDERER_CONTRACT = `SHOTSTACK_RENDERER_CONTRACT:
 - Output is a vertical 9:16 Shotstack edit (1080x1920).
 - Renderer builds ONE main video track from sourceMoments. It does not support duplicate video layers, picture-in-picture, music beds, sound effects, stickers, stock b-roll, or transition stacks.
@@ -126,7 +137,7 @@ const SHOTSTACK_RENDERER_CONTRACT = `SHOTSTACK_RENDERER_CONTRACT:
 - Renderer will target at least 8 seconds unless the uploaded source is shorter. Select enough sourceMoments to cover the requested renderSeconds.
 - Renderer supports visualTreatment on sourceMoments: "slowZoomIn", "slowZoomOut", or "none". Use this for emphasis, not on every cut.
 - Renderer supports timed textOverlays: max 3 callouts. Use sourceMomentIndex + offsetSeconds whenever possible so the text appears over that selected moment in the final cut.
-- Renderer supports timed subtitles: max 8 short snippets. Use sourceMomentIndex + offsetSeconds whenever possible.
+- Renderer supports timed subtitles/captions: max 16 short snippets. Use sourceMomentIndex + offsetSeconds whenever possible. Server transcription may also provide sourceStartSeconds subtitles.
 - sourceMomentIndex is the 0-based index of the sourceMoments array AFTER your final ordering, not a source timestamp and not a timeline segment index.
 - timelineStartSeconds means seconds in the FINAL rendered clip. sourceStartSeconds means seconds in the ORIGINAL uploaded source. Do not confuse them.
 - Prefer sourceMomentIndex + offsetSeconds for every overlay/subtitle; only use timelineStartSeconds when you have computed the final rendered timeline position and it is inside the clip.
@@ -269,6 +280,123 @@ async function refineClipEditPlan(params: {
   return { ...plan, aiProvidersUsed: providersUsed }
 }
 
+function cleanSubtitleText(text: string | undefined): string | null {
+  if (!text) return null
+  const cleaned = text
+    .replace(/\s+/g, ' ')
+    .replace(/[^\w\s.,!?'"#@:-]/g, '')
+    .trim()
+  if (cleaned.length < 2) return null
+  return cleaned
+}
+
+function chunkTranscriptWords(text: string, maxWordsPerLine = 7): string[] {
+  const words = text.split(/\s+/).filter(Boolean)
+  const chunks: string[] = []
+  for (let i = 0; i < words.length; i += maxWordsPerLine) {
+    chunks.push(words.slice(i, i + maxWordsPerLine).join(' '))
+  }
+  return chunks
+}
+
+function buildSubtitlesFromTranscript(transcript: OpenAiVerboseTranscription): TimedSubtitle[] {
+  const subtitles: TimedSubtitle[] = []
+  for (const segment of transcript.segments || []) {
+    const text = cleanSubtitleText(segment.text)
+    const start = typeof segment.start === 'number' && Number.isFinite(segment.start) ? segment.start : null
+    const end = typeof segment.end === 'number' && Number.isFinite(segment.end) ? segment.end : null
+    if (!text || start == null || end == null || end <= start) continue
+
+    const chunks = chunkTranscriptWords(text)
+    const segmentDuration = end - start
+    const chunkDuration = Math.max(1.35, Math.min(3.2, segmentDuration / Math.max(1, chunks.length)))
+    for (let index = 0; index < chunks.length; index++) {
+      const chunk = chunks[index]
+      const chunkText = cleanSubtitleText(chunk)
+      if (!chunkText) continue
+      subtitles.push({
+        text: chunkText.slice(0, 84),
+        sourceStartSeconds: Number((start + index * chunkDuration).toFixed(2)),
+        durationSeconds: Number(chunkDuration.toFixed(2)),
+        position: 'bottom',
+        type: 'subtitle',
+      })
+      if (subtitles.length >= 48) return subtitles
+    }
+  }
+  return subtitles
+}
+
+function mergeSubtitleTracks(transcriptSubtitles: TimedSubtitle[], plannedSubtitles: TimedSubtitle[] | undefined): TimedSubtitle[] {
+  if (!transcriptSubtitles.length) return plannedSubtitles || []
+  const merged: TimedSubtitle[] = [...transcriptSubtitles]
+  for (const subtitle of plannedSubtitles || []) {
+    if (merged.length >= 56) break
+    if (!subtitle?.text) continue
+    merged.push(subtitle)
+  }
+  return merged
+}
+
+async function loadSourceForTranscription(params: {
+  sourceUrl: string
+  r2FileKey: string | null
+  r2ContentLength: number | null
+}): Promise<Buffer | null> {
+  if (params.r2FileKey) {
+    if (params.r2ContentLength != null && params.r2ContentLength > OPENAI_TRANSCRIPTION_MAX_BYTES) return null
+    const buffer = await getFileFromR2(params.r2FileKey)
+    if (!buffer || buffer.length > OPENAI_TRANSCRIPTION_MAX_BYTES) return null
+    return buffer
+  }
+
+  const head = await fetch(params.sourceUrl, { method: 'HEAD' }).catch(() => null)
+  const contentLength = head?.headers.get('content-length')
+  if (contentLength && Number(contentLength) > OPENAI_TRANSCRIPTION_MAX_BYTES) return null
+
+  const res = await fetch(params.sourceUrl)
+  if (!res.ok) return null
+  const arrayBuffer = await res.arrayBuffer()
+  if (arrayBuffer.byteLength > OPENAI_TRANSCRIPTION_MAX_BYTES) return null
+  return Buffer.from(arrayBuffer)
+}
+
+async function transcribeClipSubtitles(params: {
+  sourceUrl: string
+  r2FileKey: string | null
+  r2ContentLength: number | null
+  mimeType: string
+  fileName?: string
+}): Promise<TimedSubtitle[]> {
+  const apiKey = resolveOpenAiApiKey()
+  if (!apiKey) return []
+
+  const buffer = await loadSourceForTranscription({
+    sourceUrl: params.sourceUrl,
+    r2FileKey: params.r2FileKey,
+    r2ContentLength: params.r2ContentLength,
+  })
+  if (!buffer) return []
+
+  const form = new FormData()
+  const fileName = params.fileName?.trim() || 'clip.mp4'
+  form.append('file', new Blob([new Uint8Array(buffer)], { type: params.mimeType || 'video/mp4' }), fileName)
+  form.append('model', (process.env.CLIP_EDITOR_TRANSCRIPTION_MODEL || 'whisper-1').trim())
+  form.append('response_format', 'verbose_json')
+
+  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+  })
+  if (!res.ok) {
+    throw new Error(`OpenAI transcription failed: ${res.status}`)
+  }
+
+  const transcript = (await res.json()) as OpenAiVerboseTranscription
+  return buildSubtitlesFromTranscript(transcript)
+}
+
 export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth(request)
@@ -320,6 +448,7 @@ export async function POST(request: NextRequest) {
     let effectiveMime = typeof body.mimeType === 'string' && body.mimeType ? body.mimeType : 'video/mp4'
     let cleanupGeminiName: string | null = null
     let r2KeyForGeminiFallback: string | null = null
+    let r2ContentLengthForTranscription: number | null = null
     if (!sourceUrl && hasR2FileKey) {
       const storageUser = user.username.replace(/^@/, '').toLowerCase()
       const prefix = `uploads/clips/${storageUser}/`
@@ -335,6 +464,7 @@ export async function POST(request: NextRequest) {
           { status: 404 }
         )
       }
+      r2ContentLengthForTranscription = meta.contentLength
       effectiveMime = meta.contentType || effectiveMime
       // Long TTL: Shotstack fetches this URL when the render runs (queue can be long); Gemini also uses it during planning.
       const readUrl = await generatePresignedReadUrl(key, 86400)
@@ -524,8 +654,32 @@ ${clipBrief}`,
       (parsed.hookPlan && parsed.hookPlan.trim()) ||
       ''
 
+    const transcriptSubtitles = await transcribeClipSubtitles({
+      sourceUrl,
+      r2FileKey: r2KeyForGeminiFallback,
+      r2ContentLength: r2ContentLengthForTranscription,
+      mimeType: effectiveMime,
+      fileName: body.fileName,
+    }).catch((error) => {
+      console.warn('[process-clip] OpenAI subtitle transcription failed:', error)
+      return [] as TimedSubtitle[]
+    })
+    const aiProvidersUsed = parsed.aiProvidersUsed || ['gemini-video']
+    if (transcriptSubtitles.length) aiProvidersUsed.push('openai-transcription')
+
     const lm = body.landscapeMode === 'letterbox' ? 'letterbox' : 'crop'
-    const editBlueprint = parsed.editBlueprint
+    const editBlueprint: EditBlueprint | undefined =
+      parsed.editBlueprint || transcriptSubtitles.length
+        ? {
+            ...(parsed.editBlueprint || {}),
+            subtitles: mergeSubtitleTracks(transcriptSubtitles, parsed.editBlueprint?.subtitles),
+          }
+        : undefined
+    const enhancedPlan: ClipEditPlan = {
+      ...parsed,
+      aiProvidersUsed,
+      editBlueprint,
+    }
 
     const shotstack = generateShotstackJSON({
       title: `Viral Architect ${platform}`,
@@ -533,9 +687,9 @@ ${clipBrief}`,
       platform,
       captionText: captionForVideo || undefined,
       safeZone,
-      shotstackEditPrompt: parsed.shotstackEditPrompt,
-      hookPlan: parsed.hookPlan,
-      pacePlan: parsed.pacePlan,
+      shotstackEditPrompt: enhancedPlan.shotstackEditPrompt,
+      hookPlan: enhancedPlan.hookPlan,
+      pacePlan: enhancedPlan.pacePlan,
       landscapeMode: lm,
       editBlueprint,
       sourceDurationSeconds,
@@ -544,14 +698,14 @@ ${clipBrief}`,
     return NextResponse.json({
       platform,
       model: MODEL_NAME,
-      aiProvidersUsed: parsed.aiProvidersUsed || ['gemini-video'],
+      aiProvidersUsed,
       safeZone,
-      analysis: parsed,
+      analysis: enhancedPlan,
       shotstackEditPrompt:
-        parsed.shotstackEditPrompt ||
-        `${parsed.hookPlan || ''} ${parsed.pacePlan || ''} ${parsed.facecamGuidance || ''}`.trim(),
+        enhancedPlan.shotstackEditPrompt ||
+        `${enhancedPlan.hookPlan || ''} ${enhancedPlan.pacePlan || ''} ${enhancedPlan.facecamGuidance || ''}`.trim(),
       editBlueprint: editBlueprint || null,
-      publishPackage: parsed.publishPackage || null,
+      publishPackage: enhancedPlan.publishPackage || null,
       algorithmContext: summarizeClipEditorAlgorithmSources(platformAlgorithmNotes),
       shotstack,
       source: hasR2FileKey ? 'r2-presigned-url' : 'source-url',

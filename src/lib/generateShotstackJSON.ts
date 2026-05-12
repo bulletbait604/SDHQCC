@@ -341,15 +341,16 @@ function buildTimedTextClips(params: {
     const text = cleanOverlayText(overlay.text, params.type === 'subtitle' ? 84 : 54)
     const placement = resolveOverlayPlacement(overlay, params.segments, params.renderSeconds)
     if (!text || placement == null) continue
-    const minReadableSeconds = params.type === 'subtitle' ? 1.35 : 1.6
+    const minReadableSeconds = params.type === 'subtitle' ? 1.25 : 1.6
     const rawLength = overlay.durationSeconds ?? overlay.length ?? (params.type === 'subtitle' ? 2.0 : 2.1)
     const length = clamp(rawLength, minReadableSeconds, params.type === 'subtitle' ? 3.2 : 3.0)
     let start = placement.start
     if (start >= params.renderSeconds - 0.25) continue
-    let availableSeconds = Math.min(params.renderSeconds, placement.maxEnd) - start
+    const maxEnd = params.type === 'subtitle' ? params.renderSeconds : placement.maxEnd
+    let availableSeconds = Math.min(params.renderSeconds, maxEnd) - start
     if (availableSeconds < minReadableSeconds) {
-      start = Math.max(placement.minStart, Math.min(start, placement.maxEnd - minReadableSeconds))
-      availableSeconds = Math.min(params.renderSeconds, placement.maxEnd) - start
+      start = Math.max(placement.minStart, Math.min(start, maxEnd - minReadableSeconds))
+      availableSeconds = Math.min(params.renderSeconds, maxEnd) - start
     }
     if (availableSeconds < minReadableSeconds) continue
     clips.push({
@@ -451,7 +452,7 @@ export function generateShotstackJSON({
     safeZone,
     renderSeconds: pacing.renderSeconds,
     type: 'subtitle',
-    maxItems: 8,
+    maxItems: 16,
   })
   if (subtitleClips.length) {
     tracks.push({ clips: subtitleClips })
