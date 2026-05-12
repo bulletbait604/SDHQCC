@@ -4,7 +4,7 @@ import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verif
 
 export const dynamic = 'force-dynamic'
 
-const MODEL_ID = 'fal-ai/bria/background/remove'
+const MODEL_ID = 'fal-ai/imageutils/rembg'
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
 type FalImage = {
@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as {
       imageDataUrl?: string
       keepPrompt?: string
+      cropToSubject?: boolean
     }
 
     const imageDataUrl = typeof body.imageDataUrl === 'string' ? body.imageDataUrl : ''
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
     const result = await fal.subscribe(MODEL_ID, {
       input: {
         image_url: imageDataUrl,
+        crop_to_bbox: Boolean(body.cropToSubject),
         sync_mode: false,
       },
       logs: true,
@@ -85,7 +87,7 @@ export async function POST(request: NextRequest) {
       height: image.height || null,
       model: MODEL_ID,
       promptNote: promptWasProvided
-        ? 'Bria RMBG removes the image background automatically; the keep-object prompt is not sent to the model.'
+        ? 'fal-ai/imageutils/rembg auto-detects the foreground subject; the keep-object prompt is saved in the request but is not a supported model input.'
         : null,
     })
   } catch (error) {

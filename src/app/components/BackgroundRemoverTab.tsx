@@ -38,6 +38,7 @@ export default function BackgroundRemoverTab({
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null)
   const [keepPrompt, setKeepPrompt] = useState('')
+  const [cropToSubject, setCropToSubject] = useState(false)
   const [isRemoving, setIsRemoving] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<BackgroundRemoverResult | null>(null)
@@ -105,6 +106,7 @@ export default function BackgroundRemoverTab({
         body: JSON.stringify({
           imageDataUrl,
           keepPrompt: keepPrompt.trim() || undefined,
+          cropToSubject,
         }),
       })
       const data = (await res.json().catch(() => ({}))) as BackgroundRemoverResult & {
@@ -129,7 +131,7 @@ export default function BackgroundRemoverTab({
           <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{title}</h3>
         </div>
         <p className={`max-w-xl ${textClasses} text-base`}>{description}</p>
-        <p className={`mt-2 text-xs ${subtitleClasses}`}>Powered by fal-ai/bria/background/remove (Bria RMBG 2.0)</p>
+        <p className={`mt-2 text-xs ${subtitleClasses}`}>Powered by fal-ai/imageutils/rembg</p>
       </div>
 
       {!user ? (
@@ -196,9 +198,26 @@ export default function BackgroundRemoverTab({
                 className={`w-full rounded-xl border px-4 py-3 text-sm ${inputShell}`}
               />
               <p className={`text-xs ${subtitleClasses}`}>
-                Note: Bria removes the background behind the main subject automatically. The prompt is for your notes only and is not sent to the model.
+                Note: this Fal model auto-detects the foreground subject. The prompt is captured for intent, but this model does not support prompt-guided masking.
               </p>
             </div>
+
+            <label className={`flex items-start gap-3 cursor-pointer ${subtitleClasses}`}>
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border-sdhq-cyan-500 text-sdhq-cyan-600"
+                checked={cropToSubject}
+                onChange={(event) => setCropToSubject(event.target.checked)}
+              />
+              <span>
+                <span className={`block text-sm font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+                  Crop to subject
+                </span>
+                <span className="block text-xs opacity-90 mt-0.5">
+                  Trim empty transparent space around the detected object.
+                </span>
+              </span>
+            </label>
 
             <Button
               type="button"
