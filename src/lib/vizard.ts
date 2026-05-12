@@ -54,6 +54,20 @@ function vizardRemoveSilenceSwitch(): 0 | 1 {
   return raw === '0' || raw?.toLowerCase() === 'false' ? 0 : 1
 }
 
+function readOptionalIntegerEnv(name: string): number | undefined {
+  const raw = process.env[name]?.trim()
+  if (!raw) return undefined
+  const value = Number(raw)
+  return Number.isInteger(value) && value > 0 ? value : undefined
+}
+
+function readSwitchEnv(name: string, defaultValue: 0 | 1): 0 | 1 {
+  const raw = process.env[name]?.trim().toLowerCase()
+  if (raw === '1' || raw === 'true') return 1
+  if (raw === '0' || raw === 'false') return 0
+  return defaultValue
+}
+
 function vizardStatusMessage(code: number | undefined, fallback: string): string {
   switch (code) {
     case 1000:
@@ -113,6 +127,7 @@ export async function submitVizardClip(params: {
   }
 
   const captionMode = vizardCaptionMode()
+  const templateId = readOptionalIntegerEnv('CLIP_EDITOR_VIZARD_TEMPLATE_ID')
   const body = {
     lang: vizardLanguage(),
     preferLength: [0],
@@ -126,8 +141,9 @@ export async function submitVizardClip(params: {
     headlineSwitch: 1,
     emojiSwitch: params.platform === 'tiktok' ? 1 : 0,
     highlightSwitch: 1,
-    autoBrollSwitch: 0,
+    autoBrollSwitch: readSwitchEnv('CLIP_EDITOR_VIZARD_AUTO_BROLL', 0),
     projectName: params.projectName || `SDHQ ${params.platform} Vizard clip`,
+    ...(templateId ? { templateId } : {}),
   }
 
   const res = await fetch(`${VIZARD_PROJECT_ROOT}/create`, {

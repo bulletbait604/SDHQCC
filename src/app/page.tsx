@@ -18,6 +18,7 @@ import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
 import CoinPurchase from '@/app/components/CoinPurchase'
 import ResourceHubTab from '@/app/components/ResourceHubTab'
 import ClipEditorTab from '@/app/components/ClipEditorTab'
+import BackgroundRemoverTab from '@/app/components/BackgroundRemoverTab'
 import NewToolTab from '@/app/components/NewToolTab'
 import { isNewToolTabEnabled } from '@/lib/newToolFeature'
 import { usePayPalPublicConfig } from '@/hooks/usePayPalPublicConfig'
@@ -54,7 +55,8 @@ import {
   Download,
   Wand2,
   BookOpen,
-  Film
+  Film,
+  Scissors
 } from 'lucide-react'
 import { createKickAuthURL } from '@/lib/kick-oauth'
 import { getClientCookie, setClientCookie } from '@/lib/clientCookies'
@@ -198,6 +200,9 @@ const translations = {
     clipEditor: 'Clip Editor',
     clipEditorDesc:
       'A fully AI-optimized clip creator — smarter cuts, pacing, and platform-ready exports — is on the way.',
+    backgroundRemover: 'Background Remover',
+    backgroundRemoverDesc:
+      'Upload a photo and remove the background behind the main subject with AI.',
     resourceHub: 'Resource Hub',
     settings: 'Settings',
     logout: 'Logout',
@@ -236,6 +241,9 @@ const translations = {
     clipEditor: 'Editor de clips',
     clipEditorDesc:
       'Un creador de clips totalmente optimizado por IA — cortes más inteligentes, ritmo y exportaciones listas para cada plataforma — está en camino.',
+    backgroundRemover: 'Eliminador de fondo',
+    backgroundRemoverDesc:
+      'Sube una foto y elimina el fondo detrás del sujeto principal con IA.',
     resourceHub: 'Centro de recursos',
     settings: 'Configuración',
     logout: 'Cerrar sesión',
@@ -274,6 +282,9 @@ const translations = {
     clipEditor: 'Éditeur de clips',
     clipEditorDesc:
       'Un créateur de clips entièrement optimisé par IA — découpes plus fines, rythme et exports prêts pour chaque plateforme — arrive bientôt.',
+    backgroundRemover: 'Suppression d’arrière-plan',
+    backgroundRemoverDesc:
+      'Importez une photo et supprimez l’arrière-plan derrière le sujet principal avec l’IA.',
     resourceHub: 'Centre de ressources',
     settings: 'Paramètres',
     logout: 'Déconnexion',
@@ -312,6 +323,9 @@ const translations = {
     clipEditor: 'Clip-Editor',
     clipEditorDesc:
       'Ein vollständig KI-optimierter Clip-Creator — intelligentere Schnitte, Timing und exportfertige Ausgaben für jede Plattform — kommt bald.',
+    backgroundRemover: 'Hintergrund entfernen',
+    backgroundRemoverDesc:
+      'Laden Sie ein Foto hoch und entfernen Sie den Hintergrund hinter dem Hauptmotiv mit KI.',
     resourceHub: 'Ressourcen-Hub',
     settings: 'Einstellungen',
     logout: 'Abmelden',
@@ -371,7 +385,8 @@ const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'thumbnail-generator': true,
     'clip-analyzer': true,
     'new-tool': true,
-    'clip-editor': false
+    'clip-editor': false,
+    'background-remover': true
   },
   subscriber: {
     'algorithms-explained': true,
@@ -379,7 +394,8 @@ const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'thumbnail-generator': true,
     'clip-analyzer': true,
     'new-tool': true,
-    'clip-editor': false
+    'clip-editor': false,
+    'background-remover': true
   },
   subscriber_lifetime: {
     'algorithms-explained': true,
@@ -387,7 +403,8 @@ const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'thumbnail-generator': true,
     'clip-analyzer': true,
     'new-tool': true,
-    'clip-editor': false
+    'clip-editor': false,
+    'background-remover': true
   },
   editor: {
     'algorithms-explained': true,
@@ -395,7 +412,8 @@ const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'thumbnail-generator': true,
     'clip-analyzer': true,
     'new-tool': true,
-    'clip-editor': true
+    'clip-editor': true,
+    'background-remover': true
   },
   admin: {
     'algorithms-explained': true,
@@ -403,7 +421,8 @@ const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'thumbnail-generator': true,
     'clip-analyzer': true,
     'new-tool': true,
-    'clip-editor': false
+    'clip-editor': false,
+    'background-remover': true
   },
   owner: {
     'algorithms-explained': true,
@@ -411,7 +430,8 @@ const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'thumbnail-generator': true,
     'clip-analyzer': true,
     'new-tool': true,
-    'clip-editor': true
+    'clip-editor': true,
+    'background-remover': true
   },
   tester: {
     'algorithms-explained': true,
@@ -419,7 +439,8 @@ const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'thumbnail-generator': true,
     'clip-analyzer': true,
     'new-tool': true,
-    'clip-editor': false
+    'clip-editor': false,
+    'background-remover': true
   }
 };
 
@@ -2792,7 +2813,7 @@ export default function HomePage() {
         ) : (
           <Tabs value={activeTab} onValueChange={handleMainTabChange} className="space-y-6">
             <TabsList
-              className={`grid w-full grid-cols-4 ${showNewToolTab ? 'sm:grid-cols-9' : 'sm:grid-cols-8'} ${tabListClasses}`}
+              className={`grid w-full grid-cols-4 ${showNewToolTab ? 'sm:grid-cols-10' : 'sm:grid-cols-9'} ${tabListClasses}`}
             >
               <TabsTrigger 
                 value="algorithms-explained" 
@@ -2822,6 +2843,22 @@ export default function HomePage() {
                 <Video className="w-4 h-4" />
                 <span className="hidden sm:inline">{t.clipAnalyzer}</span>
               </TabsTrigger>
+              {hasTabAccess('clip-editor') && (
+                <TabsTrigger
+                  value="clip-editor"
+                  className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
+                >
+                  <Film className="w-4 h-4" />
+                  <span className="hidden sm:inline">{t.clipEditor}</span>
+                </TabsTrigger>
+              )}
+              <TabsTrigger
+                value="background-remover"
+                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
+              >
+                <Scissors className="w-4 h-4" />
+                <span className="hidden sm:inline">{t.backgroundRemover}</span>
+              </TabsTrigger>
               {showNewToolTab && (
                 <TabsTrigger 
                   value="new-tool"
@@ -2838,15 +2875,6 @@ export default function HomePage() {
                 <Video className="w-4 h-4" />
                 <span className="hidden sm:inline">{t.kickClips}</span>
               </TabsTrigger>
-              {hasTabAccess('clip-editor') && (
-                <TabsTrigger
-                  value="clip-editor"
-                  className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
-                >
-                  <Film className="w-4 h-4" />
-                  <span className="hidden sm:inline">{t.clipEditor}</span>
-                </TabsTrigger>
-              )}
               <TabsTrigger 
                 value="resource-hub"
                 className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
@@ -4321,6 +4349,40 @@ export default function HomePage() {
               </TabsContent>
             )}
 
+            {hasTabAccess('clip-editor') && (
+              <TabsContent value="clip-editor">
+                <ClipEditorTab
+                  darkMode={darkMode}
+                  cardClasses={cardClasses}
+                  textClasses={textClasses}
+                  subtitleClasses={subtitleClasses}
+                  title={t.clipEditor}
+                  tagline={t.clipEditorDesc}
+                  user={user}
+                  hasEnoughCoins={hasEnoughCoins}
+                  deductCoins={deductCoins}
+                  hasUnlimitedAccess={hasUnlimitedAccess}
+                  refreshBalance={refreshBalance}
+                />
+              </TabsContent>
+            )}
+
+            <TabsContent value="background-remover">
+              <BackgroundRemoverTab
+                darkMode={darkMode}
+                cardClasses={cardClasses}
+                textClasses={textClasses}
+                subtitleClasses={subtitleClasses}
+                title={t.backgroundRemover}
+                description={t.backgroundRemoverDesc}
+                user={user}
+                hasEnoughCoins={hasEnoughCoins}
+                deductCoins={deductCoins}
+                hasUnlimitedAccess={hasUnlimitedAccess}
+                refreshBalance={refreshBalance}
+              />
+            </TabsContent>
+
             <TabsContent value="kick-clips">
               <div className={`py-8 ${cardClasses}`}>
                 <div className="flex flex-col items-center mb-6">
@@ -4447,24 +4509,6 @@ export default function HomePage() {
                 )}
               </div>
             </TabsContent>
-
-            {hasTabAccess('clip-editor') && (
-              <TabsContent value="clip-editor">
-                <ClipEditorTab
-                  darkMode={darkMode}
-                  cardClasses={cardClasses}
-                  textClasses={textClasses}
-                  subtitleClasses={subtitleClasses}
-                  title={t.clipEditor}
-                  tagline={t.clipEditorDesc}
-                  user={user}
-                  hasEnoughCoins={hasEnoughCoins}
-                  deductCoins={deductCoins}
-                  hasUnlimitedAccess={hasUnlimitedAccess}
-                  refreshBalance={refreshBalance}
-                />
-              </TabsContent>
-            )}
 
             <TabsContent value="resource-hub">
               <ResourceHubTab darkMode={darkMode} cardClasses={cardClasses} />

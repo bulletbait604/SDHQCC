@@ -6,7 +6,7 @@ import {
   createAuthErrorResponse,
 } from '@/lib/auth/verifyAuth'
 import { resolveDeepgramApiKey, resolveShotstackApiKey } from '@/lib/clipEditorServerKeys'
-import { generatePresignedReadUrl, putTextFileToR2 } from '@/lib/r2'
+import { generatePresignedReadUrl, putBufferToR2 } from '@/lib/r2'
 import {
   shotstackAuthEnvironmentHint,
   shotstackEditApiRoot,
@@ -17,6 +17,9 @@ import type { TargetPlatform } from '@/lib/platformEditing'
 import { platformSafeZoneOffsets } from '@/lib/platformEditing'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 300
+
+const MAX_VIZARD_STAGE_BYTES = 250 * 1024 * 1024
 
 type DeepgramTranscription = {
   results?: {
@@ -33,6 +36,12 @@ type DeepgramTranscription = {
   }
 }
 
+type CaptionCue = {
+  start: number
+  end: number
+  text: string
+}
+
 function isTargetPlatform(value: string): value is TargetPlatform {
   return value === 'tiktok' || value === 'youtube' || value === 'reels'
 }
@@ -42,27 +51,14 @@ function cleanCaptionText(text: string | undefined): string | null {
   const cleaned = text
     .replace(/\s+/g, ' ')
     .replace(/[<>]/g, '')
+    .replace(/[^\w\s.,!?'"#@:-]/g, '')
     .trim()
   return cleaned.length ? cleaned : null
 }
 
-function formatVttTimestamp(seconds: number): string {
-  const safe = Math.max(0, seconds)
-  const whole = Math.floor(safe)
-  const hours = Math.floor(whole / 3600)
-  const minutes = Math.floor((whole % 3600) / 60)
-  const secs = whole % 60
-  const millis = Math.round((safe - whole) * 1000)
-  const pad = (value: number, length = 2) => {
-    const raw = String(value)
-    return raw.length >= length ? raw : `${'0'.repeat(length - raw.length)}${raw}`
-  }
-  return `${pad(hours)}:${pad(minutes)}:${pad(secs)}.${pad(millis, 3)}`
-}
-
-function buildVtt(transcript: DeepgramTranscription): string | null {
+function buildCaptionCues(transcript: DeepgramTranscription): CaptionCue[] {
   const words = transcript.results?.channels?.[0]?.alternatives?.[0]?.words || []
-  const cues: Array<{ start: number; end: number; text: string }> = []
+  const cues: CaptionCue[] = []
   let cueWords: string[] = []
   let cueStart: number | null = null
   let cueEnd: number | null = null
@@ -98,16 +94,7 @@ function buildVtt(transcript: DeepgramTranscription): string | null {
     cueEnd = end
   }
   flush()
-
-  if (!cues.length) return null
-  const lines = ['WEBVTT', '']
-  cues.forEach((cue, index) => {
-    lines.push(String(index + 1))
-    lines.push(`${formatVttTimestamp(cue.start)} --> ${formatVttTimestamp(cue.end)}`)
-    lines.push(cue.text)
-    lines.push('')
-  })
-  return lines.join('\n')
+  return cues
 }
 
 async function transcribeVideo(videoUrl: string): Promise<DeepgramTranscription> {
@@ -132,56 +119,214 @@ async function transcribeVideo(videoUrl: string): Promise<DeepgramTranscription>
   return (await res.json()) as DeepgramTranscription
 }
 
-async function uploadVtt(storageUser: string, vtt: string): Promise<string> {
-  const key = `uploads/clips/${storageUser}/${Date.now()}-vizard-captions.vtt`
-  const wrote = await putTextFileToR2(key, vtt, 'text/vtt; charset=utf-8')
-  if (!wrote) throw new Error('Could not upload caption file to R2')
-  const readUrl = await generatePresignedReadUrl(key, 86400)
-  if (!readUrl) throw new Error('Could not create caption read URL')
-  return readUrl
-}
-
 function buildShotstackCaptionEdit(params: {
   videoUrl: string
-  captionUrl: string
   platform: TargetPlatform
   durationSeconds: number
+  cues: CaptionCue[]
+  title?: string
+  viralScore?: string
+  viralReason?: string
 }) {
   const safeZone = platformSafeZoneOffsets(params.platform)
   const duration = Math.max(1, Math.min(180, params.durationSeconds))
+  const title = cleanCaptionText(params.title)?.slice(0, 70)
+  const score = cleanCaptionText(params.viralScore ? `VIRAL SCORE ${params.viralScore}/10` : undefined)
+  const stickerText =
+    cleanCaptionText(
+      params.viralReason?.match(/\b(clutch|fail|funny|insane|crazy|wild|epic|win|rage|shock|wow)\b/i)?.[0] ||
+        title?.match(/\b(clutch|fail|funny|insane|crazy|wild|epic|win|rage|shock|wow)\b/i)?.[0] ||
+        'WATCH'
+    )?.toUpperCase() || 'WATCH'
+  const captionClips = params.cues.slice(0, 70).map((cue) => {
+    const start = Math.max(0, Math.min(duration - 0.2, cue.start))
+    const length = Math.max(0.7, Math.min(3.1, cue.end - cue.start))
+    return {
+      asset: {
+        type: 'text',
+        text: cue.text.toUpperCase().slice(0, 84),
+        width: 960,
+        height: 220,
+        font: {
+          family: 'Montserrat ExtraBold',
+          color: '#ffffff',
+          size: params.platform === 'youtube' ? 36 : 42,
+          weight: 800,
+          lineHeight: 1.05,
+        },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        stroke: { width: 3, color: '#000000' },
+        background: {
+          color: '#000000',
+          opacity: 0.38,
+          padding: 9,
+          borderRadius: 10,
+        },
+      },
+      start: Number(start.toFixed(2)),
+      length: Number(Math.min(length, duration - start).toFixed(2)),
+      offset: { x: 0, y: safeZone.captionY },
+      transition: { in: 'fadeFast', out: 'fadeFast' },
+    }
+  })
+
+  const hookClips = title
+    ? [
+        {
+          asset: {
+            type: 'text',
+            text: title.toUpperCase(),
+            width: 960,
+            height: 220,
+            font: {
+              family: 'Montserrat ExtraBold',
+              color: '#fff200',
+              size: 54,
+              weight: 900,
+              lineHeight: 1.02,
+            },
+            alignment: { horizontal: 'center', vertical: 'center' },
+            stroke: { width: 4, color: '#000000' },
+            background: {
+              color: '#ff2d55',
+              opacity: 0.68,
+              padding: 12,
+              borderRadius: 16,
+            },
+          },
+          start: 0,
+          length: Number(Math.min(2.4, duration).toFixed(2)),
+          offset: { x: 0, y: 0.29 },
+          transition: { in: 'slideUp', out: 'fadeFast' },
+        },
+      ]
+    : []
+
+  const badgeClips = score
+    ? [
+        {
+          asset: {
+            type: 'text',
+            text: score,
+            width: 310,
+            height: 110,
+            font: {
+              family: 'Montserrat ExtraBold',
+              color: '#ffffff',
+              size: 32,
+              weight: 800,
+            },
+            alignment: { horizontal: 'center', vertical: 'center' },
+            stroke: { width: 3, color: '#000000' },
+            background: {
+              color: '#7c3aed',
+              opacity: 0.7,
+              padding: 8,
+              borderRadius: 18,
+            },
+          },
+          start: 0.35,
+          length: Number(Math.min(2.2, duration).toFixed(2)),
+          offset: { x: 0.31, y: 0.31 },
+          transition: { in: 'zoomFast', out: 'fadeFast' },
+        },
+      ]
+    : []
+
+  const stickerClips = [
+    {
+      asset: {
+        type: 'text',
+        text: stickerText,
+        width: 270,
+        height: 110,
+        font: {
+          family: 'Montserrat ExtraBold',
+          color: '#ffffff',
+          size: 42,
+          weight: 900,
+        },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        stroke: { width: 3, color: '#000000' },
+        background: {
+          color: '#ff2d55',
+          opacity: 0.72,
+          padding: 8,
+          borderRadius: 18,
+        },
+      },
+      start: Number(Math.min(1.2, Math.max(0, duration - 1)).toFixed(2)),
+      length: Number(Math.min(1.8, duration).toFixed(2)),
+      offset: { x: -0.31, y: 0.25 },
+      transition: { in: 'zoomFast', out: 'fadeFast' },
+    },
+    ...(duration > 5
+      ? [
+          {
+            asset: {
+              type: 'text',
+              text: params.platform === 'youtube' ? 'SHORTS' : 'REELS',
+              width: 270,
+              height: 100,
+              font: {
+                family: 'Montserrat ExtraBold',
+                color: '#000000',
+                size: 36,
+                weight: 900,
+              },
+              alignment: { horizontal: 'center', vertical: 'center' },
+              background: {
+                color: '#fff200',
+                opacity: 0.78,
+                padding: 8,
+                borderRadius: 18,
+              },
+            },
+            start: Number(Math.max(2.8, duration * 0.38).toFixed(2)),
+            length: 1.6,
+            offset: { x: 0.31, y: -0.16 },
+            transition: { in: 'slideUp', out: 'fadeFast' },
+          },
+        ]
+      : []),
+  ]
+
+  const ctaClip =
+    duration >= 6
+      ? [
+          {
+            asset: {
+              type: 'text',
+              text: params.platform === 'youtube' ? 'SUBSCRIBE FOR MORE' : 'FOLLOW FOR MORE',
+              width: 760,
+              height: 140,
+              font: {
+                family: 'Montserrat ExtraBold',
+                color: '#ffffff',
+                size: 42,
+                weight: 800,
+              },
+              alignment: { horizontal: 'center', vertical: 'center' },
+              stroke: { width: 3, color: '#000000' },
+              background: {
+                color: '#06111f',
+                opacity: 0.7,
+                padding: 10,
+                borderRadius: 16,
+              },
+            },
+            start: Number(Math.max(0, duration - 2).toFixed(2)),
+            length: Number(Math.min(1.8, duration).toFixed(2)),
+            offset: { x: 0, y: 0.02 },
+            transition: { in: 'slideUp', out: 'fade' },
+          },
+        ]
+      : []
+
   return {
     timeline: {
       background: '#000000',
       tracks: [
-        {
-          clips: [
-            {
-              asset: {
-                type: 'rich-caption',
-                src: params.captionUrl,
-                font: {
-                  family: 'Montserrat ExtraBold',
-                  size: params.platform === 'youtube' ? 48 : 54,
-                  color: '#ffffff',
-                  weight: 800,
-                },
-                align: { vertical: 'middle' },
-                stroke: { width: 4, color: '#000000', opacity: 1 },
-                animation: { style: params.platform === 'reels' ? 'highlight' : 'karaoke' },
-                active: {
-                  font: { color: '#fff200' },
-                  stroke: { width: 4, color: '#000000', opacity: 1 },
-                },
-                style: { textTransform: 'uppercase' },
-              },
-              start: 0,
-              length: Number(duration.toFixed(2)),
-              width: 900,
-              height: 260,
-              offset: { x: 0, y: safeZone.captionY },
-            },
-          ],
-        },
         {
           clips: [
             {
@@ -197,6 +342,11 @@ function buildShotstackCaptionEdit(params: {
             },
           ],
         },
+        ...(hookClips.length ? [{ clips: hookClips }] : []),
+        ...(badgeClips.length ? [{ clips: badgeClips }] : []),
+        { clips: stickerClips },
+        ...(captionClips.length ? [{ clips: captionClips }] : []),
+        ...(ctaClip.length ? [{ clips: ctaClip }] : []),
       ],
     },
     output: {
@@ -210,8 +360,51 @@ function buildShotstackCaptionEdit(params: {
     metadata: {
       renderer: 'vizard-deepgram-shotstack',
       platform: params.platform,
+      visualPackage: {
+        hook: Boolean(hookClips.length),
+        badges: badgeClips.length,
+        stickers: stickerClips.length,
+        subtitles: captionClips.length,
+        cta: Boolean(ctaClip.length),
+      },
     },
   }
+}
+
+async function stageVizardVideo(params: {
+  sourceUrl: string
+  storageUser: string
+}): Promise<{ readUrl: string; contentType: string; contentLength: number }> {
+  const res = await fetch(params.sourceUrl, {
+    method: 'GET',
+    headers: {
+      Accept: 'video/mp4,video/*,*/*',
+      'User-Agent': 'SDHQ-Creator-Corner/1.0',
+    },
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    throw new Error(`Could not download Vizard video for captioning: ${res.status}`)
+  }
+  const contentType = res.headers.get('content-type') || 'video/mp4'
+  const arrayBuffer = await res.arrayBuffer()
+  if (arrayBuffer.byteLength <= 0) {
+    throw new Error('Vizard video download was empty')
+  }
+  if (arrayBuffer.byteLength > MAX_VIZARD_STAGE_BYTES) {
+    throw new Error('Vizard video is too large to stage for captioning')
+  }
+
+  const key = `uploads/clips/${params.storageUser}/${Date.now()}-vizard-cut.mp4`
+  const wrote = await putBufferToR2(key, Buffer.from(arrayBuffer), contentType)
+  if (!wrote) {
+    throw new Error('Could not stage Vizard video in R2')
+  }
+  const readUrl = await generatePresignedReadUrl(key, 86400)
+  if (!readUrl) {
+    throw new Error('Could not create staged Vizard video URL')
+  }
+  return { readUrl, contentType, contentLength: arrayBuffer.byteLength }
 }
 
 async function submitShotstack(edit: Record<string, unknown>): Promise<string> {
@@ -250,6 +443,9 @@ export async function POST(request: NextRequest) {
       videoUrl?: string
       platform?: string
       videoMsDuration?: number
+      title?: string
+      viralScore?: string
+      viralReason?: string
     }
     if (!body.videoUrl || !/^https?:\/\//i.test(body.videoUrl)) {
       return NextResponse.json({ error: 'videoUrl is required' }, { status: 400 })
@@ -261,21 +457,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const transcript = await transcribeVideo(body.videoUrl)
-    const vtt = buildVtt(transcript)
-    if (!vtt) throw new Error('Deepgram did not return caption timing for this Vizard clip')
-
     const storageUser = user.username.replace(/^@/, '').toLowerCase()
-    const captionUrl = await uploadVtt(storageUser, vtt)
+    const staged = await stageVizardVideo({
+      sourceUrl: body.videoUrl,
+      storageUser,
+    })
+
+    const transcript = await transcribeVideo(staged.readUrl)
+    const cues = buildCaptionCues(transcript)
+    if (!cues.length) throw new Error('Deepgram did not return caption timing for this Vizard clip')
+
     const durationSeconds =
       typeof body.videoMsDuration === 'number' && Number.isFinite(body.videoMsDuration)
         ? body.videoMsDuration / 1000
         : 60
     const edit = buildShotstackCaptionEdit({
-      videoUrl: body.videoUrl,
-      captionUrl,
+      videoUrl: staged.readUrl,
       platform: body.platform,
       durationSeconds,
+      cues,
+      title: body.title,
+      viralScore: body.viralScore,
+      viralReason: body.viralReason,
     })
     const renderId = await submitShotstack(edit)
 
@@ -284,6 +487,7 @@ export async function POST(request: NextRequest) {
       shotstackEditVersion: shotstackEditApiVersion(),
       captionProvider: 'deepgram',
       renderer: 'shotstack',
+      stagedSourceBytes: staged.contentLength,
     })
   } catch (error) {
     if (error instanceof AuthError) return createAuthErrorResponse(error)

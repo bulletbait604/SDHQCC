@@ -202,6 +202,15 @@ export default function ClipEditorTab({
     return typeof duration === 'number' && Number.isFinite(duration) ? duration : null
   }
 
+  const extractVizardTextField = (
+    snapshot: Record<string, unknown>,
+    field: 'title' | 'viralScore' | 'viralReason'
+  ): string | null => {
+    const bestVideo = snapshot.bestVideo as Record<string, unknown> | undefined
+    const value = bestVideo?.[field]
+    return typeof value === 'string' && value.trim() ? value.trim() : null
+  }
+
   const readVizardPollError = (snapRes: Response, snapData: Record<string, unknown>): string => {
     if (typeof snapData.userMessage === 'string' && snapData.userMessage.trim()) return snapData.userMessage
     if (typeof snapData.error === 'string' && snapData.error.trim()) return snapData.error
@@ -298,6 +307,15 @@ export default function ClipEditorTab({
                   platform: targetPlatform,
                   ...(extractVizardDurationMs(snapData) != null
                     ? { videoMsDuration: extractVizardDurationMs(snapData) }
+                    : {}),
+                  ...(extractVizardTextField(snapData, 'title')
+                    ? { title: extractVizardTextField(snapData, 'title') }
+                    : {}),
+                  ...(extractVizardTextField(snapData, 'viralScore')
+                    ? { viralScore: extractVizardTextField(snapData, 'viralScore') }
+                    : {}),
+                  ...(extractVizardTextField(snapData, 'viralReason')
+                    ? { viralReason: extractVizardTextField(snapData, 'viralReason') }
                     : {}),
                 }),
               })
