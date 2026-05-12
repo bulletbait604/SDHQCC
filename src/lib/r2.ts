@@ -129,6 +129,30 @@ export async function generatePresignedReadUrl(
   }
 }
 
+export async function putTextFileToR2(
+  fileKey: string,
+  body: string,
+  contentType: string
+): Promise<boolean> {
+  if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
+    console.error('R2 credentials not configured')
+    return false
+  }
+  try {
+    const command = new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: fileKey,
+      Body: body,
+      ContentType: contentType,
+    })
+    await r2Client.send(command)
+    return true
+  } catch (error) {
+    console.error('Error writing text file to R2:', error)
+    return false
+  }
+}
+
 // Get file from R2 for processing
 export async function getFileFromR2(fileKey: string): Promise<Buffer | null> {
   try {

@@ -24,6 +24,16 @@ export interface ClipEditorTabProps {
 const MAX_CLIP_SECONDS = 90
 const RENDER_PROGRESS_START = 65
 const RENDER_PROGRESS_RANGE = 33
+type ClipLayoutTemplate = 'auto' | 'fullFrame' | 'stackedFacecam' | 'pictureInPicture' | 'splitScreen' | 'focusCrop'
+
+const CLIP_LAYOUT_OPTIONS: Array<{ value: ClipLayoutTemplate; label: string; help: string }> = [
+  { value: 'auto', label: 'Auto layout', help: 'Detect gameplay, facecam, speaker, or action and choose the best vertical format.' },
+  { value: 'stackedFacecam', label: 'Stacked facecam + gameplay', help: 'StreamLadder-style reaction on top with gameplay below.' },
+  { value: 'pictureInPicture', label: 'Gameplay with facecam PiP', help: 'Full gameplay with the creator reaction pinned in the corner.' },
+  { value: 'focusCrop', label: 'AI focus crop', help: 'Track the speaker or action in a vertical crop.' },
+  { value: 'splitScreen', label: 'Split screen', help: 'Two equal vertical panels when facecam and content both matter.' },
+  { value: 'fullFrame', label: 'Full frame', help: 'Use the existing full-frame crop/letterbox behavior.' },
+]
 
 export default function ClipEditorTab({
   darkMode,
@@ -39,6 +49,7 @@ export default function ClipEditorTab({
   refreshBalance,
 }: ClipEditorTabProps) {
   const [targetPlatform, setTargetPlatform] = useState<TargetPlatform>('tiktok')
+  const [layoutTemplate, setLayoutTemplate] = useState<ClipLayoutTemplate>('auto')
   const [landscapeLetterbox, setLandscapeLetterbox] = useState(false)
   const [clipFile, setClipFile] = useState<File | null>(null)
   const [clipDurationSeconds, setClipDurationSeconds] = useState<number | null>(null)
@@ -174,6 +185,23 @@ export default function ClipEditorTab({
       : `Render status request failed (${snapRes.status}).`
   }
 
+  const extractVizardVideoUrl = (snapshot: Record<string, unknown>): string | null => {
+    if (typeof snapshot.videoUrl === 'string' && /^https?:\/\//i.test(snapshot.videoUrl)) {
+      return snapshot.videoUrl
+    }
+    const bestVideo = snapshot.bestVideo as Record<string, unknown> | undefined
+    if (typeof bestVideo?.videoUrl === 'string' && /^https?:\/\//i.test(bestVideo.videoUrl)) {
+      return bestVideo.videoUrl
+    }
+    return null
+  }
+
+  const readVizardPollError = (snapRes: Response, snapData: Record<string, unknown>): string => {
+    if (typeof snapData.userMessage === 'string' && snapData.userMessage.trim()) return snapData.userMessage
+    if (typeof snapData.error === 'string' && snapData.error.trim()) return snapData.error
+    return `Vizard status request failed (${snapRes.status}).`
+  }
+
   const handleOneClickCreate = async () => {
     setError('')
     setFinalClipUrl(null)
@@ -210,6 +238,7 @@ export default function ClipEditorTab({
           clipBrief: `Create a high-performing ${targetPlatform} short from this uploaded clip. Prioritize strong hook, retention pacing, clear captions, and platform-safe framing.`,
           r2FileKey: key,
           landscapeMode: landscapeLetterbox ? 'letterbox' : 'crop',
+          layoutTemplate,
           mimeType: clipFile.type,
           fileName: clipFile.name,
           ...(typeof clipDurationSeconds === 'number' && Number.isFinite(clipDurationSeconds)
@@ -224,6 +253,41 @@ export default function ClipEditorTab({
             (processData as { error?: string }).error ||
             'Could not process clip'
         )
+      }
+      const vizardProjectId = (processData as { vizard?: { projectId?: string } }).vizard?.projectId
+      if (vizardProjectId) {
+        setStatusText('Vizard is editing your clip...')
+        setRenderId(`vizard:${vizardProjectId}`)
+        setProgress(RENDER_PROGRESS_START)
+
+        const coinOk = await deductCoins('clip-editor-runway')
+        if (!coinOk && !hasUnlimitedAccess) {
+          setError('Vizard edit started, but coin deduction failed.')
+        }
+        refreshBalance()
+
+        const maxAttempts = 60
+        for (let i = 0; i < maxAttempts; i++) {
+          await sleep(30000)
+          const snapRes = await fetch(
+            `/api/clip-editor/vizard/task?projectId=${encodeURIComponent(vizardProjectId)}`,
+            { credentials: 'include' }
+          )
+          const snapData = (await snapRes.json().catch(() => ({}))) as Record<string, unknown>
+          if (!snapRes.ok) {
+            throw new Error(readVizardPollError(snapRes, snapData))
+          }
+          setProgress(RENDER_PROGRESS_START + ((i + 1) / maxAttempts) * RENDER_PROGRESS_RANGE)
+          setStatusText('Vizard is editing your clip...')
+          const clipUrl = extractVizardVideoUrl(snapData)
+          if (clipUrl) {
+            setFinalClipUrl(clipUrl)
+            setStatusText('Done. Your Vizard clip is ready.')
+            setProgress(100)
+            return
+          }
+        }
+        throw new Error('Vizard edit timed out before completion. Please retry or check Vizard.')
       }
       const shotstackPackage = (processData as { shotstack?: Record<string, unknown> }).shotstack
       if (!shotstackPackage) {
@@ -342,6 +406,28 @@ export default function ClipEditorTab({
                 setTargetPlatform={setTargetPlatform}
                 disabled={busy !== null}
               />
+            </div>
+
+            <div className="space-y-2 max-w-xl mx-auto text-left">
+              <label className={`block text-sm font-semibold ${subtitleClasses}`} htmlFor="clip-editor-layout">
+                Clip layout
+              </label>
+              <select
+                id="clip-editor-layout"
+                value={layoutTemplate}
+                onChange={(e) => setLayoutTemplate(e.target.value as ClipLayoutTemplate)}
+                disabled={busy !== null}
+                className={`w-full rounded-lg border px-3 py-2 text-sm ${inputShell}`}
+              >
+                {CLIP_LAYOUT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className={`text-xs ${subtitleClasses}`}>
+                {CLIP_LAYOUT_OPTIONS.find((option) => option.value === layoutTemplate)?.help}
+              </p>
             </div>
 
             <div className="space-y-2 max-w-xl mx-auto">

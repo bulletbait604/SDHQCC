@@ -19,6 +19,12 @@ export function resolveRunwayApiSecret(): string | undefined {
   return key
 }
 
+export function resolveVizardApiKey(): string | undefined {
+  const key =
+    (process.env.VIZARDAI_API_KEY || process.env.VIZARD_API_KEY || '').trim() || undefined
+  return key
+}
+
 const SHOTSTACK_SECRET_ENV_NAMES = ['SHOTSTACK_API_KEY', 'SHOTSTACK_API', 'SHOTSTACK_KEY'] as const
 
 function readEnvTrim(name: string): string | undefined {

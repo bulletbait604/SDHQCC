@@ -12,7 +12,7 @@ import {
   type TargetPlatform,
 } from '@/lib/platformEditing'
 import { generateShotstackJSON } from '@/lib/generateShotstackJSON'
-import { generatePresignedReadUrl, getFileFromR2, getR2ObjectMetadata } from '@/lib/r2'
+import { generatePresignedReadUrl, getFileFromR2, getR2ObjectMetadata, putTextFileToR2 } from '@/lib/r2'
 import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
 import {
   resolveClipEditorAlgorithmNotes,
@@ -24,6 +24,7 @@ import {
   uploadBufferToGeminiFilesApi,
 } from '@/lib/geminiFiles'
 import { resolveDeepgramApiKey } from '@/lib/clipEditorServerKeys'
+import { clipEditorRenderBackend, submitVizardClip } from '@/lib/vizard'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +32,17 @@ const MODEL_NAME = 'gemini-2.5-flash'
 const GEMINI_EXTERNAL_URL_MAX_BYTES = 100 * 1024 * 1024
 function isTargetPlatform(value: string): value is TargetPlatform {
   return value === 'tiktok' || value === 'youtube' || value === 'reels'
+}
+
+function isLayoutTemplate(value: string): value is LayoutTemplate {
+  return (
+    value === 'auto' ||
+    value === 'fullFrame' ||
+    value === 'stackedFacecam' ||
+    value === 'pictureInPicture' ||
+    value === 'splitScreen' ||
+    value === 'focusCrop'
+  )
 }
 
 function extractFirstJsonObject(raw: string): string | null {
@@ -69,12 +81,23 @@ type EditBlueprint = {
   introHookSeconds?: number
   renderSeconds?: number
   captionWordsPerChunk?: number
+  contentType?: 'gameplayStream' | 'talkingHead' | 'sportsAction' | 'screenShare' | 'unknown'
+  layoutTemplate?: LayoutTemplate
+  regions?: Partial<Record<'gameplay' | 'facecam' | 'speaker' | 'action', CropRegion>>
+  richCaptionUrl?: string
   preferredTransitions?: string[]
+  hookTitle?: string
+  hookSubtitle?: string
+  hookStyle?: 'pop' | 'glitch' | 'clean' | 'urgent'
+  captionStyle?: 'karaoke' | 'bold' | 'clean'
+  keywordHighlights?: string[]
   sourceMoments?: Array<{
     startSeconds?: number
     endSeconds?: number
     reason?: string
     visualTreatment?: 'none' | 'slowZoomIn' | 'slowZoomOut'
+    role?: 'hook' | 'context' | 'escalation' | 'payoff' | 'proof' | 'loop'
+    focusRegion?: 'gameplay' | 'facecam' | 'speaker' | 'action' | CropRegion
   }>
   textOverlays?: Array<{
     text?: string
@@ -86,6 +109,22 @@ type EditBlueprint = {
     position?: 'top' | 'middle' | 'bottom'
     type?: 'callout'
   }>
+  stickerOverlays?: Array<{
+    text?: string
+    label?: string
+    timelineStartSeconds?: number
+    sourceMomentIndex?: number
+    offsetSeconds?: number
+    durationSeconds?: number
+    position?: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight' | 'middleLeft' | 'middleRight'
+  }>
+  ctaOverlay?: {
+    text?: string
+    timelineStartSeconds?: number
+    durationSeconds?: number
+    position?: 'top' | 'middle' | 'bottom'
+    type?: 'callout'
+  }
   subtitles?: Array<{
     text?: string
     timelineStartSeconds?: number
@@ -111,21 +150,39 @@ type ClipEditPlan = {
     facebookReels?: { captionWithEmojisAndTags?: string }
     youtubeShorts?: { title?: string; description?: string; tags?: string[] }
   }
+  viralityScore?: {
+    overall?: number
+    hook?: number
+    flow?: number
+    engagement?: number
+    trendFit?: number
+    notes?: string[]
+  }
   aiProvidersUsed?: string[]
 }
 
 type TimedSubtitle = NonNullable<EditBlueprint['subtitles']>[number]
+type LayoutTemplate = 'auto' | 'fullFrame' | 'stackedFacecam' | 'pictureInPicture' | 'splitScreen' | 'focusCrop'
+type CropRegion = {
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  label?: string
+  confidence?: number
+}
+type DeepgramWord = {
+  word?: string
+  punctuated_word?: string
+  start?: number
+  end?: number
+}
 type DeepgramTranscription = {
   results?: {
     channels?: Array<{
       alternatives?: Array<{
         transcript?: string
-        words?: Array<{
-          word?: string
-          punctuated_word?: string
-          start?: number
-          end?: number
-        }>
+        words?: DeepgramWord[]
       }>
     }>
   }
@@ -137,19 +194,33 @@ type TranscriptSegment = {
   text?: string
 }
 
+type TranscriptionResult = {
+  subtitles: TimedSubtitle[]
+  words: DeepgramWord[]
+}
+
 const SHOTSTACK_RENDERER_CONTRACT = `SHOTSTACK_RENDERER_CONTRACT:
 - Output is a vertical 9:16 Shotstack edit (1080x1920).
-- Renderer builds ONE main video track from sourceMoments. It does not support duplicate video layers, picture-in-picture, music beds, sound effects, stickers, stock b-roll, or transition stacks.
+- Renderer supports duplicate source video layers for StreamLadder-style layouts: fullFrame, stackedFacecam, pictureInPicture, splitScreen, and focusCrop.
+- Renderer supports normalized crop regions for gameplay, facecam, speaker, and action. Region coordinates are objects: { "x": 0..1, "y": 0..1, "width": 0..1, "height": 0..1, "confidence": 0..1 }. x/y are top-left of the detected region in the original source frame.
 - Renderer supports sourceMoments ordered in final edit order. Each sourceMoment uses original SOURCE timestamps.
 - Renderer will target at least 8 seconds unless the uploaded source is shorter. Select enough sourceMoments to cover the requested renderSeconds.
+- Renderer supports sourceMoment role: hook, context, escalation, payoff, proof, or loop.
+- Renderer supports sourceMoment focusRegion: "gameplay", "facecam", "speaker", "action", or an inline normalized crop region.
 - Renderer supports visualTreatment on sourceMoments: "slowZoomIn", "slowZoomOut", or "none". Use this for emphasis, not on every cut.
-- Renderer supports timed textOverlays: max 3 callouts. Use sourceMomentIndex + offsetSeconds whenever possible so the text appears over that selected moment in the final cut.
-- Renderer supports timed subtitles/captions: max 16 short snippets. Use sourceMomentIndex + offsetSeconds whenever possible. Server transcription may also provide sourceStartSeconds subtitles.
+- Renderer supports an animated first-frame hook card via hookTitle, hookSubtitle, and hookStyle.
+- Renderer supports timed textOverlays: max 8 callouts. Use sourceMomentIndex + offsetSeconds whenever possible so the text appears over that selected moment in the final cut.
+- Renderer supports stickerOverlays as short text/emoji badge overlays, max 6.
+- Renderer supports a ctaOverlay near the end of the clip.
+- Renderer supports Shotstack rich captions from server-generated VTT when Deepgram word timing is available, with timed text subtitles as fallback.
 - sourceMomentIndex is the 0-based index of the sourceMoments array AFTER your final ordering, not a source timestamp and not a timeline segment index.
 - timelineStartSeconds means seconds in the FINAL rendered clip. sourceStartSeconds means seconds in the ORIGINAL uploaded source. Do not confuse them.
 - Prefer sourceMomentIndex + offsetSeconds for every overlay/subtitle; only use timelineStartSeconds when you have computed the final rendered timeline position and it is inside the clip.
 - Keep textOverlays readable: durationSeconds should usually be 1.6 to 3.0 seconds. Do not flash text for less than 1.5 seconds.
-- Unsupported requests in shotstackEditPrompt will be ignored. Make the JSON fields do the work.`
+- Unsupported requests in shotstackEditPrompt will be ignored. Make the JSON fields do the work.
+- If the source is a stream/game clip with both gameplay and facecam, prefer layoutTemplate "stackedFacecam" or "pictureInPicture" and provide gameplay/facecam regions.
+- If the source is talking-head or sports/action without facecam, prefer "focusCrop" and provide speaker/action regions.
+- Use "fullFrame" only when no reliable crop regions are detectable.`
 
 async function refineClipEditPlan(params: {
   platform: TargetPlatform
@@ -186,9 +257,47 @@ function buildFallbackClipPlan(platform: TargetPlatform, clipBrief: string): Cli
       introHookSeconds: 2,
       renderSeconds: 14,
       captionWordsPerChunk: platform === 'youtube' ? 6 : 5,
+      contentType: 'unknown',
+      layoutTemplate: 'auto',
+      regions: {},
+      hookTitle: captionText || 'WATCH THIS',
+      hookSubtitle: 'Best moment first',
+      hookStyle: platform === 'reels' ? 'clean' : 'urgent',
+      captionStyle: platform === 'reels' ? 'bold' : 'karaoke',
+      keywordHighlights: [],
       preferredTransitions: ['fade'],
-      textOverlays: [],
+      textOverlays: [
+        {
+          text: captionText || 'Best part',
+          timelineStartSeconds: 0.15,
+          durationSeconds: 1.8,
+          position: 'top',
+          type: 'callout',
+        },
+      ],
+      stickerOverlays: [
+        {
+          text: '!',
+          timelineStartSeconds: 0.45,
+          durationSeconds: 1.2,
+          position: 'topRight',
+        },
+      ],
+      ctaOverlay: {
+        text: platform === 'youtube' ? 'Subscribe for more' : 'Follow for more',
+        durationSeconds: 1.5,
+        position: 'middle',
+        type: 'callout',
+      },
       subtitles: [],
+    },
+    viralityScore: {
+      overall: 55,
+      hook: 55,
+      flow: 50,
+      engagement: 55,
+      trendFit: 50,
+      notes: ['Fallback edit plan used because Gemini structured output was unavailable.'],
     },
     aiProvidersUsed: ['gemini-video-fallback'],
   }
@@ -214,7 +323,7 @@ function chunkTranscriptWords(text: string, maxWordsPerLine = 7): string[] {
 }
 
 function extractDeepgramSegments(transcript: DeepgramTranscription): TranscriptSegment[] {
-  const words = transcript.results?.channels?.[0]?.alternatives?.[0]?.words || []
+  const words = extractDeepgramWords(transcript)
   const segments: TranscriptSegment[] = []
   let currentWords: string[] = []
   let currentStart: number | null = null
@@ -252,6 +361,10 @@ function extractDeepgramSegments(transcript: DeepgramTranscription): TranscriptS
   }
 
   return segments
+}
+
+function extractDeepgramWords(transcript: DeepgramTranscription): DeepgramWord[] {
+  return transcript.results?.channels?.[0]?.alternatives?.[0]?.words || []
 }
 
 function buildSubtitlesFromTranscript(segments: TranscriptSegment[]): TimedSubtitle[] {
@@ -293,11 +406,132 @@ function mergeSubtitleTracks(transcriptSubtitles: TimedSubtitle[], plannedSubtit
   return merged
 }
 
+type ResolvedSegment = {
+  start: number
+  length: number
+  trim: number
+}
+
+function readResolvedSegments(shotstack: Record<string, unknown>): ResolvedSegment[] {
+  const metadata = shotstack.metadata as Record<string, unknown> | undefined
+  const raw = metadata?.resolvedSegments
+  if (!Array.isArray(raw)) return []
+  const segments: ResolvedSegment[] = []
+  for (const item of raw) {
+    const seg = item as Record<string, unknown>
+    const start = typeof seg.start === 'number' && Number.isFinite(seg.start) ? seg.start : null
+    const length = typeof seg.length === 'number' && Number.isFinite(seg.length) ? seg.length : null
+    const trim = typeof seg.trim === 'number' && Number.isFinite(seg.trim) ? seg.trim : null
+    if (start == null || length == null || trim == null || length <= 0) continue
+    segments.push({ start, length, trim })
+  }
+  return segments
+}
+
+function mapSourceSecondToTimeline(sourceSecond: number, segments: ResolvedSegment[]): number | null {
+  for (const segment of segments) {
+    const sourceEnd = segment.trim + segment.length
+    if (sourceSecond >= segment.trim && sourceSecond <= sourceEnd) {
+      return segment.start + (sourceSecond - segment.trim)
+    }
+  }
+  return null
+}
+
+function formatVttTimestamp(seconds: number): string {
+  const safe = Math.max(0, seconds)
+  const whole = Math.floor(safe)
+  const hours = Math.floor(whole / 3600)
+  const minutes = Math.floor((whole % 3600) / 60)
+  const secs = whole % 60
+  const millis = Math.round((safe - whole) * 1000)
+  const pad = (value: number, length = 2) => {
+    const raw = String(value)
+    return raw.length >= length ? raw : `${'0'.repeat(length - raw.length)}${raw}`
+  }
+  return `${pad(hours)}:${pad(minutes)}:${pad(secs)}.${pad(millis, 3)}`
+}
+
+function cleanVttCueText(text: string): string {
+  return cleanSubtitleText(text)?.replace(/[<>]/g, '') || ''
+}
+
+function buildTimelineCaptionVtt(words: DeepgramWord[], segments: ResolvedSegment[]): string | null {
+  if (!words.length || !segments.length) return null
+  const cues: Array<{ start: number; end: number; text: string }> = []
+  let cueWords: string[] = []
+  let cueStart: number | null = null
+  let cueEnd: number | null = null
+
+  const flush = () => {
+    if (cueStart == null || cueEnd == null || cueEnd <= cueStart || cueWords.length === 0) {
+      cueWords = []
+      cueStart = null
+      cueEnd = null
+      return
+    }
+    const text = cleanVttCueText(cueWords.join(' '))
+    if (text) cues.push({ start: cueStart, end: Math.max(cueStart + 0.7, cueEnd), text })
+    cueWords = []
+    cueStart = null
+    cueEnd = null
+  }
+
+  for (const word of words) {
+    const text = cleanSubtitleText(word.punctuated_word || word.word)
+    const sourceStart = typeof word.start === 'number' && Number.isFinite(word.start) ? word.start : null
+    const sourceEnd = typeof word.end === 'number' && Number.isFinite(word.end) ? word.end : null
+    if (!text || sourceStart == null || sourceEnd == null || sourceEnd <= sourceStart) continue
+
+    const timelineStart = mapSourceSecondToTimeline(sourceStart, segments)
+    const timelineEnd = mapSourceSecondToTimeline(sourceEnd, segments)
+    if (timelineStart == null || timelineEnd == null) {
+      flush()
+      continue
+    }
+
+    if (cueStart == null) cueStart = timelineStart
+    const gap = cueEnd == null ? 0 : timelineStart - cueEnd
+    if (cueWords.length >= 5 || gap > 0.45 || /[.!?]$/.test(cueWords[cueWords.length - 1] || '')) {
+      flush()
+      cueStart = timelineStart
+    }
+
+    cueWords.push(text)
+    cueEnd = timelineEnd
+    if (cues.length >= 80) break
+  }
+  flush()
+
+  if (!cues.length) return null
+  const lines = ['WEBVTT', '']
+  cues.forEach((cue, index) => {
+    lines.push(String(index + 1))
+    lines.push(`${formatVttTimestamp(cue.start)} --> ${formatVttTimestamp(cue.end)}`)
+    lines.push(cue.text)
+    lines.push('')
+  })
+  return lines.join('\n')
+}
+
+async function uploadRichCaptionVtt(params: {
+  storageUser: string
+  words: DeepgramWord[]
+  shotstack: Record<string, unknown>
+}): Promise<string | null> {
+  const vtt = buildTimelineCaptionVtt(params.words, readResolvedSegments(params.shotstack))
+  if (!vtt) return null
+  const key = `uploads/clips/${params.storageUser}/${Date.now()}-captions.vtt`
+  const wrote = await putTextFileToR2(key, vtt, 'text/vtt; charset=utf-8')
+  if (!wrote) return null
+  return generatePresignedReadUrl(key, 86400)
+}
+
 async function transcribeClipSubtitles(params: {
   sourceUrl: string
-}): Promise<TimedSubtitle[]> {
+}): Promise<TranscriptionResult> {
   const apiKey = resolveDeepgramApiKey()
-  if (!apiKey) return []
+  if (!apiKey) return { subtitles: [], words: [] }
 
   const model = (process.env.CLIP_EDITOR_TRANSCRIPTION_MODEL || process.env.DEEPGRAM_MODEL || 'nova-3').trim()
   const url = new URL('https://api.deepgram.com/v1/listen')
@@ -318,7 +552,11 @@ async function transcribeClipSubtitles(params: {
   }
 
   const transcript = (await res.json()) as DeepgramTranscription
-  return buildSubtitlesFromTranscript(extractDeepgramSegments(transcript))
+  const words = extractDeepgramWords(transcript)
+  return {
+    subtitles: buildSubtitlesFromTranscript(extractDeepgramSegments(transcript)),
+    words,
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -333,6 +571,7 @@ export async function POST(request: NextRequest) {
       sourceUrl?: string
       r2FileKey?: string
       landscapeMode?: 'crop' | 'letterbox'
+      layoutTemplate?: string
       sourceDurationSeconds?: number
       mimeType?: string
       fileName?: string
@@ -348,6 +587,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'clipBrief is required' }, { status: 400 })
     }
     const clipBrief = body.clipBrief.trim()
+    const requestedLayout: LayoutTemplate =
+      typeof body.layoutTemplate === 'string' && isLayoutTemplate(body.layoutTemplate)
+        ? body.layoutTemplate
+        : 'auto'
     const hasSourceUrl = typeof body.sourceUrl === 'string' && /^https?:\/\//i.test(body.sourceUrl)
     const hasR2FileKey = typeof body.r2FileKey === 'string' && body.r2FileKey.length > 0
     if (!hasSourceUrl && !hasR2FileKey) {
@@ -357,16 +600,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const apiKey = process.env.GEMINI_API
-    if (!apiKey) {
-      return NextResponse.json({ error: 'GEMINI_API is not configured' }, { status: 503 })
-    }
-
+    const renderBackend = clipEditorRenderBackend()
     const platform = body.platform
     const safeZone = platformSafeZoneOffsets(platform)
-    const snapshot = await readAlgorithmSnapshotFromMongo()
-    const platformAlgorithmNotes = resolveClipEditorAlgorithmNotes(snapshot, platform)
-    const gemini = new GoogleGenAI({ apiKey })
     let sourceUrl = body.sourceUrl || ''
     let geminiFileUri = sourceUrl
     let effectiveMime = typeof body.mimeType === 'string' && body.mimeType ? body.mimeType : 'video/mp4'
@@ -399,7 +635,11 @@ export async function POST(request: NextRequest) {
       sourceUrl = readUrl
       geminiFileUri = readUrl
 
-      if (meta.contentLength > GEMINI_EXTERNAL_URL_MAX_BYTES) {
+      if (renderBackend !== 'vizard' && meta.contentLength > GEMINI_EXTERNAL_URL_MAX_BYTES) {
+        const apiKey = process.env.GEMINI_API
+        if (!apiKey) {
+          return NextResponse.json({ error: 'GEMINI_API is not configured' }, { status: 503 })
+        }
         const buffer = await getFileFromR2(key)
         if (!buffer) {
           return NextResponse.json(
@@ -418,6 +658,36 @@ export async function POST(request: NextRequest) {
         geminiFileUri = uploaded.uri
       }
     }
+
+    if (renderBackend === 'vizard') {
+      const vizard = await submitVizardClip({
+        sourceUrl,
+        platform,
+        fileName: body.fileName,
+        mimeType: effectiveMime,
+        projectName: `SDHQ ${platform} Vizard clip`,
+      })
+
+      return NextResponse.json({
+        platform,
+        model: 'vizard',
+        renderer: 'vizard',
+        aiProvidersUsed: ['vizard'],
+        vizard: {
+          projectId: String(vizard.projectId),
+          shareLink: vizard.shareLink || null,
+        },
+        source: hasR2FileKey ? 'r2-presigned-url' : 'source-url',
+      })
+    }
+
+    const apiKey = process.env.GEMINI_API
+    if (!apiKey) {
+      return NextResponse.json({ error: 'GEMINI_API is not configured' }, { status: 503 })
+    }
+    const snapshot = await readAlgorithmSnapshotFromMongo()
+    const platformAlgorithmNotes = resolveClipEditorAlgorithmNotes(snapshot, platform)
+    const gemini = new GoogleGenAI({ apiKey })
 
     try {
       const createGeminiRequest = () => ({
@@ -442,6 +712,7 @@ Platform directive: ${platformEditingDirective(platform)}
 Platform safe-zone offsets: ${JSON.stringify(safeZone)}
 Clip-editor algorithm context (JSON): ${JSON.stringify(platformAlgorithmNotes)}
 Source duration seconds: ${typeof body.sourceDurationSeconds === 'number' ? body.sourceDurationSeconds : 'unknown'}
+Requested layout preference: ${requestedLayout}
 
 ${SHOTSTACK_RENDERER_CONTRACT}
 
@@ -457,16 +728,46 @@ Return valid JSON only:
     "introHookSeconds": "number 1.0..5.0",
     "renderSeconds": "number 8..45",
     "captionWordsPerChunk": "number 3..14",
+    "contentType": "gameplayStream|talkingHead|sportsAction|screenShare|unknown",
+    "layoutTemplate": "auto|fullFrame|stackedFacecam|pictureInPicture|splitScreen|focusCrop",
+    "regions": {
+      "gameplay": { "x": "number 0..1", "y": "number 0..1", "width": "number 0..1", "height": "number 0..1", "label": "optional string", "confidence": "number 0..1" },
+      "facecam": { "x": "number 0..1", "y": "number 0..1", "width": "number 0..1", "height": "number 0..1", "label": "optional string", "confidence": "number 0..1" },
+      "speaker": { "x": "number 0..1", "y": "number 0..1", "width": "number 0..1", "height": "number 0..1", "label": "optional string", "confidence": "number 0..1" },
+      "action": { "x": "number 0..1", "y": "number 0..1", "width": "number 0..1", "height": "number 0..1", "label": "optional string", "confidence": "number 0..1" }
+    },
+    "hookTitle": "short scroll-stopping title, max 8 words",
+    "hookSubtitle": "optional supporting hook line, max 10 words",
+    "hookStyle": "pop|glitch|clean|urgent",
+    "captionStyle": "karaoke|bold|clean",
+    "keywordHighlights": ["important caption words/phrases to emphasize"],
     "preferredTransitions": ["fade|reveal|wipeLeft|wipeRight|slideLeft|slideRight|slideUp|slideDown|zoom"],
     "sourceMoments": [
-      { "startSeconds": "number", "endSeconds": "number", "reason": "why this exact moment should be used", "visualTreatment": "none|slowZoomIn|slowZoomOut" }
+      { "startSeconds": "number", "endSeconds": "number", "role": "hook|context|escalation|payoff|proof|loop", "focusRegion": "gameplay|facecam|speaker|action", "reason": "why this exact moment should be used", "visualTreatment": "none|slowZoomIn|slowZoomOut" }
     ],
     "textOverlays": [
       { "text": "short grounded callout from visible/spoken clip content", "sourceMomentIndex": "number 0-based", "offsetSeconds": "number within that selected moment", "timelineStartSeconds": "optional number in final render timeline", "durationSeconds": "number 1.6..3.0", "position": "top|middle|bottom", "type": "callout" }
     ],
+    "stickerOverlays": [
+      { "text": "short emoji/badge text like OMG, W, CLUTCH, FAIL, or !", "sourceMomentIndex": "number 0-based", "offsetSeconds": "number within that selected moment", "timelineStartSeconds": "optional number in final render timeline", "durationSeconds": "number 0.9..2.4", "position": "topLeft|topRight|bottomLeft|bottomRight|middleLeft|middleRight" }
+    ],
+    "ctaOverlay": {
+      "text": "short CTA grounded to platform, e.g. Follow for more",
+      "durationSeconds": "number 1.2..2.5",
+      "position": "top|middle|bottom",
+      "type": "callout"
+    },
     "subtitles": [
       { "text": "short spoken line from the clip", "sourceMomentIndex": "number 0-based", "offsetSeconds": "number within that selected moment", "timelineStartSeconds": "optional number in final render timeline", "durationSeconds": "number 1.4..3.2", "position": "bottom", "type": "subtitle" }
     ]
+  },
+  "viralityScore": {
+    "overall": "number 0..100",
+    "hook": "number 0..100",
+    "flow": "number 0..100",
+    "engagement": "number 0..100",
+    "trendFit": "number 0..100",
+    "notes": ["short reason"]
   },
   "publishPackage": {
     "tiktok": {
@@ -492,17 +793,23 @@ Rules:
 - First 0-2 seconds: start on the highest-retention source moment. It can be a reaction, impact frame, surprising line, visible outcome, or conflict point. Do not start with setup unless setup itself is compelling.
 - Pick 3-8 sourceMoments from the strongest visual/audio moments in the actual clip. Order them in FINAL EDIT ORDER, not chronological order, with the best hook first.
 - Select enough sourceMoments to make the final edit feel complete: usually 10-18 seconds total for a normal uploaded clip, never 1-3 seconds unless the source video is only that long.
-- For each sourceMoment, use exact original source timestamps, a reason tied to what is seen/heard, and visualTreatment.
+- For each sourceMoment, use exact original source timestamps, role, focusRegion, a reason tied to what is seen/heard, and visualTreatment.
 - Every selected moment must serve one role: hook, context, escalation, punchline/payoff, proof, or loop.
 - Remove dead air, menus, loading screens, long pauses, repeated frames, streamer silence, and context that does not raise retention.
 - Use visualTreatment sparingly: mark at most 3 sourceMoments for slowZoomIn or slowZoomOut when it improves focus on a face, gameplay action, reaction, or readable UI. Otherwise use none.
-- textOverlays must be grounded in visible/spoken clip content and timed to the relevant selected moment. Use 0-3 total. Do not invent unrelated text.
+- Detect reusable layout regions in normalized source-frame coordinates. For stream clips, provide gameplay and facecam boxes if both exist. For talking-head clips, provide speaker. For sports/action clips, provide action.
+- Honor Requested layout preference unless it clearly does not fit the detected source. If requested layout is auto, choose the strongest layout: stackedFacecam for gameplay + facecam, pictureInPicture for gameplay + reaction, focusCrop for talking-head/sports/action, fullFrame only when regions are unreliable.
+- hookTitle must be a strong first-frame scroll-stopper based on what actually happens in the clip. Avoid generic clickbait if it is not supported by the clip.
+- textOverlays must be grounded in visible/spoken clip content and timed to the relevant selected moment. Use 2-6 total when useful. Do not invent unrelated text.
+- stickerOverlays should behave like StreamLadder/OpusClip reaction badges: short, punchy, timed to action/reaction moments. Use 1-5 total. Use plain labels if emoji is not needed.
+- ctaOverlay should appear near the end only if it does not cover the payoff.
+- captionStyle should be karaoke for TikTok/high-energy clips, bold for Shorts, clean/bold for Reels.
 - subtitles must be short spoken lines from the clip. Use [] if speech is unclear.
 - CRITICAL TIMING: sourceMoments use original source timestamps. textOverlays/subtitles should use sourceMomentIndex + offsetSeconds, or timelineStartSeconds in the final rendered clip. Do not put original source timestamps in timelineStartSeconds.
 - sourceMomentIndex is the 0-based index of your final ordered sourceMoments array. If sourceMoments[0] is the hook, sourceMomentIndex 0 means text appears during that hook in the final rendered clip.
 - Do not place overlays/subtitles after the last useful cut. Every text clip must appear while its relevant selected sourceMoment is visible.
 - Avoid generic overlays like "Wait for it", "You won't believe this", "Epic moment", unless that phrase is actually spoken/visible or specifically true for the clip.
-- Prefer 1 strong callout in the first 1.5 seconds if it clarifies the hook. Otherwise skip callouts and rely on subtitles.
+- Prefer a hookTitle plus 1 strong callout or sticker in the first 1.5 seconds if it clarifies the hook.
 - Make text readable. Callouts should stay on screen about 1.6-3.0 seconds; subtitles about 1.4-3.2 seconds.
 - For gameplay/stream clips: prioritize kills, fails, clutch moments, rage/reaction, chat-worthy lines, visual outcome, scoreboard/proof, or sudden reversal.
 - For talking clips: prioritize bold claim, contradiction, actionable takeaway, emotional reaction, or concise quote.
@@ -517,7 +824,8 @@ Rules:
 - If target platform is youtube, prioritize Shorts fields quality and keep title under 70 chars.
 - Include at least 8 hashtags for TikTok/Reels captions.
 - Keep YouTube Shorts tags array between 10 and 20 items.
-- Make the editBlueprint concrete: specify cut cadence, hook intensity, source moments, selective zooms, grounded text overlays/subtitles, and platform pacing aligned with the platform directive and algorithm notes.
+- Score the clip with viralityScore using OpusClip-like dimensions: hook, flow, engagement, and trend fit.
+- Make the editBlueprint concrete: specify cut cadence, hook title/style, caption style, source moments, selective zooms, grounded callouts, sticker badges, CTA, subtitles, and platform pacing aligned with the platform directive and algorithm notes.
 
 CLIP_BRIEF:
 ${clipBrief}`,
@@ -577,12 +885,13 @@ ${clipBrief}`,
       (parsed.hookPlan && parsed.hookPlan.trim()) ||
       ''
 
-    const transcriptSubtitles = await transcribeClipSubtitles({
+    const transcription = await transcribeClipSubtitles({
       sourceUrl,
     }).catch((error) => {
       console.warn('[process-clip] Deepgram subtitle transcription failed:', error)
-      return [] as TimedSubtitle[]
+      return { subtitles: [], words: [] } as TranscriptionResult
     })
+    const transcriptSubtitles = transcription.subtitles
     const aiProvidersUsed = parsed.aiProvidersUsed || ['gemini-video']
     if (transcriptSubtitles.length) aiProvidersUsed.push('deepgram-transcription')
 
@@ -591,6 +900,10 @@ ${clipBrief}`,
       parsed.editBlueprint || transcriptSubtitles.length
         ? {
             ...(parsed.editBlueprint || {}),
+            layoutTemplate:
+              requestedLayout === 'auto'
+                ? parsed.editBlueprint?.layoutTemplate || 'auto'
+                : requestedLayout,
             subtitles: mergeSubtitleTracks(transcriptSubtitles, parsed.editBlueprint?.subtitles),
           }
         : undefined
@@ -600,7 +913,7 @@ ${clipBrief}`,
       editBlueprint,
     }
 
-    const shotstack = generateShotstackJSON({
+    let shotstack = generateShotstackJSON({
       title: `Viral Architect ${platform}`,
       sourceUrl,
       platform,
@@ -613,6 +926,36 @@ ${clipBrief}`,
       editBlueprint,
       sourceDurationSeconds,
     })
+
+    if (transcription.words.length && editBlueprint) {
+      const storageUser = user.username.replace(/^@/, '').toLowerCase()
+      const richCaptionUrl = await uploadRichCaptionVtt({
+        storageUser,
+        words: transcription.words,
+        shotstack,
+      }).catch((error) => {
+        console.warn('[process-clip] Rich caption VTT upload failed:', error)
+        return null
+      })
+      if (richCaptionUrl) {
+        editBlueprint.richCaptionUrl = richCaptionUrl
+        enhancedPlan.editBlueprint = editBlueprint
+        aiProvidersUsed.push('shotstack-rich-captions')
+        shotstack = generateShotstackJSON({
+          title: `Viral Architect ${platform}`,
+          sourceUrl,
+          platform,
+          captionText: captionForVideo || undefined,
+          safeZone,
+          shotstackEditPrompt: enhancedPlan.shotstackEditPrompt,
+          hookPlan: enhancedPlan.hookPlan,
+          pacePlan: enhancedPlan.pacePlan,
+          landscapeMode: lm,
+          editBlueprint,
+          sourceDurationSeconds,
+        })
+      }
+    }
 
     return NextResponse.json({
       platform,

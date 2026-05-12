@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test:clip-renderer": "tsx --test src/lib/generateShotstackJSON.test.ts",
     "create-paypal-plan": "node scripts/create-paypal-plan.js",
     "create-paypal-plan:sandbox": "node -e \"process.env.PAYPAL_MODE='sandbox'; require('./scripts/create-paypal-plan.js')\""
   },
@@ -44,6 +45,7 @@
   "devDependencies": {
     "@types/uuid": "^10.0.0",
     "eslint": "^8.57.0",
-    "eslint-config-next": "^14.2.0"
+    "eslint-config-next": "^14.2.0",
+    "tsx": "^4.21.0"
   }
 }
