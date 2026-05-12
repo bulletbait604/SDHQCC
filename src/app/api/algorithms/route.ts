@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
-import OpenAI from 'openai'
 import clientPromise from '@/lib/mongodb'
 import {
   ALGORITHM_DOC_ID,
@@ -8,10 +7,6 @@ import {
   readAlgorithmSnapshotFromMongo,
   type AlgorithmSnapshotPayload,
 } from '@/lib/algorithmSnapshotRead'
-import {
-  clipEditorOpenAiModel,
-  resolveOpenAiApiKey,
-} from '@/lib/clipEditorServerKeys'
 
 export const dynamic = 'force-dynamic'
 
@@ -265,30 +260,6 @@ async function researchWithGemini(platform: string, geminiApiKey: string): Promi
   }
 }
 
-async function researchWithOpenAI(platform: string, openAiApiKey: string, maxTokens: number = 2500): Promise<any> {
-  const client = new OpenAI({ apiKey: openAiApiKey })
-  const completion = await client.chat.completions.create({
-    model: clipEditorOpenAiModel(),
-    response_format: { type: 'json_object' },
-    messages: [
-      {
-        role: 'system',
-        content: 'You are an expert social media algorithm analyst. Return only valid JSON.',
-      },
-      { role: 'user', content: buildAlgorithmResearchPrompt(platform) },
-    ],
-    temperature: 0.4,
-    max_tokens: maxTokens,
-  })
-
-  const content = completion.choices[0]?.message?.content
-  if (!content) {
-    throw new Error('No content in OpenAI response')
-  }
-
-  return parseAlgorithmJsonContent(content)
-}
-
 async function researchWithDeepSeekApi(
   platform: string,
   deepSeekApiKey: string,
@@ -469,7 +440,6 @@ function resolveDeepSeekAlgorithmApiKey(): string | undefined {
 function hasAlgorithmAiProviderConfigured(): boolean {
   return !!(
     resolveGeminiAlgorithmApiKey() ||
-    resolveOpenAiApiKey() ||
     resolveDeepSeekAlgorithmApiKey() ||
     readEnvTrim('RAPID_API_KEY') ||
     readEnvTrim('POLLINATIONS_API_KEY')
@@ -479,7 +449,6 @@ function hasAlgorithmAiProviderConfigured(): boolean {
 // Main research function with cascading fallbacks
 async function researchAlgorithm(platform: string, maxTokens: number = 1000): Promise<any> {
   const geminiApiKey = resolveGeminiAlgorithmApiKey()
-  const openAiApiKey = resolveOpenAiApiKey()
   const deepSeekApiKey = resolveDeepSeekAlgorithmApiKey()
   const rapidApiKey = readEnvTrim('RAPID_API_KEY')
   const pollinationsApiKey = readEnvTrim('POLLINATIONS_API_KEY')
@@ -496,21 +465,9 @@ async function researchAlgorithm(platform: string, maxTokens: number = 1000): Pr
     } catch (error) {
       geminiFailed = true
       console.error(`[Algorithms] Gemini failed for ${platform}:`, error)
-      if (!openAiApiKey && !deepSeekApiKey && !rapidApiKey && !pollinationsApiKey) {
+      if (!deepSeekApiKey && !rapidApiKey && !pollinationsApiKey) {
         throw new GeminiAlgorithmUnavailableError()
       }
-    }
-  }
-
-  // Fallback to OpenAI (matches the uploaded setup guide and Clip Editor env names).
-  if (openAiApiKey) {
-    try {
-      console.log(`[Algorithms] Falling back to OpenAI for ${platform}...`)
-      const result = await researchWithOpenAI(platform, openAiApiKey, maxTokens)
-      console.log(`[Algorithms] OpenAI succeeded for ${platform}`)
-      return { ...result, provider: 'openai' }
-    } catch (error) {
-      console.error(`[Algorithms] OpenAI failed for ${platform}:`, error)
     }
   }
 
@@ -550,7 +507,7 @@ async function researchAlgorithm(platform: string, maxTokens: number = 1000): Pr
     }
   }
 
-  if (geminiFailed && !openAiApiKey && !deepSeekApiKey && !rapidApiKey && !pollinationsApiKey) {
+  if (geminiFailed && !deepSeekApiKey && !rapidApiKey && !pollinationsApiKey) {
     throw new GeminiAlgorithmUnavailableError()
   }
 
@@ -645,7 +602,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          'No AI API key configured for algorithm research. Set OPENAI_API_KEY (or OPENAI_API), DEEPSEEK_API_KEY, GEMINI_ALGORITHM_API_KEY (or GEMINI_ALGO_API / GEMINI_API), RAPID_API_KEY, and/or POLLINATIONS_API_KEY.',
+          'No AI API key configured for algorithm research. Set GEMINI_ALGORITHM_API_KEY (or GEMINI_ALGO_API / GEMINI_API), DEEPSEEK_API_KEY, RAPID_API_KEY, and/or POLLINATIONS_API_KEY.',
       },
       { status: 500 }
     )

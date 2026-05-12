@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import OpenAI from 'openai'
+import { GoogleGenAI } from '@google/genai'
 import { verifyAuth, hasClipEditorAccess, hasUnlimitedAccess, AuthError } from '@/lib/auth/verifyAuth'
 import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
 import clientPromise from '@/lib/mongodb'
 import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
-import {
-  clipEditorOpenAiModel,
-  resolveOpenAiApiKey,
-} from '@/lib/clipEditorServerKeys'
 import {
   resolveClipEditorAlgorithmNotes,
   summarizeClipEditorAlgorithmSources,
@@ -17,6 +13,7 @@ import type { TargetPlatform } from '@/lib/platformEditing'
 export const dynamic = 'force-dynamic'
 
 const PLAN_COIN_COST = 2
+const PLAN_MODEL_NAME = 'gemini-2.5-flash'
 
 export type ClipEditorPlanModel = 'gen4_aleph' | 'seedance2'
 
@@ -61,12 +58,12 @@ export async function POST(request: NextRequest) {
     if (!hasClipEditorAccess(user)) {
       return NextResponse.json({ error: 'Clip Editor requires the Editor badge.' }, { status: 403 })
     }
-    const openaiKey = resolveOpenAiApiKey()
-    if (!openaiKey) {
+    const geminiApiKey = process.env.GEMINI_API
+    if (!geminiApiKey) {
       return NextResponse.json(
         {
-          error: 'OpenAI is not configured',
-          details: 'Set OPENAI_API_KEY or OPENAI_API for Clip Editor planning.',
+          error: 'Gemini is not configured',
+          details: 'Set GEMINI_API for Clip Editor planning.',
         },
         { status: 503 }
       )
@@ -117,12 +114,12 @@ export async function POST(request: NextRequest) {
     const snapshot = await readAlgorithmSnapshotFromMongo()
     const algorithmBlock = resolveClipEditorAlgorithmNotes(snapshot, platform)
 
-    const model = clipEditorOpenAiModel()
-    const client = new OpenAI({ apiKey: openaiKey })
+    const model = (process.env.CLIP_EDITOR_PLAN_GEMINI_MODEL || PLAN_MODEL_NAME).trim()
+    const gemini = new GoogleGenAI({ apiKey: geminiApiKey })
 
     const sys = `You are a senior short-form video strategist and editor for social platforms.
 You receive (1) Creator Corner stored algorithm notes mapped to the TARGET platform and (2) a text brief describing the source clip (up to ~90s 1080p may be edited later with external video models).
-Produce a concrete plan optimized for discovery and retention. Be specific about pacing, hook, captions, framing, and what instructions to send to Runway — including pure text-to-video (Gen-4.5), video-guided generations, or video-to-video transforms.`
+Produce a concrete plan optimized for discovery and retention. Be specific about pacing, hook, captions, framing, and what instructions to send to Runway or fal video/image models when they can improve the clip. Return only valid JSON.`
 
     const userMsg = `TARGET_PLATFORM_ID: ${platform}
 
@@ -151,17 +148,17 @@ Model choice:
 - seedance2: a new 4–15s clip guided by the source video — set seedanceDuration 4–15.
 - gen4.5: Runway Gen-4.5 **text-to-video** (optional reference image may exist in-product later; describe the clip cinematically). Set gen45Duration 2–10 and gen45Ratio for landscape shorts vs portrait. Does not ingest the user's upload in API v1 unless combined with future image references.`
 
-    const completion = await client.chat.completions.create({
+    const response = await gemini.models.generateContent({
       model,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: sys },
-        { role: 'user', content: userMsg },
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: `${sys}\n\n${userMsg}` }],
+        },
       ],
-      temperature: 0.6,
     })
 
-    const raw = completion.choices[0]?.message?.content?.trim() || ''
+    const raw = typeof response.text === 'string' ? response.text.trim() : ''
     const jsonSlice = extractFirstJsonObject(raw) || raw
     let parsed: unknown
     try {
@@ -175,7 +172,7 @@ Model choice:
 
     return NextResponse.json({
       plan: parsed,
-      openaiModel: model,
+      geminiModel: model,
       algorithmLastUpdated: snapshot?.lastUpdated ?? null,
       algorithmContext: summarizeClipEditorAlgorithmSources(algorithmBlock),
     })

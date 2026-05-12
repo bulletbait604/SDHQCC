@@ -2,14 +2,14 @@
  * Clip Editor: resolve provider secrets from env (supports user-defined names).
  */
 
-export function resolveOpenAiApiKey(): string | undefined {
-  const key =
-    (process.env.OPENAI_API_KEY || process.env.OPENAI_API || '').trim() || undefined
+export function resolveDeepSeekApiKey(): string | undefined {
+  const key = (process.env.DEEPSEEK_API_KEY || '').trim() || undefined
   return key
 }
 
-export function resolveDeepSeekApiKey(): string | undefined {
-  const key = (process.env.DEEPSEEK_API_KEY || '').trim() || undefined
+export function resolveDeepgramApiKey(): string | undefined {
+  const key =
+    (process.env.DEEPGRAM_API_KEY || process.env.DEEPGRAM_API || '').trim() || undefined
   return key
 }
 
@@ -17,14 +17,6 @@ export function resolveRunwayApiSecret(): string | undefined {
   const key =
     (process.env.RUNWAYML_API_SECRET || process.env.RUNWAY_API || '').trim() || undefined
   return key
-}
-
-export function clipEditorOpenAiModel(): string {
-  return (
-    process.env.CLIP_EDITOR_OPENAI_MODEL ||
-    process.env.OPENAI_CLIP_EDITOR_MODEL ||
-    'gpt-5.4-mini'
-  ).trim()
 }
 
 const SHOTSTACK_SECRET_ENV_NAMES = ['SHOTSTACK_API_KEY', 'SHOTSTACK_API', 'SHOTSTACK_KEY'] as const
@@ -37,7 +29,7 @@ function readEnvTrim(name: string): string | undefined {
 }
 
 /**
- * Shotstack developer key. Tries common names (same pattern as GEMINI_API / OPENAI_API in this repo).
+ * Shotstack developer key. Tries common names so deployments can keep older env naming.
  * Uses `process.env[name]` so the value is read at runtime (avoids rare build-time inlining issues).
  */
 export function resolveShotstackApiKey(): string | undefined {

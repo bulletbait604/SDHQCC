@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
-import OpenAI from 'openai'
 import {
   verifyAuth,
   hasClipEditorAccess,
@@ -24,17 +23,12 @@ import {
   pollGeminiFileUntilActive,
   uploadBufferToGeminiFilesApi,
 } from '@/lib/geminiFiles'
-import {
-  clipEditorOpenAiModel,
-  resolveDeepSeekApiKey,
-  resolveOpenAiApiKey,
-} from '@/lib/clipEditorServerKeys'
+import { resolveDeepgramApiKey } from '@/lib/clipEditorServerKeys'
 
 export const dynamic = 'force-dynamic'
 
 const MODEL_NAME = 'gemini-2.5-flash'
 const GEMINI_EXTERNAL_URL_MAX_BYTES = 100 * 1024 * 1024
-const OPENAI_TRANSCRIPTION_MAX_BYTES = 24 * 1024 * 1024
 function isTargetPlatform(value: string): value is TargetPlatform {
   return value === 'tiktok' || value === 'youtube' || value === 'reels'
 }
@@ -121,13 +115,26 @@ type ClipEditPlan = {
 }
 
 type TimedSubtitle = NonNullable<EditBlueprint['subtitles']>[number]
-type OpenAiVerboseTranscription = {
+type DeepgramTranscription = {
+  results?: {
+    channels?: Array<{
+      alternatives?: Array<{
+        transcript?: string
+        words?: Array<{
+          word?: string
+          punctuated_word?: string
+          start?: number
+          end?: number
+        }>
+      }>
+    }>
+  }
+}
+
+type TranscriptSegment = {
+  start?: number
+  end?: number
   text?: string
-  segments?: Array<{
-    start?: number
-    end?: number
-    text?: string
-  }>
 }
 
 const SHOTSTACK_RENDERER_CONTRACT = `SHOTSTACK_RENDERER_CONTRACT:
@@ -144,105 +151,6 @@ const SHOTSTACK_RENDERER_CONTRACT = `SHOTSTACK_RENDERER_CONTRACT:
 - Keep textOverlays readable: durationSeconds should usually be 1.6 to 3.0 seconds. Do not flash text for less than 1.5 seconds.
 - Unsupported requests in shotstackEditPrompt will be ignored. Make the JSON fields do the work.`
 
-function buildDirectorPrompt(params: {
-  platform: TargetPlatform
-  clipBrief: string
-  sourceDurationSeconds?: number
-  platformAlgorithmNotes: unknown
-  geminiPlan: ClipEditPlan
-  priorPlan?: ClipEditPlan
-  role: 'director' | 'critic'
-}): string {
-  const planToReview = params.priorPlan || params.geminiPlan
-  return `You are the ${params.role === 'critic' ? 'final quality-control editor' : 'senior edit director'} for a short-form clip editor.
-
-Target platform: ${params.platform}
-Platform directive: ${platformEditingDirective(params.platform)}
-Source duration seconds: ${typeof params.sourceDurationSeconds === 'number' ? params.sourceDurationSeconds : 'unknown'}
-Creator brief: ${params.clipBrief}
-Algorithm context JSON: ${JSON.stringify(params.platformAlgorithmNotes)}
-
-${SHOTSTACK_RENDERER_CONTRACT}
-
-Gemini video-understanding draft JSON:
-${JSON.stringify(params.geminiPlan)}
-
-Plan to review JSON:
-${JSON.stringify(planToReview)}
-
-Return one JSON object using the same high-level shape. Your job is to improve only the edit plan and publishing copy.
-
-Rules:
-- Respect Gemini's actual video understanding. Prefer its timestamped sourceMoments; only reorder or trim them if the draft itself supports it.
-- Think like StreamLadder/OpusClip: clip selection first, then reframing/zoom, captions/callouts, pacing, metadata.
-- Use visualTreatment on sourceMoments only when a slow zoom helps attention. Leave most moments as "none".
-- Use textOverlays only for grounded callouts from visible/spoken clip content. No generic hype text, no unrelated slogans. Prefer sourceMomentIndex + offsetSeconds so text lands inside the final cut.
-- Use subtitles only for short spoken lines you are confident were said in the clip. Prefer sourceMomentIndex + offsetSeconds. If unsure, return [].
-- Keep sourceMoments in final edit order with the strongest hook first.
-- Choose 3-8 sourceMoments, each with startSeconds, endSeconds, reason, and visualTreatment.
-- The combined selected sourceMoments should cover at least 10-18 seconds for normal source clips. Do not return a 1-3 second final edit unless the uploaded source itself is that short.
-- Avoid repeated adjacent source ranges that would look like screen flashing.
-- Keep renderSeconds realistic for the useful source moments.
-- Timing contract: sourceMoments use original source timestamps. textOverlays/subtitles should use either sourceMomentIndex plus offsetSeconds, or timelineStartSeconds in the final rendered clip. Do not use source timestamps as timelineStartSeconds.
-- If text cannot be placed confidently inside a selected sourceMoment, omit it.
-- Return valid JSON only, no markdown.`
-}
-
-async function refineWithOpenAI(params: Parameters<typeof buildDirectorPrompt>[0]): Promise<ClipEditPlan | null> {
-  const apiKey = resolveOpenAiApiKey()
-  if (!apiKey) return null
-  const client = new OpenAI({ apiKey })
-  const completion = await client.chat.completions.create({
-    model: clipEditorOpenAiModel(),
-    response_format: { type: 'json_object' },
-    messages: [
-      {
-        role: 'system',
-        content: 'You are a practical video editor. Return only valid JSON.',
-      },
-      { role: 'user', content: buildDirectorPrompt(params) },
-    ],
-    temperature: 0.35,
-  })
-  const raw = completion.choices[0]?.message?.content?.trim() || ''
-  const jsonSlice = extractFirstJsonObject(raw) || raw
-  return JSON.parse(jsonSlice || '{}') as ClipEditPlan
-}
-
-async function refineWithDeepSeek(params: Parameters<typeof buildDirectorPrompt>[0]): Promise<ClipEditPlan | null> {
-  const apiKey = resolveDeepSeekApiKey()
-  if (!apiKey) return null
-  const res = await fetch('https://api.deepseek.com/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a practical video editor and quality-control reviewer. Return only valid JSON.',
-        },
-        { role: 'user', content: buildDirectorPrompt(params) },
-      ],
-      temperature: 0.35,
-      max_tokens: 2500,
-    }),
-  })
-  if (!res.ok) {
-    throw new Error(`DeepSeek edit director failed: ${res.status}`)
-  }
-  const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>
-  }
-  const raw = data.choices?.[0]?.message?.content?.trim() || ''
-  const jsonSlice = extractFirstJsonObject(raw) || raw
-  return JSON.parse(jsonSlice || '{}') as ClipEditPlan
-}
-
 async function refineClipEditPlan(params: {
   platform: TargetPlatform
   clipBrief: string
@@ -250,34 +158,8 @@ async function refineClipEditPlan(params: {
   platformAlgorithmNotes: unknown
   geminiPlan: ClipEditPlan
 }): Promise<ClipEditPlan> {
-  let plan = params.geminiPlan
   const providersUsed = ['gemini-video']
-
-  try {
-    const openAiPlan = await refineWithOpenAI({ ...params, role: 'director' })
-    if (openAiPlan) {
-      plan = openAiPlan
-      providersUsed.push('openai-director')
-    }
-  } catch (error) {
-    console.warn('[process-clip] OpenAI edit director failed:', error)
-  }
-
-  try {
-    const deepSeekPlan = await refineWithDeepSeek({
-      ...params,
-      priorPlan: plan,
-      role: providersUsed.includes('openai-director') ? 'critic' : 'director',
-    })
-    if (deepSeekPlan) {
-      plan = deepSeekPlan
-      providersUsed.push(providersUsed.includes('openai-director') ? 'deepseek-critic' : 'deepseek-director')
-    }
-  } catch (error) {
-    console.warn('[process-clip] DeepSeek edit director failed:', error)
-  }
-
-  return { ...plan, aiProvidersUsed: providersUsed }
+  return { ...params.geminiPlan, aiProvidersUsed: providersUsed }
 }
 
 function cleanSubtitleText(text: string | undefined): string | null {
@@ -299,9 +181,50 @@ function chunkTranscriptWords(text: string, maxWordsPerLine = 7): string[] {
   return chunks
 }
 
-function buildSubtitlesFromTranscript(transcript: OpenAiVerboseTranscription): TimedSubtitle[] {
+function extractDeepgramSegments(transcript: DeepgramTranscription): TranscriptSegment[] {
+  const words = transcript.results?.channels?.[0]?.alternatives?.[0]?.words || []
+  const segments: TranscriptSegment[] = []
+  let currentWords: string[] = []
+  let currentStart: number | null = null
+  let currentEnd: number | null = null
+
+  for (const word of words) {
+    const text = cleanSubtitleText(word.punctuated_word || word.word)
+    const start = typeof word.start === 'number' && Number.isFinite(word.start) ? word.start : null
+    const end = typeof word.end === 'number' && Number.isFinite(word.end) ? word.end : null
+    if (!text || start == null || end == null || end <= start) continue
+
+    if (currentStart == null) currentStart = start
+    currentEnd = end
+    currentWords.push(text)
+
+    const endsSentence = /[.!?]$/.test(text)
+    if (currentWords.length >= 7 || endsSentence) {
+      segments.push({
+        start: currentStart,
+        end: currentEnd,
+        text: currentWords.join(' '),
+      })
+      currentWords = []
+      currentStart = null
+      currentEnd = null
+    }
+  }
+
+  if (currentWords.length && currentStart != null && currentEnd != null) {
+    segments.push({
+      start: currentStart,
+      end: currentEnd,
+      text: currentWords.join(' '),
+    })
+  }
+
+  return segments
+}
+
+function buildSubtitlesFromTranscript(segments: TranscriptSegment[]): TimedSubtitle[] {
   const subtitles: TimedSubtitle[] = []
-  for (const segment of transcript.segments || []) {
+  for (const segment of segments) {
     const text = cleanSubtitleText(segment.text)
     const start = typeof segment.start === 'number' && Number.isFinite(segment.start) ? segment.start : null
     const end = typeof segment.end === 'number' && Number.isFinite(segment.end) ? segment.end : null
@@ -338,63 +261,32 @@ function mergeSubtitleTracks(transcriptSubtitles: TimedSubtitle[], plannedSubtit
   return merged
 }
 
-async function loadSourceForTranscription(params: {
-  sourceUrl: string
-  r2FileKey: string | null
-  r2ContentLength: number | null
-}): Promise<Buffer | null> {
-  if (params.r2FileKey) {
-    if (params.r2ContentLength != null && params.r2ContentLength > OPENAI_TRANSCRIPTION_MAX_BYTES) return null
-    const buffer = await getFileFromR2(params.r2FileKey)
-    if (!buffer || buffer.length > OPENAI_TRANSCRIPTION_MAX_BYTES) return null
-    return buffer
-  }
-
-  const head = await fetch(params.sourceUrl, { method: 'HEAD' }).catch(() => null)
-  const contentLength = head?.headers.get('content-length')
-  if (contentLength && Number(contentLength) > OPENAI_TRANSCRIPTION_MAX_BYTES) return null
-
-  const res = await fetch(params.sourceUrl)
-  if (!res.ok) return null
-  const arrayBuffer = await res.arrayBuffer()
-  if (arrayBuffer.byteLength > OPENAI_TRANSCRIPTION_MAX_BYTES) return null
-  return Buffer.from(arrayBuffer)
-}
-
 async function transcribeClipSubtitles(params: {
   sourceUrl: string
-  r2FileKey: string | null
-  r2ContentLength: number | null
-  mimeType: string
-  fileName?: string
 }): Promise<TimedSubtitle[]> {
-  const apiKey = resolveOpenAiApiKey()
+  const apiKey = resolveDeepgramApiKey()
   if (!apiKey) return []
 
-  const buffer = await loadSourceForTranscription({
-    sourceUrl: params.sourceUrl,
-    r2FileKey: params.r2FileKey,
-    r2ContentLength: params.r2ContentLength,
-  })
-  if (!buffer) return []
+  const model = (process.env.CLIP_EDITOR_TRANSCRIPTION_MODEL || process.env.DEEPGRAM_MODEL || 'nova-3').trim()
+  const url = new URL('https://api.deepgram.com/v1/listen')
+  url.searchParams.set('model', model)
+  url.searchParams.set('smart_format', 'true')
+  url.searchParams.set('punctuate', 'true')
 
-  const form = new FormData()
-  const fileName = params.fileName?.trim() || 'clip.mp4'
-  form.append('file', new Blob([new Uint8Array(buffer)], { type: params.mimeType || 'video/mp4' }), fileName)
-  form.append('model', (process.env.CLIP_EDITOR_TRANSCRIPTION_MODEL || 'whisper-1').trim())
-  form.append('response_format', 'verbose_json')
-
-  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+  const res = await fetch(url.toString(), {
     method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}` },
-    body: form,
+    headers: {
+      Authorization: `Token ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ url: params.sourceUrl }),
   })
   if (!res.ok) {
-    throw new Error(`OpenAI transcription failed: ${res.status}`)
+    throw new Error(`Deepgram transcription failed: ${res.status}`)
   }
 
-  const transcript = (await res.json()) as OpenAiVerboseTranscription
-  return buildSubtitlesFromTranscript(transcript)
+  const transcript = (await res.json()) as DeepgramTranscription
+  return buildSubtitlesFromTranscript(extractDeepgramSegments(transcript))
 }
 
 export async function POST(request: NextRequest) {
@@ -448,7 +340,6 @@ export async function POST(request: NextRequest) {
     let effectiveMime = typeof body.mimeType === 'string' && body.mimeType ? body.mimeType : 'video/mp4'
     let cleanupGeminiName: string | null = null
     let r2KeyForGeminiFallback: string | null = null
-    let r2ContentLengthForTranscription: number | null = null
     if (!sourceUrl && hasR2FileKey) {
       const storageUser = user.username.replace(/^@/, '').toLowerCase()
       const prefix = `uploads/clips/${storageUser}/`
@@ -464,7 +355,6 @@ export async function POST(request: NextRequest) {
           { status: 404 }
         )
       }
-      r2ContentLengthForTranscription = meta.contentLength
       effectiveMime = meta.contentType || effectiveMime
       // Long TTL: Shotstack fetches this URL when the render runs (queue can be long); Gemini also uses it during planning.
       const readUrl = await generatePresignedReadUrl(key, 86400)
@@ -656,16 +546,12 @@ ${clipBrief}`,
 
     const transcriptSubtitles = await transcribeClipSubtitles({
       sourceUrl,
-      r2FileKey: r2KeyForGeminiFallback,
-      r2ContentLength: r2ContentLengthForTranscription,
-      mimeType: effectiveMime,
-      fileName: body.fileName,
     }).catch((error) => {
-      console.warn('[process-clip] OpenAI subtitle transcription failed:', error)
+      console.warn('[process-clip] Deepgram subtitle transcription failed:', error)
       return [] as TimedSubtitle[]
     })
     const aiProvidersUsed = parsed.aiProvidersUsed || ['gemini-video']
-    if (transcriptSubtitles.length) aiProvidersUsed.push('openai-transcription')
+    if (transcriptSubtitles.length) aiProvidersUsed.push('deepgram-transcription')
 
     const lm = body.landscapeMode === 'letterbox' ? 'letterbox' : 'crop'
     const editBlueprint: EditBlueprint | undefined =

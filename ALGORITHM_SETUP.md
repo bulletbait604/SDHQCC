@@ -4,19 +4,19 @@ To enable the automatic weekly algorithm research feature, you need to add the f
 
 ## Required Environment Variables
 
-### OpenAI API (Optional - if using OpenAI)
+### Google AI Studio / Gemini API (Recommended)
 ```
-OPENAI_API_KEY=your_openai_api_key_here
+GEMINI_API=your_google_ai_studio_key
 ```
-- Get your API key from: https://platform.openai.com/api-keys
+- Get your API key from: https://aistudio.google.com/app/apikey
 - Used for researching social media algorithms
 
-### DeepSeek API (Optional - if using DeepSeek instead of OpenAI)
+### DeepSeek API (Legacy Optional Fallback)
 ```
 DEEPSEEK_API_KEY=your_deepseek_api_key_here
 ```
 - Get your API key from: https://platform.deepseek.com/
-- Alternative to OpenAI for algorithm research
+- Fallback only if Gemini is unavailable
 
 ### Base URL (Optional - for cron job)
 ```
@@ -29,7 +29,7 @@ NEXT_PUBLIC_BASE_URL=your_production_url_here
 ## Setup Instructions
 
 1. Open your `.env.local` file in the root of your project
-2. Add at least one of the API keys (OpenAI or DeepSeek)
+2. Add `GEMINI_API` (recommended), or a legacy fallback key if needed
 3. Add the base URL if deploying to production
 
 ## Cron Job Setup
@@ -64,7 +64,7 @@ Add to your `vercel.json`:
 
 1. The cron job calls `/api/algorithms/update` weekly
 2. This endpoint triggers the main `/api/algorithms` POST endpoint
-3. The AI API (OpenAI or DeepSeek) researches current algorithms for:
+3. The AI provider researches current algorithms for:
    - TikTok
    - Instagram
    - YouTube Shorts
