@@ -6,6 +6,7 @@ import { Film, Loader2, Upload } from 'lucide-react'
 import type { ToolType } from '@/hooks/useCoins'
 import PlatformSelector from '@/app/components/PlatformSelector'
 import type { TargetPlatform } from '@/lib/platformEditing'
+import { normalizeHttpMediaUrl } from '@/lib/normalizeMediaUrl'
 
 export interface ClipEditorTabProps {
   darkMode: boolean
@@ -186,12 +187,16 @@ export default function ClipEditorTab({
   }
 
   const extractVizardVideoUrl = (snapshot: Record<string, unknown>): string | null => {
-    if (typeof snapshot.videoUrl === 'string' && /^https?:\/\//i.test(snapshot.videoUrl)) {
-      return snapshot.videoUrl
-    }
+    const top = normalizeHttpMediaUrl(snapshot.videoUrl)
+    if (top) return top
     const bestVideo = snapshot.bestVideo as Record<string, unknown> | undefined
-    if (typeof bestVideo?.videoUrl === 'string' && /^https?:\/\//i.test(bestVideo.videoUrl)) {
-      return bestVideo.videoUrl
+    if (bestVideo) {
+      const fromBest =
+        normalizeHttpMediaUrl(bestVideo.videoUrl) ||
+        normalizeHttpMediaUrl(bestVideo.video_url) ||
+        normalizeHttpMediaUrl(bestVideo.downloadUrl) ||
+        normalizeHttpMediaUrl(bestVideo.url)
+      if (fromBest) return fromBest
     }
     return null
   }

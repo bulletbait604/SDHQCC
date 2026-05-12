@@ -1,4 +1,5 @@
 import { resolveVizardApiKey } from '@/lib/clipEditorServerKeys'
+import { normalizeHttpMediaUrl } from '@/lib/normalizeMediaUrl'
 
 const VIZARD_PROJECT_ROOT = 'https://elb-api.vizard.ai/hvizard-server-front/open-api/v1/project'
 
@@ -12,6 +13,10 @@ export type VizardCreateResponse = {
 export type VizardVideo = {
   videoId?: number | string
   videoUrl?: string
+  /** Some API revisions use snake_case */
+  video_url?: string
+  downloadUrl?: string
+  url?: string
   videoMsDuration?: number
   title?: string
   transcript?: string
@@ -181,13 +186,28 @@ export async function queryVizardProject(projectId: string): Promise<VizardQuery
   return data
 }
 
+/** Best playable URL from a Vizard video object (handles alternate keys and protocol-relative URLs). */
+export function vizardVideoPlaybackUrl(video: VizardVideo | Record<string, unknown> | null | undefined): string | null {
+  if (!video || typeof video !== 'object') return null
+  const v = video as Record<string, unknown>
+  const candidates = [v.videoUrl, v.video_url, v.downloadUrl, v.url]
+  for (const c of candidates) {
+    const n = normalizeHttpMediaUrl(c)
+    if (n) return n
+  }
+  return null
+}
+
 export function pickBestVizardVideo(videos: VizardVideo[] | undefined): VizardVideo | null {
   if (!videos?.length) return null
-  return [...videos]
-    .filter((video) => typeof video.videoUrl === 'string' && /^https?:\/\//i.test(video.videoUrl))
+  const scored = videos
+    .map((video) => ({ video, url: vizardVideoPlaybackUrl(video) }))
+    .filter((row): row is { video: VizardVideo; url: string } => Boolean(row.url))
+  if (!scored.length) return null
+  return [...scored]
     .sort((a, b) => {
-      const aScore = Number(a.viralScore)
-      const bScore = Number(b.viralScore)
+      const aScore = Number(a.video.viralScore)
+      const bScore = Number(b.video.viralScore)
       return (Number.isFinite(bScore) ? bScore : -1) - (Number.isFinite(aScore) ? aScore : -1)
-    })[0] || null
+    })[0]!.video
 }

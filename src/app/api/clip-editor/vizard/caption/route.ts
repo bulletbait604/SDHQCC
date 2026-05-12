@@ -15,6 +15,7 @@ import {
 } from '@/lib/shotstackEditUrl'
 import type { TargetPlatform } from '@/lib/platformEditing'
 import { platformSafeZoneOffsets } from '@/lib/platformEditing'
+import { normalizeHttpMediaUrl } from '@/lib/normalizeMediaUrl'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -115,7 +116,11 @@ async function transcribeVideo(videoUrl: string): Promise<DeepgramTranscription>
     },
     body: JSON.stringify({ url: videoUrl }),
   })
-  if (!res.ok) throw new Error(`Deepgram transcription failed: ${res.status}`)
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '')
+    const hint = errBody ? ` — ${errBody.slice(0, 280)}` : ''
+    throw new Error(`Deepgram transcription failed (${res.status})${hint}`)
+  }
   return (await res.json()) as DeepgramTranscription
 }
 
@@ -422,7 +427,8 @@ async function submitShotstack(edit: Record<string, unknown>): Promise<string> {
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
-    throw new Error((shotstackSubmitUserMessage(data) + shotstackAuthEnvironmentHint(res.status)).trim())
+    const detail = (shotstackSubmitUserMessage(data) + shotstackAuthEnvironmentHint(res.status)).trim()
+    throw new Error(detail ? `Shotstack (${res.status}): ${detail}` : `Shotstack request failed (${res.status}).`)
   }
   const renderId =
     (data as { response?: { id?: string } }).response?.id ||
@@ -447,8 +453,15 @@ export async function POST(request: NextRequest) {
       viralScore?: string
       viralReason?: string
     }
-    if (!body.videoUrl || !/^https?:\/\//i.test(body.videoUrl)) {
-      return NextResponse.json({ error: 'videoUrl is required' }, { status: 400 })
+    const videoUrl = normalizeHttpMediaUrl(body.videoUrl)
+    if (!videoUrl) {
+      return NextResponse.json(
+        {
+          error:
+            'videoUrl must be a valid http(s) URL. If Vizard returned a protocol-relative link, it is normalized server-side on the status endpoint — refresh the app or redeploy.',
+        },
+        { status: 400 }
+      )
     }
     if (!body.platform || !isTargetPlatform(body.platform)) {
       return NextResponse.json(
@@ -459,7 +472,7 @@ export async function POST(request: NextRequest) {
 
     const storageUser = user.username.replace(/^@/, '').toLowerCase()
     const staged = await stageVizardVideo({
-      sourceUrl: body.videoUrl,
+      sourceUrl: videoUrl,
       storageUser,
     })
 
