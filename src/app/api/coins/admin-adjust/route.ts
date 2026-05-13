@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { verifyAuth, AuthError } from '@/lib/auth/verifyAuth'
 import { isAllowlistedOwner } from '@/lib/ownerAllowlist'
+import { getPurchasedCoinBalance } from '@/lib/coinPurchasedBalance'
 
 export async function POST(req: NextRequest) {
   try {
@@ -53,6 +54,7 @@ export async function POST(req: NextRequest) {
       await db.collection('coinBalances').insertOne({
         userId: balanceUserId,
         coins: newBalance,
+        purchasedBalance: coins > 0 ? newBalance : 0,
         totalPurchased: coins > 0 ? coins : 0,
         totalEarned: coins > 0 ? coins : 0,
         totalSpent: coins < 0 ? Math.abs(coins) : 0,
@@ -61,10 +63,15 @@ export async function POST(req: NextRequest) {
         updatedAt: now,
       })
     } else {
-      newBalance = Math.max(0, (coinBalance.coins || 0) + coins)
+      const oldCoins = coinBalance.coins || 0
+      newBalance = Math.max(0, oldCoins + coins)
+      const pb = getPurchasedCoinBalance(coinBalance)
+      const newPurchased =
+        coins > 0 ? Math.min(pb + coins, newBalance) : Math.min(pb, newBalance)
 
       const updateFields: Record<string, number | string> = {
         coins: newBalance,
+        purchasedBalance: newPurchased,
         updatedAt: now,
       }
 

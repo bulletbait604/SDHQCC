@@ -142,6 +142,7 @@ export async function fulfillVerifiedCoinPurchase(
       $inc: {
         coins: coinCount,
         totalPurchased: coinCount,
+        purchasedBalance: coinCount,
       },
       $set: {
         updatedAt: new Date().toISOString(),

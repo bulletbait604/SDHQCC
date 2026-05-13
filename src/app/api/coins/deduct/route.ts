@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { verifyAuth, hasUnlimitedAccess, AuthError } from '@/lib/auth/verifyAuth'
 import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
+import { splitCoinSpend } from '@/lib/coinPurchasedBalance'
 
 // Valid tool costs - server defined, cannot be manipulated by client
 const VALID_TOOL_COSTS: Record<string, number> = {
@@ -128,20 +129,27 @@ export async function POST(req: NextRequest) {
       }, { status: 403 })
     }
 
-    // Deduct coins atomically
+    const { newCoins, purchasedBalance } = splitCoinSpend(coinBalance, cost)
+
     const result = await db.collection('coinBalances').findOneAndUpdate(
-      { userId: balanceUserId },
+      { userId: balanceUserId, coins: coinBalance.coins },
       {
-        $inc: {
-          coins: -cost,
-          totalSpent: cost
-        },
         $set: {
-          updatedAt: new Date().toISOString()
-        }
+          coins: newCoins,
+          purchasedBalance,
+          updatedAt: new Date().toISOString(),
+        },
+        $inc: { totalSpent: cost },
       },
       { returnDocument: 'after' }
     )
+
+    if (!result?.value) {
+      return NextResponse.json(
+        { error: 'Balance changed — please retry', required: cost, tool },
+        { status: 409 }
+      )
+    }
 
     // Log the transaction
     await db.collection('coinTransactions').insertOne({

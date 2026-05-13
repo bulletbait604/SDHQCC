@@ -5,12 +5,15 @@ import clientPromise from '@/lib/mongodb'
 import { verifyAuth, hasUnlimitedAccess, AuthError } from '@/lib/auth/verifyAuth'
 import { Document, WithId } from 'mongodb'
 import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
-
-const DAILY_FREE_COINS = 10
+import {
+  DAILY_FREE_COINS,
+  coinsAfterDailyRefresh,
+} from '@/lib/coinPurchasedBalance'
 
 interface CoinBalance {
   userId: string
   coins: number
+  purchasedBalance?: number
   lastDailyReset?: string
   totalPurchased: number
   totalEarned: number
@@ -45,6 +48,7 @@ export async function GET(req: NextRequest) {
       balance = {
         userId: balanceKey,
         coins: DAILY_FREE_COINS,
+        purchasedBalance: 0,
         lastDailyReset: now.toISOString(),
         totalPurchased: 0,
         totalEarned: DAILY_FREE_COINS,
@@ -66,21 +70,24 @@ export async function GET(req: NextRequest) {
         : 25
 
       if (hoursSinceReset >= 24) {
-        const newCoins = balance.coins + DAILY_FREE_COINS
+        const { newCoins, purchasedBalance } = coinsAfterDailyRefresh(balance)
         await db.collection('coinBalances').updateOne(
           { userId: balanceKey },
           {
             $set: {
               coins: newCoins,
+              purchasedBalance,
               lastDailyReset: now.toISOString(),
               updatedAt: now.toISOString(),
             },
-            $inc: { totalEarned: DAILY_FREE_COINS },
           }
         )
         balance.coins = newCoins
+        balance.purchasedBalance = purchasedBalance
         balance.lastDailyReset = now.toISOString()
-        console.log(`[Coins] Daily reset for ${user.username} (${balanceKey}): added ${DAILY_FREE_COINS} coins`)
+        console.log(
+          `[Coins] Daily refresh for ${user.username} (${balanceKey}): balance set to ${newCoins} (${DAILY_FREE_COINS} free + ${purchasedBalance} sticky)`
+        )
       }
 
       // Restore starter pool if stranded (0 coins, never spent or purchased — e.g. bad migration / no session earlier)
@@ -92,12 +99,14 @@ export async function GET(req: NextRequest) {
           {
             $set: {
               coins: DAILY_FREE_COINS,
+              purchasedBalance: 0,
               updatedAt: new Date().toISOString(),
             },
             ...(balance.totalEarned ? {} : { $inc: { totalEarned: DAILY_FREE_COINS } }),
           }
         )
         balance.coins = DAILY_FREE_COINS
+        balance.purchasedBalance = 0
       }
     }
 

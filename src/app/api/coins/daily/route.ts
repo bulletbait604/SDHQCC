@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { verifyAuth, hasUnlimitedAccess, AuthError } from '@/lib/auth/verifyAuth'
 import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
+import {
+  DAILY_FREE_COINS,
+  coinsAfterDailyRefresh,
+} from '@/lib/coinPurchasedBalance'
 
-const DAILY_FREE_COINS = 10
 const DAILY_COOLDOWN_HOURS = 24
 
 export async function POST(req: NextRequest) {
   try {
-    // Authenticate user from server-side session
     const user = await verifyAuth(req)
 
     const client = await clientPromise
@@ -16,86 +18,86 @@ export async function POST(req: NextRequest) {
 
     const balanceUserId = await resolveCoinBalanceUserId(db, user)
 
-    // Check if user has unlimited access (they don't need daily coins)
     if (hasUnlimitedAccess(user)) {
       return NextResponse.json({
         success: true,
         coins: 999999,
         unlimited: true,
-        message: 'Unlimited access - no daily coins needed'
+        message: 'Unlimited access - no daily coins needed',
       })
     }
 
-    // Get user's coin balance
-    let coinBalance = await db.collection('coinBalances').findOne({ userId: balanceUserId })
+    const coinBalance = await db.collection('coinBalances').findOne({ userId: balanceUserId })
+    const now = new Date()
 
-    // Check if daily coins were already claimed within cooldown period
-    if (coinBalance?.lastDailyClaim) {
-      const lastClaim = new Date(coinBalance.lastDailyClaim)
-      const now = new Date()
-      const hoursSinceClaim = (now.getTime() - lastClaim.getTime()) / (1000 * 60 * 60)
+    if (coinBalance?.lastDailyReset) {
+      const lastReset = new Date(coinBalance.lastDailyReset)
+      const hoursSinceReset = (now.getTime() - lastReset.getTime()) / (1000 * 60 * 60)
 
-      if (hoursSinceClaim < DAILY_COOLDOWN_HOURS) {
-        const hoursRemaining = Math.ceil(DAILY_COOLDOWN_HOURS - hoursSinceClaim)
+      if (hoursSinceReset < DAILY_COOLDOWN_HOURS) {
+        const coins = typeof coinBalance.coins === 'number' ? coinBalance.coins : 0
         return NextResponse.json({
-          error: 'Daily coins already claimed',
-          hoursRemaining,
-          nextClaimTime: new Date(lastClaim.getTime() + DAILY_COOLDOWN_HOURS * 60 * 60 * 1000).toISOString()
-        }, { status: 429 })
+          success: true,
+          coins,
+          claimed: 0,
+          alreadyRefreshed: true,
+          nextClaimTime: new Date(
+            lastReset.getTime() + DAILY_COOLDOWN_HOURS * 60 * 60 * 1000
+          ).toISOString(),
+        })
       }
     }
 
-    // Add daily free coins to balance
     if (!coinBalance) {
-      // Create new balance with daily coins
-      const now = new Date()
       await db.collection('coinBalances').insertOne({
         userId: balanceUserId,
         coins: DAILY_FREE_COINS,
+        purchasedBalance: 0,
         lastDailyClaim: now.toISOString(),
         lastDailyReset: now.toISOString(),
         totalPurchased: 0,
         totalEarned: DAILY_FREE_COINS,
         totalSpent: 0,
         createdAt: now.toISOString(),
-        updatedAt: now.toISOString()
+        updatedAt: now.toISOString(),
       })
     } else {
-      // Update existing balance
+      const { newCoins, purchasedBalance } = coinsAfterDailyRefresh(coinBalance)
       await db.collection('coinBalances').updateOne(
         { userId: balanceUserId },
         {
-          $inc: { coins: DAILY_FREE_COINS, totalEarned: DAILY_FREE_COINS },
           $set: {
-            lastDailyClaim: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }
+            coins: newCoins,
+            purchasedBalance,
+            lastDailyClaim: now.toISOString(),
+            lastDailyReset: now.toISOString(),
+            updatedAt: now.toISOString(),
+          },
         }
       )
     }
 
-    // Get updated balance
     const updatedBalance = await db.collection('coinBalances').findOne({ userId: balanceUserId })
 
-    // Log the transaction
     await db.collection('coinTransactions').insertOne({
       userId: balanceUserId,
       username: user.username,
       type: 'daily',
       amount: DAILY_FREE_COINS,
       balanceAfter: updatedBalance?.coins,
-      timestamp: new Date().toISOString()
+      timestamp: now.toISOString(),
     })
 
-    console.log(`[Coins] Daily claim for ${user.username} (${balanceUserId}): +${DAILY_FREE_COINS} coins. Balance: ${updatedBalance?.coins}`)
+    console.log(
+      `[Coins] Daily refresh (claim) for ${user.username} (${balanceUserId}). Balance: ${updatedBalance?.coins}`
+    )
 
     return NextResponse.json({
       success: true,
       coins: updatedBalance?.coins,
       claimed: DAILY_FREE_COINS,
-      nextClaimTime: new Date(Date.now() + DAILY_COOLDOWN_HOURS * 60 * 60 * 1000).toISOString()
+      nextClaimTime: new Date(now.getTime() + DAILY_COOLDOWN_HOURS * 60 * 60 * 1000).toISOString(),
     })
-
   } catch (error: unknown) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode })
