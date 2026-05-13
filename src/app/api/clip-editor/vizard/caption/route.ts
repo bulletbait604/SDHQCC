@@ -47,6 +47,44 @@ function isTargetPlatform(value: string): value is TargetPlatform {
   return value === 'tiktok' || value === 'youtube' || value === 'reels'
 }
 
+/** Vizard sometimes returns duration as a string in JSON. */
+function coerceVideoMsDuration(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) return value
+  if (typeof value === 'string') {
+    const n = Number(value.trim())
+    if (Number.isFinite(n) && n > 0) return n
+  }
+  return null
+}
+
+function maxCueEndSeconds(cues: CaptionCue[]): number {
+  let m = 0
+  for (const c of cues) m = Math.max(m, c.end)
+  return m
+}
+
+/**
+ * Shotstack rejects timelines where any clip ends after the composition length
+ * (often HTTP 400 "Bad Request"). Keep [start, start+length] inside [0, duration].
+ */
+function fitClipInTimeline(
+  start: number,
+  length: number,
+  duration: number,
+  minLength = 0.2
+): { start: number; length: number } {
+  const d = Math.max(minLength + 0.06, duration)
+  let s = Math.max(0, Math.min(Math.max(0, d - minLength - 0.02), start))
+  let len = Math.max(minLength, length)
+  if (s + len > d) {
+    len = Math.max(minLength, d - s - 0.02)
+  }
+  if (s + len > d) {
+    s = Math.max(0, d - len - 0.02)
+  }
+  return { start: Number(s.toFixed(2)), length: Number(Math.max(minLength, len).toFixed(2)) }
+}
+
 function cleanCaptionText(text: string | undefined): string | null {
   if (!text) return null
   const cleaned = text
@@ -134,7 +172,7 @@ function buildShotstackCaptionEdit(params: {
   viralReason?: string
 }) {
   const safeZone = platformSafeZoneOffsets(params.platform)
-  const duration = Math.max(1, Math.min(180, params.durationSeconds))
+  const duration = Math.max(0.75, Math.min(180, params.durationSeconds))
   const title = cleanCaptionText(params.title)?.slice(0, 70)
   const score = cleanCaptionText(params.viralScore ? `VIRAL SCORE ${params.viralScore}/10` : undefined)
   const stickerText =
@@ -143,103 +181,117 @@ function buildShotstackCaptionEdit(params: {
         title?.match(/\b(clutch|fail|funny|insane|crazy|wild|epic|win|rage|shock|wow)\b/i)?.[0] ||
         'WATCH'
     )?.toUpperCase() || 'WATCH'
-  const captionClips = params.cues.slice(0, 70).map((cue) => {
-    const start = Math.max(0, Math.min(duration - 0.2, cue.start))
-    const length = Math.max(0.7, Math.min(3.1, cue.end - cue.start))
-    return {
-      asset: {
-        type: 'text',
-        text: cue.text.toUpperCase().slice(0, 84),
-        width: 960,
-        height: 220,
-        font: {
-          family: 'Montserrat ExtraBold',
-          color: '#ffffff',
-          size: params.platform === 'youtube' ? 36 : 42,
-          weight: 800,
-          lineHeight: 1.05,
+
+  const captionClips = params.cues
+    .slice(0, 70)
+    .map((cue) => {
+      const rawStart = Math.max(0, Math.min(duration - 0.2, cue.start))
+      const rawLen = Math.max(0.7, Math.min(3.1, cue.end - cue.start))
+      const fitted = fitClipInTimeline(rawStart, rawLen, duration, 0.25)
+      return {
+        asset: {
+          type: 'text',
+          text: cue.text.toUpperCase().slice(0, 84),
+          width: 960,
+          height: 220,
+          font: {
+            family: 'Montserrat ExtraBold',
+            color: '#ffffff',
+            size: params.platform === 'youtube' ? 36 : 42,
+            weight: 800,
+            lineHeight: 1.05,
+          },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          stroke: { width: 3, color: '#000000' },
+          background: {
+            color: '#000000',
+            opacity: 0.38,
+            padding: 9,
+            borderRadius: 10,
+          },
         },
-        alignment: { horizontal: 'center', vertical: 'center' },
-        stroke: { width: 3, color: '#000000' },
-        background: {
-          color: '#000000',
-          opacity: 0.38,
-          padding: 9,
-          borderRadius: 10,
-        },
-      },
-      start: Number(start.toFixed(2)),
-      length: Number(Math.min(length, duration - start).toFixed(2)),
-      offset: { x: 0, y: safeZone.captionY },
-      transition: { in: 'fadeFast', out: 'fadeFast' },
-    }
-  })
+        start: fitted.start,
+        length: fitted.length,
+        offset: { x: 0, y: safeZone.captionY },
+        transition: { in: 'fadeFast', out: 'fadeFast' },
+      }
+    })
+    .filter((clip) => clip.length >= 0.22)
 
   const hookClips = title
-    ? [
-        {
-          asset: {
-            type: 'text',
-            text: title.toUpperCase(),
-            width: 960,
-            height: 220,
-            font: {
-              family: 'Montserrat ExtraBold',
-              color: '#fff200',
-              size: 54,
-              weight: 900,
-              lineHeight: 1.02,
+    ? (() => {
+        const fitted = fitClipInTimeline(0, Math.min(2.4, duration), duration, 0.35)
+        return [
+          {
+            asset: {
+              type: 'text',
+              text: title.toUpperCase(),
+              width: 960,
+              height: 220,
+              font: {
+                family: 'Montserrat ExtraBold',
+                color: '#fff200',
+                size: 54,
+                weight: 800,
+                lineHeight: 1.02,
+              },
+              alignment: { horizontal: 'center', vertical: 'center' },
+              stroke: { width: 4, color: '#000000' },
+              background: {
+                color: '#ff2d55',
+                opacity: 0.68,
+                padding: 12,
+                borderRadius: 16,
+              },
             },
-            alignment: { horizontal: 'center', vertical: 'center' },
-            stroke: { width: 4, color: '#000000' },
-            background: {
-              color: '#ff2d55',
-              opacity: 0.68,
-              padding: 12,
-              borderRadius: 16,
-            },
+            start: fitted.start,
+            length: fitted.length,
+            offset: { x: 0, y: 0.29 },
+            transition: { in: 'slideUp', out: 'fadeFast' },
           },
-          start: 0,
-          length: Number(Math.min(2.4, duration).toFixed(2)),
-          offset: { x: 0, y: 0.29 },
-          transition: { in: 'slideUp', out: 'fadeFast' },
-        },
-      ]
+        ]
+      })()
     : []
 
   const badgeClips = score
-    ? [
-        {
-          asset: {
-            type: 'text',
-            text: score,
-            width: 310,
-            height: 110,
-            font: {
-              family: 'Montserrat ExtraBold',
-              color: '#ffffff',
-              size: 32,
-              weight: 800,
+    ? (() => {
+        const fitted = fitClipInTimeline(0.35, Math.min(2.2, duration), duration, 0.35)
+        return [
+          {
+            asset: {
+              type: 'text',
+              text: score,
+              width: 310,
+              height: 110,
+              font: {
+                family: 'Montserrat ExtraBold',
+                color: '#ffffff',
+                size: 32,
+                weight: 800,
+              },
+              alignment: { horizontal: 'center', vertical: 'center' },
+              stroke: { width: 3, color: '#000000' },
+              background: {
+                color: '#7c3aed',
+                opacity: 0.7,
+                padding: 8,
+                borderRadius: 18,
+              },
             },
-            alignment: { horizontal: 'center', vertical: 'center' },
-            stroke: { width: 3, color: '#000000' },
-            background: {
-              color: '#7c3aed',
-              opacity: 0.7,
-              padding: 8,
-              borderRadius: 18,
-            },
+            start: fitted.start,
+            length: fitted.length,
+            offset: { x: 0.31, y: 0.31 },
+            transition: { in: 'zoomFast', out: 'fadeFast' },
           },
-          start: 0.35,
-          length: Number(Math.min(2.2, duration).toFixed(2)),
-          offset: { x: 0.31, y: 0.31 },
-          transition: { in: 'zoomFast', out: 'fadeFast' },
-        },
-      ]
+        ]
+      })()
     : []
 
-  const stickerClips = [
-    {
+  const sticker1 = (() => {
+    const rawStart = Math.min(1.2, Math.max(0, duration - 1))
+    const rawLen = Math.min(1.8, duration)
+    const fitted = fitClipInTimeline(rawStart, rawLen, duration, 0.25)
+    return {
       asset: {
         type: 'text',
         text: stickerText,
@@ -249,7 +301,7 @@ function buildShotstackCaptionEdit(params: {
           family: 'Montserrat ExtraBold',
           color: '#ffffff',
           size: 42,
-          weight: 900,
+          weight: 800,
         },
         alignment: { horizontal: 'center', vertical: 'center' },
         stroke: { width: 3, color: '#000000' },
@@ -260,14 +312,18 @@ function buildShotstackCaptionEdit(params: {
           borderRadius: 18,
         },
       },
-      start: Number(Math.min(1.2, Math.max(0, duration - 1)).toFixed(2)),
-      length: Number(Math.min(1.8, duration).toFixed(2)),
+      start: fitted.start,
+      length: fitted.length,
       offset: { x: -0.31, y: 0.25 },
       transition: { in: 'zoomFast', out: 'fadeFast' },
-    },
-    ...(duration > 5
-      ? [
-          {
+    }
+  })()
+
+  const sticker2 =
+    duration > 5
+      ? (() => {
+          const fitted = fitClipInTimeline(Math.max(2.8, duration * 0.38), 1.6, duration, 0.3)
+          return {
             asset: {
               type: 'text',
               text: params.platform === 'youtube' ? 'SHORTS' : 'REELS',
@@ -277,7 +333,7 @@ function buildShotstackCaptionEdit(params: {
                 family: 'Montserrat ExtraBold',
                 color: '#000000',
                 size: 36,
-                weight: 900,
+                weight: 800,
               },
               alignment: { horizontal: 'center', vertical: 'center' },
               background: {
@@ -287,45 +343,54 @@ function buildShotstackCaptionEdit(params: {
                 borderRadius: 18,
               },
             },
-            start: Number(Math.max(2.8, duration * 0.38).toFixed(2)),
-            length: 1.6,
+            start: fitted.start,
+            length: fitted.length,
             offset: { x: 0.31, y: -0.16 },
             transition: { in: 'slideUp', out: 'fadeFast' },
-          },
-        ]
-      : []),
-  ]
+          }
+        })()
+      : null
+
+  const stickerClips = sticker2 ? [sticker1, sticker2] : [sticker1]
 
   const ctaClip =
     duration >= 6
-      ? [
-          {
-            asset: {
-              type: 'text',
-              text: params.platform === 'youtube' ? 'SUBSCRIBE FOR MORE' : 'FOLLOW FOR MORE',
-              width: 760,
-              height: 140,
-              font: {
-                family: 'Montserrat ExtraBold',
-                color: '#ffffff',
-                size: 42,
-                weight: 800,
+      ? (() => {
+          const fitted = fitClipInTimeline(
+            Math.max(0, duration - 2),
+            Math.min(1.8, duration),
+            duration,
+            0.35
+          )
+          return [
+            {
+              asset: {
+                type: 'text',
+                text: params.platform === 'youtube' ? 'SUBSCRIBE FOR MORE' : 'FOLLOW FOR MORE',
+                width: 760,
+                height: 140,
+                font: {
+                  family: 'Montserrat ExtraBold',
+                  color: '#ffffff',
+                  size: 42,
+                  weight: 800,
+                },
+                alignment: { horizontal: 'center', vertical: 'center' },
+                stroke: { width: 3, color: '#000000' },
+                background: {
+                  color: '#06111f',
+                  opacity: 0.7,
+                  padding: 10,
+                  borderRadius: 16,
+                },
               },
-              alignment: { horizontal: 'center', vertical: 'center' },
-              stroke: { width: 3, color: '#000000' },
-              background: {
-                color: '#06111f',
-                opacity: 0.7,
-                padding: 10,
-                borderRadius: 16,
-              },
+              start: fitted.start,
+              length: fitted.length,
+              offset: { x: 0, y: 0.02 },
+              transition: { in: 'slideUp', out: 'fade' },
             },
-            start: Number(Math.max(0, duration - 2).toFixed(2)),
-            length: Number(Math.min(1.8, duration).toFixed(2)),
-            offset: { x: 0, y: 0.02 },
-            transition: { in: 'slideUp', out: 'fade' },
-          },
-        ]
+          ]
+        })()
       : []
 
   return {
@@ -425,10 +490,21 @@ async function submitShotstack(edit: Record<string, unknown>): Promise<string> {
     },
     body: JSON.stringify(edit),
   })
-  const data = await res.json().catch(() => ({}))
+  const rawText = await res.text().catch(() => '')
+  let data: unknown = {}
+  try {
+    data = rawText ? JSON.parse(rawText) : {}
+  } catch {
+    data = { message: rawText.slice(0, 500) }
+  }
   if (!res.ok) {
     const detail = (shotstackSubmitUserMessage(data) + shotstackAuthEnvironmentHint(res.status)).trim()
-    throw new Error(detail ? `Shotstack (${res.status}): ${detail}` : `Shotstack request failed (${res.status}).`)
+    const suffix = rawText && !detail ? rawText.slice(0, 200) : ''
+    throw new Error(
+      detail
+        ? `Shotstack (${res.status}): ${detail}`
+        : `Shotstack (${res.status}): ${suffix || 'request failed'}`
+    )
   }
   const renderId =
     (data as { response?: { id?: string } }).response?.id ||
@@ -480,10 +556,10 @@ export async function POST(request: NextRequest) {
     const cues = buildCaptionCues(transcript)
     if (!cues.length) throw new Error('Deepgram did not return caption timing for this Vizard clip')
 
-    const durationSeconds =
-      typeof body.videoMsDuration === 'number' && Number.isFinite(body.videoMsDuration)
-        ? body.videoMsDuration / 1000
-        : 60
+    const msFromBody = coerceVideoMsDuration(body.videoMsDuration)
+    const fromMetaSec = msFromBody != null ? msFromBody / 1000 : 0
+    const fromCuesSec = maxCueEndSeconds(cues) + 0.55
+    const durationSeconds = Math.max(0.75, Math.min(180, Math.max(fromMetaSec, fromCuesSec)))
     const edit = buildShotstackCaptionEdit({
       videoUrl: staged.readUrl,
       platform: body.platform,

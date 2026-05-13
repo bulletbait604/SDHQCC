@@ -204,7 +204,12 @@ export default function ClipEditorTab({
   const extractVizardDurationMs = (snapshot: Record<string, unknown>): number | null => {
     const bestVideo = snapshot.bestVideo as Record<string, unknown> | undefined
     const duration = bestVideo?.videoMsDuration
-    return typeof duration === 'number' && Number.isFinite(duration) ? duration : null
+    if (typeof duration === 'number' && Number.isFinite(duration) && duration > 0) return duration
+    if (typeof duration === 'string') {
+      const n = Number(duration.trim())
+      if (Number.isFinite(n) && n > 0) return n
+    }
+    return null
   }
 
   const extractVizardTextField = (
