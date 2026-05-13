@@ -427,17 +427,6 @@ function buildShotstackCaptionEdit(params: {
       },
       fps: 30,
     },
-    metadata: {
-      renderer: 'vizard-deepgram-shotstack',
-      platform: params.platform,
-      visualPackage: {
-        hook: Boolean(hookClips.length),
-        badges: badgeClips.length,
-        stickers: stickerClips.length,
-        subtitles: captionClips.length,
-        cta: Boolean(ctaClip.length),
-      },
-    },
   }
 }
 
@@ -481,6 +470,15 @@ async function submitShotstack(edit: Record<string, unknown>): Promise<string> {
   const apiKey = resolveShotstackApiKey()
   if (!apiKey) throw new Error('SHOTSTACK_API_KEY is not configured')
 
+  // Shotstack Edit POST only accepts documented root keys (timeline, output, merge, …).
+  // Extra keys (e.g. our metadata bag) cause validation to fail with HTTP 400 "Bad Request".
+  const timeline = edit.timeline
+  const output = edit.output
+  if (!timeline || typeof timeline !== 'object' || !output || typeof output !== 'object') {
+    throw new Error('Shotstack edit is missing timeline or output')
+  }
+  const payload = { timeline, output }
+
   const res = await fetch(`${shotstackEditApiRoot()}/render`, {
     method: 'POST',
     headers: {
@@ -488,7 +486,7 @@ async function submitShotstack(edit: Record<string, unknown>): Promise<string> {
       Accept: 'application/json',
       'x-api-key': apiKey,
     },
-    body: JSON.stringify(edit),
+    body: JSON.stringify(payload),
   })
   const rawText = await res.text().catch(() => '')
   let data: unknown = {}
