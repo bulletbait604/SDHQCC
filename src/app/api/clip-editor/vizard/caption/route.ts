@@ -162,10 +162,58 @@ async function transcribeVideo(videoUrl: string): Promise<DeepgramTranscription>
   return (await res.json()) as DeepgramTranscription
 }
 
+/**
+ * Shotstack ffprobe for a public URL — caps our timeline so clip length never exceeds the real file
+ * (common Edit API HTTP 400 when durationSeconds > actual media).
+ */
+async function probeShotstackSourceDurationSeconds(mediaUrl: string): Promise<number | null> {
+  const apiKey = resolveShotstackApiKey()
+  if (!apiKey) return null
+  const encoded = encodeURIComponent(mediaUrl)
+  if (encoded.length > 7500) return null
+  try {
+    const res = await fetch(`${shotstackEditApiRoot()}/probe/${encoded}`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'x-api-key': apiKey,
+      },
+      cache: 'no-store',
+    })
+    const body = (await res.json().catch(() => ({}))) as {
+      success?: boolean
+      response?: {
+        format?: { duration?: string | number }
+        streams?: Array<{ duration?: string | number }>
+      }
+    }
+    if (!res.ok || body.success === false || !body.response) return null
+    const r = body.response
+    const fmtDur = r.format?.duration
+    if (typeof fmtDur === 'number' && Number.isFinite(fmtDur) && fmtDur > 0.05) return fmtDur
+    if (typeof fmtDur === 'string') {
+      const n = Number(fmtDur)
+      if (Number.isFinite(n) && n > 0.05) return n
+    }
+    const s0 = r.streams?.[0]
+    const s0d = s0?.duration
+    if (typeof s0d === 'number' && Number.isFinite(s0d) && s0d > 0.05) return s0d
+    if (typeof s0d === 'string') {
+      const n = Number(s0d)
+      if (Number.isFinite(n) && n > 0.05) return n
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 function buildShotstackCaptionEdit(params: {
   videoUrl: string
   platform: TargetPlatform
   durationSeconds: number
+  /** Exact base-video length in seconds; omit to use Shotstack smart length `auto` (full asset). */
+  videoClipLengthSeconds?: number | null
   cues: CaptionCue[]
   title?: string
   viralScore?: string
@@ -403,10 +451,14 @@ function buildShotstackCaptionEdit(params: {
               asset: {
                 type: 'video',
                 src: params.videoUrl,
-                transcode: true,
               },
               start: 0,
-              length: Number(duration.toFixed(2)),
+              length:
+                typeof params.videoClipLengthSeconds === 'number' &&
+                Number.isFinite(params.videoClipLengthSeconds) &&
+                params.videoClipLengthSeconds > 0
+                  ? Number(params.videoClipLengthSeconds.toFixed(2))
+                  : 'auto',
               fit: 'crop',
               position: 'center',
             },
@@ -550,18 +602,26 @@ export async function POST(request: NextRequest) {
       storageUser,
     })
 
-    const transcript = await transcribeVideo(staged.readUrl)
+    const [transcript, probedDuration] = await Promise.all([
+      transcribeVideo(staged.readUrl),
+      probeShotstackSourceDurationSeconds(staged.readUrl),
+    ])
     const cues = buildCaptionCues(transcript)
     if (!cues.length) throw new Error('Deepgram did not return caption timing for this Vizard clip')
 
     const msFromBody = coerceVideoMsDuration(body.videoMsDuration)
     const fromMetaSec = msFromBody != null ? msFromBody / 1000 : 0
     const fromCuesSec = maxCueEndSeconds(cues) + 0.55
-    const durationSeconds = Math.max(0.75, Math.min(180, Math.max(fromMetaSec, fromCuesSec)))
+    let durationSeconds = Math.max(0.75, Math.min(180, Math.max(fromMetaSec, fromCuesSec)))
+    if (probedDuration != null && probedDuration > 0.05) {
+      durationSeconds = Math.max(0.5, Math.min(durationSeconds, probedDuration))
+    }
     const edit = buildShotstackCaptionEdit({
       videoUrl: staged.readUrl,
       platform: body.platform,
       durationSeconds,
+      videoClipLengthSeconds:
+        probedDuration != null && probedDuration > 0.05 ? durationSeconds : null,
       cues,
       title: body.title,
       viralScore: body.viralScore,
@@ -575,6 +635,7 @@ export async function POST(request: NextRequest) {
       captionProvider: 'deepgram',
       renderer: 'shotstack',
       stagedSourceBytes: staged.contentLength,
+      sourceProbedDurationSeconds: probedDuration,
     })
   } catch (error) {
     if (error instanceof AuthError) return createAuthErrorResponse(error)
