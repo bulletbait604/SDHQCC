@@ -4,8 +4,18 @@ import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verif
 
 export const dynamic = 'force-dynamic'
 
-const MODEL_ID = 'fal-ai/imageutils/rembg'
+/** Ideogram remove-background: strong edges at a lower per-image cost than Bria on Fal. Override with FAL_BACKGROUND_REMOVER_MODEL (e.g. fal-ai/bria/background/remove, fal-ai/imageutils/rembg). */
+const DEFAULT_MODEL_ID = 'fal-ai/ideogram/remove-background'
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
+
+function resolveModelId(): string {
+  const fromEnv = process.env.FAL_BACKGROUND_REMOVER_MODEL?.trim()
+  return fromEnv || DEFAULT_MODEL_ID
+}
+
+function isRembgModel(modelId: string): boolean {
+  return modelId.includes('imageutils/rembg')
+}
 
 type FalImage = {
   url?: string
@@ -55,13 +65,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Image is too large. Use an image under 10MB.' }, { status: 400 })
     }
 
+    const modelId = resolveModelId()
+    const cropToSubject = Boolean(body.cropToSubject)
+    const cropApplied = isRembgModel(modelId) && cropToSubject
+
+    const input: Record<string, unknown> = {
+      image_url: imageDataUrl,
+      sync_mode: false,
+    }
+    if (isRembgModel(modelId)) {
+      input.crop_to_bbox = cropToSubject
+    }
+
     fal.config({ credentials: falKey })
-    const result = await fal.subscribe(MODEL_ID, {
-      input: {
-        image_url: imageDataUrl,
-        crop_to_bbox: Boolean(body.cropToSubject),
-        sync_mode: false,
-      },
+    const result = await fal.subscribe(modelId, {
+      input,
       logs: true,
       onQueueUpdate: (update) => {
         if (update.status === 'IN_PROGRESS') {
@@ -85,9 +103,10 @@ export async function POST(request: NextRequest) {
       fileName: image.file_name || 'background-removed.png',
       width: image.width || null,
       height: image.height || null,
-      model: MODEL_ID,
+      model: modelId,
+      cropApplied,
       promptNote: promptWasProvided
-        ? 'fal-ai/imageutils/rembg auto-detects the foreground subject; the keep-object prompt is saved in the request but is not a supported model input.'
+        ? `${modelId} auto-detects the foreground subject; the keep-object prompt is saved in the request but is not a supported model input.`
         : null,
     })
   } catch (error) {

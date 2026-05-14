@@ -451,6 +451,7 @@ function buildShotstackCaptionEdit(params: {
               asset: {
                 type: 'video',
                 src: params.videoUrl,
+                transcode: true,
               },
               start: 0,
               length:
@@ -549,12 +550,17 @@ async function submitShotstack(edit: Record<string, unknown>): Promise<string> {
   }
   if (!res.ok) {
     const detail = (shotstackSubmitUserMessage(data) + shotstackAuthEnvironmentHint(res.status)).trim()
-    const suffix = rawText && !detail ? rawText.slice(0, 200) : ''
-    throw new Error(
-      detail
-        ? `Shotstack (${res.status}): ${detail}`
-        : `Shotstack (${res.status}): ${suffix || 'request failed'}`
-    )
+    const suffix =
+      rawText && (!detail || res.status === 400)
+        ? rawText.replace(/\s+/g, ' ').trim().slice(0, 420)
+        : rawText && !detail
+          ? rawText.slice(0, 200)
+          : ''
+    const combined =
+      detail && suffix && !detail.includes(suffix.slice(0, 40))
+        ? `${detail} | body: ${suffix}`
+        : detail || suffix || 'request failed'
+    throw new Error(`Shotstack (${res.status}): ${combined}`)
   }
   const renderId =
     (data as { response?: { id?: string } }).response?.id ||
@@ -610,19 +616,35 @@ export async function POST(request: NextRequest) {
     if (!cues.length) throw new Error('Deepgram did not return caption timing for this Vizard clip')
 
     const msFromBody = coerceVideoMsDuration(body.videoMsDuration)
-    const fromMetaSec = msFromBody != null ? msFromBody / 1000 : 0
-    const fromCuesSec = maxCueEndSeconds(cues) + 0.55
-    let durationSeconds = Math.max(0.75, Math.min(180, Math.max(fromMetaSec, fromCuesSec)))
+    const fromMetaSec = msFromBody != null && msFromBody > 0 ? msFromBody / 1000 : null
+    const endFromCues = maxCueEndSeconds(cues) + 0.55
+    // Timeline must not exceed real media (Shotstack HTTP 400). Never inflate from client meta
+    // past probe or past Deepgram end — use the tightest upper bound available.
+    let upper = 180
     if (probedDuration != null && probedDuration > 0.05) {
-      durationSeconds = Math.max(0.5, Math.min(durationSeconds, probedDuration))
+      upper = Math.min(upper, probedDuration)
     }
+    if (fromMetaSec != null && fromMetaSec > 0.05) {
+      upper = Math.min(upper, fromMetaSec + 0.35)
+    }
+    const durationSeconds = Math.max(0.75, Math.min(upper, Math.max(endFromCues, 0.75)))
+
+    const cuesInRange = cues.filter(
+      (c) => c.start < durationSeconds - 0.04 && c.end > c.start + 0.02
+    )
+    if (!cuesInRange.length) {
+      throw new Error(
+        'Caption cues fall outside the usable video duration after syncing to media length. Try again or omit videoMsDuration if it is incorrect.'
+      )
+    }
+
     const edit = buildShotstackCaptionEdit({
       videoUrl: staged.readUrl,
       platform: body.platform,
       durationSeconds,
       videoClipLengthSeconds:
         probedDuration != null && probedDuration > 0.05 ? durationSeconds : null,
-      cues,
+      cues: cuesInRange,
       title: body.title,
       viralScore: body.viralScore,
       viralReason: body.viralReason,

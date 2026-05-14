@@ -11,6 +11,7 @@ type BackgroundRemoverResult = {
   width?: number | null
   height?: number | null
   model?: string
+  cropApplied?: boolean
   promptNote?: string | null
 }
 
@@ -131,7 +132,9 @@ export default function BackgroundRemoverTab({
           <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{title}</h3>
         </div>
         <p className={`max-w-xl ${textClasses} text-base`}>{description}</p>
-        <p className={`mt-2 text-xs ${subtitleClasses}`}>Powered by fal-ai/imageutils/rembg</p>
+        <p className={`mt-2 text-xs ${subtitleClasses}`}>
+          Powered by Fal — Ideogram background removal by default for clean cutouts and natural edges.
+        </p>
       </div>
 
       {!user ? (
@@ -214,7 +217,8 @@ export default function BackgroundRemoverTab({
                   Crop to subject
                 </span>
                 <span className="block text-xs opacity-90 mt-0.5">
-                  Trim empty transparent space around the detected object.
+                  Trim empty transparent space around the detected object. Only applies when the server is configured to use
+                  legacy RemBG; ignored for the default Ideogram engine.
                 </span>
               </span>
             </label>
