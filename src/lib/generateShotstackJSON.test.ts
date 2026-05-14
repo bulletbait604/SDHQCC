@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { isCaptionFillerToken, stripCaptionDisplayFillers } from './captionFillers'
 import { generateShotstackJSON } from './generateShotstackJSON'
 
 const safeZone = {
@@ -115,4 +116,66 @@ test('rich captions replace fallback subtitle text clips', () => {
     }),
     false
   )
+})
+
+test('preferredTransitions are applied to video clip transitions', () => {
+  const edit = generateShotstackJSON({
+    sourceUrl: 'https://example.com/source.mp4',
+    platform: 'tiktok',
+    safeZone,
+    editBlueprint: {
+      layoutTemplate: 'fullFrame',
+      renderSeconds: 10,
+      preferredTransitions: ['slideUp', 'zoomFast'],
+      sourceMoments: [
+        { startSeconds: 0, endSeconds: 5, role: 'hook' },
+        { startSeconds: 6, endSeconds: 11, role: 'payoff' },
+      ],
+    },
+    sourceDurationSeconds: 20,
+  })
+
+  const videoClips = tracksFor(edit)
+    .flatMap((track) => track.clips)
+    .filter((clip) => assetType(clip) === 'video')
+  assert.ok(videoClips.length >= 2)
+  for (const clip of videoClips) {
+    const tr = clip.transition as { in?: string; out?: string } | undefined
+    assert.ok(tr && typeof tr.in === 'string' && typeof tr.out === 'string')
+  }
+})
+
+test('stripCaptionDisplayFillers removes conservative fillers', () => {
+  assert.equal(stripCaptionDisplayFillers('Um that was insane'), 'that was insane')
+  assert.equal(isCaptionFillerToken('Um,'), true)
+  assert.equal(stripCaptionDisplayFillers('I like this'), 'I like this')
+})
+
+test('transcript words nudge segment cuts toward speech boundaries', () => {
+  const words = [
+    { start: 10, end: 10.3, word: 'hey' },
+    { start: 10.32, end: 10.7, word: 'there' },
+    { start: 11.8, end: 12.5, word: 'listen' },
+  ]
+  const edit = generateShotstackJSON({
+    sourceUrl: 'https://example.com/source.mp4',
+    platform: 'tiktok',
+    safeZone,
+    transcriptWords: words,
+    editBlueprint: {
+      layoutTemplate: 'fullFrame',
+      renderSeconds: 12,
+      cutSeconds: 1.4,
+      sourceMoments: [{ startSeconds: 10, endSeconds: 12.6, role: 'hook' }],
+    },
+    sourceDurationSeconds: 40,
+  })
+
+  const segs = edit.metadata.resolvedSegments as Array<{ trim: number; length: number }>
+  assert.ok(segs.length >= 1)
+  const e0 = segs[0]!.trim + segs[0]!.length
+  const nearWordEnd = Math.abs(e0 - 10.7) < 0.22
+  const nearGapStart = Math.abs(e0 - 11.8) < 0.22
+  const nearLastWord = Math.abs(e0 - 12.5) < 0.22
+  assert.ok(nearWordEnd || nearGapStart || nearLastWord, `unexpected cut end ${e0}`)
 })

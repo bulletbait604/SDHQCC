@@ -11,7 +11,8 @@ import {
   platformSafeZoneOffsets,
   type TargetPlatform,
 } from '@/lib/platformEditing'
-import { generateShotstackJSON } from '@/lib/generateShotstackJSON'
+import { applyStreamLadderStyleBlueprint, generateShotstackJSON } from '@/lib/generateShotstackJSON'
+import { isCaptionFillerToken, stripCaptionDisplayFillers } from '@/lib/captionFillers'
 import { generatePresignedReadUrl, getFileFromR2, getR2ObjectMetadata, putTextFileToR2 } from '@/lib/r2'
 import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
 import {
@@ -200,6 +201,7 @@ type TranscriptionResult = {
 }
 
 const SHOTSTACK_RENDERER_CONTRACT = `SHOTSTACK_RENDERER_CONTRACT:
+- Behavioral target: emulate StreamLadder and OpusClip — hook-first montage, dense retention cuts, auto vertical reframing, speaker/gameplay-aware crops, punchy on-beat text, reaction badges, animated word-level captions when speech is clear (server adds these from transcript), and a short end CTA only if it does not step on the payoff.
 - Output is a vertical 9:16 Shotstack edit (1080x1920).
 - Renderer supports duplicate source video layers for StreamLadder-style layouts: fullFrame, stackedFacecam, pictureInPicture, splitScreen, and focusCrop.
 - Renderer supports normalized crop regions for gameplay, facecam, speaker, and action. Region coordinates are objects: { "x": 0..1, "y": 0..1, "width": 0..1, "height": 0..1, "confidence": 0..1 }. x/y are top-left of the detected region in the original source frame.
@@ -207,7 +209,8 @@ const SHOTSTACK_RENDERER_CONTRACT = `SHOTSTACK_RENDERER_CONTRACT:
 - Renderer will target at least 8 seconds unless the uploaded source is shorter. Select enough sourceMoments to cover the requested renderSeconds.
 - Renderer supports sourceMoment role: hook, context, escalation, payoff, proof, or loop.
 - Renderer supports sourceMoment focusRegion: "gameplay", "facecam", "speaker", "action", or an inline normalized crop region.
-- Renderer supports visualTreatment on sourceMoments: "slowZoomIn", "slowZoomOut", or "none". Use this for emphasis, not on every cut.
+- Renderer supports visualTreatment on sourceMoments: "slowZoomIn", "slowZoomOut", or "none". The first cut of each sourceMoment applies this zoom when set — use on hook, escalation, and payoff moments (not every beat).
+- Renderer applies preferredTransitions between video micro-cuts when you list them (fade, fadeFast, slideUp, slideDown, slideLeft, slideRight, zoomFast, wipeLeft, wipeRight). Use 3-6 entries as a repeating pattern for a StreamLadder-like rhythm.
 - Renderer supports an animated first-frame hook card via hookTitle, hookSubtitle, and hookStyle.
 - Renderer supports timed textOverlays: max 8 callouts. Use sourceMomentIndex + offsetSeconds whenever possible so the text appears over that selected moment in the final cut.
 - Renderer supports stickerOverlays as short text/emoji badge overlays, max 6.
@@ -217,7 +220,8 @@ const SHOTSTACK_RENDERER_CONTRACT = `SHOTSTACK_RENDERER_CONTRACT:
 - timelineStartSeconds means seconds in the FINAL rendered clip. sourceStartSeconds means seconds in the ORIGINAL uploaded source. Do not confuse them.
 - Prefer sourceMomentIndex + offsetSeconds for every overlay/subtitle; only use timelineStartSeconds when you have computed the final rendered timeline position and it is inside the clip.
 - Keep textOverlays readable: durationSeconds should usually be 1.6 to 3.0 seconds. Do not flash text for less than 1.5 seconds.
-- Unsupported requests in shotstackEditPrompt will be ignored. Make the JSON fields do the work.
+- keywordHighlights must list 3-12 words or short phrases that actually appear in spoken dialogue (for caption emphasis metadata). Do not invent keywords absent from speech.
+- Unsupported requests in shotstackEditPrompt will be ignored for timeline features. Still write shotstackEditPrompt as a concise StreamLadder/Opus-style brief (pacing, energy, layout intent); the server uses it for pacing heuristics. Make the JSON fields authoritative for layout, moments, overlays, and transitions.
 - If the source is a stream/game clip with both gameplay and facecam, prefer layoutTemplate "stackedFacecam" or "pictureInPicture" and provide gameplay/facecam regions.
 - If the source is talking-head or sports/action without facecam, prefer "focusCrop" and provide speaker/action regions.
 - Use "fullFrame" only when no reliable crop regions are detectable.`
@@ -251,7 +255,7 @@ function buildFallbackClipPlan(platform: TargetPlatform, clipBrief: string): Cli
     hookPlan: 'Start on the strongest visible or spoken moment, then cut dead air and keep the pacing tight.',
     pacePlan: 'Use quick, readable cuts and let Shotstack build a simple source-driven edit if no timestamped plan is available.',
     facecamGuidance: 'Keep faces and key action centered inside the vertical safe zone.',
-    shotstackEditPrompt: `Create a concise ${platform} short from the uploaded clip with a strong hook, clean captions, and platform-safe 9:16 framing.`,
+    shotstackEditPrompt: `StreamLadder/OpusClip-style ${platform} short: hook-led montage, jump-cut pacing, stacked facecam+gameplay when both exist, bold karaoke-style captions, reaction stickers on beats, and platform-safe 9:16 framing.`,
     editBlueprint: {
       cutSeconds: platform === 'youtube' ? 2.2 : platform === 'reels' ? 2.6 : 1.8,
       introHookSeconds: 2,
@@ -265,7 +269,7 @@ function buildFallbackClipPlan(platform: TargetPlatform, clipBrief: string): Cli
       hookStyle: platform === 'reels' ? 'clean' : 'urgent',
       captionStyle: platform === 'reels' ? 'bold' : 'karaoke',
       keywordHighlights: [],
-      preferredTransitions: ['fade'],
+      preferredTransitions: ['fadeFast', 'slideUp', 'fadeFast', 'zoomFast'],
       textOverlays: [
         {
           text: captionText || 'Best part',
@@ -313,6 +317,74 @@ function cleanSubtitleText(text: string | undefined): string | null {
   return cleaned
 }
 
+/** Spoken-content keywords for caption emphasis metadata (StreamLadder / Opus-style). */
+function deriveKeywordHighlightsFromTranscript(words: DeepgramWord[], limit: number): string[] {
+  const stop = new Set([
+    'the',
+    'a',
+    'an',
+    'and',
+    'or',
+    'but',
+    'in',
+    'on',
+    'at',
+    'to',
+    'for',
+    'of',
+    'is',
+    'it',
+    'that',
+    'this',
+    'these',
+    'those',
+    'i',
+    'you',
+    'we',
+    'they',
+    'he',
+    'she',
+    'was',
+    'are',
+    'were',
+    'been',
+    'be',
+    'have',
+    'has',
+    'had',
+    'do',
+    'does',
+    'did',
+    'just',
+    'like',
+    'so',
+    'if',
+    'as',
+    'not',
+    'no',
+    'yes',
+    'uh',
+    'um',
+    'oh',
+    'okay',
+    'ok',
+    'yeah',
+  ])
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const w of words) {
+    const raw = cleanSubtitleText(w.punctuated_word || w.word)
+    if (!raw || raw.length < 3) continue
+    const low = raw.toLowerCase()
+    if (stop.has(low)) continue
+    if (seen.has(low)) continue
+    seen.add(low)
+    out.push(raw)
+    if (out.length >= limit) break
+  }
+  return out
+}
+
 function chunkTranscriptWords(text: string, maxWordsPerLine = 7): string[] {
   const words = text.split(/\s+/).filter(Boolean)
   const chunks: string[] = []
@@ -340,12 +412,16 @@ function extractDeepgramSegments(transcript: DeepgramTranscription): TranscriptS
     currentWords.push(text)
 
     const endsSentence = /[.!?]$/.test(text)
-    if (currentWords.length >= 7 || endsSentence) {
-      segments.push({
-        start: currentStart,
-        end: currentEnd,
-        text: currentWords.join(' '),
-      })
+    if (currentWords.length >= 5 || endsSentence) {
+      const display = stripCaptionDisplayFillers(currentWords.join(' '))
+      const line = cleanSubtitleText(display)
+      if (line) {
+        segments.push({
+          start: currentStart,
+          end: currentEnd,
+          text: line,
+        })
+      }
       currentWords = []
       currentStart = null
       currentEnd = null
@@ -353,11 +429,15 @@ function extractDeepgramSegments(transcript: DeepgramTranscription): TranscriptS
   }
 
   if (currentWords.length && currentStart != null && currentEnd != null) {
-    segments.push({
-      start: currentStart,
-      end: currentEnd,
-      text: currentWords.join(' '),
-    })
+    const display = stripCaptionDisplayFillers(currentWords.join(' '))
+    const line = cleanSubtitleText(display)
+    if (line) {
+      segments.push({
+        start: currentStart,
+        end: currentEnd,
+        text: line,
+      })
+    }
   }
 
   return segments
@@ -370,12 +450,12 @@ function extractDeepgramWords(transcript: DeepgramTranscription): DeepgramWord[]
 function buildSubtitlesFromTranscript(segments: TranscriptSegment[]): TimedSubtitle[] {
   const subtitles: TimedSubtitle[] = []
   for (const segment of segments) {
-    const text = cleanSubtitleText(segment.text)
+    const text = cleanSubtitleText(stripCaptionDisplayFillers(segment.text ?? ''))
     const start = typeof segment.start === 'number' && Number.isFinite(segment.start) ? segment.start : null
     const end = typeof segment.end === 'number' && Number.isFinite(segment.end) ? segment.end : null
     if (!text || start == null || end == null || end <= start) continue
 
-    const chunks = chunkTranscriptWords(text)
+    const chunks = chunkTranscriptWords(text, 5)
     const segmentDuration = end - start
     const chunkDuration = Math.max(1.35, Math.min(3.2, segmentDuration / Math.max(1, chunks.length)))
     for (let index = 0; index < chunks.length; index++) {
@@ -453,7 +533,8 @@ function formatVttTimestamp(seconds: number): string {
 }
 
 function cleanVttCueText(text: string): string {
-  return cleanSubtitleText(text)?.replace(/[<>]/g, '') || ''
+  const base = cleanSubtitleText(text)?.replace(/[<>]/g, '') || ''
+  return stripCaptionDisplayFillers(base)
 }
 
 function buildTimelineCaptionVtt(words: DeepgramWord[], segments: ResolvedSegment[]): string | null {
@@ -471,7 +552,7 @@ function buildTimelineCaptionVtt(words: DeepgramWord[], segments: ResolvedSegmen
       return
     }
     const text = cleanVttCueText(cueWords.join(' '))
-    if (text) cues.push({ start: cueStart, end: Math.max(cueStart + 0.7, cueEnd), text })
+    if (text) cues.push({ start: cueStart, end: Math.max(cueStart + 0.52, cueEnd), text })
     cueWords = []
     cueStart = null
     cueEnd = null
@@ -492,10 +573,12 @@ function buildTimelineCaptionVtt(words: DeepgramWord[], segments: ResolvedSegmen
 
     if (cueStart == null) cueStart = timelineStart
     const gap = cueEnd == null ? 0 : timelineStart - cueEnd
-    if (cueWords.length >= 5 || gap > 0.45 || /[.!?]$/.test(cueWords[cueWords.length - 1] || '')) {
+    if (cueWords.length >= 4 || gap > 0.32 || /[.!?]$/.test(cueWords[cueWords.length - 1] || '')) {
       flush()
       cueStart = timelineStart
     }
+
+    if (isCaptionFillerToken(text)) continue
 
     cueWords.push(text)
     cueEnd = timelineEnd
@@ -722,7 +805,7 @@ Return valid JSON only:
   "hookPlan": "string",
   "pacePlan": "string",
   "facecamGuidance": "string",
-  "shotstackEditPrompt": "string (clear editing instructions for Shotstack timeline setup, pacing, visual emphasis, and platform-safe framing)",
+  "shotstackEditPrompt": "string (StreamLadder/OpusClip-style brief: pacing, cut energy, layout intent, caption tone; mention streamladder or opusclip for tighter default cuts)",
   "editBlueprint": {
     "cutSeconds": "number 1.0..4.5",
     "introHookSeconds": "number 1.0..5.0",
@@ -740,8 +823,8 @@ Return valid JSON only:
     "hookSubtitle": "optional supporting hook line, max 10 words",
     "hookStyle": "pop|glitch|clean|urgent",
     "captionStyle": "karaoke|bold|clean",
-    "keywordHighlights": ["important caption words/phrases to emphasize"],
-    "preferredTransitions": ["fade|reveal|wipeLeft|wipeRight|slideLeft|slideRight|slideUp|slideDown|zoom"],
+    "keywordHighlights": ["3-12 words that are actually spoken in the clip, for caption emphasis"],
+    "preferredTransitions": ["fadeFast", "slideUp", "fadeFast", "zoomFast"],
     "sourceMoments": [
       { "startSeconds": "number", "endSeconds": "number", "role": "hook|context|escalation|payoff|proof|loop", "focusRegion": "gameplay|facecam|speaker|action", "reason": "why this exact moment should be used", "visualTreatment": "none|slowZoomIn|slowZoomOut" }
     ],
@@ -790,18 +873,20 @@ Return valid JSON only:
 Rules:
 - Analyze the supplied video file directly. Do not create a generic edit plan from the text brief alone.
 - Build this like a viral human editor using a StreamLadder/OpusClip style workflow: find the strongest hook, cut dead air, preserve context, escalate, deliver payoff, then optionally end on a loopable beat.
+- Match StreamLadder/OpusClip density: aim for many short contiguous trims inside each sourceMoment (the renderer will micro-cut to hit cutSeconds), so choose moments with continuous energy rather than one long static shot unless that shot is the payoff.
+- Opus-style information hierarchy: (1) first-frame hook title answers "why watch", (2) optional hook subtitle adds specificity, (3) 2-6 grounded callouts explain beats, (4) stickers mark reactions/outcomes, (5) captions/subtitles carry speech — never duplicate the same sentence as both a giant callout and a subtitle at the same timestamp.
 - First 0-2 seconds: start on the highest-retention source moment. It can be a reaction, impact frame, surprising line, visible outcome, or conflict point. Do not start with setup unless setup itself is compelling.
 - Pick 3-8 sourceMoments from the strongest visual/audio moments in the actual clip. Order them in FINAL EDIT ORDER, not chronological order, with the best hook first.
 - Select enough sourceMoments to make the final edit feel complete: usually 10-18 seconds total for a normal uploaded clip, never 1-3 seconds unless the source video is only that long.
 - For each sourceMoment, use exact original source timestamps, role, focusRegion, a reason tied to what is seen/heard, and visualTreatment.
 - Every selected moment must serve one role: hook, context, escalation, punchline/payoff, proof, or loop.
 - Remove dead air, menus, loading screens, long pauses, repeated frames, streamer silence, and context that does not raise retention.
-- Use visualTreatment sparingly: mark at most 3 sourceMoments for slowZoomIn or slowZoomOut when it improves focus on a face, gameplay action, reaction, or readable UI. Otherwise use none.
+- Use visualTreatment on the hook moment and 1-2 other peak beats (payoff or escalation): slowZoomIn on impact/reaction faces or narrow gameplay; slowZoomOut when revealing wider context. Use none on routine context. At most 4 sourceMoments with non-none visualTreatment.
 - Detect reusable layout regions in normalized source-frame coordinates. For stream clips, provide gameplay and facecam boxes if both exist. For talking-head clips, provide speaker. For sports/action clips, provide action.
 - Honor Requested layout preference unless it clearly does not fit the detected source. If requested layout is auto, choose the strongest layout: stackedFacecam for gameplay + facecam, pictureInPicture for gameplay + reaction, focusCrop for talking-head/sports/action, fullFrame only when regions are unreliable.
 - hookTitle must be a strong first-frame scroll-stopper based on what actually happens in the clip. Avoid generic clickbait if it is not supported by the clip.
-- textOverlays must be grounded in visible/spoken clip content and timed to the relevant selected moment. Use 2-6 total when useful. Do not invent unrelated text.
-- stickerOverlays should behave like StreamLadder/OpusClip reaction badges: short, punchy, timed to action/reaction moments. Use 1-5 total. Use plain labels if emoji is not needed.
+- textOverlays must be grounded in visible/spoken clip content and timed to the relevant selected moment. Use 3-7 total when the clip has enough beats (fewer only if the source is very short or sparse). Do not invent unrelated text.
+- stickerOverlays should behave like StreamLadder/OpusClip reaction badges: short, punchy, timed to action/reaction moments. Use 2-6 total when content supports it. Use plain labels if emoji is not needed.
 - ctaOverlay should appear near the end only if it does not cover the payoff.
 - captionStyle should be karaoke for TikTok/high-energy clips, bold for Shorts, clean/bold for Reels.
 - subtitles must be short spoken lines from the clip. Use [] if speech is unclear.
@@ -825,7 +910,8 @@ Rules:
 - Include at least 8 hashtags for TikTok/Reels captions.
 - Keep YouTube Shorts tags array between 10 and 20 items.
 - Score the clip with viralityScore using OpusClip-like dimensions: hook, flow, engagement, and trend fit.
-- Make the editBlueprint concrete: specify cut cadence, hook title/style, caption style, source moments, selective zooms, grounded callouts, sticker badges, CTA, subtitles, and platform pacing aligned with the platform directive and algorithm notes.
+- Always set preferredTransitions to 4-6 Shotstack ids (repeat pattern): fade, fadeFast, slideUp, slideDown, slideLeft, slideRight, zoomFast, wipeLeft, wipeRight — tuned to platform (faster/choppier for TikTok, slightly softer for Reels).
+- Make the editBlueprint concrete: specify cut cadence, hook title/style, caption style, source moments, selective zooms, preferredTransitions, grounded callouts, sticker badges, CTA, subtitles, and platform pacing aligned with the platform directive and algorithm notes.
 
 CLIP_BRIEF:
 ${clipBrief}`,
@@ -913,6 +999,17 @@ ${clipBrief}`,
       editBlueprint,
     }
 
+    if (editBlueprint) {
+      const normalized = applyStreamLadderStyleBlueprint(platform, sourceDurationSeconds, editBlueprint)
+      if (normalized) Object.assign(editBlueprint, normalized)
+    }
+    if (editBlueprint && transcription.words.length) {
+      const autoKw = deriveKeywordHighlightsFromTranscript(transcription.words, 10)
+      const existing = (editBlueprint.keywordHighlights || []).map((k) => String(k).trim()).filter(Boolean)
+      const merged = Array.from(new Set([...existing, ...autoKw])).slice(0, 14)
+      if (merged.length) editBlueprint.keywordHighlights = merged
+    }
+
     let shotstack = generateShotstackJSON({
       title: `Viral Architect ${platform}`,
       sourceUrl,
@@ -924,6 +1021,7 @@ ${clipBrief}`,
       pacePlan: enhancedPlan.pacePlan,
       landscapeMode: lm,
       editBlueprint,
+      transcriptWords: transcription.words,
       sourceDurationSeconds,
     })
 
@@ -952,6 +1050,7 @@ ${clipBrief}`,
           pacePlan: enhancedPlan.pacePlan,
           landscapeMode: lm,
           editBlueprint,
+          transcriptWords: transcription.words,
           sourceDurationSeconds,
         })
       }
