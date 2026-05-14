@@ -3896,42 +3896,6 @@ export default function HomePage() {
                               </h4>
                             </div>
 
-                            {clipEditSuggestionTags.length > 0 && (
-                              <div className={`mb-4 rounded-xl p-3 ${darkMode ? 'bg-sdhq-dark-800/80 border border-sdhq-cyan-500/25' : 'bg-white border border-sdhq-cyan-200'}`}>
-                                <div className={`text-xs font-semibold uppercase tracking-wide mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-700'}`}>
-                                  Recommended hashtags for captions & edits
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                  {clipEditSuggestionTags.map((tag: string, tagIdx: number) => {
-                                    const clean = tag.replace(/^#/, '')
-                                    return (
-                                      <button
-                                        key={`edit-tag-${tagIdx}`}
-                                        type="button"
-                                        title="Copy hashtag"
-                                        onClick={() => {
-                                          navigator.clipboard.writeText(clean)
-                                          setCopiedTags(true)
-                                          setTimeout(() => setCopiedTags(false), 1200)
-                                        }}
-                                        className={`px-2.5 py-1 rounded-md text-xs font-mono transition-transform hover:scale-[1.02] ${
-                                          darkMode
-                                            ? 'bg-sdhq-dark-700 text-sdhq-cyan-300 border border-sdhq-cyan-500/30 hover:bg-sdhq-cyan-500/15'
-                                            : 'bg-gray-100 text-sdhq-cyan-800 border border-sdhq-cyan-300 hover:bg-sdhq-cyan-50'
-                                        }`}
-                                      >
-                                        #{clean}
-                                      </button>
-                                    )
-                                  })}
-                                </div>
-                                <p className={`mt-2 text-xs ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
-                                  Showing {clipEditSuggestionTags.length} hashtag{clipEditSuggestionTags.length !== 1 ? 's' : ''}
-                                  {clipEditSuggestionTags.length >= 8 ? ' — full set for this platform' : ' — add more in Post Suggestions if listed'}
-                                </p>
-                              </div>
-                            )}
-
                             <div className="grid grid-cols-2 gap-4">
                               {(clipAnalysisResult.overlays || []).map((overlay: any, idx: number) => {
                                 const iconMap: Record<string, string> = {
@@ -4298,9 +4262,6 @@ export default function HomePage() {
                                             ))}
                                           </p>
                                         )}
-                                      </div>
-                                      <div className={`mt-3 text-sm ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                        💡 {clipPlatform === 'tiktok' ? `TikTok: Title + Description + ${clipEditSuggestionTags.length} hashtags (≥8 when analysis includes enough)` : clipPlatform === 'instagram' ? `Instagram: Title + Description + up to ${clipEditSuggestionTags.length} hashtags shown` : `Caption includes title, description, and ${clipEditSuggestionTags.length} hashtags`}
                                       </div>
                                     </div>
                                   </div>
