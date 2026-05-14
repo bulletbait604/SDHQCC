@@ -1069,6 +1069,7 @@ ${clipBrief}`,
       publishPackage: enhancedPlan.publishPackage || null,
       algorithmContext: summarizeClipEditorAlgorithmSources(platformAlgorithmNotes),
       shotstack,
+      refineWithVizard: renderBackend === 'shotstack-then-vizard',
       source: hasR2FileKey ? 'r2-presigned-url' : 'source-url',
     })
     } finally {

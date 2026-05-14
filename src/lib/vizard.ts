@@ -35,10 +35,21 @@ export type VizardQueryResponse = {
   errMsg?: string
 }
 
-export function clipEditorRenderBackend(): 'shotstack' | 'vizard' {
-  return process.env.CLIP_EDITOR_RENDER_BACKEND?.trim().toLowerCase() === 'vizard'
-    ? 'vizard'
-    : 'shotstack'
+export type ClipEditorRenderBackendMode = 'shotstack' | 'vizard' | 'shotstack-then-vizard'
+
+/**
+ * Clip Editor pipeline:
+ * - `shotstack` (default): Gemini plan → client submits Shotstack render.
+ * - `vizard`: send source straight to Vizard (no Shotstack edit).
+ * - `shotstack-then-vizard`: same as shotstack, then client sends Shotstack output URL to Vizard for a second pass.
+ */
+export function clipEditorRenderBackend(): ClipEditorRenderBackendMode {
+  const raw = process.env.CLIP_EDITOR_RENDER_BACKEND?.trim().toLowerCase().replace(/_/g, '-')
+  if (raw === 'vizard') return 'vizard'
+  if (raw === 'shotstack-then-vizard' || raw === 'shotstack-then-vizard-refine') {
+    return 'shotstack-then-vizard'
+  }
+  return 'shotstack'
 }
 
 export type VizardCaptionMode = 'vizard' | 'deepgram-shotstack'

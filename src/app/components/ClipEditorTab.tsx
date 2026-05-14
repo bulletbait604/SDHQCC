@@ -242,60 +242,12 @@ export default function ClipEditorTab({
 
     setBusy('oneclick')
     try {
-      setProgress(5)
-      setStatusText('Uploading clip...')
-      let key = r2FileKey
-      if (!key) {
-        key = await handleUploadToR2(false)
-      } else {
-        setProgress(25)
-      }
-      if (!key) throw new Error('Upload did not complete.')
-
-      setStatusText('Analyzing and building edit plan...')
-      setProgress(35)
-      const processRes = await fetch('/api/process-clip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          platform: targetPlatform,
-          clipBrief: `Create a high-performing ${targetPlatform} short from this uploaded clip. Prioritize strong hook, retention pacing, clear captions, and platform-safe framing.`,
-          r2FileKey: key,
-          landscapeMode: landscapeLetterbox ? 'letterbox' : 'crop',
-          layoutTemplate,
-          mimeType: clipFile.type,
-          fileName: clipFile.name,
-          ...(typeof clipDurationSeconds === 'number' && Number.isFinite(clipDurationSeconds)
-            ? { sourceDurationSeconds: clipDurationSeconds }
-            : {}),
-        }),
-      })
-      const processData = await processRes.json().catch(() => ({}))
-      if (!processRes.ok) {
-        throw new Error(
-          (processData as { userMessage?: string }).userMessage ||
-            (processData as { error?: string }).error ||
-            'Could not process clip'
-        )
-      }
-      const vizardProjectId = (processData as { vizard?: { projectId?: string } }).vizard?.projectId
-      if (vizardProjectId) {
-        setStatusText('Vizard is editing your clip...')
-        setRenderId(`vizard:${vizardProjectId}`)
-        setProgress(RENDER_PROGRESS_START)
-
-        const coinOk = await deductCoins('clip-editor-runway')
-        if (!coinOk && !hasUnlimitedAccess) {
-          setError('Vizard edit started, but coin deduction failed.')
-        }
-        refreshBalance()
-
+      const pollVizardUntilDone = async (projectId: string, phaseLabel: string) => {
         const maxAttempts = 60
         for (let i = 0; i < maxAttempts; i++) {
           await sleep(30000)
           const snapRes = await fetch(
-            `/api/clip-editor/vizard/task?projectId=${encodeURIComponent(vizardProjectId)}`,
+            `/api/clip-editor/vizard/task?projectId=${encodeURIComponent(projectId)}`,
             { credentials: 'include' }
           )
           const snapData = (await snapRes.json().catch(() => ({}))) as Record<string, unknown>
@@ -303,7 +255,7 @@ export default function ClipEditorTab({
             throw new Error(readVizardPollError(snapRes, snapData))
           }
           setProgress(RENDER_PROGRESS_START + ((i + 1) / maxAttempts) * RENDER_PROGRESS_RANGE)
-          setStatusText('Vizard is editing your clip...')
+          setStatusText(phaseLabel)
           const clipUrl = extractVizardVideoUrl(snapData)
           if (clipUrl) {
             if (snapData.captionMode === 'deepgram-shotstack') {
@@ -376,6 +328,59 @@ export default function ClipEditorTab({
         }
         throw new Error('Vizard edit timed out before completion. Please retry or check Vizard.')
       }
+
+      setProgress(5)
+      setStatusText('Uploading clip...')
+      let key = r2FileKey
+      if (!key) {
+        key = await handleUploadToR2(false)
+      } else {
+        setProgress(25)
+      }
+      if (!key) throw new Error('Upload did not complete.')
+
+      setStatusText('Analyzing and building edit plan...')
+      setProgress(35)
+      const processRes = await fetch('/api/process-clip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          platform: targetPlatform,
+          clipBrief: `Create a high-performing ${targetPlatform} short from this uploaded clip. Prioritize strong hook, retention pacing, clear captions, and platform-safe framing.`,
+          r2FileKey: key,
+          landscapeMode: landscapeLetterbox ? 'letterbox' : 'crop',
+          layoutTemplate,
+          mimeType: clipFile.type,
+          fileName: clipFile.name,
+          ...(typeof clipDurationSeconds === 'number' && Number.isFinite(clipDurationSeconds)
+            ? { sourceDurationSeconds: clipDurationSeconds }
+            : {}),
+        }),
+      })
+      const processData = await processRes.json().catch(() => ({}))
+      if (!processRes.ok) {
+        throw new Error(
+          (processData as { userMessage?: string }).userMessage ||
+            (processData as { error?: string }).error ||
+            'Could not process clip'
+        )
+      }
+      const vizardProjectId = (processData as { vizard?: { projectId?: string } }).vizard?.projectId
+      if (vizardProjectId) {
+        setStatusText('Vizard is editing your clip...')
+        setRenderId(`vizard:${vizardProjectId}`)
+        setProgress(RENDER_PROGRESS_START)
+
+        const coinOk = await deductCoins('clip-editor-runway')
+        if (!coinOk && !hasUnlimitedAccess) {
+          setError('Vizard edit started, but coin deduction failed.')
+        }
+        refreshBalance()
+
+        await pollVizardUntilDone(vizardProjectId, 'Vizard is editing your clip...')
+        return
+      }
       const shotstackPackage = (processData as { shotstack?: Record<string, unknown> }).shotstack
       if (!shotstackPackage) {
         throw new Error('AI package did not include Shotstack render data.')
@@ -434,6 +439,45 @@ export default function ClipEditorTab({
         setStatusText(`Rendering... ${status || 'RUNNING'}`)
         const clipUrl = extractShotstackVideoUrl(snapData)
         if (clipUrl) {
+          const refineAfter = Boolean((processData as { refineWithVizard?: boolean }).refineWithVizard)
+          if (refineAfter) {
+            setStatusText('Sending Shotstack output to Vizard for refinement...')
+            const refineRes = await fetch('/api/clip-editor/vizard/refine-from-url', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                videoUrl: clipUrl,
+                platform: targetPlatform,
+                mimeType: 'video/mp4',
+                fileName: 'shotstack-to-vizard.mp4',
+              }),
+            })
+            const refineData = (await refineRes.json().catch(() => ({}))) as {
+              error?: string
+              userMessage?: string
+              vizard?: { projectId?: string }
+              configurationHints?: string[]
+            }
+            if (!refineRes.ok) {
+              const base =
+                refineData.userMessage ||
+                refineData.error ||
+                'Could not start Vizard refinement from Shotstack output.'
+              const hintBlock =
+                Array.isArray(refineData.configurationHints) && refineData.configurationHints.length
+                  ? `\n\n${refineData.configurationHints.join('\n')}`
+                  : ''
+              throw new Error(base + hintBlock)
+            }
+            const refineProjectId = refineData.vizard?.projectId
+            if (!refineProjectId) {
+              throw new Error('Vizard did not return a project id for refinement.')
+            }
+            setRenderId(`vizard:${refineProjectId}`)
+            await pollVizardUntilDone(refineProjectId, 'Vizard is refining your Shotstack edit...')
+            return
+          }
           setFinalClipUrl(clipUrl)
           setStatusText('Done. Your clip is ready.')
           setProgress(100)
