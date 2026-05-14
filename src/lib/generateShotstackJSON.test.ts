@@ -126,7 +126,7 @@ test('preferredTransitions are applied to video clip transitions', () => {
     editBlueprint: {
       layoutTemplate: 'fullFrame',
       renderSeconds: 10,
-      preferredTransitions: ['slideUp', 'zoomFast'],
+      preferredTransitions: ['slideUp', 'zoom'],
       sourceMoments: [
         { startSeconds: 0, endSeconds: 5, role: 'hook' },
         { startSeconds: 6, endSeconds: 11, role: 'payoff' },

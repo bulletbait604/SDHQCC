@@ -351,7 +351,7 @@ function buildShotstackCaptionEdit(params: {
             start: fitted.start,
             length: fitted.length,
             offset: { x: 0.31, y: 0.31 },
-            transition: { in: 'zoomFast', out: 'fadeFast' },
+            transition: { in: 'zoom', out: 'fadeFast' },
           },
         ]
       })()
@@ -385,7 +385,7 @@ function buildShotstackCaptionEdit(params: {
       start: fitted.start,
       length: fitted.length,
       offset: { x: -0.31, y: 0.25 },
-      transition: { in: 'zoomFast', out: 'fadeFast' },
+      transition: { in: 'zoom', out: 'fadeFast' },
     }
   })()
 

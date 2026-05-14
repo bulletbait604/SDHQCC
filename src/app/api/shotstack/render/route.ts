@@ -104,9 +104,8 @@ const ALLOWED_TRANSITIONS = new Set([
   'shuffleTopLeft',
   'shuffleTopLeftSlow',
   'shuffleTopLeftFast',
+  /** Clip transitions: API allows `zoom` only (not zoomFast/zoomSlow). */
   'zoom',
-  'zoomSlow',
-  'zoomFast',
 ])
 
 function sanitizeClip(clip: ClipLike): ClipLike {
@@ -120,13 +119,21 @@ function sanitizeClip(clip: ClipLike): ClipLike {
   if (transition && typeof transition === 'object' && !Array.isArray(transition)) {
     const t = transition as Record<string, unknown>
     const next: Record<string, string> = {}
-    if (typeof t.in === 'string' && ALLOWED_TRANSITIONS.has(t.in)) next.in = t.in
-    if (typeof t.out === 'string' && ALLOWED_TRANSITIONS.has(t.out)) next.out = t.out
+    const coerceTransition = (v: unknown): string | null => {
+      if (typeof v !== 'string') return null
+      if (v === 'zoomFast' || v === 'zoomSlow') return 'zoom'
+      return v
+    }
+    const tin = coerceTransition(t.in)
+    const tout = coerceTransition(t.out)
+    if (tin && ALLOWED_TRANSITIONS.has(tin)) next.in = tin
+    if (tout && ALLOWED_TRANSITIONS.has(tout)) next.out = tout
     if (Object.keys(next).length > 0) out.transition = next
     else delete out.transition
   } else if (typeof transition === 'string') {
-    if (ALLOWED_TRANSITIONS.has(transition)) {
-      out.transition = { in: transition, out: 'fade' }
+    const coerced = transition === 'zoomFast' || transition === 'zoomSlow' ? 'zoom' : transition
+    if (ALLOWED_TRANSITIONS.has(coerced)) {
+      out.transition = { in: coerced, out: 'fade' }
     } else {
       delete out.transition
     }

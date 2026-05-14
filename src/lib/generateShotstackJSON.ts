@@ -149,8 +149,8 @@ function normalizeShotstackTransition(raw: string | undefined, fallback = 'fadeF
     slidedown: 'slideDown',
     slideleft: 'slideLeft',
     slideright: 'slideRight',
-    zoom: 'zoomFast',
-    zoomfast: 'zoomFast',
+    zoom: 'zoom',
+    zoomfast: 'zoom',
     wipeleft: 'wipeLeft',
     wiperight: 'wipeRight',
     reveal: 'fadeFast',
@@ -187,12 +187,12 @@ function videoClipTransition(params: {
 /** Repeating cut transitions between video segments (StreamLadder / Opus-style rhythm). */
 function streamLadderTransitionPattern(platform: TargetPlatform): string[] {
   if (platform === 'tiktok') {
-    return ['fadeFast', 'slideUp', 'zoomFast', 'fadeFast', 'slideUp', 'fadeFast']
+    return ['fadeFast', 'slideUp', 'zoom', 'fadeFast', 'slideUp', 'fadeFast']
   }
   if (platform === 'reels') {
-    return ['fade', 'fadeFast', 'slideUp', 'fadeFast', 'zoomFast', 'fadeFast']
+    return ['fade', 'fadeFast', 'slideUp', 'fadeFast', 'zoom', 'fadeFast']
   }
-  return ['fade', 'fadeFast', 'slideUp', 'fadeFast', 'fadeFast', 'zoomFast']
+  return ['fade', 'fadeFast', 'slideUp', 'fadeFast', 'fadeFast', 'zoom']
 }
 
 function mergePreferredTransitionsList(platform: TargetPlatform, raw?: string[]): string[] {
@@ -818,7 +818,7 @@ function buildTimedTextClips(params: {
       availableSeconds = Math.min(params.renderSeconds, maxEnd) - start
     }
     if (availableSeconds < minReadableSeconds) continue
-    const calloutIn = (['zoomFast', 'slideUp', 'fadeFast'] as const)[clips.length % 3]
+    const calloutIn = (['zoom', 'slideUp', 'fadeFast'] as const)[clips.length % 3]
     clips.push({
       asset: buildTextAsset(text, params.platform, params.type, params.captionStyle),
       start: Number(start.toFixed(2)),
@@ -920,7 +920,7 @@ function buildStickerClips(params: {
       start: Number(start.toFixed(2)),
       length: Number(length.toFixed(2)),
       offset: stickerOffset(sticker.position),
-      transition: { in: 'zoomFast', out: 'fadeFast' },
+      transition: { in: 'zoom', out: 'fadeFast' },
     })
   }
   return clips

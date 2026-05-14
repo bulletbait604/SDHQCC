@@ -210,7 +210,7 @@ const SHOTSTACK_RENDERER_CONTRACT = `SHOTSTACK_RENDERER_CONTRACT:
 - Renderer supports sourceMoment role: hook, context, escalation, payoff, proof, or loop.
 - Renderer supports sourceMoment focusRegion: "gameplay", "facecam", "speaker", "action", or an inline normalized crop region.
 - Renderer supports visualTreatment on sourceMoments: "slowZoomIn", "slowZoomOut", or "none". The first cut of each sourceMoment applies this zoom when set — use on hook, escalation, and payoff moments (not every beat).
-- Renderer applies preferredTransitions between video micro-cuts when you list them (fade, fadeFast, slideUp, slideDown, slideLeft, slideRight, zoomFast, wipeLeft, wipeRight). Use 3-6 entries as a repeating pattern for a StreamLadder-like rhythm.
+- Renderer applies preferredTransitions between video micro-cuts when you list them (fade, fadeFast, slideUp, slideDown, slideLeft, slideRight, zoom, wipeLeft, wipeRight). Use 3-6 entries as a repeating pattern for a StreamLadder-like rhythm.
 - Renderer supports an animated first-frame hook card via hookTitle, hookSubtitle, and hookStyle.
 - Renderer supports timed textOverlays: max 8 callouts. Use sourceMomentIndex + offsetSeconds whenever possible so the text appears over that selected moment in the final cut.
 - Renderer supports stickerOverlays as short text/emoji badge overlays, max 6.
@@ -269,7 +269,7 @@ function buildFallbackClipPlan(platform: TargetPlatform, clipBrief: string): Cli
       hookStyle: platform === 'reels' ? 'clean' : 'urgent',
       captionStyle: platform === 'reels' ? 'bold' : 'karaoke',
       keywordHighlights: [],
-      preferredTransitions: ['fadeFast', 'slideUp', 'fadeFast', 'zoomFast'],
+      preferredTransitions: ['fadeFast', 'slideUp', 'fadeFast', 'zoom'],
       textOverlays: [
         {
           text: captionText || 'Best part',
@@ -824,7 +824,7 @@ Return valid JSON only:
     "hookStyle": "pop|glitch|clean|urgent",
     "captionStyle": "karaoke|bold|clean",
     "keywordHighlights": ["3-12 words that are actually spoken in the clip, for caption emphasis"],
-    "preferredTransitions": ["fadeFast", "slideUp", "fadeFast", "zoomFast"],
+    "preferredTransitions": ["fadeFast", "slideUp", "fadeFast", "zoom"],
     "sourceMoments": [
       { "startSeconds": "number", "endSeconds": "number", "role": "hook|context|escalation|payoff|proof|loop", "focusRegion": "gameplay|facecam|speaker|action", "reason": "why this exact moment should be used", "visualTreatment": "none|slowZoomIn|slowZoomOut" }
     ],
@@ -910,7 +910,7 @@ Rules:
 - Include at least 8 hashtags for TikTok/Reels captions.
 - Keep YouTube Shorts tags array between 10 and 20 items.
 - Score the clip with viralityScore using OpusClip-like dimensions: hook, flow, engagement, and trend fit.
-- Always set preferredTransitions to 4-6 Shotstack ids (repeat pattern): fade, fadeFast, slideUp, slideDown, slideLeft, slideRight, zoomFast, wipeLeft, wipeRight — tuned to platform (faster/choppier for TikTok, slightly softer for Reels).
+- Always set preferredTransitions to 4-6 Shotstack ids (repeat pattern): fade, fadeFast, slideUp, slideDown, slideLeft, slideRight, zoom, wipeLeft, wipeRight — tuned to platform (faster/choppier for TikTok, slightly softer for Reels).
 - Make the editBlueprint concrete: specify cut cadence, hook title/style, caption style, source moments, selective zooms, preferredTransitions, grounded callouts, sticker badges, CTA, subtitles, and platform pacing aligned with the platform directive and algorithm notes.
 
 CLIP_BRIEF:
