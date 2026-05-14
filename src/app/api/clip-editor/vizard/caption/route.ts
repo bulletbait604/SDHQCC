@@ -257,10 +257,11 @@ function buildShotstackCaptionEdit(params: {
       const rawStart = Math.max(0, Math.min(duration - 0.2, cue.start))
       const rawLen = Math.max(0.7, Math.min(3.1, cue.end - cue.start))
       const fitted = fitClipInTimeline(rawStart, rawLen, duration, 0.25)
+      const line = (cue.text?.trim() || 'CAPTION').toUpperCase().slice(0, 84)
       return {
         asset: {
           type: 'text',
-          text: cue.text.toUpperCase().slice(0, 84),
+          text: line,
           width: 960,
           height: 220,
           font: {
@@ -540,6 +541,90 @@ async function stageVizardVideo(params: {
   return { readUrl, contentType, contentLength: arrayBuffer.byteLength }
 }
 
+/**
+ * Fail fast with a clear message before POST — avoids opaque Shotstack 400s from NaN/empty fields.
+ */
+function validateShotstackRenderPayload(payload: { timeline: unknown; output: unknown }): string | null {
+  const { timeline, output } = payload
+  if (!timeline || typeof timeline !== 'object') return 'timeline is missing or not an object'
+  if (!output || typeof output !== 'object') return 'output is missing or not an object'
+
+  const out = output as Record<string, unknown>
+  if (out.format !== 'mp4') return `output.format must be mp4, got ${String(out.format)}`
+  const fps = out.fps
+  if (typeof fps !== 'number' || !Number.isFinite(fps) || fps <= 0 || fps > 60) {
+    return `output.fps must be a finite number in (0, 60], got ${String(fps)}`
+  }
+  const size = out.size
+  if (!size || typeof size !== 'object') return 'output.size is missing'
+  const sz = size as Record<string, unknown>
+  const w = sz.width
+  const h = sz.height
+  if (typeof w !== 'number' || typeof h !== 'number' || !Number.isFinite(w) || !Number.isFinite(h)) {
+    return `output.size width/height must be finite numbers, got width=${String(w)} height=${String(h)}`
+  }
+  if (w < 2 || h < 2 || w % 2 !== 0 || h % 2 !== 0) {
+    return `output.size must be even dimensions ≥2, got ${w}x${h}`
+  }
+
+  const tl = timeline as { tracks?: unknown }
+  if (!Array.isArray(tl.tracks) || tl.tracks.length === 0) {
+    return 'timeline.tracks must be a non-empty array'
+  }
+
+  let clipIndex = 0
+  for (let ti = 0; ti < tl.tracks.length; ti++) {
+    const track = tl.tracks[ti]
+    if (!track || typeof track !== 'object') return `timeline.tracks[${ti}] is not an object`
+    const clips = (track as { clips?: unknown }).clips
+    if (!Array.isArray(clips) || clips.length === 0) {
+      return `timeline.tracks[${ti}].clips must be a non-empty array`
+    }
+    for (let ci = 0; ci < clips.length; ci++) {
+      const clip = clips[ci]
+      if (!clip || typeof clip !== 'object') {
+        return `timeline.tracks[${ti}].clips[${ci}] is not an object`
+      }
+      const c = clip as Record<string, unknown>
+      const start = c.start
+      if (typeof start !== 'number' || !Number.isFinite(start) || start < 0) {
+        return `clip[${clipIndex}] invalid start (track ${ti}, clip ${ci}): ${String(start)}`
+      }
+      const length = c.length
+      const asset = c.asset
+      if (!asset || typeof asset !== 'object') {
+        return `clip[${clipIndex}] missing asset (track ${ti}, clip ${ci})`
+      }
+      const a = asset as Record<string, unknown>
+      const type = a.type
+
+      if (length === 'auto') {
+        if (type !== 'video') {
+          return `clip[${clipIndex}] length "auto" is only valid for video assets (track ${ti}, clip ${ci})`
+        }
+      } else if (typeof length !== 'number' || !Number.isFinite(length) || length <= 0) {
+        return `clip[${clipIndex}] invalid length (track ${ti}, clip ${ci}): ${String(length)}`
+      }
+
+      if (type === 'video') {
+        const src = a.src
+        if (typeof src !== 'string' || !src.trim()) {
+          return `clip[${clipIndex}] video asset missing or empty src (track ${ti}, clip ${ci})`
+        }
+      } else if (type === 'text') {
+        const text = a.text
+        if (typeof text !== 'string' || !text.trim()) {
+          return `clip[${clipIndex}] text asset missing or empty text (track ${ti}, clip ${ci})`
+        }
+      } else {
+        return `clip[${clipIndex}] unsupported asset type: ${String(type)}`
+      }
+      clipIndex++
+    }
+  }
+  return null
+}
+
 async function submitShotstack(edit: Record<string, unknown>): Promise<string> {
   const apiKey = resolveShotstackApiKey()
   if (!apiKey) throw new Error('SHOTSTACK_API_KEY is not configured')
@@ -553,15 +638,31 @@ async function submitShotstack(edit: Record<string, unknown>): Promise<string> {
   }
   const payload = { timeline, output }
 
-  const res = await fetch(`${shotstackEditApiRoot()}/render`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      'x-api-key': apiKey,
-    },
-    body: JSON.stringify(payload),
-  })
+  const preflight = validateShotstackRenderPayload(payload)
+  if (preflight) {
+    console.error('[clip-editor/vizard/caption] Shotstack payload failed local validation:', preflight)
+    console.error('Shotstack request payload:', JSON.stringify(payload, null, 2))
+    throw new Error(`Shotstack payload invalid: ${preflight}`)
+  }
+
+  let res: Response
+  try {
+    res = await fetch(`${shotstackEditApiRoot()}/render`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'x-api-key': apiKey,
+      },
+      body: JSON.stringify(payload),
+    })
+  } catch (err) {
+    console.error('[clip-editor/vizard/caption] Shotstack request failed (network)', err)
+    console.error('Shotstack request payload:', JSON.stringify(payload, null, 2))
+    const msg = err instanceof Error ? err.message : 'network error'
+    throw new Error(`Shotstack request failed: ${msg}`)
+  }
+
   const rawText = await res.text().catch(() => '')
   let data: unknown = {}
   try {
@@ -570,6 +671,8 @@ async function submitShotstack(edit: Record<string, unknown>): Promise<string> {
     data = { message: rawText.slice(0, 500) }
   }
   if (!res.ok) {
+    console.error('Shotstack request payload:', JSON.stringify(payload, null, 2))
+    console.error('Shotstack raw response:', rawText)
     const detail = (shotstackSubmitUserMessage(data) + shotstackAuthEnvironmentHint(res.status)).trim()
     const suffix =
       rawText && (!detail || res.status === 400)
@@ -661,7 +764,10 @@ export async function POST(request: NextRequest) {
     if (fromMetaSec != null && fromMetaSec > 0.05) {
       upper = Math.min(upper, fromMetaSec + 0.35)
     }
-    const durationSeconds = Math.max(0.75, Math.min(upper, Math.max(endFromCues, 0.75)))
+    let durationSeconds = Math.max(0.75, Math.min(upper, Math.max(endFromCues, 0.75)))
+    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+      durationSeconds = Math.max(0.75, Math.min(180, endFromCues))
+    }
 
     const cuesInRange = cues.filter(
       (c) => c.start < durationSeconds - 0.04 && c.end > c.start + 0.02
@@ -677,8 +783,13 @@ export async function POST(request: NextRequest) {
       (deepgramDuration != null && deepgramDuration > 0.05) ||
       (fromMetaSec != null && fromMetaSec > 0.05)
 
+    const videoSrc = typeof staged.readUrl === 'string' ? staged.readUrl.trim() : ''
+    if (!videoSrc) {
+      throw new Error('Staged video URL is empty; cannot call Shotstack.')
+    }
+
     const edit = buildShotstackCaptionEdit({
-      videoUrl: staged.readUrl,
+      videoUrl: videoSrc,
       platform: body.platform,
       durationSeconds,
       videoClipLengthSeconds: canPinVideoLength ? durationSeconds : null,
@@ -701,6 +812,14 @@ export async function POST(request: NextRequest) {
     if (error instanceof AuthError) return createAuthErrorResponse(error)
     console.error('[clip-editor/vizard/caption]', error)
     const message = error instanceof Error ? error.message : 'Vizard caption render failed'
-    return NextResponse.json({ error: message, userMessage: message }, { status: 500 })
+    const shotstackRelated =
+      message.startsWith('Shotstack') ||
+      message.includes('Shotstack payload invalid') ||
+      message.includes('SHOTSTACK_API_KEY')
+    const clientError =
+      shotstackRelated && !message.startsWith('Shotstack error:')
+        ? `Shotstack error: ${message}`
+        : message
+    return NextResponse.json({ error: clientError, userMessage: clientError }, { status: 500 })
   }
 }
