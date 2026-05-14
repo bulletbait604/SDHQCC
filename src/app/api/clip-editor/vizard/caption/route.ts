@@ -23,6 +23,8 @@ export const maxDuration = 300
 const MAX_VIZARD_STAGE_BYTES = 250 * 1024 * 1024
 
 type DeepgramTranscription = {
+  /** Media length in seconds — caps the Shotstack timeline when probe fails (common 400: overlays past real video). */
+  metadata?: { duration?: number }
   results?: {
     channels?: Array<{
       alternatives?: Array<{
@@ -61,6 +63,25 @@ function maxCueEndSeconds(cues: CaptionCue[]): number {
   let m = 0
   for (const c of cues) m = Math.max(m, c.end)
   return m
+}
+
+function readDeepgramMediaDurationSeconds(transcript: DeepgramTranscription): number | null {
+  const d = transcript.metadata?.duration
+  if (typeof d === 'number' && Number.isFinite(d) && d > 0.05) return d
+  return null
+}
+
+/**
+ * ffprobe can mis-read some MP4s (wrong stream, ms vs s). Ignore absurdly short probes when
+ * word timings clearly span a longer clip.
+ */
+function trustedProbeDurationSeconds(
+  probed: number | null,
+  minCueEnd: number
+): number | null {
+  if (probed == null || !Number.isFinite(probed) || probed <= 0.05) return null
+  if (probed < 0.45 && minCueEnd > 2.5) return null
+  return probed
 }
 
 /**
@@ -560,6 +581,13 @@ async function submitShotstack(edit: Record<string, unknown>): Promise<string> {
       detail && suffix && !detail.includes(suffix.slice(0, 40))
         ? `${detail} | body: ${suffix}`
         : detail || suffix || 'request failed'
+    if (res.status === 400 || res.status === 422) {
+      console.error('[clip-editor/vizard/caption] Shotstack render rejected', {
+        status: res.status,
+        detail,
+        rawBody: rawText.replace(/\s+/g, ' ').trim().slice(0, 1600),
+      })
+    }
     throw new Error(`Shotstack (${res.status}): ${combined}`)
   }
   const renderId =
@@ -618,11 +646,17 @@ export async function POST(request: NextRequest) {
     const msFromBody = coerceVideoMsDuration(body.videoMsDuration)
     const fromMetaSec = msFromBody != null && msFromBody > 0 ? msFromBody / 1000 : null
     const endFromCues = maxCueEndSeconds(cues) + 0.55
-    // Timeline must not exceed real media (Shotstack HTTP 400). Never inflate from client meta
-    // past probe or past Deepgram end — use the tightest upper bound available.
+    const deepgramDuration = readDeepgramMediaDurationSeconds(transcript)
+    const cueEndMax = maxCueEndSeconds(cues)
+    const trustedProbe = trustedProbeDurationSeconds(probedDuration, cueEndMax)
+    // Timeline must not exceed real media (Shotstack HTTP 400). Tightest bound wins: probe,
+    // Deepgram-reported media length, client meta, then hard cap.
     let upper = 180
-    if (probedDuration != null && probedDuration > 0.05) {
-      upper = Math.min(upper, probedDuration)
+    if (trustedProbe != null) {
+      upper = Math.min(upper, trustedProbe)
+    }
+    if (deepgramDuration != null) {
+      upper = Math.min(upper, deepgramDuration + 0.45)
     }
     if (fromMetaSec != null && fromMetaSec > 0.05) {
       upper = Math.min(upper, fromMetaSec + 0.35)
@@ -638,12 +672,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const canPinVideoLength =
+      trustedProbe != null ||
+      (deepgramDuration != null && deepgramDuration > 0.05) ||
+      (fromMetaSec != null && fromMetaSec > 0.05)
+
     const edit = buildShotstackCaptionEdit({
       videoUrl: staged.readUrl,
       platform: body.platform,
       durationSeconds,
-      videoClipLengthSeconds:
-        probedDuration != null && probedDuration > 0.05 ? durationSeconds : null,
+      videoClipLengthSeconds: canPinVideoLength ? durationSeconds : null,
       cues: cuesInRange,
       title: body.title,
       viralScore: body.viralScore,
