@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Film, Loader2, Upload } from 'lucide-react'
+import { ExternalLink, Film, Loader2, Upload } from 'lucide-react'
 import type { ToolType } from '@/hooks/useCoins'
 import PlatformSelector from '@/app/components/PlatformSelector'
 import type { TargetPlatform } from '@/lib/platformEditing'
@@ -617,15 +617,13 @@ export default function ClipEditorTab({
 
             {finalClipUrl && (
               <div className={`rounded-xl border p-4 ${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
-                <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Final clip ready</p>
-                <a
-                  href={finalClipUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sdhq-cyan-400 underline break-all text-sm"
-                >
-                  {finalClipUrl}
-                </a>
+                <p className={`text-sm font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Final clip ready</p>
+                <Button asChild className="w-full font-semibold" variant="default">
+                  <a href={finalClipUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="w-4 h-4 mr-2 shrink-0" aria-hidden />
+                    Open final clip
+                  </a>
+                </Button>
               </div>
             )}
           </>
