@@ -2,7 +2,7 @@
 
 import { LogOut, UserX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { BANNED_USER_MESSAGE } from '@/lib/bannedUsers'
+import { BANNED_USER_MESSAGE } from '@/lib/bannedUserMessage'
 
 type BannedUserScreenProps = {
   darkMode: boolean

@@ -1,8 +1,8 @@
 import clientPromise from '@/lib/mongodb'
 import { isAllowlistedOwner } from '@/lib/ownerAllowlist'
+import { BANNED_USER_MESSAGE } from '@/lib/bannedUserMessage'
 
-export const BANNED_USER_MESSAGE =
-  "were sorry but your a little bitch... try another program to fix your problems."
+export { BANNED_USER_MESSAGE }
 
 const COLLECTION = 'bannedUsers'
 
