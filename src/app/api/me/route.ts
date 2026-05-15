@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { verifyAuth, AuthError, createAuthErrorResponse, extractSessionToken } from '@/lib/auth/verifyAuth'
+import {
+  verifyAuth,
+  AuthError,
+  BannedUserError,
+  createAuthErrorResponse,
+  extractSessionToken,
+} from '@/lib/auth/verifyAuth'
 
 export const dynamic = 'force-dynamic'
 
@@ -91,6 +97,15 @@ export async function GET(req: NextRequest) {
       },
     })
   } catch (error) {
+    if (error instanceof BannedUserError) {
+      return NextResponse.json({
+        user: null,
+        banned: true,
+        message: error.message,
+        subscription: { isVerified: false, isLifetime: false },
+        preferences: { language: 'en', darkMode: false },
+      })
+    }
     if (error instanceof AuthError) {
       return createAuthErrorResponse(error)
     }

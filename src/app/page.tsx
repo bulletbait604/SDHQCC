@@ -19,6 +19,8 @@ import CoinPurchase from '@/app/components/CoinPurchase'
 import ResourceHubTab from '@/app/components/ResourceHubTab'
 import ClipEditorTab from '@/app/components/ClipEditorTab'
 import BackgroundRemoverTab from '@/app/components/BackgroundRemoverTab'
+import BannedUserScreen from '@/app/components/BannedUserScreen'
+import OwnerBannedUsersPanel from '@/app/components/OwnerBannedUsersPanel'
 import NewToolTab from '@/app/components/NewToolTab'
 import { isNewToolTabEnabled } from '@/lib/newToolFeature'
 import { usePayPalPublicConfig } from '@/hooks/usePayPalPublicConfig'
@@ -514,6 +516,8 @@ export default function HomePage() {
   const [currencyQuoteNote, setCurrencyQuoteNote] = useState<string>('')
   const [feedbackReplyEmail, setFeedbackReplyEmail] = useState('')
   const [feedbackMessage, setFeedbackMessage] = useState('')
+  const [isBanned, setIsBanned] = useState(false)
+  const [bannedMessage, setBannedMessage] = useState('')
   const [feedbackSending, setFeedbackSending] = useState(false)
   const [showCoinPurchase, setShowCoinPurchase] = useState(false)
   const closeCoinPurchase = useCallback(() => setShowCoinPurchase(false), [])
@@ -1105,12 +1109,23 @@ export default function HomePage() {
         }
         if (meRes.ok) {
           const me = await meRes.json()
-          if (!me.user) {
+          if (me.banned) {
+            setIsBanned(true)
+            setBannedMessage(typeof me.message === 'string' ? me.message : '')
+            setUser(null)
+            setIsVerified(false)
+            setIsLifetime(false)
+            applyAnonymousUiFromCookies()
+          } else if (!me.user) {
+            setIsBanned(false)
+            setBannedMessage('')
             setUser(null)
             setIsVerified(false)
             setIsLifetime(false)
             applyAnonymousUiFromCookies()
           } else {
+            setIsBanned(false)
+            setBannedMessage('')
             setUser(me.user as KickUser)
             if (me.preferences?.language && translations[me.preferences.language as Language]) {
               setLanguage(me.preferences.language as Language)
@@ -2594,6 +2609,10 @@ export default function HomePage() {
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sdhq-cyan-500"></div>
       </div>
     )
+  }
+
+  if (isBanned) {
+    return <BannedUserScreen darkMode={darkMode} message={bannedMessage} />
   }
 
   return (
@@ -4616,6 +4635,10 @@ export default function HomePage() {
                         </Button>
                       </div>
                     </div>
+                  )}
+
+                  {(userRole === 'owner' || isOwner) && (
+                    <OwnerBannedUsersPanel darkMode={darkMode} />
                   )}
 
                   {/* Activity Feed - Admin and Owner only */}

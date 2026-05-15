@@ -12,6 +12,7 @@ import {
   INTERNAL_API_SECRET_HEADER,
   getInternalApiSecret,
 } from '@/lib/internalApi'
+import { BANNED_USER_MESSAGE, isUserBanned } from '@/lib/bannedUsers'
 
 export async function POST(request: NextRequest) {
   try {
@@ -149,6 +150,13 @@ export async function POST(request: NextRequest) {
             'Kick API did not return your profile. Ensure the token scope includes user access, then try again.',
         },
         { status: 502 }
+      )
+    }
+
+    if (await isUserBanned(user.username)) {
+      return NextResponse.json(
+        { error: BANNED_USER_MESSAGE, banned: true },
+        { status: 403 }
       )
     }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { verifySessionJwt, getSessionSecret } from '@/lib/auth/sessionJwt'
+import { BANNED_USER_MESSAGE, isUserBanned } from '@/lib/bannedUsers'
 
 export type UserRole =
   | 'free'
@@ -124,6 +125,10 @@ export async function verifyAuth(req: NextRequest): Promise<VerifiedUser> {
     user.role = dbUser.role as UserRole
   }
 
+  if (await isUserBanned(user.username)) {
+    throw new BannedUserError()
+  }
+
   return user
 }
 
@@ -185,15 +190,24 @@ export class AuthError extends Error {
   }
 }
 
+/** Site access revoked for this Kick username. */
+export class BannedUserError extends AuthError {
+  constructor(message: string = BANNED_USER_MESSAGE) {
+    super(message, 403)
+    this.name = 'BannedUserError'
+  }
+}
+
 /**
  * Helper to create error response
  */
 export function createAuthErrorResponse(error: AuthError | Error): NextResponse {
   const status = error instanceof AuthError ? error.statusCode : 500
   const message = error.message || 'Authentication failed'
-  
+  const banned = error instanceof BannedUserError
+
   return NextResponse.json(
-    { error: message },
+    { error: message, ...(banned ? { banned: true } : {}) },
     { status }
   )
 }
