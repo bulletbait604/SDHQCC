@@ -1,5 +1,8 @@
 import { Client, Receiver } from '@upstash/qstash'
 
+/** Default QStash region for this project (Upstash US). Override with QSTASH_URL for EU. */
+export const QSTASH_US_BASE_URL = 'https://qstash-us-east-1.upstash.io'
+
 export function clipEditorAppBaseUrl(): string {
   const explicit = (
     process.env.CLIP_EDITOR_APP_URL ||
@@ -22,14 +25,14 @@ export function clipEditorStepUrl(): string {
   return `${base}/api/clip-editor/steps/run`
 }
 
-/** Regional QStash API — must match the region shown in your Upstash QStash console. */
-export function qStashBaseUrl(): string | undefined {
+/** QStash API base URL — defaults to US; set QSTASH_URL for EU (eu-central-1). */
+export function qStashBaseUrl(): string {
   const url = (
     process.env.QSTASH_URL ||
     process.env.CLIP_EDITOR_QSTASH_URL ||
-    ''
+    QSTASH_US_BASE_URL
   ).trim()
-  return url ? url.replace(/\/$/, '') : undefined
+  return url.replace(/\/$/, '')
 }
 
 export function qStashClient(): Client {
@@ -37,8 +40,7 @@ export function qStashClient(): Client {
   if (!token) {
     throw new Error('QSTASH_TOKEN is not configured (Upstash QStash — cloud queue for Vercel)')
   }
-  const baseUrl = qStashBaseUrl()
-  return baseUrl ? new Client({ token, baseUrl }) : new Client({ token })
+  return new Client({ token, baseUrl: qStashBaseUrl() })
 }
 
 export function isQStashConfigured(): boolean {
