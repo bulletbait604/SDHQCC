@@ -138,7 +138,8 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
         const reframing = job.passes.reframing
         const hookOverlay = job.passes.hookOverlay
         const broll = job.passes.broll
-        if (!cutRanking || !pacing || !captions || !reframing || !hookOverlay || !broll) {
+        const transcript = job.passes.transcript
+        if (!cutRanking || !pacing || !captions || !reframing || !hookOverlay || !broll || !transcript) {
           throw new Error('Missing pass outputs for final edit plan')
         }
         const finalEditPlan = runFinalEditPlanPass({
@@ -150,6 +151,7 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
           broll,
           layoutTemplate: job.layoutTemplate,
           landscapeMode: job.landscapeMode,
+          durationSeconds: transcript.durationSeconds,
         })
         await updateClipEditorJobPasses(jobId, { finalEditPlan })
         await updateClipEditorJobState(jobId, 'RENDERING')

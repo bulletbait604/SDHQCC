@@ -1,6 +1,10 @@
 import { buildShotstackPackageFromEditPlan } from '@/lib/clip-editor/editPlanToShotstack'
 import { submitShotstackRender } from '@/lib/clip-editor/services/shotstack'
 import { putBufferToR2 } from '@/lib/r2'
+import {
+  readResolvedSegmentsFromShotstack,
+  uploadClipEditorCaptionVtt,
+} from '@/lib/clip-editor/vttCaptions'
 import type { ClipEditorJobDocument } from '@/lib/clip-editor/types'
 
 export async function submitShotstackRenderPass(
@@ -12,7 +16,7 @@ export async function submitShotstackRenderPass(
     throw new Error('Missing transcript or final edit plan before render')
   }
 
-  const payload = buildShotstackPackageFromEditPlan({
+  let payload = buildShotstackPackageFromEditPlan({
     sourceUrl: job.sourceReadUrl,
     platform: job.platform,
     editPlan,
@@ -20,7 +24,30 @@ export async function submitShotstackRenderPass(
     sourceDurationSeconds: job.sourceDurationSeconds,
   })
 
-  const renderId = await submitShotstackRender(payload)
+  const segments = readResolvedSegmentsFromShotstack({
+    metadata: payload.metadata,
+    timeline: payload.timeline,
+  })
+  const richCaptionUrl = await uploadClipEditorCaptionVtt({
+    username: job.username,
+    words: transcript.words,
+    segments,
+  })
+  if (richCaptionUrl) {
+    payload = buildShotstackPackageFromEditPlan({
+      sourceUrl: job.sourceReadUrl,
+      platform: job.platform,
+      editPlan,
+      transcript,
+      sourceDurationSeconds: job.sourceDurationSeconds,
+      richCaptionUrl,
+    })
+  }
+
+  const renderId = await submitShotstackRender({
+    timeline: payload.timeline,
+    output: payload.output,
+  })
   return { renderId }
 }
 

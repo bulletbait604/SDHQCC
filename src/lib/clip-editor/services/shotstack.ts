@@ -8,6 +8,7 @@ import { resolveShotstackApiKey } from '@/lib/clipEditorServerKeys'
 export type ShotstackRenderPayload = {
   timeline: Record<string, unknown>
   output: Record<string, unknown>
+  metadata?: Record<string, unknown>
 }
 
 export async function submitShotstackRender(

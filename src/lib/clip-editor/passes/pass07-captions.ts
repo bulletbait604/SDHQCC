@@ -20,16 +20,12 @@ export function runCaptionIntelligencePass(transcript: TranscriptAnalysis): Capt
     const text = chunk.map((w) => w.word).join(' ')
     const start = chunk[0].start
     const end = chunk[chunk.length - 1].end
-    const upper = text.toUpperCase()
-    const emphasis =
-      SHOUT_PATTERNS.some((re) => re.test(text.trim())) ||
-      text.includes('!') ||
-      chunk.some((w) => (w.confidence || 0) > 0.92 && w.word.length > 4)
-    if (emphasis) emphasisWords.push(upper.replace(/[^\w\s!?]/g, '').trim())
+    const emphasis = SHOUT_PATTERNS.some((re) => re.test(text.trim()))
+    if (emphasis) emphasisWords.push(text.toUpperCase().replace(/[^\w\s!?]/g, '').trim())
     cues.push({
       start,
       end,
-      text: emphasis ? upper : text,
+      text,
       emphasis,
       style: emphasis ? 'shout' : 'normal',
     })

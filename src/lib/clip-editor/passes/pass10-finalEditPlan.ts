@@ -1,4 +1,5 @@
 import { finalEditPlanSchema } from '@/lib/clip-editor/schemas'
+import { buildPrimaryClipWindow } from '@/lib/clip-editor/primaryClipWindow'
 import type {
   BrollPlan,
   CaptionTimeline,
@@ -19,17 +20,16 @@ export function runFinalEditPlanPass(params: {
   broll: BrollPlan
   layoutTemplate: ClipLayoutTemplate
   landscapeMode: 'crop' | 'letterbox'
+  durationSeconds: number
 }): FinalEditPlan {
-  const primary = params.ranking.segments[0]
-  const cuts = params.ranking.segments.slice(0, 4).map((seg) => ({
-    start: seg.start,
-    end: seg.end,
-    trimStart: seg.start,
-  }))
-
-  if (!cuts.length) {
-    cuts.push({ start: 0, end: Math.max(primary?.end || 30, 10), trimStart: 0 })
-  }
+  const window = buildPrimaryClipWindow(params.ranking, params.durationSeconds)
+  const cuts = [
+    {
+      start: window.start,
+      end: window.end,
+      trimStart: window.start,
+    },
+  ]
 
   return finalEditPlanSchema.parse({
     cuts,

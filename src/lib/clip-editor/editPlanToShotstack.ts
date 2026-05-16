@@ -1,5 +1,6 @@
 import { applyStreamLadderStyleBlueprint, generateShotstackJSON } from '@/lib/generateShotstackJSON'
 import { platformSafeZoneOffsets, type TargetPlatform } from '@/lib/platformEditing'
+import { buildPrimaryClipWindow } from '@/lib/clip-editor/primaryClipWindow'
 import type { FinalEditPlan, TranscriptAnalysis } from '@/lib/clip-editor/types'
 import type { ShotstackRenderPayload } from '@/lib/clip-editor/services/shotstack'
 import { defaultShotstackOutput } from '@/lib/clip-editor/services/shotstack'
@@ -15,92 +16,61 @@ export function buildShotstackPackageFromEditPlan(params: {
   editPlan: FinalEditPlan
   transcript: TranscriptAnalysis
   sourceDurationSeconds?: number
+  richCaptionUrl?: string
 }): ShotstackRenderPayload {
   const platform = mapPlatform(params.platform)
   const safeZone = platformSafeZoneOffsets(platform)
-  const primary = params.editPlan.rankedSegments[0]
-  const hookText = params.editPlan.hook[0]?.text || 'wait for it'
+  const duration = params.sourceDurationSeconds ?? params.transcript.durationSeconds
 
-  const sourceMoments = params.editPlan.cuts.map((cut, index) => ({
-    startSeconds: cut.start,
-    endSeconds: cut.end,
-    role: index === 0 ? ('hook' as const) : ('escalation' as const),
-    reason: 'ranked segment',
-    visualTreatment: params.editPlan.zooms.some((z) => z.atSeconds >= cut.start && z.atSeconds <= cut.end)
-      ? ('slowZoomIn' as const)
-      : ('none' as const),
-  }))
+  const ranking = { segments: params.editPlan.rankedSegments }
+  const window = buildPrimaryClipWindow(ranking, duration)
+  const clipLen = window.end - window.start
 
-  const textOverlays = [
-    ...params.editPlan.hook.map((h) => ({
-      text: h.text,
-      timelineStartSeconds: h.start,
-      durationSeconds: Math.max(0.5, h.end - h.start),
-      position: 'top' as const,
-      type: 'callout' as const,
-    })),
-    ...params.editPlan.captions
-      .filter((c) => c.emphasis)
-      .slice(0, 8)
-      .map((c) => ({
-        text: c.text,
-        timelineStartSeconds: c.start,
-        durationSeconds: Math.max(0.35, c.end - c.start),
-        position: 'middle' as const,
-        type: 'callout' as const,
-      })),
+  const hookText =
+    params.editPlan.hook[0]?.text?.trim() ||
+    params.transcript.words
+      .slice(0, 12)
+      .map((w) => w.word)
+      .join(' ')
+      .slice(0, 48) ||
+    'watch this'
+
+  const sourceMoments = [
+    {
+      startSeconds: window.start,
+      endSeconds: window.end,
+      role: 'hook' as const,
+      reason: 'primary ranked moment',
+      visualTreatment: 'slowZoomIn' as const,
+    },
   ]
 
-  const stickerOverlays = params.editPlan.stickers.map((s) => ({
-    text: s.text,
-    timelineStartSeconds: s.atSeconds,
-    durationSeconds: s.durationSeconds,
-    position: s.position as
-      | 'topLeft'
-      | 'topRight'
-      | 'bottomLeft'
-      | 'bottomRight'
-      | 'middleLeft'
-      | 'middleRight',
-  }))
+  const wordsInWindow = params.transcript.words.filter(
+    (w) => w.end >= window.start && w.start <= window.end
+  )
 
   const blueprint = {
-    cutSeconds: 1.6,
+    cutSeconds: platform === 'tiktok' ? 2.1 : 2.6,
     introHookSeconds: 2,
-    renderSeconds: Math.min(
-      60,
-      Math.max(8, (primary?.end || params.transcript.durationSeconds) - (primary?.start || 0))
-    ),
-    captionWordsPerChunk: 3,
-    contentType: 'gameplayStream' as const,
+    renderSeconds: Math.min(45, Math.max(12, clipLen)),
+    captionWordsPerChunk: 4,
+    contentType: 'unknown' as const,
     layoutTemplate: params.editPlan.layoutTemplate,
-    hookTitle: hookText.toUpperCase(),
+    hookTitle: hookText.slice(0, 42),
     hookSubtitle: '',
-    hookStyle: 'pop' as const,
-    captionStyle: 'karaoke' as const,
-    keywordHighlights: params.transcript.words
-      .filter((w) => w.word === w.word.toUpperCase() && w.word.length > 2)
-      .map((w) => w.word)
-      .slice(0, 12),
+    hookStyle: 'clean' as const,
+    captionStyle: 'bold' as const,
+    richCaptionUrl: params.richCaptionUrl,
+    keywordHighlights: [],
     sourceMoments,
-    textOverlays,
-    stickerOverlays,
-    preferredTransitions: ['fadeFast', 'zoom'],
-    subtitles: params.editPlan.captions.map((c) => ({
-      text: c.text,
-      timelineStartSeconds: c.start,
-      durationSeconds: Math.max(0.3, c.end - c.start),
-      position: 'bottom' as const,
-      type: 'subtitle' as const,
-    })),
+    textOverlays: [],
+    stickerOverlays: [],
+    preferredTransitions: ['fadeFast', 'fade'],
+    subtitles: [],
   }
 
   const styled =
-    applyStreamLadderStyleBlueprint(
-      platform,
-      params.sourceDurationSeconds ?? params.transcript.durationSeconds,
-      blueprint
-    ) ?? blueprint
+    applyStreamLadderStyleBlueprint(platform, duration, blueprint) ?? blueprint
 
   const shotstack = generateShotstackJSON({
     sourceUrl: params.sourceUrl,
@@ -109,17 +79,18 @@ export function buildShotstackPackageFromEditPlan(params: {
     landscapeMode: params.editPlan.landscapeMode,
     hookPlan: hookText,
     editBlueprint: styled,
-    transcriptWords: params.transcript.words.map((w) => ({
+    transcriptWords: wordsInWindow.map((w) => ({
       start: w.start,
       end: w.end,
       word: w.word,
       punctuated_word: w.word,
     })),
-    sourceDurationSeconds: params.sourceDurationSeconds ?? params.transcript.durationSeconds,
+    sourceDurationSeconds: duration,
   })
 
   return {
     timeline: shotstack.timeline as Record<string, unknown>,
     output: defaultShotstackOutput(),
+    metadata: shotstack.metadata as Record<string, unknown> | undefined,
   }
 }
