@@ -1,0 +1,26 @@
+import { geminiJsonPass } from '@/lib/clip-editor/services/gemini'
+import { hookOverlayPlanSchema } from '@/lib/clip-editor/schemas'
+import type { HookAnalysis, HookOverlayPlan } from '@/lib/clip-editor/types'
+
+export async function runHookOverlayPass(hooks: HookAnalysis): Promise<HookOverlayPlan> {
+  const top = hooks.hooks[0]
+  const prompt = `Generate opening hook overlay text for the first 2 seconds of a short-form clip.
+
+Goal: maximize retention. Examples: "watch this", "this gets insane", "wait for it", "ending is wild"
+
+Return JSON only:
+{
+  "overlays": [
+    { "start": 0, "end": 2, "text": string, "animation": "pop"|"slide"|"glitch"|"fade" }
+  ]
+}
+
+Top hook context: ${top ? `${top.reason} (score ${top.score})` : 'unknown'}
+Max 2 overlays. No explanation.`
+
+  const plan = await geminiJsonPass(hookOverlayPlanSchema, prompt)
+  if (plan.overlays.length > 0) return plan
+  return hookOverlayPlanSchema.parse({
+    overlays: [{ start: 0, end: 2, text: 'wait for it', animation: 'pop' }],
+  })
+}

@@ -23,8 +23,6 @@ export interface ClipEditorTabProps {
 }
 
 const MAX_CLIP_SECONDS = 90
-const RENDER_PROGRESS_START = 65
-const RENDER_PROGRESS_RANGE = 33
 type ClipLayoutTemplate = 'auto' | 'fullFrame' | 'stackedFacecam' | 'pictureInPicture' | 'splitScreen' | 'focusCrop'
 
 const CLIP_LAYOUT_OPTIONS: Array<{ value: ClipLayoutTemplate; label: string; help: string }> = [
@@ -55,7 +53,8 @@ export default function ClipEditorTab({
   const [clipFile, setClipFile] = useState<File | null>(null)
   const [clipDurationSeconds, setClipDurationSeconds] = useState<number | null>(null)
   const [r2FileKey, setR2FileKey] = useState<string | null>(null)
-  const [renderId, setRenderId] = useState<string | null>(null)
+  const [jobId, setJobId] = useState<string | null>(null)
+  const [publishMetadata, setPublishMetadata] = useState<Record<string, unknown> | null>(null)
   const [uploadStatus, setUploadStatus] = useState<string>('')
   const [finalClipUrl, setFinalClipUrl] = useState<string | null>(null)
   const [error, setError] = useState<string>('')
@@ -92,6 +91,8 @@ export default function ClipEditorTab({
     setProgressPercent(null)
     setStatusText('')
     setFinalClipUrl(null)
+    setJobId(null)
+    setPublishMetadata(null)
     if (!f) return
     if (!f.type.startsWith('video/')) {
       setError('Choose a video file (MP4, WebM, MOV, …).')
@@ -164,67 +165,43 @@ export default function ClipEditorTab({
 
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-  const extractShotstackVideoUrl = (snapshot: unknown): string | null => {
-    const s = snapshot as Record<string, unknown> | null
-    if (!s || typeof s !== 'object') return null
-    if (s.success === false && typeof s.message === 'string') return null
-    const response = s.response as Record<string, unknown> | undefined
-    const candidates = [response?.url, s.url]
-    for (const u of candidates) {
-      if (typeof u === 'string' && /^https?:\/\//i.test(u)) return u
+  const pollClipEditorJob = async (id: string): Promise<void> => {
+    const maxAttempts = 180
+    for (let i = 0; i < maxAttempts; i++) {
+      await sleep(3000)
+      const res = await fetch(`/api/clip-editor/jobs/${encodeURIComponent(id)}`, {
+        credentials: 'include',
+      })
+      const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
+      if (!res.ok) {
+        throw new Error(
+          (typeof data.error === 'string' && data.error) || `Job status failed (${res.status})`
+        )
+      }
+      const progress = typeof data.progress === 'number' ? data.progress : 0
+      setProgress(progress)
+      const stateLabel = typeof data.stateLabel === 'string' ? data.stateLabel : 'Processing'
+      setStatusText(stateLabel)
+
+      if (data.state === 'FAILED') {
+        throw new Error(
+          (typeof data.error === 'string' && data.error) || 'Clip editor job failed'
+        )
+      }
+
+      if (data.state === 'COMPLETE') {
+        const url = normalizeHttpMediaUrl(data.outputUrl)
+        if (!url) throw new Error('Job completed but no output URL was returned')
+        setFinalClipUrl(url)
+        if (data.metadata && typeof data.metadata === 'object') {
+          setPublishMetadata(data.metadata as Record<string, unknown>)
+        }
+        setStatusText('Done. Your Opus-style clip is ready.')
+        setProgress(100)
+        return
+      }
     }
-    return null
-  }
-
-  const readShotstackPollError = (snapRes: Response, snapData: Record<string, unknown>): string => {
-    if (typeof snapData.error === 'string' && snapData.error.trim()) return snapData.error
-    if (typeof snapData.message === 'string' && snapData.message.trim() && snapData.success === false) {
-      return snapData.message
-    }
-    return snapRes.status === 502
-      ? 'Could not reach Shotstack (bad gateway). Retry in a moment.'
-      : `Render status request failed (${snapRes.status}).`
-  }
-
-  const extractVizardVideoUrl = (snapshot: Record<string, unknown>): string | null => {
-    const top = normalizeHttpMediaUrl(snapshot.videoUrl)
-    if (top) return top
-    const bestVideo = snapshot.bestVideo as Record<string, unknown> | undefined
-    if (bestVideo) {
-      const fromBest =
-        normalizeHttpMediaUrl(bestVideo.videoUrl) ||
-        normalizeHttpMediaUrl(bestVideo.video_url) ||
-        normalizeHttpMediaUrl(bestVideo.downloadUrl) ||
-        normalizeHttpMediaUrl(bestVideo.url)
-      if (fromBest) return fromBest
-    }
-    return null
-  }
-
-  const extractVizardDurationMs = (snapshot: Record<string, unknown>): number | null => {
-    const bestVideo = snapshot.bestVideo as Record<string, unknown> | undefined
-    const duration = bestVideo?.videoMsDuration
-    if (typeof duration === 'number' && Number.isFinite(duration) && duration > 0) return duration
-    if (typeof duration === 'string') {
-      const n = Number(duration.trim())
-      if (Number.isFinite(n) && n > 0) return n
-    }
-    return null
-  }
-
-  const extractVizardTextField = (
-    snapshot: Record<string, unknown>,
-    field: 'title' | 'viralScore' | 'viralReason'
-  ): string | null => {
-    const bestVideo = snapshot.bestVideo as Record<string, unknown> | undefined
-    const value = bestVideo?.[field]
-    return typeof value === 'string' && value.trim() ? value.trim() : null
-  }
-
-  const readVizardPollError = (snapRes: Response, snapData: Record<string, unknown>): string => {
-    if (typeof snapData.userMessage === 'string' && snapData.userMessage.trim()) return snapData.userMessage
-    if (typeof snapData.error === 'string' && snapData.error.trim()) return snapData.error
-    return `Vizard status request failed (${snapRes.status}).`
+    throw new Error('Clip editor job timed out. Check worker logs and retry.')
   }
 
   const handleOneClickCreate = async () => {
@@ -242,95 +219,8 @@ export default function ClipEditorTab({
 
     setBusy('oneclick')
     try {
-      const pollVizardUntilDone = async (projectId: string, phaseLabel: string) => {
-        const maxAttempts = 60
-        for (let i = 0; i < maxAttempts; i++) {
-          await sleep(30000)
-          const snapRes = await fetch(
-            `/api/clip-editor/vizard/task?projectId=${encodeURIComponent(projectId)}`,
-            { credentials: 'include' }
-          )
-          const snapData = (await snapRes.json().catch(() => ({}))) as Record<string, unknown>
-          if (!snapRes.ok) {
-            throw new Error(readVizardPollError(snapRes, snapData))
-          }
-          setProgress(RENDER_PROGRESS_START + ((i + 1) / maxAttempts) * RENDER_PROGRESS_RANGE)
-          setStatusText(phaseLabel)
-          const clipUrl = extractVizardVideoUrl(snapData)
-          if (clipUrl) {
-            if (snapData.captionMode === 'deepgram-shotstack') {
-              setStatusText('Adding Deepgram captions...')
-              const captionRes = await fetch('/api/clip-editor/vizard/caption', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({
-                  videoUrl: clipUrl,
-                  platform: targetPlatform,
-                  ...(extractVizardDurationMs(snapData) != null
-                    ? { videoMsDuration: extractVizardDurationMs(snapData) }
-                    : {}),
-                  ...(extractVizardTextField(snapData, 'title')
-                    ? { title: extractVizardTextField(snapData, 'title') }
-                    : {}),
-                  ...(extractVizardTextField(snapData, 'viralScore')
-                    ? { viralScore: extractVizardTextField(snapData, 'viralScore') }
-                    : {}),
-                  ...(extractVizardTextField(snapData, 'viralReason')
-                    ? { viralReason: extractVizardTextField(snapData, 'viralReason') }
-                    : {}),
-                }),
-              })
-              const captionData = await captionRes.json().catch(() => ({}))
-              if (!captionRes.ok) {
-                throw new Error(
-                  (captionData as { userMessage?: string }).userMessage ||
-                    (captionData as { error?: string }).error ||
-                    'Could not add Deepgram captions'
-                )
-              }
-              const captionRenderId = (captionData as { renderId?: string }).renderId
-              if (!captionRenderId) throw new Error('No caption render id was returned')
-              setRenderId(`vizard-caption:${captionRenderId}`)
-
-              for (let j = 0; j < 90; j++) {
-                await sleep(4000)
-                const captionSnapRes = await fetch(
-                  `/api/shotstack/render/task?renderId=${encodeURIComponent(captionRenderId)}`,
-                  { credentials: 'include' }
-                )
-                const captionSnapData = (await captionSnapRes.json().catch(() => ({}))) as Record<string, unknown>
-                if (!captionSnapRes.ok) {
-                  throw new Error(readShotstackPollError(captionSnapRes, captionSnapData))
-                }
-                const status = String(
-                  (captionSnapData.response as { status?: string } | undefined)?.status || ''
-                ).toUpperCase()
-                setStatusText(`Rendering Deepgram captions... ${status || 'RUNNING'}`)
-                const captionedUrl = extractShotstackVideoUrl(captionSnapData)
-                if (captionedUrl) {
-                  setFinalClipUrl(captionedUrl)
-                  setStatusText('Done. Your captioned Vizard clip is ready.')
-                  setProgress(100)
-                  return
-                }
-                if (status === 'FAILED' || status === 'CANCELLED') {
-                  throw new Error('Caption render failed. Try the Vizard caption mode or retry.')
-                }
-              }
-              throw new Error('Caption render timed out before completion. Please retry.')
-            }
-            setFinalClipUrl(clipUrl)
-            setStatusText('Done. Your Vizard clip is ready.')
-            setProgress(100)
-            return
-          }
-        }
-        throw new Error('Vizard edit timed out before completion. Please retry or check Vizard.')
-      }
-
       setProgress(5)
-      setStatusText('Uploading clip...')
+      setStatusText('Uploading clip to R2...')
       let key = r2FileKey
       if (!key) {
         key = await handleUploadToR2(false)
@@ -339,18 +229,17 @@ export default function ClipEditorTab({
       }
       if (!key) throw new Error('Upload did not complete.')
 
-      setStatusText('Analyzing and building edit plan...')
-      setProgress(35)
-      const processRes = await fetch('/api/process-clip', {
+      setStatusText('Starting multi-pass AI editor...')
+      setProgress(30)
+      const jobRes = await fetch('/api/clip-editor/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          platform: targetPlatform,
-          clipBrief: `Create a high-performing ${targetPlatform} short from this uploaded clip. Prioritize strong hook, retention pacing, clear captions, and platform-safe framing.`,
           r2FileKey: key,
-          landscapeMode: landscapeLetterbox ? 'letterbox' : 'crop',
+          platform: targetPlatform,
           layoutTemplate,
+          landscapeMode: landscapeLetterbox ? 'letterbox' : 'crop',
           mimeType: clipFile.type,
           fileName: clipFile.name,
           ...(typeof clipDurationSeconds === 'number' && Number.isFinite(clipDurationSeconds)
@@ -358,150 +247,25 @@ export default function ClipEditorTab({
             : {}),
         }),
       })
-      const processData = await processRes.json().catch(() => ({}))
-      if (!processRes.ok) {
+      const jobData = (await jobRes.json().catch(() => ({}))) as Record<string, unknown>
+      if (!jobRes.ok) {
         throw new Error(
-          (processData as { userMessage?: string }).userMessage ||
-            (processData as { error?: string }).error ||
-            'Could not process clip'
+          (typeof jobData.userMessage === 'string' && jobData.userMessage) ||
+            (typeof jobData.error === 'string' && jobData.error) ||
+            'Could not start clip editor job'
         )
       }
-      const vizardProjectId = (processData as { vizard?: { projectId?: string } }).vizard?.projectId
-      if (vizardProjectId) {
-        setStatusText('Vizard is editing your clip...')
-        setRenderId(`vizard:${vizardProjectId}`)
-        setProgress(RENDER_PROGRESS_START)
-
-        const coinOk = await deductCoins('clip-editor-runway')
-        if (!coinOk && !hasUnlimitedAccess) {
-          setError('Vizard edit started, but coin deduction failed.')
-        }
-        refreshBalance()
-
-        await pollVizardUntilDone(vizardProjectId, 'Vizard is editing your clip...')
-        return
-      }
-      const shotstackPackage = (processData as { shotstack?: Record<string, unknown> }).shotstack
-      if (!shotstackPackage) {
-        throw new Error('AI package did not include Shotstack render data.')
-      }
-      setProgress(50)
-
-      setStatusText('Submitting Shotstack render...')
-      setProgress(58)
-      const shotstackRes = await fetch('/api/shotstack/render', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(shotstackPackage),
-      })
-      const shotstackData = await shotstackRes.json().catch(() => ({}))
-      if (!shotstackRes.ok) {
-        throw new Error(
-          (shotstackData as { userMessage?: string }).userMessage ||
-            (shotstackData as { error?: string }).error ||
-            'Could not start Shotstack render'
-        )
-      }
-      const id = (shotstackData as { renderId?: string }).renderId
-      if (!id) throw new Error('No Shotstack render id was returned')
-      setRenderId(id)
-      setProgress(RENDER_PROGRESS_START)
+      const newJobId = typeof jobData.jobId === 'string' ? jobData.jobId : ''
+      if (!newJobId) throw new Error('No job id returned')
+      setJobId(newJobId)
 
       const coinOk = await deductCoins('clip-editor-runway')
       if (!coinOk && !hasUnlimitedAccess) {
-        setError('Render started, but coin deduction failed.')
+        setError('Job started, but coin deduction failed.')
       }
       refreshBalance()
 
-      const maxAttempts = 90
-      let doneWithoutUrlAttempts = 0
-      for (let i = 0; i < maxAttempts; i++) {
-        await sleep(4000)
-        const snapRes = await fetch(`/api/shotstack/render/task?renderId=${encodeURIComponent(id)}`, {
-          credentials: 'include',
-        })
-        const snapData = (await snapRes.json().catch(() => ({}))) as Record<string, unknown>
-        if (!snapRes.ok) {
-          throw new Error(readShotstackPollError(snapRes, snapData))
-        }
-        if (snapData.success === false) {
-          throw new Error(
-            typeof snapData.message === 'string' && snapData.message.trim()
-              ? snapData.message
-              : 'Shotstack could not return render status.'
-          )
-        }
-        const status = String(
-          (snapData.response as { status?: string } | undefined)?.status || ''
-        ).toUpperCase()
-        setProgress(RENDER_PROGRESS_START + ((i + 1) / maxAttempts) * RENDER_PROGRESS_RANGE)
-        setStatusText(`Rendering... ${status || 'RUNNING'}`)
-        const clipUrl = extractShotstackVideoUrl(snapData)
-        if (clipUrl) {
-          const refineAfter = Boolean((processData as { refineWithVizard?: boolean }).refineWithVizard)
-          if (refineAfter) {
-            setStatusText('Sending Shotstack output to Vizard for refinement...')
-            const refineRes = await fetch('/api/clip-editor/vizard/refine-from-url', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({
-                videoUrl: clipUrl,
-                platform: targetPlatform,
-                mimeType: 'video/mp4',
-                fileName: 'shotstack-to-vizard.mp4',
-              }),
-            })
-            const refineData = (await refineRes.json().catch(() => ({}))) as {
-              error?: string
-              userMessage?: string
-              vizard?: { projectId?: string }
-              configurationHints?: string[]
-            }
-            if (!refineRes.ok) {
-              const base =
-                refineData.userMessage ||
-                refineData.error ||
-                'Could not start Vizard refinement from Shotstack output.'
-              const hintBlock =
-                Array.isArray(refineData.configurationHints) && refineData.configurationHints.length
-                  ? `\n\n${refineData.configurationHints.join('\n')}`
-                  : ''
-              throw new Error(base + hintBlock)
-            }
-            const refineProjectId = refineData.vizard?.projectId
-            if (!refineProjectId) {
-              throw new Error('Vizard did not return a project id for refinement.')
-            }
-            setRenderId(`vizard:${refineProjectId}`)
-            await pollVizardUntilDone(refineProjectId, 'Vizard is refining your Shotstack edit...')
-            return
-          }
-          setFinalClipUrl(clipUrl)
-          setStatusText('Done. Your clip is ready.')
-          setProgress(100)
-          return
-        }
-        if (status === 'FAILED' || status === 'CANCELLED') {
-          const errDetail =
-            typeof (snapData.response as { error?: string } | undefined)?.error === 'string'
-              ? ` ${(snapData.response as { error: string }).error}`
-              : ''
-          throw new Error(`Shotstack render failed.${errDetail} Try a shorter clip or simpler overlays.`)
-        }
-        if (status === 'DONE') {
-          doneWithoutUrlAttempts += 1
-          if (doneWithoutUrlAttempts >= 15) {
-            throw new Error(
-              'Render finished but no video URL was returned yet. Wait a minute and check Shotstack, or retry.'
-            )
-          }
-        } else {
-          doneWithoutUrlAttempts = 0
-        }
-      }
-      throw new Error('Render timed out before completion. Please retry.')
+      await pollClipEditorJob(newJobId)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'One-click creation failed')
       setStatusText('')
@@ -613,7 +377,7 @@ export default function ClipEditorTab({
                 </span>
               </div>
               <p className={`text-xs ${subtitleClasses}`}>
-                Upload once, then click Generate. The app handles AI planning, render, and post copy automatically.
+                Upload goes direct to R2. Multi-pass editing runs in the cloud (Vercel + Upstash QStash) — no local machine required.
               </p>
               {uploadStatus && <p className={`text-sm ${subtitleClasses}`}>{uploadStatus}</p>}
             </div>
@@ -627,7 +391,7 @@ export default function ClipEditorTab({
               {busy === 'oneclick' ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
-                  Creating final clip (upload, AI edit, render, metadata)…
+                  Creating final clip (12-pass pipeline)…
                 </>
               ) : (
                 'Create final clip (upload, click, done)'
@@ -657,7 +421,7 @@ export default function ClipEditorTab({
               </div>
             )}
             {statusText && <p className={`text-sm text-center ${subtitleClasses}`}>{statusText}</p>}
-            {renderId && <p className={`text-xs text-center ${subtitleClasses}`}>render id: {renderId}</p>}
+            {jobId && <p className={`text-xs text-center ${subtitleClasses}`}>job id: {jobId}</p>}
 
             {finalClipUrl && (
               <div className={`rounded-xl border p-4 ${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
@@ -668,6 +432,27 @@ export default function ClipEditorTab({
                     Open final clip
                   </a>
                 </Button>
+                {publishMetadata && (
+                  <div className={`mt-4 text-left text-xs space-y-2 ${subtitleClasses}`}>
+                    {typeof (publishMetadata.tiktok as { caption?: string } | undefined)?.caption === 'string' && (
+                      <p>
+                        <span className="font-semibold">TikTok:</span>{' '}
+                        {(publishMetadata.tiktok as { caption: string }).caption}
+                      </p>
+                    )}
+                    {typeof (publishMetadata.youtube as { title?: string } | undefined)?.title === 'string' && (
+                      <p>
+                        <span className="font-semibold">YouTube:</span>{' '}
+                        {(publishMetadata.youtube as { title: string }).title}
+                      </p>
+                    )}
+                    {typeof publishMetadata.engagementScore === 'number' && (
+                      <p>
+                        <span className="font-semibold">Engagement score:</span> {publishMetadata.engagementScore}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </>

@@ -2,6 +2,9 @@
   "functions": {
     "src/app/api/thumbnail-generator/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/clip-editor/steps/run/route.ts": {
+      "maxDuration": 300
     }
   }
 }
