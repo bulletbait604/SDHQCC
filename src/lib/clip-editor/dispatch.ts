@@ -22,6 +22,25 @@ export function clipEditorStepUrl(): string {
   return `${base}/api/clip-editor/steps/run`
 }
 
+/** Regional QStash API — must match the region shown in your Upstash QStash console. */
+export function qStashBaseUrl(): string | undefined {
+  const url = (
+    process.env.QSTASH_URL ||
+    process.env.CLIP_EDITOR_QSTASH_URL ||
+    ''
+  ).trim()
+  return url ? url.replace(/\/$/, '') : undefined
+}
+
+export function qStashClient(): Client {
+  const token = (process.env.QSTASH_TOKEN || '').trim()
+  if (!token) {
+    throw new Error('QSTASH_TOKEN is not configured (Upstash QStash — cloud queue for Vercel)')
+  }
+  const baseUrl = qStashBaseUrl()
+  return baseUrl ? new Client({ token, baseUrl }) : new Client({ token })
+}
+
 export function isQStashConfigured(): boolean {
   return Boolean((process.env.QSTASH_TOKEN || '').trim())
 }
@@ -37,12 +56,7 @@ export async function scheduleClipEditorStep(
   jobId: string,
   delaySeconds = 0
 ): Promise<void> {
-  const token = (process.env.QSTASH_TOKEN || '').trim()
-  if (!token) {
-    throw new Error('QSTASH_TOKEN is not configured (Upstash QStash — cloud queue for Vercel)')
-  }
-
-  const client = new Client({ token })
+  const client = qStashClient()
   await client.publishJSON({
     url: clipEditorStepUrl(),
     body: { jobId },

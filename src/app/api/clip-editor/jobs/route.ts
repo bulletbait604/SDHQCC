@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
         {
           error: 'Clip Editor queue is not configured',
           userMessage:
-            'Add QSTASH_TOKEN (Upstash QStash) and CLIP_EDITOR_APP_URL in Vercel. Processing runs on Vercel via cloud HTTP steps — no local worker.',
+            'Add QSTASH_TOKEN, QSTASH_URL (US or EU region), signing keys, and CLIP_EDITOR_APP_URL in Vercel.',
         },
         { status: 503 }
       )
