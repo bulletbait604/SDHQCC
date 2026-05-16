@@ -21,6 +21,7 @@ export async function submitShotstackRenderPass(
     platform: job.platform,
     editPlan,
     transcript,
+    geminiVideo: job.passes.geminiVideo,
     sourceDurationSeconds: job.sourceDurationSeconds,
   })
 
@@ -39,6 +40,7 @@ export async function submitShotstackRenderPass(
       platform: job.platform,
       editPlan,
       transcript,
+      geminiVideo: job.passes.geminiVideo,
       sourceDurationSeconds: job.sourceDurationSeconds,
       richCaptionUrl,
     })

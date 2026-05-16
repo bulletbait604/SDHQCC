@@ -6,6 +6,7 @@ import type {
   ClipLayoutTemplate,
   CutRanking,
   FinalEditPlan,
+  GeminiVideoPlan,
   HookOverlayPlan,
   PacingPlan,
   ReframingPlan,
@@ -21,8 +22,9 @@ export function runFinalEditPlanPass(params: {
   layoutTemplate: ClipLayoutTemplate
   landscapeMode: 'crop' | 'letterbox'
   durationSeconds: number
+  geminiVideo?: GeminiVideoPlan
 }): FinalEditPlan {
-  const window = buildPrimaryClipWindow(params.ranking, params.durationSeconds)
+  const window = buildPrimaryClipWindow(params.ranking, params.durationSeconds, params.geminiVideo)
   const cuts = [
     {
       start: window.start,

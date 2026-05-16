@@ -7,6 +7,7 @@ import type {
   createClipEditorJobBodySchema,
   cutRankingSchema,
   finalEditPlanSchema,
+  geminiVideoPlanSchema,
   hookAnalysisSchema,
   hookOverlayPlanSchema,
   layoutTemplateSchema,
@@ -22,6 +23,7 @@ export type ClipEditorPlatform = z.infer<typeof clipEditorPlatformSchema>
 export type ClipLayoutTemplate = z.infer<typeof layoutTemplateSchema>
 export type CreateClipEditorJobBody = z.infer<typeof createClipEditorJobBodySchema>
 export type TranscriptAnalysis = z.infer<typeof transcriptAnalysisSchema>
+export type GeminiVideoPlan = z.infer<typeof geminiVideoPlanSchema>
 export type HookAnalysis = z.infer<typeof hookAnalysisSchema>
 export type RetentionAnalysis = z.infer<typeof retentionAnalysisSchema>
 export type CutRanking = z.infer<typeof cutRankingSchema>

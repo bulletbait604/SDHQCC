@@ -1,11 +1,23 @@
-import type { CutRanking } from '@/lib/clip-editor/types'
+import type { CutRanking, GeminiVideoPlan } from '@/lib/clip-editor/types'
 
 /** One continuous excerpt around the top-ranked hook (avoids chaotic multi-segment montages). */
 export function buildPrimaryClipWindow(
   ranking: CutRanking,
-  durationSeconds: number
+  durationSeconds: number,
+  geminiVideo?: GeminiVideoPlan
 ): { start: number; end: number } {
   const duration = Math.max(1, durationSeconds)
+
+  if (geminiVideo?.primaryWindow && geminiVideo.primaryWindow.confidence >= 0.55) {
+    const g = geminiVideo.primaryWindow
+    let start = Math.max(0, g.start)
+    let end = Math.min(duration, Math.max(g.end, start + 10))
+    if (end - start > 45) {
+      end = start + 45
+    }
+    return { start: Number(start.toFixed(2)), end: Number(end.toFixed(2)) }
+  }
+
   const best = ranking.segments[0]
   if (!best) {
     return { start: 0, end: Math.min(28, duration) }

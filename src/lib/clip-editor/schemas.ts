@@ -79,6 +79,46 @@ export const hookAnalysisSchema = z.object({
   hooks: z.array(hookItemSchema),
 })
 
+const cropRegionSchema = z.object({
+  x: z.number().finite().min(0).max(1),
+  y: z.number().finite().min(0).max(1),
+  width: z.number().finite().min(0).max(1),
+  height: z.number().finite().min(0).max(1),
+  label: z.string().optional(),
+  confidence: z.number().finite().min(0).max(1).optional(),
+})
+
+export const geminiVideoPlanSchema = z.object({
+  hookTitle: z.string(),
+  hookSubtitle: z.string().optional(),
+  hookPlan: z.string(),
+  pacePlan: z.string().optional(),
+  contentType: z
+    .enum(['gameplayStream', 'talkingHead', 'sportsAction', 'screenShare', 'unknown'])
+    .optional(),
+  layoutTemplate: layoutTemplateSchema.optional(),
+  cutSeconds: z.number().finite().positive().optional(),
+  introHookSeconds: z.number().finite().positive().optional(),
+  renderSeconds: z.number().finite().positive().optional(),
+  captionStyle: z.enum(['karaoke', 'bold', 'clean']).optional(),
+  hookStyle: z.enum(['pop', 'glitch', 'clean', 'urgent']).optional(),
+  keywordHighlights: z.array(z.string()).optional(),
+  primaryWindow: z.object({
+    start: z.number().finite(),
+    end: z.number().finite(),
+    confidence: z.number().finite().min(0).max(1),
+    reason: z.string(),
+  }),
+  regions: z
+    .object({
+      gameplay: cropRegionSchema.optional(),
+      facecam: cropRegionSchema.optional(),
+      speaker: cropRegionSchema.optional(),
+      action: cropRegionSchema.optional(),
+    })
+    .optional(),
+})
+
 export const dropMomentSchema = z.object({
   start: z.number().finite(),
   end: z.number().finite(),
@@ -254,6 +294,7 @@ export const publishMetadataSchema = z.object({
 
 export const clipEditorJobPassesSchema = z.object({
   transcript: transcriptAnalysisSchema.optional(),
+  geminiVideo: geminiVideoPlanSchema.optional(),
   hooks: hookAnalysisSchema.optional(),
   retention: retentionAnalysisSchema.optional(),
   cutRanking: cutRankingSchema.optional(),

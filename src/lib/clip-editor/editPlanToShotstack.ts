@@ -1,7 +1,7 @@
 import { applyStreamLadderStyleBlueprint, generateShotstackJSON } from '@/lib/generateShotstackJSON'
 import { platformSafeZoneOffsets, type TargetPlatform } from '@/lib/platformEditing'
 import { buildPrimaryClipWindow } from '@/lib/clip-editor/primaryClipWindow'
-import type { FinalEditPlan, TranscriptAnalysis } from '@/lib/clip-editor/types'
+import type { FinalEditPlan, GeminiVideoPlan, TranscriptAnalysis } from '@/lib/clip-editor/types'
 import type { ShotstackRenderPayload } from '@/lib/clip-editor/services/shotstack'
 import { defaultShotstackOutput } from '@/lib/clip-editor/services/shotstack'
 
@@ -15,18 +15,21 @@ export function buildShotstackPackageFromEditPlan(params: {
   platform: string
   editPlan: FinalEditPlan
   transcript: TranscriptAnalysis
+  geminiVideo?: GeminiVideoPlan
   sourceDurationSeconds?: number
   richCaptionUrl?: string
 }): ShotstackRenderPayload {
   const platform = mapPlatform(params.platform)
   const safeZone = platformSafeZoneOffsets(platform)
   const duration = params.sourceDurationSeconds ?? params.transcript.durationSeconds
+  const gemini = params.geminiVideo
 
   const ranking = { segments: params.editPlan.rankedSegments }
-  const window = buildPrimaryClipWindow(ranking, duration)
+  const window = buildPrimaryClipWindow(ranking, duration, gemini)
   const clipLen = window.end - window.start
 
   const hookText =
+    gemini?.hookTitle?.trim() ||
     params.editPlan.hook[0]?.text?.trim() ||
     params.transcript.words
       .slice(0, 12)
@@ -35,12 +38,17 @@ export function buildShotstackPackageFromEditPlan(params: {
       .slice(0, 48) ||
     'watch this'
 
+  const layoutTemplate =
+    gemini?.layoutTemplate && gemini.layoutTemplate !== 'auto'
+      ? gemini.layoutTemplate
+      : params.editPlan.layoutTemplate
+
   const sourceMoments = [
     {
       startSeconds: window.start,
       endSeconds: window.end,
       role: 'hook' as const,
-      reason: 'primary ranked moment',
+      reason: gemini?.primaryWindow?.reason || 'primary ranked moment',
       visualTreatment: 'slowZoomIn' as const,
     },
   ]
@@ -50,18 +58,22 @@ export function buildShotstackPackageFromEditPlan(params: {
   )
 
   const blueprint = {
-    cutSeconds: platform === 'tiktok' ? 2.1 : 2.6,
-    introHookSeconds: 2,
-    renderSeconds: Math.min(45, Math.max(12, clipLen)),
+    cutSeconds: gemini?.cutSeconds ?? (platform === 'tiktok' ? 2.1 : 2.6),
+    introHookSeconds: gemini?.introHookSeconds ?? 2,
+    renderSeconds: Math.min(
+      45,
+      Math.max(12, gemini?.renderSeconds ?? clipLen)
+    ),
     captionWordsPerChunk: 4,
-    contentType: 'unknown' as const,
-    layoutTemplate: params.editPlan.layoutTemplate,
+    contentType: gemini?.contentType ?? ('unknown' as const),
+    layoutTemplate,
+    regions: gemini?.regions,
     hookTitle: hookText.slice(0, 42),
-    hookSubtitle: '',
-    hookStyle: 'clean' as const,
-    captionStyle: 'bold' as const,
+    hookSubtitle: gemini?.hookSubtitle?.slice(0, 56) || '',
+    hookStyle: gemini?.hookStyle ?? ('clean' as const),
+    captionStyle: gemini?.captionStyle ?? ('bold' as const),
     richCaptionUrl: params.richCaptionUrl,
-    keywordHighlights: [],
+    keywordHighlights: gemini?.keywordHighlights?.slice(0, 12) ?? [],
     sourceMoments,
     textOverlays: [],
     stickerOverlays: [],
@@ -77,7 +89,8 @@ export function buildShotstackPackageFromEditPlan(params: {
     platform,
     safeZone,
     landscapeMode: params.editPlan.landscapeMode,
-    hookPlan: hookText,
+    hookPlan: gemini?.hookPlan || hookText,
+    pacePlan: gemini?.pacePlan,
     editBlueprint: styled,
     transcriptWords: wordsInWindow.map((w) => ({
       start: w.start,

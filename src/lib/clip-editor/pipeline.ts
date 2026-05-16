@@ -9,6 +9,7 @@ import {
 import { scheduleClipEditorStep } from '@/lib/clip-editor/dispatch'
 import type { ClipEditorJobState } from '@/lib/clip-editor/jobStates'
 import { runTranscriptionPass } from '@/lib/clip-editor/services/deepgram'
+import { runGeminiVideoAnalysisPass } from '@/lib/clip-editor/passes/pass01-geminiVideo'
 import { runHookAnalysisPass } from '@/lib/clip-editor/passes/pass02-hooks'
 import { runRetentionAnalysisPass } from '@/lib/clip-editor/passes/pass03-retention'
 import { runCutRankingPass } from '@/lib/clip-editor/passes/pass04-cutRanking'
@@ -57,15 +58,32 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
         await updateClipEditorJobState(jobId, 'TRANSCRIBING')
         const transcript = await runTranscriptionPass(sourceReadUrl)
         await updateClipEditorJobPasses(jobId, { transcript })
-        await updateClipEditorJobState(jobId, 'HOOK_ANALYSIS')
+        await updateClipEditorJobState(jobId, 'VIDEO_ANALYSIS')
         await scheduleClipEditorStep(jobId)
-        return { done: false, rescheduled: true, state: 'HOOK_ANALYSIS' }
+        return { done: false, rescheduled: true, state: 'VIDEO_ANALYSIS' }
       }
       case 'TRANSCRIBING': {
         if (!job.passes.transcript) {
           const transcript = await runTranscriptionPass(sourceReadUrl)
           await updateClipEditorJobPasses(jobId, { transcript })
         }
+        await updateClipEditorJobState(jobId, 'VIDEO_ANALYSIS')
+        await scheduleClipEditorStep(jobId)
+        return { done: false, rescheduled: true, state: 'VIDEO_ANALYSIS' }
+      }
+      case 'VIDEO_ANALYSIS': {
+        const transcript = job.passes.transcript
+        if (!transcript) throw new Error('Missing transcript for video analysis')
+        const geminiVideo = await runGeminiVideoAnalysisPass({
+          sourceReadUrl,
+          r2FileKey: job.r2FileKey,
+          mimeType: job.mimeType,
+          platform: job.platform,
+          layoutTemplate: job.layoutTemplate,
+          durationSeconds: transcript.durationSeconds,
+          transcriptExcerpt: transcript.fullTranscript,
+        })
+        await updateClipEditorJobPasses(jobId, { geminiVideo })
         await updateClipEditorJobState(jobId, 'HOOK_ANALYSIS')
         await scheduleClipEditorStep(jobId)
         return { done: false, rescheduled: true, state: 'HOOK_ANALYSIS' }
@@ -152,6 +170,7 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
           layoutTemplate: job.layoutTemplate,
           landscapeMode: job.landscapeMode,
           durationSeconds: transcript.durationSeconds,
+          geminiVideo: job.passes.geminiVideo,
         })
         await updateClipEditorJobPasses(jobId, { finalEditPlan })
         await updateClipEditorJobState(jobId, 'RENDERING')
