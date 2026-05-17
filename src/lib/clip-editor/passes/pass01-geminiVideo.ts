@@ -5,14 +5,19 @@ import type { ClipEditorPlatform, ClipLayoutTemplate, GeminiVideoPlan } from '@/
 import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
 import { resolveClipEditorAlgorithmNotes } from '@/lib/clipEditorAlgorithmNotes'
 import { platformEditingDirective, platformSafeZoneOffsets } from '@/lib/platformEditing'
-import { getFileFromR2, getR2ObjectMetadata } from '@/lib/r2'
+import { getFileFromR2 } from '@/lib/r2'
 import {
   deleteGeminiUploadedFile,
   pollGeminiFileUntilActive,
   uploadBufferToGeminiFilesApi,
 } from '@/lib/geminiFiles'
 
-const GEMINI_EXTERNAL_URL_MAX_BYTES = 100 * 1024 * 1024
+function normalizeVideoMimeType(mimeType: string): string {
+  const m = (mimeType || '').trim().toLowerCase()
+  if (!m || m === 'application/octet-stream') return 'video/mp4'
+  if (m.startsWith('video/')) return m
+  return 'video/mp4'
+}
 
 async function uploadClipToGeminiFiles(params: {
   r2FileKey: string
@@ -44,21 +49,15 @@ export async function runGeminiVideoAnalysisPass(params: {
   const snapshot = await readAlgorithmSnapshotFromMongo()
   const algorithmNotes = resolveClipEditorAlgorithmNotes(snapshot, params.platform)
   const safeZone = platformSafeZoneOffsets(params.platform)
+  const mimeType = normalizeVideoMimeType(params.mimeType)
 
-  let geminiFileUri = params.sourceReadUrl
-  let cleanupGeminiName: string | null = null
-  let usedFilesApi = false
-
-  const meta = await getR2ObjectMetadata(params.r2FileKey)
-  if (meta && meta.contentLength > GEMINI_EXTERNAL_URL_MAX_BYTES) {
-    const uploaded = await uploadClipToGeminiFiles({
-      r2FileKey: params.r2FileKey,
-      mimeType: params.mimeType,
-    })
-    cleanupGeminiName = uploaded.name
-    geminiFileUri = uploaded.uri
-    usedFilesApi = true
-  }
+  // Always use Gemini Files API — presigned R2 URLs frequently cause HTTP 400 from generateContent.
+  const uploaded = await uploadClipToGeminiFiles({
+    r2FileKey: params.r2FileKey,
+    mimeType,
+  })
+  const cleanupGeminiName = uploaded.name
+  const geminiFileUri = uploaded.uri
 
   const prompt = `You are a viral short-form editor (OpusClip / StreamLadder quality). Watch this video directly.
 
@@ -74,7 +73,7 @@ ${JSON.stringify(algorithmNotes)}
 Transcript excerpt (for alignment — verify against what you see):
 ${params.transcriptExcerpt.slice(0, 6000)}
 
-Return JSON only:
+Return valid JSON only (no markdown fences):
 {
   "hookTitle": "max 8 words, scroll-stopping, grounded in what happens on screen",
   "hookSubtitle": "optional max 10 words",
@@ -110,39 +109,18 @@ Rules:
 - renderSeconds should match primaryWindow length (capped at 38).
 - hookTitle and hookPlan are required strings.`
 
-  const runAnalysis = async (fileUri: string): Promise<GeminiVideoPlan> => {
+  try {
     const raw = await geminiJsonPass(geminiVideoPlanSchema, prompt, {
-      videoFileUri: fileUri,
-      mimeType: params.mimeType,
+      videoFileUri: geminiFileUri,
+      mimeType,
       allowOpenAiFallback: false,
       preprocess: (parsed) => preprocessGeminiVideoRaw(parsed, params.durationSeconds),
     })
     return normalizeGeminiVideoPlan(raw, params.durationSeconds)
-  }
-
-  try {
-    try {
-      return await runAnalysis(geminiFileUri)
-    } catch (firstError) {
-      if (usedFilesApi) throw firstError
-      console.warn(
-        '[clip-editor] Gemini presigned URL analysis failed; retrying via Files API:',
-        firstError instanceof Error ? firstError.message : firstError
-      )
-      const uploaded = await uploadClipToGeminiFiles({
-        r2FileKey: params.r2FileKey,
-        mimeType: params.mimeType,
-      })
-      cleanupGeminiName = uploaded.name
-      geminiFileUri = uploaded.uri
-      return await runAnalysis(geminiFileUri)
-    }
   } finally {
-    if (cleanupGeminiName) {
-      const apiKey = (process.env.GEMINI_API || '').trim()
-      if (apiKey) {
-        await deleteGeminiUploadedFile(apiKey, cleanupGeminiName).catch(() => undefined)
-      }
+    const apiKey = (process.env.GEMINI_API || '').trim()
+    if (apiKey) {
+      await deleteGeminiUploadedFile(apiKey, cleanupGeminiName).catch(() => undefined)
     }
   }
 }

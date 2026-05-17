@@ -25,6 +25,7 @@ import {
 } from '@/lib/clip-editor/passes/pass11-render'
 import { runMetadataPass } from '@/lib/clip-editor/passes/pass12-metadata'
 import { pollShotstackRender } from '@/lib/clip-editor/services/shotstack'
+import { formatUnknownError } from '@/lib/clip-editor/formatError'
 
 async function refreshSourceUrl(r2FileKey: string): Promise<string> {
   const url = await generatePresignedReadUrl(r2FileKey, 86400)
@@ -231,9 +232,10 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
         throw new Error(`Unhandled job state: ${job.state}`)
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Clip editor step failed'
+    const detail = formatUnknownError(error)
+    const message = `[${job.state}] ${detail}`
     await markClipEditorJobFailed(jobId, message)
-    throw error
+    throw new Error(message)
   }
 }
 

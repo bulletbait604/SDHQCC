@@ -32,7 +32,12 @@ export async function submitShotstackRender(
     message?: string
   }
   if (!res.ok) {
-    throw new Error(shotstackSubmitUserMessage(data) || `Shotstack submit failed (${res.status})`)
+    const detail = shotstackSubmitUserMessage(data)
+    throw new Error(
+      detail && detail !== 'Bad Request'
+        ? `Shotstack submit failed (${res.status}): ${detail}`
+        : `Shotstack submit failed (${res.status}): ${JSON.stringify(data).slice(0, 300)}`
+    )
   }
   const renderId = data.response?.id || data.id
   if (!renderId) throw new Error('Shotstack did not return a render id')

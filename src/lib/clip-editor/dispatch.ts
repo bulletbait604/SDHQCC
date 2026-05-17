@@ -1,4 +1,5 @@
 import { Client, Receiver } from '@upstash/qstash'
+import { formatUnknownError } from '@/lib/clip-editor/formatError'
 
 /** Default QStash region for this project (Upstash US). Override with QSTASH_URL for EU. */
 export const QSTASH_US_BASE_URL = 'https://qstash-us-east-1.upstash.io'
@@ -64,12 +65,17 @@ export async function scheduleClipEditorStep(
   delaySeconds = 0
 ): Promise<void> {
   const client = qStashClient()
-  await client.publishJSON({
-    url: clipEditorStepUrl(),
-    body: { jobId },
-    retries: 3,
-    ...(delaySeconds > 0 ? { delay: delaySeconds } : {}),
-  })
+  const url = clipEditorStepUrl()
+  try {
+    await client.publishJSON({
+      url,
+      body: { jobId },
+      retries: 3,
+      ...(delaySeconds > 0 ? { delay: delaySeconds } : {}),
+    })
+  } catch (error) {
+    throw new Error(`QStash could not schedule next step (${url}): ${formatUnknownError(error)}`)
+  }
 }
 
 export async function verifyClipEditorStepRequest(params: {

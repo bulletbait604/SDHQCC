@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { advanceClipEditorStep } from '@/lib/clip-editor/pipeline'
 import { verifyClipEditorStepRequest } from '@/lib/clip-editor/dispatch'
+import { getClipEditorJob } from '@/lib/clip-editor/jobs'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -31,13 +32,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid body' }, { status: 400 })
   }
 
+  const jobBefore = await getClipEditorJob(jobId)
+  const stepState = jobBefore?.state ?? 'unknown'
+
   try {
     const result = await advanceClipEditorStep(jobId)
     console.info('[clip-editor] step ok', { jobId, state: result.state, done: result.done })
     return NextResponse.json({ ok: true, ...result })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Step failed'
-    console.error('[clip-editor] step failed', { jobId, error: message })
-    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+    console.error('[clip-editor] step failed', { jobId, stepState, error: message })
+    return NextResponse.json({ ok: false, error: message, stepState }, { status: 500 })
   }
 }

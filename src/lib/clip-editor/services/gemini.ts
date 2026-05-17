@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai'
 import { extractFirstJsonObject } from '@/lib/clip-editor/parseJson'
+import { formatUnknownError } from '@/lib/clip-editor/formatError'
 import { clipEditorGeminiModel, openAiFallbackEnabled } from '@/lib/clip-editor/env'
 import { z, type ZodError } from 'zod'
 
@@ -57,8 +58,9 @@ export async function geminiJsonPass<T extends z.ZodType>(
   }
 ): Promise<z.infer<T>> {
   const model = clipEditorGeminiModel()
+  const hasVideo = Boolean(options?.videoFileUri)
   const allowFallback =
-    options?.allowOpenAiFallback ?? (options?.videoFileUri ? false : true)
+    options?.allowOpenAiFallback ?? (hasVideo ? false : true)
   let rawText = ''
 
   try {
@@ -74,13 +76,16 @@ export async function geminiJsonPass<T extends z.ZodType>(
         },
       })
     }
+
+    // JSON response MIME + video input often returns HTTP 400 "Bad Request" on Gemini.
+    const config = hasVideo
+      ? { temperature: 0.25 }
+      : { temperature: 0.25, responseMimeType: 'application/json' as const }
+
     const response = await ai.models.generateContent({
       model,
       contents: [{ role: 'user', parts }],
-      config: {
-        temperature: 0.25,
-        responseMimeType: 'application/json',
-      },
+      config,
     })
     rawText = response.text || ''
     if (!rawText.trim()) {
@@ -88,11 +93,11 @@ export async function geminiJsonPass<T extends z.ZodType>(
     }
   } catch (geminiError) {
     if (!allowFallback || !openAiFallbackEnabled()) {
-      const msg = geminiError instanceof Error ? geminiError.message : String(geminiError)
+      const detail = formatUnknownError(geminiError)
       throw new Error(
-        options?.videoFileUri
-          ? `Gemini video analysis failed: ${msg}`
-          : `Gemini request failed: ${msg}`
+        hasVideo
+          ? `Gemini video analysis failed (${model}): ${detail}`
+          : `Gemini request failed (${model}): ${detail}`
       )
     }
     rawText = await callOpenAiJson(prompt)
