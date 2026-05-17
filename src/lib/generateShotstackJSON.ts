@@ -1247,11 +1247,11 @@ function buildRichCaptionClips(params: {
         background: {
           color: '#000000',
           opacity: 0.52,
-          padding: 10,
           borderRadius: 14,
+          wrap: true,
         },
-        wrap: true,
-        align: { vertical: 'middle' },
+        padding: 10,
+        align: { horizontal: 'center', vertical: 'middle' },
         stroke: { width: 4, color: '#000000', opacity: 1 },
         animation: { style: animationStyle },
         active: {

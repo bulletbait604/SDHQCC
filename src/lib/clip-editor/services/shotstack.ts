@@ -4,6 +4,7 @@ import {
   shotstackSubmitUserMessage,
 } from '@/lib/shotstackEditUrl'
 import { resolveShotstackApiKey } from '@/lib/clipEditorServerKeys'
+import { assertValidShotstackTimeline } from '@/lib/clip-editor/shotstackTimelineValidate'
 
 export type ShotstackRenderPayload = {
   timeline: Record<string, unknown>
@@ -16,6 +17,8 @@ export async function submitShotstackRender(
 ): Promise<string> {
   const apiKey = resolveShotstackApiKey()
   if (!apiKey) throw new Error('SHOTSTACK_API_KEY is not configured')
+
+  assertValidShotstackTimeline(payload.timeline)
 
   const res = await fetch(`${shotstackEditApiRoot()}/render`, {
     method: 'POST',

@@ -50,6 +50,33 @@ test('gameplay stream auto layout renders stacked video layers', () => {
   assert.ok(asset.crop && typeof asset.crop === 'object', 'crop must be on VideoAsset')
 })
 
+test('rich-caption wrap lives on background not asset root', () => {
+  const edit = generateShotstackJSON({
+    sourceUrl: 'https://example.com/source.mp4',
+    platform: 'tiktok',
+    safeZone,
+    editBlueprint: {
+      layoutTemplate: 'fullFrame',
+      richCaptionUrl: 'https://example.com/captions.vtt',
+      renderSeconds: 12,
+      sourceMoments: [{ startSeconds: 0, endSeconds: 12, role: 'hook' }],
+    },
+    sourceDurationSeconds: 20,
+  })
+
+  const richClip = tracksFor(edit)
+    .flatMap((track) => track.clips)
+    .find((clip) => assetType(clip) === 'rich-caption')
+  assert.ok(richClip)
+  const asset = richClip!.asset as Record<string, unknown>
+  assert.equal('wrap' in asset, false)
+  const bg = asset.background as Record<string, unknown>
+  assert.equal(bg.wrap, true)
+  const align = asset.align as Record<string, unknown>
+  assert.equal(align.horizontal, 'center')
+  assert.equal(align.vertical, 'middle')
+})
+
 test('source-timed subtitle maps onto reordered final timeline', () => {
   const edit = generateShotstackJSON({
     sourceUrl: 'https://example.com/source.mp4',
