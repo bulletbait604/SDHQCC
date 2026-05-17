@@ -1,5 +1,6 @@
 import { geminiJsonPass } from '@/lib/clip-editor/services/gemini'
 import { geminiVideoPlanSchema } from '@/lib/clip-editor/schemas'
+import { normalizeGeminiVideoPlan, preprocessGeminiVideoRaw } from '@/lib/clip-editor/normalizePlans'
 import type { ClipEditorPlatform, ClipLayoutTemplate, GeminiVideoPlan } from '@/lib/clip-editor/types'
 import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
 import { resolveClipEditorAlgorithmNotes } from '@/lib/clipEditorAlgorithmNotes'
@@ -12,6 +13,24 @@ import {
 } from '@/lib/geminiFiles'
 
 const GEMINI_EXTERNAL_URL_MAX_BYTES = 100 * 1024 * 1024
+
+async function uploadClipToGeminiFiles(params: {
+  r2FileKey: string
+  mimeType: string
+}): Promise<{ uri: string; name: string }> {
+  const apiKey = (process.env.GEMINI_API || '').trim()
+  if (!apiKey) throw new Error('GEMINI_API is not configured')
+  const buffer = await getFileFromR2(params.r2FileKey)
+  if (!buffer) throw new Error('Could not load clip for Gemini video analysis')
+  const uploaded = await uploadBufferToGeminiFilesApi({
+    apiKey,
+    buffer,
+    mimeType: params.mimeType,
+    displayName: 'clip-editor-source.mp4',
+  })
+  await pollGeminiFileUntilActive(apiKey, uploaded.uri, { maxRetries: 45, retryDelayMs: 2000 })
+  return uploaded
+}
 
 export async function runGeminiVideoAnalysisPass(params: {
   sourceReadUrl: string
@@ -28,22 +47,17 @@ export async function runGeminiVideoAnalysisPass(params: {
 
   let geminiFileUri = params.sourceReadUrl
   let cleanupGeminiName: string | null = null
+  let usedFilesApi = false
 
   const meta = await getR2ObjectMetadata(params.r2FileKey)
   if (meta && meta.contentLength > GEMINI_EXTERNAL_URL_MAX_BYTES) {
-    const apiKey = (process.env.GEMINI_API || '').trim()
-    if (!apiKey) throw new Error('GEMINI_API is not configured')
-    const buffer = await getFileFromR2(params.r2FileKey)
-    if (!buffer) throw new Error('Could not load clip for Gemini video analysis')
-    const uploaded = await uploadBufferToGeminiFilesApi({
-      apiKey,
-      buffer,
+    const uploaded = await uploadClipToGeminiFiles({
+      r2FileKey: params.r2FileKey,
       mimeType: params.mimeType,
-      displayName: 'clip-editor-source.mp4',
     })
     cleanupGeminiName = uploaded.name
-    await pollGeminiFileUntilActive(apiKey, uploaded.uri)
     geminiFileUri = uploaded.uri
+    usedFilesApi = true
   }
 
   const prompt = `You are a viral short-form editor (OpusClip / StreamLadder quality). Watch this video directly.
@@ -90,16 +104,39 @@ Return JSON only:
 
 Rules:
 - primaryWindow must be ONE continuous excerpt (12-38s) with the strongest hook at the start of that window.
-- Use exact source timestamps in seconds.
+- Use exact source timestamps in seconds (0 to ${params.durationSeconds.toFixed(1)}).
 - Pick layoutTemplate from what you see (stackedFacecam for facecam+gameplay, focusCrop for talking head, etc.).
 - Do not invent moments not in the video.
-- renderSeconds should match primaryWindow length (capped at 38).`
+- renderSeconds should match primaryWindow length (capped at 38).
+- hookTitle and hookPlan are required strings.`
+
+  const runAnalysis = async (fileUri: string): Promise<GeminiVideoPlan> => {
+    const raw = await geminiJsonPass(geminiVideoPlanSchema, prompt, {
+      videoFileUri: fileUri,
+      mimeType: params.mimeType,
+      allowOpenAiFallback: false,
+      preprocess: (parsed) => preprocessGeminiVideoRaw(parsed, params.durationSeconds),
+    })
+    return normalizeGeminiVideoPlan(raw, params.durationSeconds)
+  }
 
   try {
-    return await geminiJsonPass(geminiVideoPlanSchema, prompt, {
-      videoFileUri: geminiFileUri,
-      mimeType: params.mimeType,
-    })
+    try {
+      return await runAnalysis(geminiFileUri)
+    } catch (firstError) {
+      if (usedFilesApi) throw firstError
+      console.warn(
+        '[clip-editor] Gemini presigned URL analysis failed; retrying via Files API:',
+        firstError instanceof Error ? firstError.message : firstError
+      )
+      const uploaded = await uploadClipToGeminiFiles({
+        r2FileKey: params.r2FileKey,
+        mimeType: params.mimeType,
+      })
+      cleanupGeminiName = uploaded.name
+      geminiFileUri = uploaded.uri
+      return await runAnalysis(geminiFileUri)
+    }
   } finally {
     if (cleanupGeminiName) {
       const apiKey = (process.env.GEMINI_API || '').trim()

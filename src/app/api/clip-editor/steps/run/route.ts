@@ -33,9 +33,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const result = await advanceClipEditorStep(jobId)
+    console.info('[clip-editor] step ok', { jobId, state: result.state, done: result.done })
     return NextResponse.json({ ok: true, ...result })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Step failed'
+    console.error('[clip-editor] step failed', { jobId, error: message })
     return NextResponse.json({ ok: false, error: message }, { status: 500 })
   }
 }

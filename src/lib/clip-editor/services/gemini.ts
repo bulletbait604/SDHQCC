@@ -1,12 +1,18 @@
 import { GoogleGenAI } from '@google/genai'
 import { extractFirstJsonObject } from '@/lib/clip-editor/parseJson'
 import { clipEditorGeminiModel, openAiFallbackEnabled } from '@/lib/clip-editor/env'
-import type { z } from 'zod'
+import { z, type ZodError } from 'zod'
 
 function geminiClient(): GoogleGenAI {
   const apiKey = (process.env.GEMINI_API || process.env.GOOGLE_API_KEY || '').trim()
   if (!apiKey) throw new Error('GEMINI_API is not configured')
   return new GoogleGenAI({ apiKey })
+}
+
+function formatZodError(error: ZodError): string {
+  return error.issues
+    .map((issue) => `${issue.path.join('.') || 'root'}: ${issue.message}`)
+    .join('; ')
 }
 
 async function callOpenAiJson(prompt: string): Promise<string> {
@@ -42,9 +48,17 @@ async function callOpenAiJson(prompt: string): Promise<string> {
 export async function geminiJsonPass<T extends z.ZodType>(
   schema: T,
   prompt: string,
-  options?: { videoFileUri?: string; mimeType?: string }
+  options?: {
+    videoFileUri?: string
+    mimeType?: string
+    /** OpenAI cannot see video; default false when videoFileUri is set */
+    allowOpenAiFallback?: boolean
+    preprocess?: (parsed: unknown) => unknown
+  }
 ): Promise<z.infer<T>> {
   const model = clipEditorGeminiModel()
+  const allowFallback =
+    options?.allowOpenAiFallback ?? (options?.videoFileUri ? false : true)
   let rawText = ''
 
   try {
@@ -69,16 +83,41 @@ export async function geminiJsonPass<T extends z.ZodType>(
       },
     })
     rawText = response.text || ''
+    if (!rawText.trim()) {
+      throw new Error('Gemini returned empty response')
+    }
   } catch (geminiError) {
-    if (!openAiFallbackEnabled()) throw geminiError
-    rawText = await callOpenAiJson(
-      options?.videoFileUri
-        ? `${prompt}\n\nNote: video context unavailable in fallback; rely on transcript text in the prompt.`
-        : prompt
-    )
+    if (!allowFallback || !openAiFallbackEnabled()) {
+      const msg = geminiError instanceof Error ? geminiError.message : String(geminiError)
+      throw new Error(
+        options?.videoFileUri
+          ? `Gemini video analysis failed: ${msg}`
+          : `Gemini request failed: ${msg}`
+      )
+    }
+    rawText = await callOpenAiJson(prompt)
   }
 
   const jsonSlice = extractFirstJsonObject(rawText) || rawText.trim()
-  const parsed = JSON.parse(jsonSlice) as unknown
-  return schema.parse(parsed)
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(jsonSlice) as unknown
+  } catch {
+    throw new Error(
+      `AI returned invalid JSON (${rawText.slice(0, 120).replace(/\s+/g, ' ')}...)`
+    )
+  }
+
+  if (options?.preprocess) {
+    parsed = options.preprocess(parsed)
+  }
+
+  try {
+    return schema.parse(parsed)
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new Error(`AI response validation failed: ${formatZodError(error)}`)
+    }
+    throw error
+  }
 }

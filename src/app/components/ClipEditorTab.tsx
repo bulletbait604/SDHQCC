@@ -166,7 +166,7 @@ export default function ClipEditorTab({
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
   const pollClipEditorJob = async (id: string): Promise<void> => {
-    const maxAttempts = 180
+    const maxAttempts = 300
     for (let i = 0; i < maxAttempts; i++) {
       await sleep(3000)
       const res = await fetch(`/api/clip-editor/jobs/${encodeURIComponent(id)}`, {
@@ -201,7 +201,9 @@ export default function ClipEditorTab({
         return
       }
     }
-    throw new Error('Clip editor job timed out. Check worker logs and retry.')
+    throw new Error(
+      'Clip editor job timed out (still processing on server). Wait a few minutes and refresh, or retry with a shorter clip.'
+    )
   }
 
   const handleOneClickCreate = async () => {

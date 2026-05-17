@@ -59,20 +59,23 @@ export const hookItemSchema = z.object({
   end: z.number().finite(),
   score: z.number().finite().min(0).max(100),
   reason: z.string(),
-  category: z
-    .enum([
-      'surprise',
-      'controversy',
-      'humor',
-      'emotion',
-      'curiosity',
-      'challenge',
-      'argument',
-      'gaming',
-      'reaction',
-      'other',
-    ])
-    .optional(),
+  category: z.preprocess(
+    (value) => (value === 'arguments' ? 'argument' : value),
+    z
+      .enum([
+        'surprise',
+        'controversy',
+        'humor',
+        'emotion',
+        'curiosity',
+        'challenge',
+        'argument',
+        'gaming',
+        'reaction',
+        'other',
+      ])
+      .optional()
+  ),
 })
 
 export const hookAnalysisSchema = z.object({

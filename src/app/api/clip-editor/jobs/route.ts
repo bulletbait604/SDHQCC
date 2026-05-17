@@ -9,7 +9,11 @@ import { generatePresignedReadUrl } from '@/lib/r2'
 import { ZodError } from 'zod'
 import { createClipEditorJobBodySchema } from '@/lib/clip-editor/schemas'
 import { createClipEditorJob } from '@/lib/clip-editor/jobs'
-import { scheduleClipEditorStep, isQStashConfigured, clipEditorAppBaseUrl } from '@/lib/clip-editor/dispatch'
+import {
+  scheduleClipEditorStep,
+  isQStashFullyConfigured,
+  clipEditorAppBaseUrl,
+} from '@/lib/clip-editor/dispatch'
 import { CLIP_EDITOR_STATE_LABELS } from '@/lib/clip-editor/jobStates'
 
 export const dynamic = 'force-dynamic'
@@ -21,12 +25,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Clip Editor requires the Editor badge.' }, { status: 403 })
     }
 
-    if (!isQStashConfigured()) {
+    if (!isQStashFullyConfigured()) {
       return NextResponse.json(
         {
           error: 'Clip Editor queue is not configured',
           userMessage:
-            'Add QSTASH_TOKEN, QSTASH_URL (US or EU region), signing keys, and CLIP_EDITOR_APP_URL in Vercel.',
+            'Add QSTASH_TOKEN, QSTASH_CURRENT_SIGNING_KEY, QSTASH_NEXT_SIGNING_KEY, QSTASH_URL (US or EU), and CLIP_EDITOR_APP_URL in Vercel.',
         },
         { status: 503 }
       )

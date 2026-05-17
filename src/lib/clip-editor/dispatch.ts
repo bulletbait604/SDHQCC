@@ -47,6 +47,11 @@ export function isQStashConfigured(): boolean {
   return Boolean((process.env.QSTASH_TOKEN || '').trim())
 }
 
+/** Token alone is not enough — step callbacks require signing keys. */
+export function isQStashFullyConfigured(): boolean {
+  return isQStashConfigured() && qStashReceiver() !== null
+}
+
 export function qStashReceiver(): Receiver | null {
   const current = (process.env.QSTASH_CURRENT_SIGNING_KEY || '').trim()
   const next = (process.env.QSTASH_NEXT_SIGNING_KEY || '').trim()

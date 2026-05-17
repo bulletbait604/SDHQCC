@@ -101,9 +101,14 @@ export function buildShotstackPackageFromEditPlan(params: {
     sourceDurationSeconds: duration,
   })
 
+  const output =
+    shotstack.output && typeof shotstack.output === 'object'
+      ? (shotstack.output as Record<string, unknown>)
+      : defaultShotstackOutput()
+
   return {
     timeline: shotstack.timeline as Record<string, unknown>,
-    output: defaultShotstackOutput(),
+    output,
     metadata: shotstack.metadata as Record<string, unknown> | undefined,
   }
 }

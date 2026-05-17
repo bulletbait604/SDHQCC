@@ -8,7 +8,7 @@ export async function runHookAnalysisPass(transcript: TranscriptAnalysis): Promi
 
 Analyze this transcript and identify the strongest hooks for a vertical short.
 
-Detect moments with: surprise, controversy, humor, emotion, curiosity, challenge, arguments, gaming highlights, reaction moments.
+Detect moments with: surprise, controversy, humor, emotion, curiosity, challenge, argument, gaming highlights, reaction moments.
 
 Return JSON only:
 {
