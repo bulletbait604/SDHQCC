@@ -1,4 +1,127 @@
+import { geminiVideoPlanSchema } from '@/lib/clip-editor/schemas'
 import type { GeminiVideoPlan } from '@/lib/clip-editor/types'
+
+const CAPTION_STYLES = ['karaoke', 'bold', 'clean'] as const
+const HOOK_STYLES = ['pop', 'glitch', 'clean', 'urgent'] as const
+const CONTENT_TYPES = ['gameplayStream', 'talkingHead', 'sportsAction', 'screenShare', 'unknown'] as const
+const LAYOUT_TEMPLATES = [
+  'auto',
+  'fullFrame',
+  'stackedFacecam',
+  'pictureInPicture',
+  'splitScreen',
+  'focusCrop',
+] as const
+
+type CaptionStyle = (typeof CAPTION_STYLES)[number]
+type HookStyle = (typeof HOOK_STYLES)[number]
+type ContentType = (typeof CONTENT_TYPES)[number]
+type LayoutTemplate = (typeof LAYOUT_TEMPLATES)[number]
+
+function asLowerString(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toLowerCase() : ''
+}
+
+function isCaptionStyle(value: string): value is CaptionStyle {
+  return (CAPTION_STYLES as readonly string[]).includes(value)
+}
+
+function isHookStyle(value: string): value is HookStyle {
+  return (HOOK_STYLES as readonly string[]).includes(value)
+}
+
+function isContentType(value: string): value is ContentType {
+  return (CONTENT_TYPES as readonly string[]).includes(value)
+}
+
+function isLayoutTemplate(value: string): value is LayoutTemplate {
+  return (LAYOUT_TEMPLATES as readonly string[]).includes(value)
+}
+
+/** Gemini often swaps hookStyle ↔ captionStyle (e.g. urgent on captions). */
+export function normalizeCaptionStyle(value: unknown): CaptionStyle | undefined {
+  const s = asLowerString(value)
+  if (!s) return undefined
+  if (isCaptionStyle(s)) return s
+  if (isHookStyle(s)) {
+    if (s === 'urgent' || s === 'pop') return 'bold'
+    if (s === 'glitch') return 'karaoke'
+    return 'clean'
+  }
+  if (s.includes('karaoke') || s.includes('word')) return 'karaoke'
+  if (s.includes('bold') || s.includes('urgent') || s.includes('pop')) return 'bold'
+  return 'bold'
+}
+
+export function normalizeHookStyle(value: unknown): HookStyle | undefined {
+  const s = asLowerString(value)
+  if (!s) return undefined
+  if (isHookStyle(s)) return s
+  if (isCaptionStyle(s)) {
+    if (s === 'karaoke') return 'pop'
+    if (s === 'bold') return 'urgent'
+    return 'clean'
+  }
+  if (s.includes('glitch')) return 'glitch'
+  if (s.includes('urgent')) return 'urgent'
+  return 'clean'
+}
+
+function normalizeContentType(value: unknown): ContentType | undefined {
+  const s = asLowerString(value)
+  if (!s) return undefined
+  if (isContentType(s)) return s
+  if (s.includes('game') || s.includes('stream')) return 'gameplayStream'
+  if (s.includes('talk') || s.includes('podcast') || s.includes('head')) return 'talkingHead'
+  if (s.includes('sport') || s.includes('action')) return 'sportsAction'
+  if (s.includes('screen') || s.includes('share')) return 'screenShare'
+  return 'unknown'
+}
+
+function normalizeLayoutTemplate(value: unknown): LayoutTemplate | undefined {
+  const s = asLowerString(value)
+  if (!s) return undefined
+  if (isLayoutTemplate(s)) return s
+  if (s.includes('stack')) return 'stackedFacecam'
+  if (s.includes('pip') || s.includes('picture')) return 'pictureInPicture'
+  if (s.includes('split')) return 'splitScreen'
+  if (s.includes('focus') || s.includes('crop')) return 'focusCrop'
+  if (s.includes('full')) return 'fullFrame'
+  return 'auto'
+}
+
+function normalizeEnumFields(o: Record<string, unknown>): void {
+  const captionRaw = o.captionStyle
+  const hookRaw = o.hookStyle
+  const captionFromCaption = normalizeCaptionStyle(captionRaw)
+  const hookFromHook = normalizeHookStyle(hookRaw)
+  const captionFromHook = normalizeCaptionStyle(hookRaw)
+  const hookFromCaption = normalizeHookStyle(captionRaw)
+
+  const captionLooksLikeHook =
+    typeof captionRaw === 'string' && isHookStyle(asLowerString(captionRaw)) && !isCaptionStyle(asLowerString(captionRaw))
+  const hookLooksLikeCaption =
+    typeof hookRaw === 'string' && isCaptionStyle(asLowerString(hookRaw)) && !isHookStyle(asLowerString(hookRaw))
+
+  if (captionLooksLikeHook && hookLooksLikeCaption) {
+    o.captionStyle = captionFromHook
+    o.hookStyle = hookFromCaption
+  } else {
+    if (captionFromCaption) o.captionStyle = captionFromCaption
+    else if (captionRaw !== undefined) delete o.captionStyle
+
+    if (hookFromHook) o.hookStyle = hookFromHook
+    else if (hookRaw !== undefined) delete o.hookStyle
+  }
+
+  const contentType = normalizeContentType(o.contentType)
+  if (contentType) o.contentType = contentType
+  else if (o.contentType !== undefined) o.contentType = 'unknown'
+
+  const layout = normalizeLayoutTemplate(o.layoutTemplate)
+  if (layout) o.layoutTemplate = layout
+  else if (o.layoutTemplate !== undefined) o.layoutTemplate = 'auto'
+}
 
 /** Coerce Gemini video JSON into safe values before Zod / after parse. */
 export function preprocessGeminiVideoRaw(raw: unknown, durationSeconds: number): unknown {
@@ -12,6 +135,8 @@ export function preprocessGeminiVideoRaw(raw: unknown, durationSeconds: number):
   if (typeof o.hookPlan !== 'string' || !o.hookPlan.trim()) {
     o.hookPlan = 'Strong opening moment for a vertical short'
   }
+
+  normalizeEnumFields(o)
 
   const pwRaw = o.primaryWindow
   if (pwRaw && typeof pwRaw === 'object') {
@@ -48,6 +173,6 @@ export function normalizeGeminiVideoPlan(
   plan: GeminiVideoPlan,
   durationSeconds: number
 ): GeminiVideoPlan {
-  const preprocessed = preprocessGeminiVideoRaw(plan, durationSeconds) as GeminiVideoPlan
-  return preprocessed
+  const preprocessed = preprocessGeminiVideoRaw(plan, durationSeconds)
+  return geminiVideoPlanSchema.parse(preprocessed)
 }
