@@ -43,6 +43,11 @@ test('gameplay stream auto layout renders stacked video layers', () => {
   assert.equal(videoTracks.length, 2)
   assert.equal(videoTracks[0].clips[0].height, 1220)
   assert.equal(videoTracks[1].clips[0].height, 650)
+
+  const firstVideo = videoTracks[0].clips[0]
+  assert.equal('crop' in firstVideo, false, 'crop must not be on Clip')
+  const asset = firstVideo.asset as Record<string, unknown>
+  assert.ok(asset.crop && typeof asset.crop === 'object', 'crop must be on VideoAsset')
 })
 
 test('source-timed subtitle maps onto reordered final timeline', () => {

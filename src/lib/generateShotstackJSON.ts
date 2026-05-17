@@ -965,20 +965,22 @@ function clipWithVideoAsset(params: {
   offset?: { x: number; y: number }
   fit?: 'crop' | 'contain'
 }): Record<string, unknown> {
+  const asset: Record<string, unknown> = {
+    type: 'video',
+    src: params.sourceUrl,
+    trim: params.segment.trim,
+    transcode: true,
+  }
+  // Crop belongs on VideoAsset, not on Clip (Shotstack Edit API validation).
+  if (params.crop) asset.crop = params.crop
+
   const clip: Record<string, unknown> = {
-    asset: {
-      type: 'video',
-      src: params.sourceUrl,
-      trim: params.segment.trim,
-      transcode: true,
-    },
+    asset,
     start: params.segment.start,
     length: params.segment.length,
     fit: params.fit || (params.landscapeMode === 'letterbox' ? 'contain' : 'crop'),
     position: params.position || 'center',
   }
-
-  if (params.crop) clip.crop = params.crop
   if (params.width) clip.width = params.width
   if (params.height) clip.height = params.height
   if (params.offset) clip.offset = params.offset
