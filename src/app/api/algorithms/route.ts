@@ -354,56 +354,6 @@ Focus on recent changes and best practices as of 2026. Be EXTREMELY specific and
   return parseAlgorithmJsonContent(content)
 }
 
-// Backup: Pollinations API
-async function researchWithPollinations(platform: string, pollinationsApiKey: string, maxTokens: number = 1000): Promise<any> {
-  const prompt = `Research the current ${platform} algorithm and provide the following information in JSON format:
-{
-  "keyChanges": "Summary of key changes in how the algorithm works",
-  "editingTips": "Tips for editing content for ${platform}",
-  "postingTips": "Tips for when to post and posting frequency",
-  "titleTips": "Tips for creating effective titles",
-  "descriptionTips": "Tips for writing descriptions",
-  "summaries": [
-    "First key insight specific to ${platform} - max 6 words",
-    "Second insight about ${platform} algorithm - max 6 words",
-    "Third tip for ${platform} growth - max 6 words",
-    "Fourth strategy for ${platform} - max 6 words"
-  ]
-}
-
-Focus on recent changes and best practices as of 2026.`
-
-  const response = await fetch('https://text.pollinations.ai/openai', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${pollinationsApiKey}`
-    },
-    body: JSON.stringify({
-      model: 'openai',
-      messages: [
-        { role: 'system', content: 'You are an expert in social media algorithms. Return only valid JSON.' },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.7,
-      max_tokens: maxTokens
-    })
-  })
-
-  if (!response.ok) {
-    throw new Error(`Pollinations error: ${response.status}`)
-  }
-
-  const data = await response.json()
-  const content = data.choices?.[0]?.message?.content
-
-  if (!content) {
-    throw new Error('No content in Pollinations response')
-  }
-
-  return parseAlgorithmJsonContent(content)
-}
-
 /** Shown when Gemini is unavailable for algorithm research (client uses userMessage). */
 const GEMINI_VACATION_USER_MESSAGE =
   "Oops! Looks like the Gemini API went on vacation. Please email our staff and we'll correct this as soon as possible. Include your username and we can credit you some free coins!"
@@ -441,8 +391,7 @@ function hasAlgorithmAiProviderConfigured(): boolean {
   return !!(
     resolveGeminiAlgorithmApiKey() ||
     resolveDeepSeekAlgorithmApiKey() ||
-    readEnvTrim('RAPID_API_KEY') ||
-    readEnvTrim('POLLINATIONS_API_KEY')
+    readEnvTrim('RAPID_API_KEY')
   )
 }
 
@@ -451,7 +400,6 @@ async function researchAlgorithm(platform: string, maxTokens: number = 1000): Pr
   const geminiApiKey = resolveGeminiAlgorithmApiKey()
   const deepSeekApiKey = resolveDeepSeekAlgorithmApiKey()
   const rapidApiKey = readEnvTrim('RAPID_API_KEY')
-  const pollinationsApiKey = readEnvTrim('POLLINATIONS_API_KEY')
 
   let geminiFailed = false
 
@@ -465,7 +413,7 @@ async function researchAlgorithm(platform: string, maxTokens: number = 1000): Pr
     } catch (error) {
       geminiFailed = true
       console.error(`[Algorithms] Gemini failed for ${platform}:`, error)
-      if (!deepSeekApiKey && !rapidApiKey && !pollinationsApiKey) {
+      if (!deepSeekApiKey && !rapidApiKey) {
         throw new GeminiAlgorithmUnavailableError()
       }
     }
@@ -495,19 +443,7 @@ async function researchAlgorithm(platform: string, maxTokens: number = 1000): Pr
     }
   }
 
-  // Final fallback to Pollinations
-  if (pollinationsApiKey) {
-    try {
-      console.log(`[Algorithms] Falling back to Pollinations for ${platform}...`)
-      const result = await researchWithPollinations(platform, pollinationsApiKey, maxTokens)
-      console.log(`[Algorithms] Pollinations succeeded for ${platform}`)
-      return { ...result, provider: 'pollinations' }
-    } catch (error) {
-      console.error(`[Algorithms] Pollinations failed for ${platform}:`, error)
-    }
-  }
-
-  if (geminiFailed && !deepSeekApiKey && !rapidApiKey && !pollinationsApiKey) {
+  if (geminiFailed && !deepSeekApiKey && !rapidApiKey) {
     throw new GeminiAlgorithmUnavailableError()
   }
 
@@ -602,7 +538,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          'No AI API key configured for algorithm research. Set GEMINI_ALGORITHM_API_KEY (or GEMINI_ALGO_API / GEMINI_API), DEEPSEEK_API_KEY, RAPID_API_KEY, and/or POLLINATIONS_API_KEY.',
+          'No AI API key configured for algorithm research. Set GEMINI_ALGORITHM_API_KEY (or GEMINI_ALGO_API / GEMINI_API), DEEPSEEK_API_KEY, and/or RAPID_API_KEY.',
       },
       { status: 500 }
     )

@@ -144,7 +144,7 @@ const uploadUrlRes = await fetch('https://generativelanguage.googleapis.com/uplo
 - **Status codes**: Correct HTTP responses
 
 ## ✅ VERIFIED: Other Endpoints
-- **reanalyze endpoints**: Use GROQ (not Gemini) - correct
+- **reanalyze endpoint**: Uses Gemini (`gemini-2.5-flash`) via `GEMINI_API` — same stack as content-analyzer
 - **gemini-api-key endpoint**: Secure API key provision
 - **gemini-token endpoint**: OAuth (not used for File API) - correct
 

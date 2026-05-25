@@ -12,7 +12,7 @@
         "Consistent daily uploads boost algorithm",
         "Hook first 3 seconds, keep fast"
       ],
-      "provider": "pollinations"
+      "provider": "gemini"
     },
     "tiktok": {
       "keyChanges": "Algorithm now prioritizes completion rate, AI‑driven content taxonomy, longer 10‑minute videos, cross‑platform signals, and creator authenticity metrics.",
@@ -26,7 +26,7 @@
         "Post 1–3 times daily for growth",
         "Short hooks win viewer attention"
       ],
-      "provider": "pollinations"
+      "provider": "gemini"
     },
     "instagram": {
       "keyChanges": "Reels dominate feed, AI predicts relevance, emphasis on authenticity, content quality score, deeper integration of Stories.",
@@ -40,7 +40,7 @@
         "Engage within first hour matters",
         "Diversify formats for reach"
       ],
-      "provider": "pollinations"
+      "provider": "gemini"
     },
     "youtube-long": {
       "keyChanges": "Algorithm now prioritizes watch time, engagement, and AI‑generated content summaries; filler content is penalized, captions and structured metadata are essential, and 'Long' videos are treated as a distinct recommendation queue.",
@@ -54,7 +54,7 @@
         "Hook viewers in first 15 seconds",
         "Chapters boost discoverability"
       ],
-      "provider": "pollinations"
+      "provider": "gemini"
     },
     "facebook-reels": {
       "keyChanges": "Algorithm now prioritizes watch time, contextual relevance, and AI‑driven personalization across Reels, with a stronger focus on short, engaging clips and cross‑platform visibility.",
@@ -68,9 +68,9 @@
         "Post daily, adapt to trends",
         "Use captions, add branded stickers"
       ],
-      "provider": "pollinations"
+      "provider": "gemini"
     }
   },
   "lastUpdated": "2026-05-24T11:59:32.400Z",
-  "provider": "pollinations"
+  "provider": "gemini"
 }
