@@ -21,8 +21,8 @@ import ClipEditorTab from '@/app/components/ClipEditorTab'
 import BackgroundRemoverTab from '@/app/components/BackgroundRemoverTab'
 import BannedUserScreen from '@/app/components/BannedUserScreen'
 import OwnerBannedUsersPanel from '@/app/components/OwnerBannedUsersPanel'
-import NewToolTab from '@/app/components/NewToolTab'
-import { isNewToolTabEnabled } from '@/lib/newToolFeature'
+import CreateTabHeader, { type CreateSubTab } from '@/app/components/CreateTabHeader'
+import KickClipsComingSoon from '@/app/components/KickClipsComingSoon'
 import { usePayPalPublicConfig } from '@/hooks/usePayPalPublicConfig'
 import { captureCheckoutOrderOnServer } from '@/lib/paypalCaptureOrderClient'
 import { useCoins, COIN_COSTS } from '@/hooks/useCoins'
@@ -58,7 +58,9 @@ import {
   Wand2,
   BookOpen,
   Film,
-  Scissors
+  Scissors,
+  GraduationCap,
+  BarChart3
 } from 'lucide-react'
 import { createKickAuthURL } from '@/lib/kick-oauth'
 import { getClientCookie, setClientCookie } from '@/lib/clientCookies'
@@ -206,6 +208,12 @@ const translations = {
     backgroundRemoverDesc:
       'Upload a photo and remove the background behind the main subject with AI.',
     resourceHub: 'Resource Hub',
+    educate: 'Educate',
+    create: 'Create',
+    analyze: 'Analyze',
+    appComingSoon: 'App Coming Soon',
+    donate: 'Donate',
+    createPickTool: 'Create — pick a tool below',
     settings: 'Settings',
     logout: 'Logout',
     verifySubscription: 'Subscribe · $9.50 CAD/mo',
@@ -247,6 +255,12 @@ const translations = {
     backgroundRemoverDesc:
       'Sube una foto y elimina el fondo detrás del sujeto principal con IA.',
     resourceHub: 'Centro de recursos',
+    educate: 'Educar',
+    create: 'Crear',
+    analyze: 'Analizar',
+    appComingSoon: 'App próximamente',
+    donate: 'Donar',
+    createPickTool: 'Crear — elige una herramienta abajo',
     settings: 'Configuración',
     logout: 'Cerrar sesión',
     verifySubscription: 'Suscribirse · $9.50 CAD/mes',
@@ -288,6 +302,12 @@ const translations = {
     backgroundRemoverDesc:
       'Importez une photo et supprimez l’arrière-plan derrière le sujet principal avec l’IA.',
     resourceHub: 'Centre de ressources',
+    educate: 'Éduquer',
+    create: 'Créer',
+    analyze: 'Analyser',
+    appComingSoon: 'Application bientôt',
+    donate: 'Faire un don',
+    createPickTool: 'Créer — choisissez un outil ci-dessous',
     settings: 'Paramètres',
     logout: 'Déconnexion',
     verifySubscription: "S'abonner · $9,50 CAD/mois",
@@ -329,6 +349,12 @@ const translations = {
     backgroundRemoverDesc:
       'Laden Sie ein Foto hoch und entfernen Sie den Hintergrund hinter dem Hauptmotiv mit KI.',
     resourceHub: 'Ressourcen-Hub',
+    educate: 'Lernen',
+    create: 'Erstellen',
+    analyze: 'Analysieren',
+    appComingSoon: 'App demnächst',
+    donate: 'Spenden',
+    createPickTool: 'Erstellen — Werkzeug unten wählen',
     settings: 'Einstellungen',
     logout: 'Abmelden',
     verifySubscription: 'Abonnieren · $9,50 CAD/Monat',
@@ -382,76 +408,82 @@ const ROLE_CONFIG = {
 // Tab permissions configuration - each role can have specific tabs enabled/disabled
 const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
   free: {
-    'resource-hub': true,
+    educate: true,
+    create: true,
+    analyze: true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
-    'new-tool': true,
     'clip-editor': false,
     'background-remover': true
   },
   subscriber: {
-    'resource-hub': true,
+    educate: true,
+    create: true,
+    analyze: true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
-    'new-tool': true,
     'clip-editor': false,
     'background-remover': true
   },
   subscriber_lifetime: {
-    'resource-hub': true,
+    educate: true,
+    create: true,
+    analyze: true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
-    'new-tool': true,
     'clip-editor': false,
     'background-remover': true
   },
   editor: {
-    'resource-hub': true,
+    educate: true,
+    create: true,
+    analyze: true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
-    'new-tool': true,
     'clip-editor': false,
     'background-remover': true
   },
   admin: {
-    'resource-hub': true,
+    educate: true,
+    create: true,
+    analyze: true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
-    'new-tool': true,
     'clip-editor': false,
     'background-remover': true
   },
   owner: {
-    'resource-hub': true,
+    educate: true,
+    create: true,
+    analyze: true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
-    'new-tool': true,
     'clip-editor': true,
     'background-remover': true
   },
   tester: {
-    'resource-hub': true,
+    educate: true,
+    create: true,
+    analyze: true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
-    'new-tool': true,
     'clip-editor': false,
     'background-remover': true
   }
 };
 
 export default function HomePage() {
-  const showNewToolTab = isNewToolTabEnabled()
-
   const [user, setUser] = useState<KickUser | null>(null)
   const [mounted, setMounted] = useState(false)
-  const [activeTab, setActiveTab] = useState('resource-hub')
+  const [activeTab, setActiveTab] = useState('educate')
+  const [createSubTab, setCreateSubTab] = useState<CreateSubTab>('thumbnail')
 
   const [language, setLanguage] = useState<Language>('en')
   const [darkMode, setDarkMode] = useState(true)
@@ -473,18 +505,21 @@ export default function HomePage() {
   }
 
   useEffect(() => {
-    if (!showNewToolTab && activeTab === 'new-tool') {
-      setActiveTab('resource-hub')
+    const legacyTabMap: Record<string, { tab: string; sub?: CreateSubTab }> = {
+      'resource-hub': { tab: 'educate' },
+      'tag-generator-free': { tab: 'create', sub: 'tags' },
+      'thumbnail-generator': { tab: 'create', sub: 'thumbnail' },
+      'background-remover': { tab: 'create', sub: 'background' },
+      'clip-analyzer': { tab: 'analyze' },
+      'new-tool': { tab: 'educate' },
     }
-  }, [showNewToolTab, activeTab])
+    const mapped = legacyTabMap[activeTab]
+    if (mapped) {
+      setActiveTab(mapped.tab)
+      if (mapped.sub) setCreateSubTab(mapped.sub)
+    }
+  }, [activeTab])
 
-  useEffect(() => {
-    const canAccessClipEditor = TAB_PERMISSIONS[userRole]?.['clip-editor'] ?? true
-    if (!canAccessClipEditor && activeTab === 'clip-editor') {
-      setActiveTab('resource-hub')
-    }
-  }, [activeTab, userRole])
-  
   // Legacy state (will be removed after migration)
   const [subscribers, setSubscribers] = useState<Subscriber[]>([])
   const [newSubscriberUsername, setNewSubscriberUsername] = useState('')
@@ -694,6 +729,12 @@ export default function HomePage() {
         (o) => o.toLowerCase() === user.username.replace(/^@/, '').toLowerCase()
       )
     : false
+
+  useEffect(() => {
+    if (!isOwner && activeTab === 'clip-editor') {
+      setActiveTab('educate')
+    }
+  }, [activeTab, isOwner])
 
   // Fetch user's role from MongoDB
   const fetchUserRole = async () => {
@@ -1525,7 +1566,7 @@ export default function HomePage() {
     }
 
     setKickClipsError('')
-    setActiveTab('clip-analyzer')
+    setActiveTab('analyze')
     setClipPlatform(selectedPlatformId)
     setClipFile(null)
     setClipError('')
@@ -1578,12 +1619,6 @@ export default function HomePage() {
       setLoadingStep('')
     }
   }
-
-  useEffect(() => {
-    if (activeTab === 'kick-clips' && user) {
-      void loadKickClips()
-    }
-  }, [activeTab, user, loadKickClips])
 
   const toggleCard = (cardId: string) => {
     setExpandedCards(prev => {
@@ -2832,37 +2867,44 @@ export default function HomePage() {
         ) : (
           <Tabs value={activeTab} onValueChange={handleMainTabChange} className="space-y-6">
             <TabsList
-              className={`grid w-full grid-cols-4 ${showNewToolTab ? 'sm:grid-cols-9' : 'sm:grid-cols-8'} ${tabListClasses}`}
+              className={`grid w-full grid-cols-2 ${isOwner ? 'sm:grid-cols-6' : 'sm:grid-cols-5'} ${tabListClasses}`}
             >
               <TabsTrigger
-                value="resource-hub"
+                value="educate"
                 className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
               >
-                <BookOpen className="w-4 h-4" />
-                <span className="hidden sm:inline">{t.resourceHub}</span>
+                <GraduationCap className="w-4 h-4" />
+                <span className="hidden sm:inline">{t.educate}</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="tag-generator-free"
+              <TabsTrigger
+                value="create"
                 className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
               >
-                <Hash className="w-4 h-4" />
-                <span className="hidden sm:inline">{t.tagGeneratorFree}</span>
+                <Wand2 className="w-4 h-4" />
+                <span className="hidden sm:inline">{t.create}</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="thumbnail-generator"
+              <TabsTrigger
+                value="analyze"
                 className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
               >
-                <ImageIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">{t.tagGeneratorPaid}</span>
+                <BarChart3 className="w-4 h-4" />
+                <span className="hidden sm:inline">{t.analyze}</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="clip-analyzer"
+              <TabsTrigger
+                value="kick-clips"
                 className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
               >
                 <Video className="w-4 h-4" />
-                <span className="hidden sm:inline">{t.clipAnalyzer}</span>
+                <span className="hidden sm:inline">{t.kickClips}</span>
               </TabsTrigger>
-              {hasTabAccess('clip-editor') && (
+              <TabsTrigger
+                value="settings"
+                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
+              >
+                <Settings className="w-4 h-4" />
+                <span className="hidden sm:inline">{t.settings}</span>
+              </TabsTrigger>
+              {isOwner && (
                 <TabsTrigger
                   value="clip-editor"
                   className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
@@ -2871,42 +2913,45 @@ export default function HomePage() {
                   <span className="hidden sm:inline">{t.clipEditor}</span>
                 </TabsTrigger>
               )}
-              {hasTabAccess('background-remover') && (
-                <TabsTrigger
-                  value="background-remover"
-                  className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
-                >
-                  <Scissors className="w-4 h-4" />
-                  <span className="hidden sm:inline">{t.backgroundRemover}</span>
-                </TabsTrigger>
-              )}
-              {showNewToolTab && (
-                <TabsTrigger 
-                  value="new-tool"
-                  className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span className="hidden sm:inline">{t.newTool}</span>
-                </TabsTrigger>
-              )}
-              <TabsTrigger 
-                value="kick-clips"
-                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
-              >
-                <Video className="w-4 h-4" />
-                <span className="hidden sm:inline">{t.kickClips}</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="settings"
-                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
-              >
-                <Settings className="w-4 h-4" />
-                <span className="hidden sm:inline">{t.settings}</span>
-              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="tag-generator-free">
-              <div className={`${cardClasses} p-6`}>
+            <TabsContent value="educate">
+              <ResourceHubTab
+                darkMode={darkMode}
+                cardClasses={cardClasses}
+                textClasses={textClasses}
+                subtitleClasses={subtitleClasses}
+                platforms={platforms}
+                platformsBannerLogos={platformsBannerLogos}
+                lastUpdated={lastUpdated}
+                isLoadingAlgorithms={isLoadingAlgorithms}
+                algorithmError={algorithmError}
+                isAdmin={isAdmin}
+                showAdminControls={!!user}
+                onRefreshAlgorithms={handleRefreshAlgorithms}
+                expandedCard={expandedCard}
+                onExpandedCardChange={setExpandedCard}
+              />
+            </TabsContent>
+
+            <TabsContent value="create">
+              <Tabs value={createSubTab} onValueChange={(v) => setCreateSubTab(v as CreateSubTab)} className="space-y-4">
+                <div className={`${cardClasses} p-4 sm:p-6`}>
+                  <CreateTabHeader
+                    activeSubTab={createSubTab}
+                    labels={{
+                      thumbnail: t.tagGeneratorPaid,
+                      tags: t.tagGeneratorFree,
+                      background: t.backgroundRemover,
+                    }}
+                    pickToolLabel={t.createPickTool}
+                    darkMode={darkMode}
+                    tabTriggerActiveClasses={tabTriggerActiveClasses}
+                    tabTriggerInactiveClasses={tabTriggerInactiveClasses}
+                  />
+
+                  <TabsContent value="tags">
+              <div className="p-0 sm:p-2">
                 {/* Platform Logos */}
                 <div className="flex justify-center gap-4 mb-2">
                   {platformsBannerLogos.map((platform) => (
@@ -2919,11 +2964,7 @@ export default function HomePage() {
                   ))}
                 </div>
 
-                <div className="flex flex-col items-center mb-6">
-                  <div className="flex items-center space-x-3 mb-1">
-                    <Hash className="w-10 h-10 text-sdhq-cyan-500" />
-                    <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.tagGeneratorFree}</h3>
-                  </div>
+                <div className="flex flex-col items-center mb-6 text-center">
                   <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
                     Powered By: Gemini 2.5 Flash
                   </p>
@@ -3152,9 +3193,9 @@ export default function HomePage() {
                 </div>
 
               </div>
-            </TabsContent>
+                  </TabsContent>
 
-            <TabsContent value="thumbnail-generator">
+                  <TabsContent value="thumbnail">
               <ThumbnailGenerator 
                 userId={user?.username} 
                 userType={userType}
@@ -3202,11 +3243,28 @@ export default function HomePage() {
                   }
                 }}
               />
+                  </TabsContent>
+
+                  {hasTabAccess('background-remover') && (
+                    <TabsContent value="background">
+                      <BackgroundRemoverTab
+                        darkMode={darkMode}
+                        cardClasses={cardClasses}
+                        textClasses={textClasses}
+                        subtitleClasses={subtitleClasses}
+                        title=""
+                        description={t.backgroundRemoverDesc}
+                        user={user}
+                      />
+                    </TabsContent>
+                  )}
+                </div>
+              </Tabs>
             </TabsContent>
 
-            <TabsContent value="clip-analyzer">
-              <div className={`relative py-8 ${cardClasses} ${!hasTabAccess('clip-analyzer') ? 'pointer-events-none' : ''}`}>
-                {!hasTabAccess('clip-analyzer') && (
+            <TabsContent value="analyze">
+              <div className={`relative py-8 ${cardClasses} ${!hasTabAccess('analyze') && !hasTabAccess('clip-analyzer') ? 'pointer-events-none' : ''}`}>
+                {!hasTabAccess('analyze') && !hasTabAccess('clip-analyzer') && (
                   <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 rounded-xl flex flex-col items-center justify-center p-6">
                     <div className="text-center">
                       <p className="text-white text-xl font-bold mb-2">⛔ Access Restricted</p>
@@ -3232,7 +3290,7 @@ export default function HomePage() {
                 <div className="flex flex-col items-center mb-6">
                   <div className="flex items-center space-x-3 mb-1">
                     <Video className="w-10 h-10 text-sdhq-green-500" />
-                    <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.clipAnalyzer}</h3>
+                    <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.analyze}</h3>
                   </div>
                   <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
                     Powered By: Gemini 2.5 Flash
@@ -3963,30 +4021,7 @@ export default function HomePage() {
               </div>
             </TabsContent>
 
-            {showNewToolTab && (
-              <TabsContent value="new-tool">
-                <div className={`relative py-2 ${!hasTabAccess('new-tool') ? 'pointer-events-none opacity-60' : ''}`}>
-                  {!hasTabAccess('new-tool') && (
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 rounded-xl flex flex-col items-center justify-center p-6">
-                      <div className="text-center">
-                        <p className="text-white text-xl font-bold mb-2">⛔ Access Restricted</p>
-                        <p className="text-gray-300 text-sm">
-                          This feature is currently disabled for your account.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  <NewToolTab
-                    darkMode={darkMode}
-                    cardClasses={cardClasses}
-                    title={t.newTool}
-                    description={t.newToolDesc}
-                  />
-                </div>
-              </TabsContent>
-            )}
-
-            {hasTabAccess('clip-editor') && (
+            {isOwner && (
               <TabsContent value="clip-editor">
                 <ClipEditorTab
                   darkMode={darkMode}
@@ -4004,163 +4039,16 @@ export default function HomePage() {
               </TabsContent>
             )}
 
-            {hasTabAccess('background-remover') && (
-              <TabsContent value="background-remover">
-                <BackgroundRemoverTab
-                  darkMode={darkMode}
-                  cardClasses={cardClasses}
-                  textClasses={textClasses}
-                  subtitleClasses={subtitleClasses}
-                  title={t.backgroundRemover}
-                  description={t.backgroundRemoverDesc}
-                  user={user}
-                />
-              </TabsContent>
-            )}
-
             <TabsContent value="kick-clips">
-              <div className={`py-8 ${cardClasses}`}>
-                <div className="flex flex-col items-center mb-6">
-                  <div className="flex items-center space-x-4 mb-2">
-                    <Video className="w-10 h-10 text-sdhq-green-500" />
-                    <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t.kickClips}</h3>
-                  </div>
-                  <p className={`${textClasses} text-base text-center max-w-2xl`}>
-                    Pull your 6 most recent Kick clips and run one-click AI analysis.
-                  </p>
-                </div>
-
-                {!user ? (
-                  <p className={`text-center ${subtitleClasses}`}>Login required to load your Kick clips.</p>
-                ) : (
-                  <div className="max-w-6xl mx-auto px-4 space-y-4">
-                    <div className="flex justify-end">
-                      <Button
-                        type="button"
-                        onClick={() => loadKickClips()}
-                        disabled={isLoadingKickClips}
-                        className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold"
-                      >
-                        {isLoadingKickClips ? 'Refreshing clips...' : 'Refresh Clips'}
-                      </Button>
-                    </div>
-
-                    {kickClipsError && (
-                      <div
-                        className={`rounded-xl border px-4 py-3 text-sm ${
-                          darkMode ? 'bg-red-900/25 border-red-500/40 text-red-300' : 'bg-red-50 border-red-300 text-red-700'
-                        }`}
-                      >
-                        {kickClipsError}
-                      </div>
-                    )}
-
-                    {isLoadingKickClips ? (
-                      <div className={`text-center ${subtitleClasses}`}>Loading your latest clips...</div>
-                    ) : kickClips.length === 0 ? (
-                      <div className={`text-center ${subtitleClasses}`}>No clips found yet on your Kick channel.</div>
-                    ) : (
-                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {kickClips.map((clip) => (
-                          <div
-                            key={clip.id}
-                            className={`rounded-2xl border overflow-hidden ${
-                              darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-white border-sdhq-cyan-200'
-                            }`}
-                          >
-                            <a href={clip.clipUrl} target="_blank" rel="noreferrer" className="block">
-                              <div className={`aspect-video w-full ${darkMode ? 'bg-sdhq-dark-900' : 'bg-gray-100'}`}>
-                                {clip.thumbnailUrl ? (
-                                  <img src={clip.thumbnailUrl} alt={clip.title} className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className={`w-full h-full flex items-center justify-center ${subtitleClasses}`}>
-                                    No thumbnail
-                                  </div>
-                                )}
-                              </div>
-                            </a>
-                            <div className="p-4 space-y-3">
-                              <p className={`font-semibold line-clamp-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                {clip.title || 'Untitled clip'}
-                              </p>
-                              {clip.createdAt && (
-                                <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                  Created:{' '}
-                                  {new Date(clip.createdAt).toLocaleString(undefined, {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
-                                  })}
-                                </p>
-                              )}
-                              <div>
-                                <label
-                                  htmlFor={`platform-${clip.id}`}
-                                  className={`block text-xs font-semibold mb-1 ${
-                                    darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-700'
-                                  }`}
-                                >
-                                  Analyze for platform
-                                </label>
-                                <select
-                                  id={`platform-${clip.id}`}
-                                  value={kickClipPlatformSelections[clip.id] || 'tiktok'}
-                                  onChange={(e) =>
-                                    setKickClipPlatformSelections((prev) => ({
-                                      ...prev,
-                                      [clip.id]: e.target.value,
-                                    }))
-                                  }
-                                  disabled={isAnalyzingClip}
-                                  className={`w-full px-3 py-2 rounded-lg text-sm border ${
-                                    darkMode
-                                      ? 'bg-sdhq-dark-900 border-sdhq-cyan-500/30 text-gray-200'
-                                      : 'bg-white border-sdhq-cyan-300 text-gray-800'
-                                  }`}
-                                >
-                                  {platforms.map((platform) => (
-                                    <option key={platform.id} value={platform.id}>
-                                      {platform.name}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              <Button
-                                type="button"
-                                onClick={() =>
-                                  handleAnalyzeKickClip(clip, kickClipPlatformSelections[clip.id] || 'tiktok')
-                                }
-                                disabled={isAnalyzingClip || analyzingKickClipId === clip.id}
-                                className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold"
-                              >
-                                {analyzingKickClipId === clip.id ? 'Analyzing...' : 'Analyse This Clip'}
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="resource-hub">
-              <ResourceHubTab
+              <KickClipsComingSoon
                 darkMode={darkMode}
                 cardClasses={cardClasses}
                 textClasses={textClasses}
                 subtitleClasses={subtitleClasses}
-                platforms={platforms}
-                platformsBannerLogos={platformsBannerLogos}
-                lastUpdated={lastUpdated}
-                isLoadingAlgorithms={isLoadingAlgorithms}
-                algorithmError={algorithmError}
-                isAdmin={isAdmin}
-                showAdminControls={!!user}
-                onRefreshAlgorithms={handleRefreshAlgorithms}
-                expandedCard={expandedCard}
-                onExpandedCardChange={setExpandedCard}
+                title={t.kickClips}
+                comingSoonLabel={t.appComingSoon}
+                donateLabel={t.donate}
+                onDonate={() => setShowDonatePopup(true)}
               />
             </TabsContent>
 

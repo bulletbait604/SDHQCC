@@ -126,11 +126,13 @@ export default function BackgroundRemoverTab({
 
   return (
     <div className={`py-8 ${cardClasses}`}>
-      <div className="flex flex-col items-center text-center mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <Scissors className="w-10 h-10 text-sdhq-cyan-500 shrink-0" />
-          <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{title}</h3>
-        </div>
+      <div className={`flex flex-col items-center text-center ${title ? 'mb-8' : 'mb-4'}`}>
+        {title ? (
+          <div className="flex items-center gap-3 mb-2">
+            <Scissors className="w-10 h-10 text-sdhq-cyan-500 shrink-0" />
+            <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{title}</h3>
+          </div>
+        ) : null}
         <p className={`max-w-xl ${textClasses} text-base`}>{description}</p>
         <p className={`mt-2 text-xs ${subtitleClasses}`}>
           Powered by Fal — Ideogram background removal by default for clean cutouts and natural edges.
