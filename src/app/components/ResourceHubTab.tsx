@@ -2,8 +2,11 @@
 
 import type { ReactNode } from 'react'
 import { BookOpen, ExternalLink } from 'lucide-react'
+import AlgorithmInsightsSection, {
+  type AlgorithmInsightsSectionProps,
+} from '@/app/components/AlgorithmInsightsSection'
 
-interface Props {
+interface Props extends AlgorithmInsightsSectionProps {
   darkMode: boolean
   cardClasses: string
 }
@@ -298,31 +301,65 @@ function LinkOut({
   )
 }
 
-export default function ResourceHubTab({ darkMode, cardClasses }: Props) {
+export default function ResourceHubTab({
+  darkMode,
+  cardClasses,
+  textClasses,
+  subtitleClasses,
+  platforms,
+  platformsBannerLogos,
+  lastUpdated,
+  isLoadingAlgorithms,
+  algorithmError,
+  isAdmin,
+  showAdminControls,
+  onRefreshAlgorithms,
+  expandedCard,
+  onExpandedCardChange,
+}: Props) {
   const h2 = `text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`
   const h3 = `text-lg font-semibold ${darkMode ? 'text-sdhq-cyan-300' : 'text-sdhq-cyan-700'}`
   const body = `text-sm leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-600'}`
   const muted = `text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`
   const cardInner = darkMode ? 'bg-sdhq-dark-700/50 border-sdhq-dark-600' : 'bg-cyan-50/40 border-sdhq-cyan-100'
   const th = `text-left text-xs font-semibold uppercase tracking-wide ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-700'}`
+  const sectionDivider = `my-12 border-t-2 ${darkMode ? 'border-sdhq-cyan-500/25' : 'border-sdhq-cyan-200'}`
 
   return (
     <div className={`py-8 px-4 sm:px-8 ${cardClasses}`}>
-      <div className="flex flex-col items-center mb-8 text-center">
+      <div className="flex flex-col items-center mb-10 text-center">
         <div className="flex items-center gap-3 mb-2">
           <BookOpen className="w-10 h-10 text-sdhq-cyan-500" />
-          <div className="text-left">
-            <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Resource Hub</h3>
-            <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}`}>
-              Master reference — May 2026 edition
-            </p>
-          </div>
+          <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Resource Hub</h3>
         </div>
-        <p className={`max-w-2xl ${body}`}>
-          Free or free-to-use tools for fonts, stickers, audio, clips, B-roll, quotes, and streaming. Always verify
-          licenses for commercial projects.
-        </p>
       </div>
+
+      <AlgorithmInsightsSection
+        darkMode={darkMode}
+        textClasses={textClasses}
+        subtitleClasses={subtitleClasses}
+        platforms={platforms}
+        platformsBannerLogos={platformsBannerLogos}
+        lastUpdated={lastUpdated}
+        isLoadingAlgorithms={isLoadingAlgorithms}
+        algorithmError={algorithmError}
+        isAdmin={isAdmin}
+        showAdminControls={showAdminControls}
+        onRefreshAlgorithms={onRefreshAlgorithms}
+        expandedCard={expandedCard}
+        onExpandedCardChange={onExpandedCardChange}
+      />
+
+      <hr className={sectionDivider} />
+
+      <section>
+        <h3 className={`text-2xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+          Resource Hub Information
+        </h3>
+        <p className={`max-w-2xl mb-8 ${body}`}>
+          Free or free-to-use tools for fonts, stickers, audio, clips, B-roll, quotes, and streaming. Always verify
+          licenses for commercial projects. Master reference — May 2026 edition.
+        </p>
 
       {/* I. Streaming software */}
       <section className="mb-10">
@@ -478,6 +515,7 @@ export default function ResourceHubTab({ darkMode, cardClasses }: Props) {
         Stream Dreams Creator Corner — Resource Hub reference (May 2026). Specs and partner rules change; confirm on
         each platform.
       </p>
+      </section>
     </div>
   )
 }

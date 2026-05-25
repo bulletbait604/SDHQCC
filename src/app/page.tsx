@@ -382,7 +382,7 @@ const ROLE_CONFIG = {
 // Tab permissions configuration - each role can have specific tabs enabled/disabled
 const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
   free: {
-    'algorithms-explained': true,
+    'resource-hub': true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
@@ -391,7 +391,7 @@ const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'background-remover': true
   },
   subscriber: {
-    'algorithms-explained': true,
+    'resource-hub': true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
@@ -400,7 +400,7 @@ const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'background-remover': true
   },
   subscriber_lifetime: {
-    'algorithms-explained': true,
+    'resource-hub': true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
@@ -409,7 +409,7 @@ const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'background-remover': true
   },
   editor: {
-    'algorithms-explained': true,
+    'resource-hub': true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
@@ -418,7 +418,7 @@ const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'background-remover': true
   },
   admin: {
-    'algorithms-explained': true,
+    'resource-hub': true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
@@ -427,7 +427,7 @@ const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'background-remover': true
   },
   owner: {
-    'algorithms-explained': true,
+    'resource-hub': true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
@@ -436,7 +436,7 @@ const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'background-remover': true
   },
   tester: {
-    'algorithms-explained': true,
+    'resource-hub': true,
     'tag-generator-free': true,
     'thumbnail-generator': true,
     'clip-analyzer': true,
@@ -451,7 +451,7 @@ export default function HomePage() {
 
   const [user, setUser] = useState<KickUser | null>(null)
   const [mounted, setMounted] = useState(false)
-  const [activeTab, setActiveTab] = useState('algorithms-explained')
+  const [activeTab, setActiveTab] = useState('resource-hub')
 
   const [language, setLanguage] = useState<Language>('en')
   const [darkMode, setDarkMode] = useState(true)
@@ -474,14 +474,14 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!showNewToolTab && activeTab === 'new-tool') {
-      setActiveTab('algorithms-explained')
+      setActiveTab('resource-hub')
     }
   }, [showNewToolTab, activeTab])
 
   useEffect(() => {
     const canAccessClipEditor = TAB_PERMISSIONS[userRole]?.['clip-editor'] ?? true
     if (!canAccessClipEditor && activeTab === 'clip-editor') {
-      setActiveTab('algorithms-explained')
+      setActiveTab('resource-hub')
     }
   }, [activeTab, userRole])
   
@@ -2832,14 +2832,14 @@ export default function HomePage() {
         ) : (
           <Tabs value={activeTab} onValueChange={handleMainTabChange} className="space-y-6">
             <TabsList
-              className={`grid w-full grid-cols-4 ${showNewToolTab ? 'sm:grid-cols-10' : 'sm:grid-cols-9'} ${tabListClasses}`}
+              className={`grid w-full grid-cols-4 ${showNewToolTab ? 'sm:grid-cols-9' : 'sm:grid-cols-8'} ${tabListClasses}`}
             >
-              <TabsTrigger 
-                value="algorithms-explained" 
+              <TabsTrigger
+                value="resource-hub"
                 className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
               >
-                <TrendingUp className="w-4 h-4" />
-                <span className="hidden sm:inline">{t.algorithmsExplained}</span>
+                <BookOpen className="w-4 h-4" />
+                <span className="hidden sm:inline">{t.resourceHub}</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="tag-generator-free"
@@ -2897,13 +2897,6 @@ export default function HomePage() {
                 <span className="hidden sm:inline">{t.kickClips}</span>
               </TabsTrigger>
               <TabsTrigger 
-                value="resource-hub"
-                className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
-              >
-                <BookOpen className="w-4 h-4" />
-                <span className="hidden sm:inline">{t.resourceHub}</span>
-              </TabsTrigger>
-              <TabsTrigger 
                 value="settings"
                 className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
               >
@@ -2911,344 +2904,6 @@ export default function HomePage() {
                 <span className="hidden sm:inline">{t.settings}</span>
               </TabsTrigger>
             </TabsList>
-
-            <TabsContent value="algorithms-explained">
-              <div className="space-y-6">
-                {/* Platform Logos */}
-                <div className="flex justify-center gap-4 mb-2">
-                  {platformsBannerLogos.map((platform) => (
-                    <img
-                      key={platform.id}
-                      src={platform.image}
-                      alt={platform.name}
-                      className="w-10 h-10 rounded-lg object-cover opacity-80 hover:opacity-100 transition-opacity"
-                    />
-                  ))}
-                </div>
-
-                <div className={`flex flex-col items-center mb-6`}>
-                  <div className="flex items-center space-x-3 mb-1">
-                    <TrendingUp className="w-8 h-8 text-sdhq-cyan-500" />
-                    <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {t.algorithmsExplained}
-                    </h3>
-                  </div>
-                  <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
-                    Powered By: Gemini 2.5 Flash
-                  </p>
-                  <div className="flex items-center gap-3">
-                    {isLoadingAlgorithms && (
-                      <span className={`${subtitleClasses} text-base`}>Loading...</span>
-                    )}
-                    {algorithmError && (
-                      <span className="text-red-500 text-base">{algorithmError}</span>
-                    )}
-                    <p className={`${subtitleClasses} text-base`}>
-                      Last updated: {lastUpdated}
-                    </p>
-                  </div>
-
-                  {isAdmin && user && (
-                    <div
-                      className={`w-full max-w-2xl mt-4 p-4 rounded-xl border-2 ${
-                        darkMode
-                          ? 'bg-sdhq-dark-800/80 border-sdhq-cyan-500/40'
-                          : 'bg-cyan-50/80 border-sdhq-cyan-200'
-                      }`}
-                    >
-                      <p
-                        className={`text-sm font-medium mb-3 text-center ${
-                          darkMode ? 'text-sdhq-cyan-300' : 'text-sdhq-cyan-800'
-                        }`}
-                      >
-                        Admin: research &amp; update algorithm data (one platform at a time or all)
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRefreshAlgorithms()}
-                        disabled={isLoadingAlgorithms}
-                        className="w-full mb-3"
-                      >
-                        <TrendingUp className="w-4 h-4 mr-2" />
-                        {isLoadingAlgorithms ? 'Refreshing…' : 'Refresh all platforms'}
-                      </Button>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {platforms.map((p) => (
-                          <Button
-                            key={p.id}
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleRefreshAlgorithms(p.id)}
-                            disabled={isLoadingAlgorithms}
-                            className="text-xs"
-                          >
-                            <TrendingUp className="w-3 h-3 mr-1 shrink-0" />
-                            {p.name}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {platforms.map((platform) => (
-                    <div
-                      key={platform.id}
-                      className={`relative overflow-hidden rounded-2xl border-2 transition-all duration-300 hover:scale-105 hover:shadow-2xl ${
-                        darkMode 
-                          ? 'bg-gradient-to-br from-sdhq-dark-700 to-sdhq-dark-800 border-sdhq-cyan-500/30 hover:border-sdhq-cyan-500/60' 
-                          : 'bg-gradient-to-br from-white to-gray-50 border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
-                      }`}
-                    >
-                      {/* Platform-specific gradient accent */}
-                      <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${
-                        platform.id === 'tiktok' ? 'from-pink-500 via-purple-500 to-cyan-500' :
-                        platform.id === 'instagram' ? 'from-purple-500 via-pink-500 to-orange-500' :
-                        platform.id === 'youtube-shorts' ? 'from-red-500 via-red-600 to-red-700' :
-                        platform.id === 'youtube-long' ? 'from-red-600 via-red-700 to-red-800' :
-                        'from-blue-500 via-blue-600 to-blue-700'
-                      }`}></div>
-                      
-                      <div className="p-5">
-                        <div className="flex items-center space-x-4 mb-5">
-                          <div className={`relative p-2 rounded-xl ${
-                            darkMode ? 'bg-sdhq-dark-600' : 'bg-white'
-                          } shadow-lg`}>
-                            <img
-                              src={platform.image}
-                              alt={platform.name}
-                              className="w-14 h-14 rounded-lg object-cover"
-                            />
-                          </div>
-                          <div>
-                            <h4 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                              {platform.name}
-                            </h4>
-                            {/* Platform subtitle removed */}
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-3">
-                          {platform.data ? (
-                            <>
-                              {platform.data.summaries ? (
-                                // Use AI-generated platform-specific summaries
-                                <>
-                                  {platform.data.summaries.slice(0, 4).map((summary, index) => (
-                                    <div key={index} className="flex items-start space-x-3 group">
-                                      <div className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 transition-all duration-300 ${
-                                        index === 0 ? 'bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-cyan-400 group-hover:scale-125' :
-                                        index === 1 ? 'bg-gradient-to-r from-sdhq-green-500 to-sdhq-green-400 group-hover:scale-125' :
-                                        index === 2 ? 'bg-gradient-to-r from-sdhq-cyan-400 to-sdhq-cyan-300 group-hover:scale-125' :
-                                        'bg-gradient-to-r from-sdhq-green-400 to-sdhq-green-300 group-hover:scale-125'
-                                      }`}></div>
-                                      <p className={`${textClasses} text-base leading-relaxed group-hover:translate-x-1 transition-transform duration-300`}>{summary}</p>
-                                    </div>
-                                  ))}
-                                </>
-                              ) : (
-                                // Fallback to generic bullets if summaries not available
-                                <>
-                                  <div className="flex items-start space-x-3 group">
-                                    <div className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-cyan-400 group-hover:scale-125"></div>
-                                    <p className={`${textClasses} text-base`}>Key algorithm changes</p>
-                                  </div>
-                                  <div className="flex items-start space-x-3 group">
-                                    <div className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-gradient-to-r from-sdhq-green-500 to-sdhq-green-400 group-hover:scale-125"></div>
-                                    <p className={`${textClasses} text-base`}>Editing optimization tips</p>
-                                  </div>
-                                  <div className="flex items-start space-x-3 group">
-                                    <div className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-gradient-to-r from-sdhq-cyan-400 to-sdhq-cyan-300 group-hover:scale-125"></div>
-                                    <p className={`${textClasses} text-base`}>Best posting strategies</p>
-                                  </div>
-                                  <div className="flex items-start space-x-3 group">
-                                    <div className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 bg-gradient-to-r from-sdhq-green-400 to-sdhq-green-300 group-hover:scale-125"></div>
-                                    <p className={`${textClasses} text-base`}>Title & description guides</p>
-                                  </div>
-                                </>
-                              )}
-                              <div className="pt-4 mt-3 border-t border-gray-200 dark:border-sdhq-dark-600">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setExpandedCard(platform.id)}
-                                  className="w-full bg-gradient-to-r from-sdhq-cyan-500/10 to-sdhq-green-500/10 hover:from-sdhq-cyan-500/20 hover:to-sdhq-green-500/20 border-sdhq-cyan-500/50 hover:border-sdhq-cyan-500 transition-all duration-300"
-                                >
-                                  <TrendingUp className="w-4 h-4 mr-2" />
-                                  Read More
-                                </Button>
-                              </div>
-                            </>
-                          ) : (
-                            <div className="flex flex-col items-center justify-center py-8 space-y-2">
-                              <div className="w-8 h-8 border-2 border-sdhq-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-                              <p className={`${subtitleClasses} text-base`}>Loading algorithm data...</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </TabsContent>
-
-            {/* Algorithm Detail Popup */}
-            {expandedCard && (
-              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-                {(() => {
-                  const platform = platforms.find(p => p.id === expandedCard)
-                  if (!platform) return null
-                  return (
-                    <div className={`relative overflow-hidden rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200 ${
-                      darkMode 
-                        ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/30' 
-                        : 'bg-gradient-to-br from-white to-gray-50 border border-sdhq-cyan-200'
-                    }`}>
-                      {/* Platform-specific gradient header */}
-                      <div className={`h-2 bg-gradient-to-r ${
-                        platform.id === 'tiktok' ? 'from-pink-500 via-purple-500 to-cyan-500' :
-                        platform.id === 'instagram' ? 'from-purple-500 via-pink-500 to-orange-500' :
-                        platform.id === 'youtube-shorts' ? 'from-red-500 via-red-600 to-red-700' :
-                        platform.id === 'youtube-long' ? 'from-red-600 via-red-700 to-red-800' :
-                        'from-blue-500 via-blue-600 to-blue-700'
-                      }`}></div>
-                      
-                      <div className="p-6">
-                        <div className="flex items-center justify-between mb-8">
-                          <div className="flex items-center space-x-4">
-                            <div className={`relative p-2 rounded-xl ${
-                              darkMode ? 'bg-sdhq-dark-700' : 'bg-white'
-                            } shadow-lg`}>
-                              <img
-                                src={platform.image}
-                                alt={platform.name}
-                                className="w-16 h-16 rounded-lg object-cover"
-                              />
-                            </div>
-                            <div>
-                              <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                {platform.name}
-                              </h3>
-                              <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}`}>
-                                Powered By: Gemini 2.5 Flash
-                              </p>
-                              <p className={`text-base ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                                Algorithm Insights
-                              </p>
-                            </div>
-                          </div>
-                          <button 
-                            onClick={() => setExpandedCard(null)}
-                            className={`p-3 rounded-full transition-all duration-300 hover:scale-110 ${
-                              darkMode 
-                                ? 'bg-sdhq-dark-700 hover:bg-sdhq-dark-600 text-white' 
-                                : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
-                            }`}
-                          >
-                            <X className="w-6 h-6" />
-                          </button>
-                        </div>
-                        
-                        <div className="space-y-5">
-                          {platform.data ? (
-                            <>
-                              <div className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
-                                darkMode 
-                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
-                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
-                              }`}>
-                                <h4 className={`font-semibold mb-3 flex items-center ${
-                                  darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'
-                                }`}>
-                                  <TrendingUp className="w-5 h-5 mr-2" />
-                                  Key Changes
-                                </h4>
-                                <p className={`${textClasses} text-base leading-relaxed`}>{platform.data.keyChanges}</p>
-                              </div>
-                              
-                              <div className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
-                                darkMode 
-                                  ? 'bg-sdhq-dark-700/50 border-sdhq-green-500/20 hover:border-sdhq-green-500/40' 
-                                  : 'bg-gradient-to-br from-sdhq-green-50 to-white border-sdhq-green-200 hover:border-sdhq-green-400'
-                              }`}>
-                                <h4 className={`font-semibold mb-3 flex items-center ${
-                                  darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'
-                                }`}>
-                                  <Video className="w-5 h-5 mr-2" />
-                                  Editing Tips
-                                </h4>
-                                <p className={`${textClasses} text-base leading-relaxed`}>{platform.data.editingTips}</p>
-                              </div>
-                              
-                              <div className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
-                                darkMode 
-                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
-                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
-                              }`}>
-                                <h4 className={`font-semibold mb-3 flex items-center ${
-                                  darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'
-                                }`}>
-                                  <Globe className="w-5 h-5 mr-2" />
-                                  Posting Tips
-                                </h4>
-                                <p className={`${textClasses} text-base leading-relaxed`}>{platform.data.postingTips}</p>
-                              </div>
-                              
-                              <div className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
-                                darkMode 
-                                  ? 'bg-sdhq-dark-700/50 border-sdhq-green-500/20 hover:border-sdhq-green-500/40' 
-                                  : 'bg-gradient-to-br from-sdhq-green-50 to-white border-sdhq-green-200 hover:border-sdhq-green-400'
-                              }`}>
-                                <h4 className={`font-semibold mb-3 flex items-center ${
-                                  darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'
-                                }`}>
-                                  <Hash className="w-5 h-5 mr-2" />
-                                  Title Tips
-                                </h4>
-                                <p className={`${textClasses} text-base leading-relaxed`}>{platform.data.titleTips}</p>
-                              </div>
-                              
-                              <div className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
-                                darkMode 
-                                  ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' 
-                                  : 'bg-gradient-to-br from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400'
-                              }`}>
-                                <h4 className={`font-semibold mb-3 flex items-center ${
-                                  darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'
-                                }`}>
-                                  <Brain className="w-5 h-5 mr-2" />
-                                  Description Tips
-                                </h4>
-                                <p className={`${textClasses} text-base leading-relaxed`}>{platform.data.descriptionTips}</p>
-                              </div>
-                            </>
-                          ) : (
-                            <div className="flex flex-col items-center justify-center py-12 space-y-3">
-                              <div className="w-10 h-10 border-3 border-sdhq-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-                              <p className={`${subtitleClasses} text-base`}>Loading algorithm data...</p>
-                            </div>
-                          )}
-                          
-                          <div className="pt-6 border-t border-gray-200 dark:border-sdhq-dark-700">
-                            <Button
-                              variant="outline"
-                              size="lg"
-                              onClick={() => setExpandedCard(null)}
-                              className="w-full bg-gradient-to-r from-sdhq-cyan-500/10 to-sdhq-green-500/10 hover:from-sdhq-cyan-500/20 hover:to-sdhq-green-500/20 border-sdhq-cyan-500/50 hover:border-sdhq-cyan-500 transition-all duration-300"
-                            >
-                              Close
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })()}
-              </div>
-            )}
 
             <TabsContent value="tag-generator-free">
               <div className={`${cardClasses} p-6`}>
@@ -4491,7 +4146,22 @@ export default function HomePage() {
             </TabsContent>
 
             <TabsContent value="resource-hub">
-              <ResourceHubTab darkMode={darkMode} cardClasses={cardClasses} />
+              <ResourceHubTab
+                darkMode={darkMode}
+                cardClasses={cardClasses}
+                textClasses={textClasses}
+                subtitleClasses={subtitleClasses}
+                platforms={platforms}
+                platformsBannerLogos={platformsBannerLogos}
+                lastUpdated={lastUpdated}
+                isLoadingAlgorithms={isLoadingAlgorithms}
+                algorithmError={algorithmError}
+                isAdmin={isAdmin}
+                showAdminControls={!!user}
+                onRefreshAlgorithms={handleRefreshAlgorithms}
+                expandedCard={expandedCard}
+                onExpandedCardChange={setExpandedCard}
+              />
             </TabsContent>
 
             <TabsContent value="settings">
