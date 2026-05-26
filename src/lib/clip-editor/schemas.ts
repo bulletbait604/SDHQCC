@@ -295,6 +295,18 @@ export const publishMetadataSchema = z.object({
   engagementScore: z.number().finite().min(0).max(100).optional(),
 })
 
+export const viralityReviewSchema = z.object({
+  phase: z.enum(['cut', 'effects', 'text']),
+  viralityScore: z.number().finite().min(0).max(100),
+  platformFitScore: z.number().finite().min(0).max(100),
+  summary: z.string(),
+  strengths: z.array(z.string()).max(8),
+  risks: z.array(z.string()).max(8),
+  /** Fed into the next AI pass prompts for this platform. */
+  promptHints: z.string(),
+  recommendedAdjustments: z.array(z.string()).max(10),
+})
+
 export const clipEditorJobPassesSchema = z.object({
   transcript: transcriptAnalysisSchema.optional(),
   geminiVideo: geminiVideoPlanSchema.optional(),
@@ -306,8 +318,17 @@ export const clipEditorJobPassesSchema = z.object({
   captions: captionTimelineSchema.optional(),
   hookOverlay: hookOverlayPlanSchema.optional(),
   broll: brollPlanSchema.optional(),
+  viralityCut: viralityReviewSchema.optional(),
+  viralityEffects: viralityReviewSchema.optional(),
+  viralityText: viralityReviewSchema.optional(),
+  cutPhasePlan: finalEditPlanSchema.optional(),
+  effectsPhasePlan: finalEditPlanSchema.optional(),
   finalEditPlan: finalEditPlanSchema.optional(),
   metadata: publishMetadataSchema.optional(),
+})
+
+export const startClipEditorPhaseSchema = z.object({
+  phase: z.enum(['cut', 'finish']),
 })
 
 export const createClipEditorJobBodySchema = z.object({

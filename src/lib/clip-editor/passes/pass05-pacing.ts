@@ -1,6 +1,15 @@
 import { geminiJsonPass } from '@/lib/clip-editor/services/gemini'
 import { pacingPlanSchema } from '@/lib/clip-editor/schemas'
-import type { ClipEditorPlatform, CutRanking, PacingPlan, TranscriptAnalysis } from '@/lib/clip-editor/types'
+import type {
+  ClipEditorPlatform,
+  CutRanking,
+  PacingPlan,
+  TranscriptAnalysis,
+  ViralityReview,
+} from '@/lib/clip-editor/types'
+import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
+import { resolveClipEditorAlgorithmNotes } from '@/lib/clipEditorAlgorithmNotes'
+import { platformEditingDirective } from '@/lib/platformEditing'
 
 function targetVisualChangeSeconds(platform: ClipEditorPlatform): number {
   switch (platform) {
@@ -18,16 +27,22 @@ function targetVisualChangeSeconds(platform: ClipEditorPlatform): number {
 export async function runPacingPass(
   transcript: TranscriptAnalysis,
   ranking: CutRanking,
-  platform: ClipEditorPlatform
+  platform: ClipEditorPlatform,
+  viralityHints?: ViralityReview
 ): Promise<PacingPlan> {
   const top = ranking.segments[0]
+  const snapshot = await readAlgorithmSnapshotFromMongo()
+  const algorithmNotes = resolveClipEditorAlgorithmNotes(snapshot, platform)
   const prompt = `Create pacing strategy for a ${platform} short-form clip.
 
+Platform directive: ${platformEditingDirective(platform)}
+Algorithm notes: ${JSON.stringify(algorithmNotes)}
+${viralityHints?.promptHints ? `Virality review hints (apply these): ${viralityHints.promptHints}` : ''}
+
 Platform targets:
-- TikTok: visual change every 1-2s
-- YouTube Shorts: 2-4s
-- Instagram Reels: cleaner pacing
-- Facebook: slower
+- TikTok: visual change every 1-2s, punchy zoom-ins on emphasis words
+- YouTube Shorts: 2-4s, loop-friendly motion
+- Instagram Reels: cinematic zooms, cleaner transitions
 
 Return JSON only:
 {

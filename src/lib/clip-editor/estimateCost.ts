@@ -35,7 +35,8 @@ export function estimateClipEditorCost(sourceDurationSeconds: number): ClipEdito
   const geminiVideoFlat = numEnv('ESTIMATE_CLIP_EDITOR_GEMINI_VIDEO_USD', 0.18)
   const geminiVideoPerMin = numEnv('ESTIMATE_CLIP_EDITOR_GEMINI_VIDEO_PER_MIN', 0.012)
   const geminiText = numEnv('ESTIMATE_CLIP_EDITOR_GEMINI_TEXT_USD', 0.025)
-  const shotstackRender = numEnv('ESTIMATE_CLIP_EDITOR_SHOTSTACK_RENDER_USD', 0.35)
+  const shotstackRenderEach = numEnv('ESTIMATE_CLIP_EDITOR_SHOTSTACK_RENDER_USD', 0.35)
+  const shotstackRenders = numEnv('ESTIMATE_CLIP_EDITOR_SHOTSTACK_RENDER_COUNT', 2)
   const qstash = numEnv('ESTIMATE_CLIP_EDITOR_QSTASH_USD', 0.002)
 
   const deepgramUsd = (duration / 60) * deepgramPerMin
@@ -55,15 +56,15 @@ export function estimateClipEditorCost(sourceDurationSeconds: number): ClipEdito
     },
     {
       provider: 'gemini',
-      label: 'Text passes (hooks, retention, pacing, metadata)',
-      estimatedUsd: geminiText,
-      note: '4× transcript-only JSON calls',
+      label: 'Text passes (hooks, retention, virality, pacing, captions, metadata)',
+      estimatedUsd: geminiText * 1.8,
+      note: 'Multiple Gemini JSON passes across 2 user steps',
     },
     {
       provider: 'shotstack',
-      label: 'Final render (1080×1920)',
-      estimatedUsd: shotstackRender,
-      note: `Assumes ~${outputSeconds.toFixed(0)}s output; plan-dependent`,
+      label: 'Renders (cut preview + final)',
+      estimatedUsd: shotstackRenderEach * shotstackRenders,
+      note: `${shotstackRenders}× render · ~${outputSeconds.toFixed(0)}s output each`,
     },
     {
       provider: 'upstash',

@@ -29,18 +29,30 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 })
     }
 
+    const phasePaused = job.state === 'CUT_PHASE_DONE'
+
     return NextResponse.json({
       jobId: job._id,
       state: job.state,
+      userPhase: job.userPhase ?? 'ready',
       stateLabel: CLIP_EDITOR_STATE_LABELS[job.state],
       progress: job.progress,
+      phasePaused,
       error: job.error,
+      cutPreviewUrl: job.cutPreviewUrl,
+      effectsPreviewUrl: job.effectsPreviewUrl,
       outputUrl: job.outputUrl,
       outputR2Key: job.outputR2Key,
       shotstackRenderId: job.shotstackRenderId,
       platform: job.platform,
       layoutTemplate: job.layoutTemplate,
       metadata: job.passes.metadata,
+      viralityCut: job.passes.viralityCut,
+      viralityEffects: job.passes.viralityEffects,
+      viralityText: job.passes.viralityText,
+      cutPhasePlan: job.passes.cutPhasePlan,
+      cutRanking: job.passes.cutRanking,
+      geminiVideo: job.passes.geminiVideo,
       editPlan: job.state === 'COMPLETE' ? job.passes.finalEditPlan : undefined,
     })
   } catch (error) {

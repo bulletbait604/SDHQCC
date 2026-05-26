@@ -18,12 +18,14 @@ import { runReframingPass } from '@/lib/clip-editor/passes/pass06-reframing'
 import { runCaptionIntelligencePass } from '@/lib/clip-editor/passes/pass07-captions'
 import { runHookOverlayPass } from '@/lib/clip-editor/passes/pass08-hookOverlay'
 import { runBrollPass } from '@/lib/clip-editor/passes/pass09-broll'
-import { runFinalEditPlanPass } from '@/lib/clip-editor/passes/pass10-finalEditPlan'
+import { runCutPhaseEditPlanPass, runFinalEditPlanPass } from '@/lib/clip-editor/passes/phaseEditPlans'
 import {
   finalizeShotstackOutput,
+  submitShotstackRenderForEditPlan,
   submitShotstackRenderPass,
 } from '@/lib/clip-editor/passes/pass11-render'
 import { runMetadataPass } from '@/lib/clip-editor/passes/pass12-metadata'
+import { runViralityReviewPass } from '@/lib/clip-editor/passes/passVirality'
 import { pollShotstackRender } from '@/lib/clip-editor/services/shotstack'
 import { formatUnknownError } from '@/lib/clip-editor/formatError'
 
@@ -37,9 +39,14 @@ export type AdvanceStepResult = {
   done: boolean
   rescheduled: boolean
   state: ClipEditorJobState
+  /** Pipeline paused waiting for user to start the next wizard step. */
+  phasePaused?: boolean
 }
 
-/** Runs exactly one pipeline stage, then schedules the next via QStash (cloud — no local worker). */
+/** Pipeline stops here until the user starts the Finish pass. */
+const PHASE_PAUSE_STATES: ClipEditorJobState[] = ['CUT_PHASE_DONE']
+
+/** Runs exactly one pipeline stage, then schedules the next via QStash unless a phase boundary is reached. */
 export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepResult> {
   const job = await getClipEditorJob(jobId)
   if (!job) throw new Error(`Clip editor job not found: ${jobId}`)
@@ -49,22 +56,16 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
   if (job.state === 'FAILED') {
     return { done: true, rescheduled: false, state: 'FAILED' }
   }
+  if (PHASE_PAUSE_STATES.includes(job.state)) {
+    return { done: false, rescheduled: false, state: job.state, phasePaused: true }
+  }
 
   try {
     const sourceReadUrl = await refreshSourceUrl(job.r2FileKey)
     const jobWithUrl = { ...job, sourceReadUrl }
 
     switch (job.state) {
-      case 'UPLOADED': {
-        await updateClipEditorJobState(jobId, 'TRANSCRIBING')
-        if (!job.passes.transcript) {
-          const transcript = await runTranscriptionPass(sourceReadUrl)
-          await updateClipEditorJobPasses(jobId, { transcript })
-        }
-        await updateClipEditorJobState(jobId, 'VIDEO_ANALYSIS')
-        await scheduleClipEditorStep(jobId)
-        return { done: false, rescheduled: true, state: 'VIDEO_ANALYSIS' }
-      }
+      case 'UPLOADED':
       case 'TRANSCRIBING': {
         if (!job.passes.transcript) {
           const transcript = await runTranscriptionPass(sourceReadUrl)
@@ -124,29 +125,133 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
           const cutRanking = runCutRankingPass(transcript, hooks, retention)
           await updateClipEditorJobPasses(jobId, { cutRanking })
         }
-        await updateClipEditorJobState(jobId, 'PACING')
-        await scheduleClipEditorStep(jobId)
-        return { done: false, rescheduled: true, state: 'PACING' }
-      }
-      case 'PACING': {
-        const transcript = job.passes.transcript
-        const cutRanking = job.passes.cutRanking
-        if (!transcript || !cutRanking) throw new Error('Missing data for pacing')
-        if (!job.passes.pacing) {
-          const pacing = await runPacingPass(transcript, cutRanking, job.platform)
-          await updateClipEditorJobPasses(jobId, { pacing })
-        }
         await updateClipEditorJobState(jobId, 'REFRAMING')
         await scheduleClipEditorStep(jobId)
         return { done: false, rescheduled: true, state: 'REFRAMING' }
       }
       case 'REFRAMING': {
         const transcript = job.passes.transcript
-        if (!transcript) throw new Error('Missing transcript for reframing')
+        const cutRanking = job.passes.cutRanking
+        if (!transcript || !cutRanking) throw new Error('Missing data for reframing')
         if (!job.passes.reframing) {
           const reframing = runReframingPass(transcript, job.layoutTemplate, job.landscapeMode)
           await updateClipEditorJobPasses(jobId, { reframing })
         }
+        await updateClipEditorJobState(jobId, 'VIRALITY_CUT')
+        await scheduleClipEditorStep(jobId)
+        return { done: false, rescheduled: true, state: 'VIRALITY_CUT' }
+      }
+      case 'VIRALITY_CUT': {
+        const transcript = job.passes.transcript
+        const cutRanking = job.passes.cutRanking
+        const reframing = job.passes.reframing
+        if (!transcript || !cutRanking || !reframing) throw new Error('Missing cut pass outputs')
+        if (!job.passes.viralityCut) {
+          const viralityCut = await runViralityReviewPass({
+            phase: 'cut',
+            platform: job.platform,
+            transcript,
+            cutRanking,
+            geminiVideo: job.passes.geminiVideo,
+          })
+          await updateClipEditorJobPasses(jobId, { viralityCut })
+        }
+        if (!job.passes.cutPhasePlan) {
+          const cutPhasePlan = runCutPhaseEditPlanPass({
+            ranking: cutRanking,
+            reframing,
+            layoutTemplate: job.layoutTemplate,
+            landscapeMode: job.landscapeMode,
+            durationSeconds: transcript.durationSeconds,
+            geminiVideo: job.passes.geminiVideo,
+          })
+          await updateClipEditorJobPasses(jobId, { cutPhasePlan })
+        }
+        await updateClipEditorJobState(jobId, 'RENDERING_CUT_PREVIEW')
+        await scheduleClipEditorStep(jobId)
+        return { done: false, rescheduled: true, state: 'RENDERING_CUT_PREVIEW' }
+      }
+      case 'RENDERING_CUT_PREVIEW': {
+        const cutPlan = job.passes.cutPhasePlan
+        if (!cutPlan) throw new Error('Missing cut phase plan for preview render')
+        if (!job.cutShotstackRenderId) {
+          const { renderId } = await submitShotstackRenderForEditPlan(jobWithUrl, cutPlan, {
+            richCaptions: false,
+          })
+          await updateClipEditorJobState(jobId, 'RENDERING_CUT_PREVIEW', {
+            cutShotstackRenderId: renderId,
+          })
+          await scheduleClipEditorStep(jobId, 5)
+          return { done: false, rescheduled: true, state: 'RENDERING_CUT_PREVIEW' }
+        }
+        const poll = await pollShotstackRender(job.cutShotstackRenderId)
+        if (poll.failed) throw new Error(`Cut preview render failed (${poll.status})`)
+        if (!poll.done || !poll.url) {
+          await scheduleClipEditorStep(jobId, 5)
+          return { done: false, rescheduled: true, state: 'RENDERING_CUT_PREVIEW' }
+        }
+        const finalized = await finalizeShotstackOutput(jobWithUrl, poll.url, 'cut-preview')
+        await updateClipEditorJobState(jobId, 'CUT_PHASE_DONE', {
+          cutPreviewUrl: finalized.outputUrl,
+          cutPreviewR2Key: finalized.outputR2Key,
+          cutShotstackRenderId: job.cutShotstackRenderId,
+        })
+        return { done: false, rescheduled: false, state: 'CUT_PHASE_DONE', phasePaused: true }
+      }
+      case 'PACING': {
+        const transcript = job.passes.transcript
+        const cutRanking = job.passes.cutRanking
+        if (!transcript || !cutRanking) throw new Error('Missing data for pacing')
+        if (!job.passes.pacing) {
+          const pacing = await runPacingPass(
+            transcript,
+            cutRanking,
+            job.platform,
+            job.passes.viralityCut
+          )
+          await updateClipEditorJobPasses(jobId, { pacing })
+        }
+        await updateClipEditorJobState(jobId, 'BROLL_PLANNING')
+        await scheduleClipEditorStep(jobId)
+        return { done: false, rescheduled: true, state: 'BROLL_PLANNING' }
+      }
+      case 'BROLL_PLANNING': {
+        const transcript = job.passes.transcript
+        const retention = job.passes.retention
+        if (!transcript || !retention) throw new Error('Missing data for b-roll')
+        if (!job.passes.broll) {
+          const broll = runBrollPass(transcript, retention)
+          await updateClipEditorJobPasses(jobId, { broll })
+        }
+        await updateClipEditorJobState(jobId, 'VIRALITY_EFFECTS')
+        await scheduleClipEditorStep(jobId)
+        return { done: false, rescheduled: true, state: 'VIRALITY_EFFECTS' }
+      }
+      case 'VIRALITY_EFFECTS': {
+        const transcript = job.passes.transcript
+        const cutRanking = job.passes.cutRanking
+        const pacing = job.passes.pacing
+        if (!transcript || !cutRanking || !pacing) throw new Error('Missing effects pass outputs')
+        if (!job.passes.viralityEffects) {
+          const viralityEffects = await runViralityReviewPass({
+            phase: 'effects',
+            platform: job.platform,
+            transcript,
+            cutRanking,
+            geminiVideo: job.passes.geminiVideo,
+            pacing,
+            cutPhasePlan: job.passes.cutPhasePlan,
+            previousReview: job.passes.viralityCut,
+          })
+          await updateClipEditorJobPasses(jobId, { viralityEffects })
+        }
+        await updateClipEditorJobState(jobId, 'TEXT_TRANSCRIBING')
+        await scheduleClipEditorStep(jobId)
+        return { done: false, rescheduled: true, state: 'TEXT_TRANSCRIBING' }
+      }
+      case 'TEXT_TRANSCRIBING': {
+        const transcript = await runTranscriptionPass(sourceReadUrl)
+        await updateClipEditorJobPasses(jobId, { transcript })
         await updateClipEditorJobState(jobId, 'CAPTIONING')
         await scheduleClipEditorStep(jobId)
         return { done: false, rescheduled: true, state: 'CAPTIONING' }
@@ -154,13 +259,27 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
       case 'CAPTIONING': {
         const transcript = job.passes.transcript
         const hooks = job.passes.hooks
-        const retention = job.passes.retention
-        if (!transcript || !hooks || !retention) throw new Error('Missing data for captioning')
-        if (!job.passes.captions || !job.passes.hookOverlay || !job.passes.broll) {
-          const captions = job.passes.captions ?? runCaptionIntelligencePass(transcript)
-          const hookOverlay = job.passes.hookOverlay ?? (await runHookOverlayPass(hooks))
-          const broll = job.passes.broll ?? runBrollPass(transcript, retention)
-          await updateClipEditorJobPasses(jobId, { captions, hookOverlay, broll })
+        if (!transcript || !hooks) throw new Error('Missing data for captioning')
+        if (!job.passes.viralityText) {
+          const viralityText = await runViralityReviewPass({
+            phase: 'text',
+            platform: job.platform,
+            transcript,
+            cutRanking: job.passes.cutRanking,
+            geminiVideo: job.passes.geminiVideo,
+            pacing: job.passes.pacing,
+            previousReview: job.passes.viralityEffects,
+          })
+          await updateClipEditorJobPasses(jobId, { viralityText })
+        }
+        if (!job.passes.captions) {
+          const captions = runCaptionIntelligencePass(transcript)
+          await updateClipEditorJobPasses(jobId, { captions })
+        }
+        const viralityText = job.passes.viralityText
+        if (!job.passes.hookOverlay) {
+          const hookOverlay = await runHookOverlayPass(hooks, job.platform, viralityText)
+          await updateClipEditorJobPasses(jobId, { hookOverlay })
         }
         await updateClipEditorJobState(jobId, 'EDIT_PLAN')
         await scheduleClipEditorStep(jobId)
@@ -213,7 +332,7 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
           return { done: false, rescheduled: true, state: 'RENDERING' }
         }
 
-        const finalized = await finalizeShotstackOutput(jobWithUrl, poll.url)
+        const finalized = await finalizeShotstackOutput(jobWithUrl, poll.url, 'final')
         const transcript = job.passes.transcript
         const finalEditPlan = job.passes.finalEditPlan
         if (transcript && finalEditPlan) {
@@ -239,12 +358,55 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
   }
 }
 
+export type ClipEditorWizardPhase = 'cut' | 'finish'
+
+/** Start or resume a user-facing wizard phase (called from authenticated API). */
+export async function startClipEditorWizardPhase(
+  jobId: string,
+  phase: ClipEditorWizardPhase
+): Promise<{ state: ClipEditorJobState }> {
+  const job = await getClipEditorJob(jobId)
+  if (!job) throw new Error('Job not found')
+  if (job.state === 'FAILED') throw new Error('Job failed — create a new job')
+  if (job.state === 'COMPLETE') throw new Error('Job already complete')
+
+  switch (phase) {
+    case 'cut': {
+      if (job.userPhase !== 'ready' && job.state !== 'UPLOADED') {
+        if (job.userPhase === 'cut_running') {
+          await scheduleClipEditorStep(jobId)
+          return { state: job.state }
+        }
+        throw new Error('Cut pass already started or finished')
+      }
+      await updateClipEditorJobState(jobId, 'TRANSCRIBING')
+      await scheduleClipEditorStep(jobId)
+      return { state: 'TRANSCRIBING' }
+    }
+    case 'finish': {
+      if (job.userPhase !== 'cut_ready' && job.state !== 'CUT_PHASE_DONE') {
+        if (job.userPhase === 'finish_running') {
+          await scheduleClipEditorStep(jobId)
+          return { state: job.state }
+        }
+        throw new Error('Run Cut it first and wait for the cut preview')
+      }
+      await updateClipEditorJobState(jobId, 'PACING')
+      await scheduleClipEditorStep(jobId)
+      return { state: 'PACING' }
+    }
+    default:
+      throw new Error('Invalid phase')
+  }
+}
+
 /** @deprecated Use advanceClipEditorStep via QStash — kept for tests/scripts only */
 export async function runClipEditorPipeline(jobId: string): Promise<void> {
   let guard = 0
-  while (guard < 40) {
+  while (guard < 60) {
     const result = await advanceClipEditorStep(jobId)
     if (result.done) return
+    if (result.phasePaused) return
     guard += 1
   }
   throw new Error('Pipeline exceeded max inline steps')

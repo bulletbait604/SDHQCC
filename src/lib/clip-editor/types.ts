@@ -16,8 +16,9 @@ import type {
   reframingPlanSchema,
   retentionAnalysisSchema,
   transcriptAnalysisSchema,
+  viralityReviewSchema,
 } from '@/lib/clip-editor/schemas'
-import type { ClipEditorJobState } from '@/lib/clip-editor/jobStates'
+import type { ClipEditorJobState, ClipEditorUserPhase } from '@/lib/clip-editor/jobStates'
 
 export type ClipEditorPlatform = z.infer<typeof clipEditorPlatformSchema>
 export type ClipLayoutTemplate = z.infer<typeof layoutTemplateSchema>
@@ -34,6 +35,7 @@ export type HookOverlayPlan = z.infer<typeof hookOverlayPlanSchema>
 export type BrollPlan = z.infer<typeof brollPlanSchema>
 export type FinalEditPlan = z.infer<typeof finalEditPlanSchema>
 export type PublishMetadata = z.infer<typeof publishMetadataSchema>
+export type ViralityReview = z.infer<typeof viralityReviewSchema>
 export type ClipEditorJobPasses = z.infer<typeof clipEditorJobPassesSchema>
 
 export type ClipEditorJobDocument = {
@@ -48,10 +50,17 @@ export type ClipEditorJobDocument = {
   sourceDurationSeconds?: number
   mimeType: string
   state: ClipEditorJobState
+  userPhase: ClipEditorUserPhase
   progress: number
   error?: string
   passes: ClipEditorJobPasses
   shotstackRenderId?: string
+  cutShotstackRenderId?: string
+  effectsShotstackRenderId?: string
+  cutPreviewUrl?: string
+  cutPreviewR2Key?: string
+  effectsPreviewUrl?: string
+  effectsPreviewR2Key?: string
   outputR2Key?: string
   outputUrl?: string
   createdAt: string

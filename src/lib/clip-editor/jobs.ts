@@ -1,8 +1,8 @@
 import { randomUUID } from 'crypto'
 import clientPromise from '@/lib/mongodb'
 import type { ClipEditorJobDocument, ClipEditorJobPasses, CreateClipEditorJobBody } from '@/lib/clip-editor/types'
-import type { ClipEditorJobState } from '@/lib/clip-editor/jobStates'
-import { CLIP_EDITOR_STATE_PROGRESS } from '@/lib/clip-editor/jobStates'
+import type { ClipEditorJobState, ClipEditorUserPhase } from '@/lib/clip-editor/jobStates'
+import { CLIP_EDITOR_STATE_PROGRESS, userPhaseFromJobState } from '@/lib/clip-editor/jobStates'
 
 const COLLECTION = 'clipEditorJobs'
 
@@ -29,6 +29,7 @@ export async function createClipEditorJob(params: {
     sourceDurationSeconds: params.body.sourceDurationSeconds,
     mimeType: params.body.mimeType || 'video/mp4',
     state: 'UPLOADED',
+    userPhase: 'ready',
     progress: CLIP_EDITOR_STATE_PROGRESS.UPLOADED,
     passes: {},
     createdAt: now,
@@ -60,7 +61,21 @@ export async function getClipEditorJobForUser(
 export async function updateClipEditorJobState(
   jobId: string,
   state: ClipEditorJobState,
-  patch?: Partial<Pick<ClipEditorJobDocument, 'error' | 'shotstackRenderId' | 'outputR2Key' | 'outputUrl'>>
+  patch?: Partial<
+    Pick<
+      ClipEditorJobDocument,
+      | 'error'
+      | 'shotstackRenderId'
+      | 'cutShotstackRenderId'
+      | 'effectsShotstackRenderId'
+      | 'cutPreviewUrl'
+      | 'cutPreviewR2Key'
+      | 'effectsPreviewUrl'
+      | 'effectsPreviewR2Key'
+      | 'outputR2Key'
+      | 'outputUrl'
+    >
+  >
 ): Promise<void> {
   const col = await collection()
   await col.updateOne(
@@ -68,11 +83,23 @@ export async function updateClipEditorJobState(
     {
       $set: {
         state,
+        userPhase: userPhaseFromJobState(state),
         progress: CLIP_EDITOR_STATE_PROGRESS[state],
         updatedAt: new Date().toISOString(),
         ...patch,
       },
     }
+  )
+}
+
+export async function updateClipEditorUserPhase(
+  jobId: string,
+  userPhase: ClipEditorUserPhase
+): Promise<void> {
+  const col = await collection()
+  await col.updateOne(
+    { _id: jobId },
+    { $set: { userPhase, updatedAt: new Date().toISOString() } }
   )
 }
 

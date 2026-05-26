@@ -5,16 +5,21 @@ import {
   readResolvedSegmentsFromShotstack,
   uploadClipEditorCaptionVtt,
 } from '@/lib/clip-editor/vttCaptions'
-import type { ClipEditorJobDocument } from '@/lib/clip-editor/types'
+import type { ClipEditorJobDocument, FinalEditPlan } from '@/lib/clip-editor/types'
 
-export async function submitShotstackRenderPass(
-  job: ClipEditorJobDocument
+export type ShotstackOutputKind = 'cut-preview' | 'effects-preview' | 'final'
+
+export async function submitShotstackRenderForEditPlan(
+  job: ClipEditorJobDocument,
+  editPlan: FinalEditPlan,
+  options?: { richCaptions?: boolean }
 ): Promise<{ renderId: string }> {
   const transcript = job.passes.transcript
-  const editPlan = job.passes.finalEditPlan
-  if (!transcript || !editPlan) {
-    throw new Error('Missing transcript or final edit plan before render')
+  if (!transcript) {
+    throw new Error('Missing transcript before render')
   }
+
+  const useRichCaptions = options?.richCaptions ?? editPlan.captions.length > 0
 
   let payload = buildShotstackPackageFromEditPlan({
     sourceUrl: job.sourceReadUrl,
@@ -25,25 +30,27 @@ export async function submitShotstackRenderPass(
     sourceDurationSeconds: job.sourceDurationSeconds,
   })
 
-  const segments = readResolvedSegmentsFromShotstack({
-    metadata: payload.metadata,
-    timeline: payload.timeline,
-  })
-  const richCaptionUrl = await uploadClipEditorCaptionVtt({
-    username: job.username,
-    words: transcript.words,
-    segments,
-  })
-  if (richCaptionUrl) {
-    payload = buildShotstackPackageFromEditPlan({
-      sourceUrl: job.sourceReadUrl,
-      platform: job.platform,
-      editPlan,
-      transcript,
-      geminiVideo: job.passes.geminiVideo,
-      sourceDurationSeconds: job.sourceDurationSeconds,
-      richCaptionUrl,
+  if (useRichCaptions) {
+    const segments = readResolvedSegmentsFromShotstack({
+      metadata: payload.metadata,
+      timeline: payload.timeline,
     })
+    const richCaptionUrl = await uploadClipEditorCaptionVtt({
+      username: job.username,
+      words: transcript.words,
+      segments,
+    })
+    if (richCaptionUrl) {
+      payload = buildShotstackPackageFromEditPlan({
+        sourceUrl: job.sourceReadUrl,
+        platform: job.platform,
+        editPlan,
+        transcript,
+        geminiVideo: job.passes.geminiVideo,
+        sourceDurationSeconds: job.sourceDurationSeconds,
+        richCaptionUrl,
+      })
+    }
   }
 
   const renderId = await submitShotstackRender({
@@ -53,14 +60,32 @@ export async function submitShotstackRenderPass(
   return { renderId }
 }
 
+/** Final render (text pass) — uses full edit plan + karaoke captions when present. */
+export async function submitShotstackRenderPass(
+  job: ClipEditorJobDocument
+): Promise<{ renderId: string }> {
+  const editPlan = job.passes.finalEditPlan
+  if (!editPlan) {
+    throw new Error('Missing final edit plan before render')
+  }
+  return submitShotstackRenderForEditPlan(job, editPlan, { richCaptions: true })
+}
+
 export async function finalizeShotstackOutput(
   job: ClipEditorJobDocument,
-  shotstackUrl: string
+  shotstackUrl: string,
+  kind: ShotstackOutputKind = 'final'
 ): Promise<{ outputUrl: string; outputR2Key: string }> {
   const res = await fetch(shotstackUrl)
   if (!res.ok) throw new Error(`Could not download Shotstack output (${res.status})`)
   const buffer = Buffer.from(await res.arrayBuffer())
-  const outputR2Key = `uploads/clips/${job.username}/${Date.now()}-opus-render.mp4`
+  const suffix =
+    kind === 'cut-preview'
+      ? 'cut-preview'
+      : kind === 'effects-preview'
+        ? 'effects-preview'
+        : 'final-render'
+  const outputR2Key = `uploads/clips/${job.username}/${Date.now()}-${suffix}.mp4`
   const wrote = await putBufferToR2(outputR2Key, buffer, 'video/mp4')
   if (!wrote) throw new Error('Failed to store rendered clip on R2')
 

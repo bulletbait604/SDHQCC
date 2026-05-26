@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { verifySessionJwt, getSessionSecret } from '@/lib/auth/sessionJwt'
 import { BANNED_USER_MESSAGE, isUserBanned } from '@/lib/bannedUsers'
+import { isAllowlistedOwner } from '@/lib/ownerAllowlist'
 
 export type UserRole =
   | 'free'
@@ -152,11 +153,13 @@ export function requireRole(
  * Check if user has unlimited access (any paid tier)
  */
 export function hasUnlimitedAccess(user: VerifiedUser): boolean {
+  if (isAllowlistedOwner(user.username)) return true
   return UNLIMITED_ROLES.includes(user.role)
 }
 
-/** Clip Editor entitlement: Editor badge or Owner override. */
+/** Clip Editor entitlement: Editor badge or Owner override (including OWNER_USERNAMES allowlist). */
 export function hasClipEditorAccess(user: VerifiedUser): boolean {
+  if (isAllowlistedOwner(user.username)) return true
   return user.role === 'editor' || user.role === 'owner'
 }
 

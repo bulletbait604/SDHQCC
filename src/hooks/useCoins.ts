@@ -19,6 +19,12 @@ export const COIN_COSTS = {
   'content-analyzer': 2,
   'clip-editor-plan': 2,
   'clip-editor-runway': 3,
+  'clip-editor-cut': 1,
+  'clip-editor-finish': 1,
+  /** @deprecated Legacy 3-pass coins — use clip-editor-finish */
+  'clip-editor-effects': 1,
+  /** @deprecated Legacy 3-pass coins — use clip-editor-finish */
+  'clip-editor-text': 1,
 } as const
 
 export type ToolType = keyof typeof COIN_COSTS

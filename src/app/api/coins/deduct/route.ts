@@ -13,6 +13,10 @@ const VALID_TOOL_COSTS: Record<string, number> = {
   'content-analyzer': 2,     // 2 coins for free users
   'clip-editor-plan': 2,
   'clip-editor-runway': 3,
+  'clip-editor-cut': 1,
+  'clip-editor-finish': 1,
+  'clip-editor-effects': 1,
+  'clip-editor-text': 1,
 }
 
 export async function POST(req: NextRequest) {

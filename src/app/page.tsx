@@ -203,7 +203,7 @@ const translations = {
     kickClips: 'KICK Clips',
     clipEditor: 'Clip Editor',
     clipEditorDesc:
-      'A fully AI-optimized clip creator — smarter cuts, pacing, and platform-ready exports — is on the way.',
+      'Upload a raw clip (≤90s), then Cut it for a vertical preview, then Finish for effects, captions, and your final platform-ready render.',
     backgroundRemover: 'Background Remover',
     backgroundRemoverDesc:
       'Upload a photo and remove the background behind the main subject with AI.',
@@ -4033,7 +4033,7 @@ export default function HomePage() {
                   user={user}
                   hasEnoughCoins={hasEnoughCoins}
                   deductCoins={deductCoins}
-                  hasUnlimitedAccess={hasUnlimitedAccess}
+                  hasUnlimitedAccess={hasUnlimitedAccess || isOwner}
                   refreshBalance={refreshBalance}
                 />
               </TabsContent>
