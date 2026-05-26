@@ -402,10 +402,8 @@ export default function ClipEditorTab({
 
   const cutDone =
     userPhase === 'cut_ready' || userPhase === 'finish_running' || userPhase === 'complete'
-  const canCut =
-    Boolean(clipFile) && !cutDone && userPhase !== 'cut_running' && userPhase !== 'failed'
-  const canFinish =
-    cutDone && userPhase !== 'finish_running' && userPhase !== 'complete' && userPhase !== 'failed'
+  const canCut = Boolean(clipFile) && (userPhase === 'ready' || userPhase === 'failed')
+  const canFinish = userPhase === 'cut_ready'
 
   return (
     <div className={`py-8 ${cardClasses}`}>

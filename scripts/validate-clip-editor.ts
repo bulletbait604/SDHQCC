@@ -11,7 +11,7 @@ function assert(condition: boolean, message: string): void {
 }
 
 function main(): void {
-  assert(CLIP_EDITOR_JOB_STATES.length === 13, 'Expected 13 job states')
+  assert(CLIP_EDITOR_JOB_STATES.length === 21, 'Expected 21 job states (2-pass wizard pipeline)')
 
   transcriptAnalysisSchema.parse({
     fullTranscript: 'hello world',
