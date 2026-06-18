@@ -14,6 +14,7 @@ import {
   prepareThumbnailInstructions,
   THUMBNAIL_RESEARCH_MODEL_DEFAULT,
 } from "@/lib/thumbnailPromptResearch";
+import { estimateThumbnailGenerationUsd } from "@/lib/estimatedInferenceCost";
 
 /** Vercel / long-running: Fal + R2 can exceed default 10s. */
 export const maxDuration = 120;
@@ -27,11 +28,13 @@ function mimeFromThumbnailKey(key: string): string {
   return "image/png";
 }
 
-/** Prompt research / enrich / spellcheck — default Gemini 3.5 Flash (override via THUMBNAIL_GEMINI_MODEL). */
+/** Prompt research via Gemini 3.5 Flash; paint via Fal Nano Banana Pro by default. */
 const THUMBNAIL_GEMINI_MODEL_DEFAULT = THUMBNAIL_RESEARCH_MODEL_DEFAULT;
-const THUMBNAIL_PROVIDER_DEFAULT = "gemini";
-const FAL_KONTEXT_MODEL_DEFAULT = "fal-ai/flux-2-pro/edit";
-const FAL_NANO_EDIT_MODEL_DEFAULT = "fal-ai/nano-banana/edit";
+const THUMBNAIL_PROVIDER_DEFAULT = "fal";
+const FAL_NANO_PRO_T2I = "fal-ai/nano-banana-pro";
+const FAL_NANO_PRO_EDIT = "fal-ai/nano-banana-pro/edit";
+const FAL_NANO_FLASH_T2I = "fal-ai/nano-banana";
+const FAL_NANO_FLASH_EDIT = "fal-ai/nano-banana/edit";
 
 function thumbnailGeminiModelId(): string {
   return (
@@ -39,27 +42,14 @@ function thumbnailGeminiModelId(): string {
   );
 }
 
-type ThumbnailProvider = "gemini" | "fal_kontext" | "fal_nano_edit";
+type ThumbnailProvider = "gemini" | "fal";
 
 function thumbnailProvider(): ThumbnailProvider {
   const v =
     process.env.THUMBNAIL_GENERATOR_BACKEND?.trim().toLowerCase() ||
-    process.env.THUMBNAIL_IMAGE_PROVIDER?.trim().toLowerCase() ||
     THUMBNAIL_PROVIDER_DEFAULT;
-  if (v === "fal_nano_edit" || v === "fal-nano-edit" || v === "nano" || v === "nano_edit") {
-    return "fal_nano_edit";
-  }
-  if (v === "fal_kontext" || v === "fal-kontext" || v === "kontext" || v === "fal") {
-    return "fal_kontext";
-  }
-  return "gemini";
-}
-
-function thumbnailGeminiThinkingBudget(): number {
-  const raw = process.env.THUMBNAIL_GEMINI_THINKING_BUDGET?.trim() ?? "0";
-  const n = Number.parseInt(raw, 10);
-  if (Number.isNaN(n)) return 0;
-  return Math.max(0, Math.min(1024, n));
+  if (v === "gemini") return "gemini";
+  return "fal";
 }
 
 function thumbnailGeminiThinkingLevel(): "LOW" | "MEDIUM" | "HIGH" {
@@ -68,29 +58,13 @@ function thumbnailGeminiThinkingLevel(): "LOW" | "MEDIUM" | "HIGH" {
   return "MEDIUM";
 }
 
-/** Deep prompt research (platforms, logos, algorithm hooks) — default on when GEMINI_API is set. */
-function thumbnailGeminiResearchEnabled(): boolean {
-  if (!process.env.GEMINI_API?.trim()) return false;
-  const v = process.env.THUMBNAIL_GEMINI_RESEARCH?.trim().toLowerCase();
-  if (v === "0" || v === "false" || v === "no") return false;
-  return true;
-}
-
-/** When true and `GEMINI_API` is set, rewrite creator notes via Gemini before Schnell. */
-function thumbnailGeminiEnrichEnabled(): boolean {
-  const v = process.env.THUMBNAIL_GEMINI_ENRICH?.trim().toLowerCase();
-  return v === "1" || v === "true" || v === "yes";
-}
-
-/**
- * When `GEMINI_API` is set, run a lightweight Gemini 2.5 spell/typo pass on creator notes
- * (default on). Skipped when `THUMBNAIL_GEMINI_SPELLCHECK=0` — enrich-only runs do not double-call.
- */
-function thumbnailGeminiSpellcheckEnabled(): boolean {
-  if (!process.env.GEMINI_API?.trim()) return false;
-  const v = process.env.THUMBNAIL_GEMINI_SPELLCHECK?.trim().toLowerCase();
-  if (v === "0" || v === "false" || v === "no") return false;
-  return true;
+function falApiKey(): string | undefined {
+  return (
+    process.env.FAL_KEY?.trim() ||
+    process.env.FAL_API_KEY?.trim() ||
+    process.env.SCHNELL_API_KEY?.trim() ||
+    undefined
+  );
 }
 
 const r2 = new S3Client({
@@ -102,120 +76,29 @@ const r2 = new S3Client({
   },
 });
 
-/**
- * Text-to-image defaults:
- * - **FLUX.2 Turbo** (`fal-ai/flux-2/turbo`) — newer stack, stronger prompt adherence than FLUX.1 Schnell;
- *   supports Fal’s built-in `enable_prompt_expansion`.
- * - **FLUX.2 Flash** (`fal-ai/flux-2/flash`) — same OpenAPI shape as Turbo; Fal’s faster/cheaper FLUX.2 tier (try
- *   `FAL_THUMBNAIL_TXT2IMG_MODEL` + `FAL_THUMBNAIL_IMG2IMG_MODEL` or set only one — the route pairs `/edit`).
- * - Override with `FAL_THUMBNAIL_TXT2IMG_MODEL=fal-ai/flux-1/schnell` for legacy ultra-fast FLUX.1 Schnell (4-step).
- *
- * Image remix / Redux stays FLUX.1 Schnell Redux (`fal-ai/flux-1/schnell/redux`).
- *
- * **Image + prompt:** default `fal-ai/flux-2/turbo/edit` (same FLUX.2 family as T2I; Flash uses `…/flash/edit`).
- * Override with `FAL_THUMBNAIL_IMG2IMG_MODEL=fal-ai/flux/dev/image-to-image` for FLUX.1 dev i2i.
- *
- * **Nano Banana (Fal):** `fal-ai/nano-banana` + `fal-ai/nano-banana/edit` (Gemini 2.5 Flash Image)
- * use `aspect_ratio`, not FLUX `image_size`. **Nano Banana Pro** (`fal-ai/nano-banana-pro` / `.../edit`)
- * adds `resolution` (1K/2K/4K) and optional `enable_web_search`. Enable the whole stack with
- * `FAL_THUMBNAIL_IMAGE_STACK=nano_banana_pro` (overridable per-role with `FAL_THUMBNAIL_TXT2IMG_MODEL` / `FAL_THUMBNAIL_IMG2IMG_MODEL`).
- */
-const FAL_DEFAULT_TXT2IMG_SMART = "fal-ai/nano-banana";
-const FAL_LIVE_FLUX1_SCHNELL_REDUX = "fal-ai/flux-1/schnell/redux";
-const FAL_DEFAULT_IMG2IMG_FLUX2_EDIT = "fal-ai/nano-banana/edit";
-
-const FAL_NANO_PRO_T2I = "fal-ai/nano-banana-pro";
-const FAL_NANO_PRO_EDIT = "fal-ai/nano-banana-pro/edit";
-const FAL_NANO_FLASH_T2I = "fal-ai/nano-banana";
-const FAL_NANO_FLASH_EDIT = "fal-ai/nano-banana/edit";
-
-/** Preset backends; explicit `FAL_THUMBNAIL_TXT2IMG_MODEL` / `IMG2IMG` wins over stack. */
+/** Default Nano Banana Pro; set FAL_THUMBNAIL_IMAGE_STACK=flux for FLUX.2 fallback. */
 type ThumbnailImageStack = "flux" | "nano_banana_pro";
 
 function thumbnailImageStack(): ThumbnailImageStack {
   const v = process.env.FAL_THUMBNAIL_IMAGE_STACK?.trim().toLowerCase();
-  if (
-    v === "nano_banana_pro" ||
-    v === "nano-banana-pro" ||
-    v === "pro" ||
-    v === "smart_nano"
-  ) {
-    return "nano_banana_pro";
-  }
-  return "flux";
+  if (v === "flux" || v === "flash") return "flux";
+  return "nano_banana_pro";
 }
 
-/**
- * Keep text-only vs reference paths on the **same nano family**: if env sets only img2img
- * (`…/nano-banana/edit` or Pro), default T2I to the paired endpoint so “no upload” flows
- * don’t silently stay on FLUX.
- */
-function falNanoBananaT2iFromImg2imgExplicit(img2imgId: string): string | null {
-  const id = img2imgId.trim();
-  if (id === FAL_NANO_PRO_EDIT || id.startsWith(`${FAL_NANO_PRO_EDIT}/`)) {
-    return FAL_NANO_PRO_T2I;
+function falPaintModelId(hasReferenceImage: boolean): string {
+  if (thumbnailImageStack() === "flux") {
+    if (hasReferenceImage) {
+      return (
+        process.env.FAL_THUMBNAIL_IMG2IMG_MODEL?.trim() ||
+        "fal-ai/flux-2/flash/edit"
+      );
+    }
+    return (
+      process.env.FAL_THUMBNAIL_TXT2IMG_MODEL?.trim() ||
+      "fal-ai/flux-2/flash"
+    );
   }
-  if (id === FAL_NANO_FLASH_EDIT || id.startsWith(`${FAL_NANO_FLASH_EDIT}/`)) {
-    return FAL_NANO_FLASH_T2I;
-  }
-  return null;
-}
-
-function falNanoBananaEditFromTxtExplicit(txtId: string): string | null {
-  const id = txtId.trim();
-  if (id === FAL_NANO_PRO_T2I || id.startsWith(`${FAL_NANO_PRO_T2I}/`)) {
-    return FAL_NANO_PRO_EDIT;
-  }
-  if (id === FAL_NANO_FLASH_T2I || id.startsWith(`${FAL_NANO_FLASH_T2I}/`)) {
-    return FAL_NANO_FLASH_EDIT;
-  }
-  return null;
-}
-
-/** When only img2img is set, pair text-only to the matching FLUX.2 T2I (Flash vs Turbo). */
-function falFlux2T2iFromImg2imgExplicit(img2imgId: string): string | null {
-  const id = img2imgId.trim();
-  if (id === "fal-ai/flux-2/flash/edit" || id.startsWith("fal-ai/flux-2/flash/edit/")) {
-    return "fal-ai/flux-2/flash";
-  }
-  if (id === "fal-ai/flux-2/turbo/edit" || id.startsWith("fal-ai/flux-2/turbo/edit/")) {
-    return "fal-ai/flux-2/turbo";
-  }
-  return null;
-}
-
-/** When only T2I is set, pair reference+prompt to the matching FLUX.2 edit endpoint. */
-function falFlux2EditFromTxt2imgExplicit(txtId: string): string | null {
-  const id = txtId.trim();
-  if (
-    (id === "fal-ai/flux-2/flash" || id.startsWith("fal-ai/flux-2/flash/")) &&
-    id !== "fal-ai/flux-2/flash/edit" &&
-    !id.startsWith("fal-ai/flux-2/flash/edit/")
-  ) {
-    return "fal-ai/flux-2/flash/edit";
-  }
-  if (
-    (id === "fal-ai/flux-2/turbo" || id.startsWith("fal-ai/flux-2/turbo/")) &&
-    id !== "fal-ai/flux-2/turbo/edit" &&
-    !id.startsWith("fal-ai/flux-2/turbo/edit/")
-  ) {
-    return "fal-ai/flux-2/turbo/edit";
-  }
-  return null;
-}
-
-function falTxt2imgModelId(): string {
-  const o = process.env.FAL_THUMBNAIL_TXT2IMG_MODEL?.trim();
-  if (o) return o;
-  const img2explicit = process.env.FAL_THUMBNAIL_IMG2IMG_MODEL?.trim();
-  const paired =
-    img2explicit && falNanoBananaT2iFromImg2imgExplicit(img2explicit);
-  if (paired) return paired;
-  const flux2paired =
-    img2explicit && falFlux2T2iFromImg2imgExplicit(img2explicit);
-  if (flux2paired) return flux2paired;
-  if (thumbnailImageStack() === "nano_banana_pro") return FAL_NANO_PRO_T2I;
-  return FAL_DEFAULT_TXT2IMG_SMART;
+  return hasReferenceImage ? FAL_NANO_PRO_EDIT : FAL_NANO_PRO_T2I;
 }
 
 /**
@@ -260,20 +143,6 @@ function thumbnailFluxSafetyCheckerEnabled(): boolean {
   const v = process.env.FAL_THUMBNAIL_ENABLE_SAFETY_CHECKER?.trim().toLowerCase();
   if (v === "0" || v === "false" || v === "no") return false;
   return true;
-}
-
-function falImg2imgModelId(): string {
-  const o = process.env.FAL_THUMBNAIL_IMG2IMG_MODEL?.trim();
-  if (o) return o;
-  const txtExplicit = process.env.FAL_THUMBNAIL_TXT2IMG_MODEL?.trim();
-  const paired =
-    txtExplicit && falNanoBananaEditFromTxtExplicit(txtExplicit);
-  if (paired) return paired;
-  const flux2paired =
-    txtExplicit && falFlux2EditFromTxt2imgExplicit(txtExplicit);
-  if (flux2paired) return flux2paired;
-  if (thumbnailImageStack() === "nano_banana_pro") return FAL_NANO_PRO_EDIT;
-  return FAL_DEFAULT_IMG2IMG_FLUX2_EDIT;
 }
 
 /** Gemini Flash Image on Fal (`fal-ai/nano-banana` family). */
@@ -393,14 +262,6 @@ function isFlux2FlashEditModel(modelId: string): boolean {
   return (
     id === "fal-ai/flux-2/flash/edit" ||
     id.startsWith("fal-ai/flux-2/flash/edit/")
-  );
-}
-
-/** Schnell Redux / legacy flux path — same API shape, no `prompt` input. */
-function isFluxSchnellReduxModel(modelId: string): boolean {
-  return (
-    modelId === FAL_LIVE_FLUX1_SCHNELL_REDUX ||
-    modelId === "fal-ai/flux/schnell/redux"
   );
 }
 
@@ -826,24 +687,6 @@ function brandLogoOverlayBlock(
   return `\n\n**Branding mode (enabled):** Include recognizable, readable branding for these named entities: ${targets.join(", ")}. If any are platforms, include their logo/wordmark as visible badge elements. If any are games/franchises, include clear game title wordmarks and matching emblem-like badges. Keep all branding high-contrast and readable at thumbnail size.`;
 }
 
-/** Optional second refinement pass for logo/wordmark readability in FLUX edit pipelines. */
-function thumbnailBrandClaritySecondPassEnabled(): boolean {
-  const v = process.env.THUMBNAIL_BRAND_CLARITY_SECOND_PASS?.trim().toLowerCase();
-  if (v === "0" || v === "false" || v === "no") return false;
-  return true;
-}
-
-function brandClaritySecondPassPrompt(basePrompt: string): string {
-  return `${basePrompt}
-
-SECOND PASS PRIORITY (logo/wordmark clarity):
-- Keep the same composition and subject, but refine branding details.
-- Ensure platform/game names and logo-like badges are crisp, readable, and correctly spelled.
-- Increase contrast around brand marks with clean edge separation and subtle glow/outline.
-- Remove muddy or distorted letterforms; use clear blocky type for any brand words.
-- Preserve visual style while improving small-preview legibility.`;
-}
-
 function buildPromptText(
   instructionText: string,
   spec: ReturnType<typeof thumbnailSpecFromPlatforms>,
@@ -905,41 +748,29 @@ async function buildPreparedThumbnailPrompt(params: {
   instructionPrompt: string;
   originalPrompt: string;
   geminiResearchUsed: boolean;
-  geminiEnrichUsed: boolean;
-  geminiSpellcheckUsed: boolean;
   researchBlock: string;
   researchLogos: string[];
 }> {
   const apiKey = process.env.GEMINI_API?.trim() || "";
-  const maxPromptLength = params.maxPromptLength ?? 800;
   const prepared = await prepareThumbnailInstructions({
     userPrompt: params.prompt,
     platforms: params.platforms,
     apiKey,
     modelId: thumbnailGeminiModelId(),
-    maxPromptLength,
-    researchEnabled: thumbnailGeminiResearchEnabled() && !!apiKey,
-    enrichEnabled: thumbnailGeminiEnrichEnabled(),
-    spellcheckEnabled: thumbnailGeminiSpellcheckEnabled(),
-    thinkingBudget: thumbnailGeminiThinkingBudget(),
+    maxPromptLength: params.maxPromptLength ?? 800,
     thinkingLevel: thumbnailGeminiThinkingLevel(),
-    enrichFn: enrichThumbnailBriefWithGemini,
-    spellcheckFn: spellcheckThumbnailBriefWithGemini,
   });
 
   const researchBlock = prepared.research
     ? formatThumbnailResearchBlock(prepared.research)
     : "";
-  const researchLogos = prepared.research?.logosAndWordmarks ?? [];
 
   return {
     instructionPrompt: prepared.instructionPrompt,
     originalPrompt: prepared.originalPrompt,
     geminiResearchUsed: prepared.geminiResearchUsed,
-    geminiEnrichUsed: prepared.geminiEnrichUsed,
-    geminiSpellcheckUsed: prepared.geminiSpellcheckUsed,
     researchBlock,
-    researchLogos,
+    researchLogos: prepared.research?.logosAndWordmarks ?? [],
   };
 }
 
@@ -969,142 +800,6 @@ function extractMustKeepChecklist(prompt: string): string {
     if (uniq.length >= 8) break;
   }
   return uniq.map((u) => `- ${u}`).join("\n");
-}
-
-/**
- * Optional LLM pass: expand vague creator notes into concrete visual directions for FLUX.
- * Falls back silently so thumbnails still generate if Gemini errors or is disabled.
- */
-async function enrichThumbnailBriefWithGemini(params: {
-  userPrompt: string;
-  platforms: string[] | undefined;
-}): Promise<string | null> {
-  const apiKey = process.env.GEMINI_API?.trim();
-  if (!apiKey) {
-    return null;
-  }
-
-  const platformLine =
-    params.platforms && params.platforms.length > 0
-      ? `Target surfaces (hints only): ${params.platforms.join(", ")}.`
-      : "";
-
-  const safeNotes = params.userPrompt.replace(/"""/g, '"');
-
-  const metaPrompt = `You help draft image prompts for thumbnail image models (FLUX, Nano Banana / Gemini-image on Fal, etc.).
-
-**Step 1 — spelling:** Infer the creator's intent and **fix misspellings and typos** (game/stream titles, platform names, people/channel names, common words). Use **standard correct spellings** for any text that should appear on the thumbnail. If something is ambiguous slang or clearly intentional stylization, keep the intent.
-
-**Step 2 — rewrite:** Turn the (now spelling-correct) notes into ONE concise paragraph (max 110 words) of concrete visual directions: subject, mood, lighting, palette, composition, plus **exact short strings** the model must **paint as on-image typography** (e.g. "LIVE ON TWITCH", "NEW GAME — WINDROSE", a funny one-liner)—not "space for text" or "add title later". Those strings must use the **corrected spellings** from step 1. Also name **2–4 graphic sticker elements** to include (arrow, starburst, badge shape, emoji doodle) so the frame looks like a real social thumbnail—not a clean movie poster.
-
-CRITICAL—keep fidelity to what they wrote:
-• **Spelling:** Any exact phrase you tell the image model to paint must be **correctly spelled**; when the creator mistyped, use the **fixed** spelling in on-image strings. For new hook lines you invent, use **short, simple, easy-to-read** words (diffusion models often garble ornate type).
-• If they name a streaming platform (Twitch, Kick, YouTube Live, etc.), prescribe **busy stream-thumb layout**: purple/black Twitch energy when relevant, chunky outlined lettering, HUD corners; propose exact short phrases for on-image typography.
-• If they name a game, franchise, or title (e.g. indie games, RPGs, Windrose, etc.), translate it into matching genre art direction—fantasy forest vs sci-fi HUD vs anime RPG mood—and include the game name as clear on-image text when useful.
-• Do NOT drop proper nouns that carry meaning; name platforms and games as theme anchors and include logo/wordmark cues when requested.
-
-${platformLine}
-
-Creator notes:
-"""
-${safeNotes}
-"""
-
-Reply with plain prose only—no markdown, no bullets, no quotes wrapping the whole answer.`;
-
-  try {
-    const genAI = new GoogleGenAI({ apiKey });
-    const response = await genAI.models.generateContent({
-      model: thumbnailGeminiModelId(),
-      contents: [{ role: "user", parts: [{ text: metaPrompt }] }],
-      config: {
-        thinkingConfig: {
-          thinkingBudget: thumbnailGeminiThinkingBudget(),
-        },
-      },
-    });
-
-    let rawText: string;
-    try {
-      const r = response as unknown as {
-        text?: string | (() => string);
-      };
-      rawText =
-        typeof r.text === "function"
-          ? r.text()
-          : String(r.text ?? "");
-    } catch {
-      return null;
-    }
-
-    const cleaned = rawText.trim().replace(/^["'`]+|["'`]+$/g, "");
-    if (!cleaned || cleaned.length < 12) {
-      return null;
-    }
-    return cleaned;
-  } catch (e) {
-    console.warn("[Thumbnail] Gemini enrichment failed:", e);
-    return null;
-  }
-}
-
-/** Short Gemini pass: fix typos only (same model family as enrich — default gemini-2.5-flash). */
-async function spellcheckThumbnailBriefWithGemini(params: {
-  userPrompt: string;
-}): Promise<string | null> {
-  const apiKey = process.env.GEMINI_API?.trim();
-  if (!apiKey) {
-    return null;
-  }
-
-  const safeNotes = params.userPrompt.replace(/"""/g, '"');
-  const metaPrompt = `You correct spelling in creator notes for a video thumbnail image generator (the notes are later sent to a diffusion model that paints text into pixels).
-
-Rules:
-• Fix clear misspellings in ordinary words, titles, platform names (Twitch, YouTube, etc.), and proper nouns when the intended word is obvious.
-• If a word is ambiguous or intentional creator slang/stylization, keep it.
-• Do NOT rewrite into a long visual brief—keep the same length and scope as the input (a short note stays a short note).
-• Output ONLY the corrected notes as plain text—no markdown, no bullet list, no quotes wrapping the whole answer, no preamble like "Here is".
-
-Creator notes:
-"""
-${safeNotes}
-"""`;
-
-  try {
-    const genAI = new GoogleGenAI({ apiKey });
-    const response = await genAI.models.generateContent({
-      model: thumbnailGeminiModelId(),
-      contents: [{ role: "user", parts: [{ text: metaPrompt }] }],
-      config: {
-        thinkingConfig: {
-          thinkingBudget: thumbnailGeminiThinkingBudget(),
-        },
-      },
-    });
-
-    let rawText: string;
-    try {
-      const r = response as unknown as {
-        text?: string | (() => string);
-      };
-      rawText =
-        typeof r.text === "function"
-          ? r.text()
-          : String(r.text ?? "");
-    } catch {
-      return null;
-    }
-
-    const cleaned = rawText.trim().replace(/^["'`]+|["'`]+$/g, "");
-    if (!cleaned || cleaned.length < 3) {
-      return null;
-    }
-    return cleaned;
-  } catch (e) {
-    console.warn("[Thumbnail] Gemini spellcheck failed:", e);
-    return null;
-  }
 }
 
 async function fetchImageBufferFromUrl(url: string): Promise<{ buffer: Buffer; contentType: string }> {
@@ -1142,15 +837,73 @@ function findFirstImageUrl(value: unknown): string | null {
   return null;
 }
 
-function buildFalEditInput(prompt: string, imageUrl?: string): Record<string, unknown> {
-  const input: Record<string, unknown> = { prompt };
-  if (imageUrl) {
-    // Some Fal edit models expect `image_url`, while others expect `image_urls`.
-    // Provide both so re-edit always anchors to the intended source image.
-    input.image_url = imageUrl;
-    input.image_urls = [imageUrl];
+function buildFalModelInput(params: {
+  modelId: string;
+  prompt: string;
+  imageUrl?: string;
+  platforms?: string[];
+}): Record<string, unknown> {
+  const aspectRatio = nanoBananaAspectRatioFromPlatforms(params.platforms);
+
+  if (isFalNanoBananaEditModel(params.modelId)) {
+    if (!params.imageUrl) {
+      throw new Error(`${params.modelId} requires a source image. Upload an image and try again.`);
+    }
+    return {
+      prompt: params.prompt,
+      ...nanoBananaBaseInput({
+        aspectRatio,
+        includeProResolution: isNanoBananaProEditModel(params.modelId),
+      }),
+      image_url: params.imageUrl,
+      image_urls: [params.imageUrl],
+    };
   }
-  return input;
+
+  if (isFalNanoBananaT2iModel(params.modelId)) {
+    return {
+      prompt: params.prompt,
+      ...nanoBananaBaseInput({
+        aspectRatio,
+        includeProResolution: isNanoBananaProT2iModel(params.modelId),
+      }),
+    };
+  }
+
+  if (isFlux2TurboTxt2Img(params.modelId)) {
+    return {
+      prompt: params.prompt,
+      image_size: falImageSizeFromPlatforms(params.platforms),
+      num_inference_steps: thumbnailImg2imgSteps(),
+      enable_prompt_expansion: thumbnailFlux2PromptExpansionEnabled(),
+      guidance_scale: thumbnailFlux2GuidanceScale(),
+      enable_safety_checker: thumbnailFluxSafetyCheckerEnabled(),
+      output_format: falThumbnailOutputFormat(),
+    };
+  }
+
+  if (isFlux2TurboEditModel(params.modelId) || isFlux2FlashEditModel(params.modelId)) {
+    const input: Record<string, unknown> = {
+      prompt: params.prompt,
+      num_inference_steps: thumbnailImg2imgSteps(),
+      enable_prompt_expansion: thumbnailFlux2PromptExpansionEnabled(),
+      guidance_scale: thumbnailFlux2GuidanceScale(),
+      enable_safety_checker: thumbnailFluxSafetyCheckerEnabled(),
+      output_format: falThumbnailOutputFormat(),
+    };
+    if (params.imageUrl) {
+      input.image_url = params.imageUrl;
+      input.image_urls = [params.imageUrl];
+    }
+    return input;
+  }
+
+  const legacy: Record<string, unknown> = { prompt: params.prompt };
+  if (params.imageUrl) {
+    legacy.image_url = params.imageUrl;
+    legacy.image_urls = [params.imageUrl];
+  }
+  return legacy;
 }
 
 /**
@@ -1231,8 +984,7 @@ type ThumbnailGenResult = {
   mimeType: string;
   description: string;
   model: string;
-  geminiEnrichUsed: boolean;
-  geminiSpellcheckUsed: boolean;
+  geminiResearchUsed: boolean;
 };
 
 type GeminiImageOutput = {
@@ -1374,25 +1126,14 @@ async function generateThumbnailSchnell(params: {
   const {
     instructionPrompt,
     originalPrompt: truncatedPrompt,
-    geminiEnrichUsed,
-    geminiSpellcheckUsed,
+    geminiResearchUsed,
     researchBlock,
     researchLogos,
   } = prepared;
-  const geminiResearchUsed = prepared.geminiResearchUsed;
 
   const spec = thumbnailSpecFromPlatforms(params.platforms);
-  const useFluxTypographySpellingHints = false;
-
-  const domainKeywordSource =
-    geminiResearchUsed || geminiEnrichUsed
-      ? truncatedPrompt
-      : instructionPrompt.trim() !== truncatedPrompt.trim()
-        ? instructionPrompt
-        : truncatedPrompt;
   const literalAnchorSource =
-    (geminiResearchUsed || geminiEnrichUsed) &&
-    instructionPrompt.trim() !== truncatedPrompt.trim()
+    geminiResearchUsed && instructionPrompt.trim() !== truncatedPrompt.trim()
       ? truncatedPrompt
       : undefined;
   const mustKeepChecklist = extractMustKeepChecklist(truncatedPrompt);
@@ -1401,11 +1142,11 @@ async function generateThumbnailSchnell(params: {
     instructionPrompt,
     spec,
     !!params.imageBase64,
-    domainKeywordSource,
+    truncatedPrompt,
     literalAnchorSource,
     params.platforms,
     mustKeepChecklist,
-    useFluxTypographySpellingHints,
+    false,
     researchBlock,
     researchLogos
   );
@@ -1467,31 +1208,24 @@ CRITICAL EDIT REQUIREMENT:
     mimeType: contentType,
     description: "Gemini-generated thumbnail",
     model: selectedImageModel,
-    geminiEnrichUsed,
-    geminiSpellcheckUsed,
+    geminiResearchUsed,
   };
 }
 
-async function generateThumbnailFalKontext(params: {
+async function generateThumbnailFal(params: {
   prompt: string;
   imageBase64: string | null;
   mimeType: string;
   platforms: string[] | undefined;
   sessionId: string | undefined;
 }): Promise<ThumbnailGenResult> {
-  const falKey = process.env.FAL_KEY?.trim() || process.env.FAL_API_KEY?.trim();
+  const falKey = falApiKey();
   if (!falKey) {
-    throw new Error("FAL_KEY (or FAL_API_KEY) is required for fal_kontext provider.");
+    throw new Error("FAL_KEY (or FAL_API_KEY) is required for Fal thumbnail generation.");
   }
 
   fal.config({ credentials: falKey });
-  const modelId =
-    process.env.FAL_THUMBNAIL_MODEL?.trim() || FAL_KONTEXT_MODEL_DEFAULT;
-  const requiresImageInput =
-    modelId === "fal-ai/flux-2-pro/edit" || modelId.endsWith("/edit");
-  if (requiresImageInput && !params.imageBase64) {
-    throw new Error(`${modelId} requires a source image. Upload an image and try again.`);
-  }
+  const modelId = falPaintModelId(!!params.imageBase64);
   const spec = thumbnailSpecFromPlatforms(params.platforms);
   const prepared = await buildPreparedThumbnailPrompt({
     prompt: params.prompt,
@@ -1507,7 +1241,7 @@ async function generateThumbnailFalKontext(params: {
     prepared.originalPrompt,
     params.platforms,
     mustKeepChecklist,
-    true,
+    !isFalNanoBananaT2iModel(modelId) && !isFalNanoBananaEditModel(modelId),
     prepared.researchBlock,
     prepared.researchLogos
   );
@@ -1521,7 +1255,12 @@ async function generateThumbnailFalKontext(params: {
     : { imageUrl: "", stagingKey: null as string | null };
 
   try {
-    const input = buildFalEditInput(promptText, staged.imageUrl || undefined);
+    const input = buildFalModelInput({
+      modelId,
+      prompt: promptText,
+      imageUrl: staged.imageUrl || undefined,
+      platforms: params.platforms,
+    });
 
     const result = await fal.subscribe(modelId, {
       input,
@@ -1529,7 +1268,7 @@ async function generateThumbnailFalKontext(params: {
       onQueueUpdate: (update) => {
         if (update.status === "IN_PROGRESS") {
           for (const log of update.logs ?? []) {
-            console.log("[Thumbnail][FalKontext]", log.message);
+            console.log("[Thumbnail][Fal]", log.message);
           }
         }
       },
@@ -1539,132 +1278,9 @@ async function generateThumbnailFalKontext(params: {
       findFirstImageUrl((result as { data?: unknown }).data) ||
       findFirstImageUrl(result);
     if (!imageUrl) {
-      throw new Error("Fal Kontext returned no image URL.");
-    }
-    let finalImageUrl = imageUrl;
-    const shouldRunBrandSecondPass =
-      thumbnailAllowBrandLogos() &&
-      thumbnailBrandClaritySecondPassEnabled() &&
-      isFlux2TurboEditModel(modelId);
-
-    if (shouldRunBrandSecondPass) {
-      try {
-        const secondPass = await fal.subscribe(modelId, {
-          input: buildFalEditInput(brandClaritySecondPassPrompt(promptText), finalImageUrl),
-          logs: true,
-          onQueueUpdate: (update) => {
-            if (update.status === "IN_PROGRESS") {
-              for (const log of update.logs ?? []) {
-                console.log("[Thumbnail][FalKontext][BrandPass]", log.message);
-              }
-            }
-          },
-        });
-        const secondImageUrl =
-          findFirstImageUrl((secondPass as { data?: unknown }).data) ||
-          findFirstImageUrl(secondPass);
-        if (secondImageUrl) {
-          finalImageUrl = secondImageUrl;
-        }
-      } catch (e) {
-        console.warn("[Thumbnail] Brand clarity second pass failed; using first pass output:", e);
-      }
+      throw new Error("Fal returned no image URL.");
     }
 
-    const downloaded = await fetchImageBufferFromUrl(finalImageUrl);
-    const ext =
-      downloaded.contentType.includes("png")
-        ? "png"
-        : downloaded.contentType.includes("webp")
-          ? "webp"
-          : "jpeg";
-    const key = `thumbnails/${params.sessionId || uuidv4()}/${uuidv4()}.${ext}`;
-    const sanitizedPrompt = params.prompt
-      .replace(/[\r\n]+/g, " ")
-      .replace(/[^\x20-\x7E]/g, "")
-      .slice(0, 512);
-
-    await r2.send(
-      new PutObjectCommand({
-        Bucket: process.env.R2_BUCKET_NAME!,
-        Key: key,
-        Body: downloaded.buffer,
-        ContentType: downloaded.contentType,
-        Metadata: { prompt: sanitizedPrompt },
-      })
-    );
-
-    return {
-      key,
-      mimeType: downloaded.contentType,
-      description: "Fal Flux generated thumbnail",
-      model: modelId,
-      geminiEnrichUsed: false,
-      geminiSpellcheckUsed: false,
-    };
-  } finally {
-    if (staged.stagingKey) {
-      await deleteFileFromR2(staged.stagingKey).catch(() => {});
-    }
-  }
-}
-
-async function generateThumbnailFalNanoEdit(params: {
-  prompt: string;
-  imageBase64: string | null;
-  mimeType: string;
-  platforms: string[] | undefined;
-  sessionId: string | undefined;
-}): Promise<ThumbnailGenResult> {
-  const falKey = process.env.FAL_KEY?.trim() || process.env.FAL_API_KEY?.trim();
-  if (!falKey) {
-    throw new Error("FAL_KEY (or FAL_API_KEY) is required for fal_nano_edit provider.");
-  }
-  if (!params.imageBase64) {
-    throw new Error("fal-ai/nano-banana/edit requires a source image. Upload an image and try again.");
-  }
-  fal.config({ credentials: falKey });
-  const modelId = process.env.FAL_THUMBNAIL_NANO_MODEL?.trim() || FAL_NANO_EDIT_MODEL_DEFAULT;
-  const spec = thumbnailSpecFromPlatforms(params.platforms);
-  const prepared = await buildPreparedThumbnailPrompt({
-    prompt: params.prompt,
-    platforms: params.platforms,
-    maxPromptLength: 800,
-  });
-  const mustKeepChecklist = extractMustKeepChecklist(prepared.originalPrompt);
-  const promptText = buildPromptText(
-    prepared.instructionPrompt,
-    spec,
-    true,
-    prepared.originalPrompt,
-    prepared.originalPrompt,
-    params.platforms,
-    mustKeepChecklist,
-    true,
-    prepared.researchBlock,
-    prepared.researchLogos
-  );
-  const staged = await stagingImageUrlForFal({
-    imageBase64: params.imageBase64,
-    mimeType: params.mimeType,
-    sessionId: params.sessionId,
-  });
-  try {
-    const result = await fal.subscribe(modelId, {
-      input: buildFalEditInput(promptText, staged.imageUrl),
-      logs: true,
-      onQueueUpdate: (update) => {
-        if (update.status === "IN_PROGRESS") {
-          for (const log of update.logs ?? []) {
-            console.log("[Thumbnail][FalNanoEdit]", log.message);
-          }
-        }
-      },
-    });
-    const imageUrl =
-      findFirstImageUrl((result as { data?: unknown }).data) ||
-      findFirstImageUrl(result);
-    if (!imageUrl) throw new Error("Fal nano edit returned no image URL.");
     const downloaded = await fetchImageBufferFromUrl(imageUrl);
     const ext =
       downloaded.contentType.includes("png")
@@ -1677,6 +1293,7 @@ async function generateThumbnailFalNanoEdit(params: {
       .replace(/[\r\n]+/g, " ")
       .replace(/[^\x20-\x7E]/g, "")
       .slice(0, 512);
+
     await r2.send(
       new PutObjectCommand({
         Bucket: process.env.R2_BUCKET_NAME!,
@@ -1686,13 +1303,13 @@ async function generateThumbnailFalNanoEdit(params: {
         Metadata: { prompt: sanitizedPrompt },
       })
     );
+
     return {
       key,
       mimeType: downloaded.contentType,
-      description: "Fal Nano Banana edit generated thumbnail",
+      description: "Fal Nano Banana Pro thumbnail",
       model: modelId,
-      geminiEnrichUsed: false,
-      geminiSpellcheckUsed: false,
+      geminiResearchUsed: prepared.geminiResearchUsed,
     };
   } finally {
     if (staged.stagingKey) {
@@ -1757,22 +1374,14 @@ export async function POST(req: NextRequest) {
 
     const provider = thumbnailProvider();
     const out =
-      provider === "fal_kontext"
-        ? await generateThumbnailFalKontext({
+      provider === "fal"
+        ? await generateThumbnailFal({
             prompt,
             imageBase64: effectiveB64,
             mimeType: effectiveMime,
             platforms,
             sessionId,
           })
-        : provider === "fal_nano_edit"
-          ? await generateThumbnailFalNanoEdit({
-              prompt,
-              imageBase64: effectiveB64,
-              mimeType: effectiveMime,
-              platforms,
-              sessionId,
-            })
         : await generateThumbnailSchnell({
             prompt,
             imageBase64: effectiveB64,
@@ -1781,11 +1390,19 @@ export async function POST(req: NextRequest) {
             sessionId,
           });
 
-    const estimate = {
-      estimatedCostUsd: 0.003,
-      estimatedCostNote:
-        "Gemini 3.5 Flash prompt research + image generation (rough estimate).",
-    };
+    const estimate =
+      provider === "fal"
+        ? estimateThumbnailGenerationUsd({
+            falModel: out.model,
+            platforms,
+            hadReferenceImage: !!effectiveB64,
+            geminiResearchUsed: out.geminiResearchUsed,
+          })
+        : {
+            estimatedCostUsd: 0.003,
+            estimatedCostNote:
+              "Gemini 3.5 Flash research + Gemini image generation (rough estimate).",
+          };
 
     const encKey = encodeURIComponent(out.key);
 

@@ -219,7 +219,7 @@ export default function ThumbnailGenerator({
             : undefined
         onLogActivity({
           action: 'thumbnail_generation',
-          details: `[Gemini 3.5 Flash] Generated thumbnail with prompt: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
+          details: `[Gemini 3.5 + Nano Banana Pro] Generated thumbnail with prompt: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
           ...(est !== undefined ? { estimatedCostUsd: est } : {}),
           ...(note !== undefined ? { estimatedCostNote: note } : {}),
         })
@@ -311,7 +311,7 @@ export default function ThumbnailGenerator({
           <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Thumbnail Generator</h3>
         </div>
         <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
-          Powered By: Gemini 3.5 Flash
+          Powered By: Gemini 3.5 Flash + Nano Banana Pro
         </p>
         <p className={`${textClasses} text-base`}>Generate AI-powered thumbnails for any platform</p>
       </div>

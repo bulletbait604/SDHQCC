@@ -1,7 +1,7 @@
 /**
  * Rough API cost hints for owners (not invoicing-grade). Overrides via env:
  * ESTIMATE_FLUX_USD_PER_MP, ESTIMATE_NANO_FLASH_USD, ESTIMATE_NANO_PRO_1K2K_USD,
- * ESTIMATE_NANO_PRO_4K_USD, ESTIMATE_FAL_REDUX_USD, ESTIMATE_THUMBNAIL_GEMINI_ENRICH_USD,
+ * ESTIMATE_NANO_PRO_4K_USD, ESTIMATE_FAL_REDUX_USD, ESTIMATE_THUMBNAIL_GEMINI_RESEARCH_USD,
  * ESTIMATE_TAG_GEMINI_USD, ESTIMATE_TAG_FAL_OPENROUTER_USD, ESTIMATE_CLIP_ANALYSIS_USD,
  * ESTIMATE_FLUX2_FLASH_USD_PER_MP, ESTIMATE_THUMBNAIL_GEMINI_SPELLCHECK_USD.
  */
@@ -59,8 +59,7 @@ export function estimateThumbnailGenerationUsd(params: {
   falModel: string
   platforms: string[] | undefined
   hadReferenceImage: boolean
-  geminiEnrichUsed: boolean
-  geminiSpellcheckUsed?: boolean
+  geminiResearchUsed: boolean
 }): { estimatedCostUsd: number; estimatedCostNote: string } {
   const id = params.falModel.trim()
   const lines: string[] = []
@@ -139,20 +138,15 @@ export function estimateThumbnailGenerationUsd(params: {
     lines.push(`Unknown Fal model ${id}; MP fallback (est.)`)
   }
 
-  let enrich = 0
-  if (params.geminiEnrichUsed) {
-    enrich = numEnv("ESTIMATE_THUMBNAIL_GEMINI_ENRICH_USD", 0.0005)
+  let research = 0
+  if (params.geminiResearchUsed) {
+    research = numEnv('ESTIMATE_THUMBNAIL_GEMINI_RESEARCH_USD', 0.001)
     lines.push(
-      `Gemini prompt enrich (${process.env.THUMBNAIL_GEMINI_MODEL || "gemini-3.5-flash"}, rough)`
-    )
-  } else if (params.geminiSpellcheckUsed) {
-    enrich = numEnv("ESTIMATE_THUMBNAIL_GEMINI_SPELLCHECK_USD", 0.0002)
-    lines.push(
-      `Gemini spellcheck (${process.env.THUMBNAIL_GEMINI_MODEL || "gemini-3.5-flash"}, rough)`
+      `Gemini 3.5 research (${process.env.THUMBNAIL_GEMINI_MODEL || 'gemini-3.5-flash'}, rough)`
     )
   }
 
-  const total = main + enrich
+  const total = main + research
   return {
     estimatedCostUsd: Math.round(total * 100_000) / 100_000,
     estimatedCostNote: lines.join("; "),
