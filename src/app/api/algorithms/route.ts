@@ -247,16 +247,8 @@ async function researchWithGemini(platform: string, geminiApiKey: string): Promi
       model: ALGORITHM_GEMINI_MODEL,
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     })
-    
-    let content: string
-    try {
-      content =
-        typeof (response as { text?: string | (() => string) }).text === 'function'
-          ? (response as { text: () => string }).text()
-          : ((response as { text?: string }).text ?? '')
-    } catch {
-      throw new Error('Gemini returned a response with no readable text')
-    }
+
+    const content = typeof response.text === 'string' ? response.text : ''
     
     console.log(`[Algorithms] Gemini succeeded for ${platform}`)
     
