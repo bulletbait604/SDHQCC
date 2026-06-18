@@ -29,18 +29,18 @@
       ]
     },
     "instagram": {
-      "keyChanges": "Reels dominate feed, AI predicts relevance, emphasis on authenticity, content quality score, deeper integration of Stories.",
-      "editingTips": "Use vertical 9:16, 4K resolution, add captions, keep first 3 seconds hook, color grade, use carousel for depth.",
-      "postingTips": "Post 4-6 times weekly, peak 9‑11 AM EST, Reels daily, respond within first hour, schedule globally.",
-      "titleTips": "Hook in 30 chars, use emoji, brand voice, keyword, keep concise.",
-      "descriptionTips": "Storytelling first, clear CTA, 5‑10 hashtags, line breaks, use emojis sparingly, location tag.",
+      "keyChanges": "The Instagram algorithm in 2026 is highly personalized, driven by an advanced AI that prioritizes 'worthwhile' content based on individual user behavior and an evolving 'interest graph.' The primary goal is deep engagement and retention. The system first tests content on a small, relevant audience (followers + lookalikes). If engagement signals are strong, distribution expands rapidly to the Explore page, Reels tab, and suggestions for non-followers. Content quality, originality, and alignment with trending themes are heavily weighted. Recent updates emphasize rewarding unique, high-value creations over recycled or engagement-bait content. Ranking factors, in order of decreasing priority, are: SAVES (strongest indicator of future value/revisit intent), SHARES (signifies content worth spreading), COMMENTS (shows active thought and discussion), WATCH TIME/TIME SPENT (duration of engagement), and finally LIKES (basic interaction, less impactful than deeper signals). The algorithm actively de-prioritizes content that is clearly reposted without added value, low-resolution, or contains overt spam/clickbait. Video content, particularly Reels, remains the dominant format for discovery and reaching new audiences, while Carousels excel for in-depth educational content and Stories for authentic, immediate connection. Timeliness is a factor, but sustained engagement over time (content 'evergreen' potential) is increasingly valued.",
+      "editingTips": "Optimal video lengths for Reels are 7-15 seconds for broad viral reach, focusing on high retention rates (70%+). For educational or storytelling content, 30-45 seconds can perform well with a 40-60% completion rate. Max 90 seconds, but virality diminishes. Pacing must be dynamic; aim for cuts every 1-3 seconds in short-form videos to maintain engagement. Seamless, visually appealing transitions (e.g., jump cuts, quick wipes) are preferred over jarring effects. On-screen text is crucial for accessibility and silent viewing; use 2-3 lines max, ensure legibility with clear fonts/contrasting colors, and place key hooks within the first 3 seconds. Utilize trending audio from the Reels tab for maximum discovery, or high-quality original audio for authenticity. Ensure crisp, clear audio with minimal background noise. Production quality standards demand at least 1080p resolution, good lighting, and stable camera work. Native Instagram editing features (filters, text overlays) can boost algorithmic favor. Always include captions/subtitles for accessibility and enhanced watch time.",
+      "postingTips": "Best posting times are highly audience-specific; always check Instagram Insights for your unique follower activity peaks. General recommendations, however, include Weekdays (Monday-Friday) from 9-11 AM and 3-5 PM local audience time, and Weekends (Saturday-Sunday) from 10 AM - 1 PM. Test these times and refine. Ideal posting frequency for growth is 3-5 Reels per week, multiple Stories daily (3-7 frames per story for continuous engagement), and 2-3 feed posts (carousels or photos) per week. Live sessions should be planned 1-2 times per month for direct community interaction. For efficiency, batch create your content (e.g., film 5 Reels in one session) and use Instagram's scheduling tools or third-party platforms to space out posting. Consistent, scheduled posting consistently outperforms sporadic, high-volume bursts followed by long silences. A content calendar should plan themes, trending audio, and diverse content formats 2-4 weeks in advance, ensuring a steady stream of valuable content.",
+      "titleTips": "Advanced title/caption optimization begins with a compelling hook in the first 15-20 characters, visible before the 'see more' click. Effective formulas include: problem-solution ('Struggling with X? Try this Y.'), curiosity gaps ('You won't believe what happened next...'), bold claims ('This secret changed my business...'), or direct questions ('Ever wondered how to do X?'). Integrate 1-3 primary keywords naturally within the first sentence and throughout the caption for Instagram's internal search and Explore tab categorization. For Reels, captions can be concise (150-250 characters), while educational Carousels benefit from longer, detailed descriptions (up to 2200 characters) broken into digestible paragraphs with emojis. To improve CTR, clearly state the value proposition, use emojis strategically to break up text and guide the eye, and include a clear, single Call-to-Action (CTA) such as 'Save this for later,' 'Share with a friend,' or 'Comment your thoughts below.' Pique enough curiosity to encourage viewers to click 'see more' and fully engage.",
+      "descriptionTips": "Hashtag strategy in 2026 emphasizes quality and relevance over quantity. Use 3-5 highly targeted, specific hashtags directly in the caption for Reels and feed posts. For niche communities, up to 8-10 very specific tags can be effective. Avoid generic, overused hashtags (e.g., #love, #instadaily) as they offer minimal discoverability. Research hashtags using Instagram's search bar (look at related tags and post counts), analyze competitor content, and identify trending niche hashtags. Mix broad, medium, and ultra-niche tags relevant to your content. For link usage, the 'Link in Bio' is paramount; utilize Linktree or Beacons for multiple links. In Stories, leverage the 'Link Sticker' with clear CTAs. Direct URLs in feed captions are not clickable, so explicitly direct users to 'Link in Bio.' SEO optimization extends beyond captions; Instagram's AI analyzes visual content and audio, so ensure your metadata (captions, alt-text for images) accurately reflects your content's subject. Incorporate relevant keywords into your bio and the first line of your captions to maximize discoverability in Instagram's search results and suggested content feeds.",
       "summaries": [
-        "Reels now top of algorithm",
-        "Authenticity boosts content score",
-        "Engage within first hour matters",
-        "Diversify formats for reach"
-      ],
-      "provider": "pollinations"
+        "Saves & Shares: Top algorithm priority.",
+        "Reels: Optimal 7-15s for maximum virality.",
+        "Trending Audio: Key for discoverability boost.",
+        "First 3 seconds: Hook or lose attention.",
+        "Instagram Insights: Your best posting guide."
+      ]
     },
     "youtube-long": {
       "keyChanges": "Algorithm now prioritizes watch time, engagement, and AI‑generated content summaries; filler content is penalized, captions and structured metadata are essential, and 'Long' videos are treated as a distinct recommendation queue.",
@@ -71,6 +71,6 @@
       "provider": "pollinations"
     }
   },
-  "lastUpdated": "2026-06-18T14:15:47.307Z",
+  "lastUpdated": "2026-06-18T14:16:20.594Z",
   "provider": "gemini"
 }
