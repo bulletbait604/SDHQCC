@@ -240,7 +240,7 @@ ${safeNotes}
 """`
 
   try {
-    const genAI = new GoogleGenAI({ apiKey })
+    const genAI = new GoogleGenAI({ apiKey: params.apiKey })
     const modelId = params.modelId.trim() || THUMBNAIL_RESEARCH_MODEL_DEFAULT
     const thinkingConfig = {
       thinkingLevel: (params.thinkingLevel || 'MEDIUM').toUpperCase(),
