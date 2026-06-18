@@ -143,12 +143,12 @@ export function estimateThumbnailGenerationUsd(params: {
   if (params.geminiEnrichUsed) {
     enrich = numEnv("ESTIMATE_THUMBNAIL_GEMINI_ENRICH_USD", 0.0005)
     lines.push(
-      `Gemini prompt enrich (${process.env.THUMBNAIL_GEMINI_MODEL || "gemini-2.5-flash"}, rough)`
+      `Gemini prompt enrich (${process.env.THUMBNAIL_GEMINI_MODEL || "gemini-3.5-flash"}, rough)`
     )
   } else if (params.geminiSpellcheckUsed) {
     enrich = numEnv("ESTIMATE_THUMBNAIL_GEMINI_SPELLCHECK_USD", 0.0002)
     lines.push(
-      `Gemini spellcheck (${process.env.THUMBNAIL_GEMINI_MODEL || "gemini-2.5-flash"}, rough)`
+      `Gemini spellcheck (${process.env.THUMBNAIL_GEMINI_MODEL || "gemini-3.5-flash"}, rough)`
     )
   }
 

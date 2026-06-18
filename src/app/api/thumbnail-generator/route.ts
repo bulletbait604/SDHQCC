@@ -9,6 +9,11 @@ import {
   generatePresignedReadUrl,
   getFileFromR2,
 } from "@/lib/r2";
+import {
+  formatThumbnailResearchBlock,
+  prepareThumbnailInstructions,
+  THUMBNAIL_RESEARCH_MODEL_DEFAULT,
+} from "@/lib/thumbnailPromptResearch";
 
 /** Vercel / long-running: Fal + R2 can exceed default 10s. */
 export const maxDuration = 120;
@@ -22,8 +27,8 @@ function mimeFromThumbnailKey(key: string): string {
   return "image/png";
 }
 
-/** Same stack as `src/app/api/tags/route.ts` — Flash is cheap and fast for short rewrite. */
-const THUMBNAIL_GEMINI_MODEL_DEFAULT = "gemini-2.5-flash";
+/** Prompt research / enrich / spellcheck — default Gemini 3.5 Flash (override via THUMBNAIL_GEMINI_MODEL). */
+const THUMBNAIL_GEMINI_MODEL_DEFAULT = THUMBNAIL_RESEARCH_MODEL_DEFAULT;
 const THUMBNAIL_PROVIDER_DEFAULT = "gemini";
 const FAL_KONTEXT_MODEL_DEFAULT = "fal-ai/flux-2-pro/edit";
 const FAL_NANO_EDIT_MODEL_DEFAULT = "fal-ai/nano-banana/edit";
@@ -55,6 +60,20 @@ function thumbnailGeminiThinkingBudget(): number {
   const n = Number.parseInt(raw, 10);
   if (Number.isNaN(n)) return 0;
   return Math.max(0, Math.min(1024, n));
+}
+
+function thumbnailGeminiThinkingLevel(): "LOW" | "MEDIUM" | "HIGH" {
+  const raw = (process.env.THUMBNAIL_GEMINI_THINKING_LEVEL || "MEDIUM").trim().toUpperCase();
+  if (raw === "LOW" || raw === "HIGH") return raw;
+  return "MEDIUM";
+}
+
+/** Deep prompt research (platforms, logos, algorithm hooks) — default on when GEMINI_API is set. */
+function thumbnailGeminiResearchEnabled(): boolean {
+  if (!process.env.GEMINI_API?.trim()) return false;
+  const v = process.env.THUMBNAIL_GEMINI_RESEARCH?.trim().toLowerCase();
+  if (v === "0" || v === "false" || v === "no") return false;
+  return true;
 }
 
 /** When true and `GEMINI_API` is set, rewrite creator notes via Gemini before Schnell. */
@@ -710,11 +729,16 @@ function platformOverlayHintsFromPlatforms(platforms: string[] | undefined): str
   }
   if (
     ids.some((id) =>
-      ["youtube-shorts", "tiktok", "facebook-reels", "instagram"].includes(id)
+      ["youtube-shorts", "tiktok", "facebook-reels", "instagram", "kick"].includes(id)
     )
   ) {
     bits.push(
       "Short-form / vertical feed: **hook line + subline** stacked or split; punchy color pop; **badge / burst / emoji-shaped decals** (original shapes) hugging the subject."
+    );
+  }
+  if (ids.includes("twitter")) {
+    bits.push(
+      "X / Twitter: punchy headline, high contrast, readable at small landscape preview."
     );
   }
   if (bits.length === 0) return "";
@@ -739,9 +763,10 @@ function thumbnailAllowBrandLogos(): boolean {
 
 function brandLogoOverlayBlock(
   userText: string,
-  platforms: string[] | undefined
+  platforms: string[] | undefined,
+  extraBrands?: string[]
 ): string {
-  if (!thumbnailAllowBrandLogos()) return "";
+  const allowEnv = thumbnailAllowBrandLogos();
   const ids = Array.isArray(platforms) ? platforms : [];
   const targets: string[] = [];
   const seen = new Set<string>();
@@ -759,6 +784,8 @@ function brandLogoOverlayBlock(
     instagram: "Instagram",
     "facebook-reels": "Facebook Reels",
     twitter: "X (Twitter)",
+    kick: "Kick",
+    twitch: "Twitch",
   };
   for (const id of ids) {
     if (platformNameById[id]) add(platformNameById[id]);
@@ -771,6 +798,10 @@ function brandLogoOverlayBlock(
     { re: /\btiktok\b/i, label: "TikTok" },
     { re: /\binstagram\b/i, label: "Instagram" },
     { re: /\bfacebook\b/i, label: "Facebook" },
+    { re: /\bdiscord\b/i, label: "Discord" },
+    { re: /\bspotify\b/i, label: "Spotify" },
+    { re: /\bthreads\b/i, label: "Threads" },
+    { re: /\bsnapchat\b/i, label: "Snapchat" },
     { re: /\bdiablo\s*(iv|4)\b/i, label: "Diablo 4" },
     { re: /\bfortnite\b/i, label: "Fortnite" },
     { re: /\bminecraft\b/i, label: "Minecraft" },
@@ -785,8 +816,12 @@ function brandLogoOverlayBlock(
   for (const rule of brandRules) {
     if (rule.re.test(userText)) add(rule.label);
   }
+  for (const brand of extraBrands ?? []) {
+    add(brand);
+  }
 
   if (targets.length === 0) return "";
+  if (!allowEnv && (!extraBrands || extraBrands.length === 0)) return "";
 
   return `\n\n**Branding mode (enabled):** Include recognizable, readable branding for these named entities: ${targets.join(", ")}. If any are platforms, include their logo/wordmark as visible badge elements. If any are games/franchises, include clear game title wordmarks and matching emblem-like badges. Keep all branding high-contrast and readable at thumbnail size.`;
 }
@@ -820,16 +855,23 @@ function buildPromptText(
   platforms?: string[],
   mustKeepBlock?: string,
   /** Extra spelling/legibility pressure for diffusion-rendered typography (FLUX family). */
-  includeFluxTypographySpellingHints?: boolean
+  includeFluxTypographySpellingHints?: boolean,
+  researchBlock?: string,
+  researchLogos?: string[]
 ): string {
   const domain = domainHintsForPrompt(domainKeywordSource ?? instructionText);
   const keywordSource = domainKeywordSource ?? instructionText;
   const streamBlock = streamThumbnailTypographyBlock(keywordSource);
   const platformOverlay = platformOverlayHintsFromPlatforms(platforms);
-  const brandLogoBlock = brandLogoOverlayBlock(keywordSource, platforms);
+  const brandLogoBlock = brandLogoOverlayBlock(
+    keywordSource,
+    platforms,
+    researchLogos
+  );
   const fluxSpelling = includeFluxTypographySpellingHints
     ? THUMBNAIL_FLUX_TYPOGRAPHY_SPELLING_BLOCK
     : "";
+  const research = researchBlock?.trim() ? researchBlock : "";
 
   const fidelity =
     literalAnchorSource &&
@@ -843,16 +885,62 @@ function buildPromptText(
   return hasImage
     ? `You are a professional multi-platform thumbnail designer. An image is provided—compose around it and honor the text below.${obeyLiteral}
 
-Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${brandLogoBlock}${fluxSpelling}${THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT}${mustKeepBlock ? `\n\nNon-negotiable request checklist:\n${mustKeepBlock}` : ""}
+Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${brandLogoBlock}${research}${fluxSpelling}${THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT}${mustKeepBlock ? `\n\nNon-negotiable request checklist:\n${mustKeepBlock}` : ""}
 
 Output dimensions: ${spec.pixels} (${spec.label}). ${spec.aspectNote}
 High contrast, bold colors, clear visual hierarchy—**all headline and sticker graphics must be fully rendered inside the image pixels** (never implied or left for post-production).`
     : `You are a professional multi-platform thumbnail designer.${obeyLiteral}
 
-Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${brandLogoBlock}${fluxSpelling}${THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT}${mustKeepBlock ? `\n\nNon-negotiable request checklist:\n${mustKeepBlock}` : ""}
+Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${brandLogoBlock}${research}${fluxSpelling}${THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT}${mustKeepBlock ? `\n\nNon-negotiable request checklist:\n${mustKeepBlock}` : ""}
 
 Output dimensions: ${spec.pixels} (${spec.label}). ${spec.aspectNote}
 High contrast, bold colors, clear visual hierarchy—**all headline and sticker graphics must be fully rendered inside the image pixels** (never implied or left for post-production).`;
+}
+
+async function buildPreparedThumbnailPrompt(params: {
+  prompt: string;
+  platforms: string[] | undefined;
+  maxPromptLength?: number;
+}): Promise<{
+  instructionPrompt: string;
+  originalPrompt: string;
+  geminiResearchUsed: boolean;
+  geminiEnrichUsed: boolean;
+  geminiSpellcheckUsed: boolean;
+  researchBlock: string;
+  researchLogos: string[];
+}> {
+  const apiKey = process.env.GEMINI_API?.trim() || "";
+  const maxPromptLength = params.maxPromptLength ?? 800;
+  const prepared = await prepareThumbnailInstructions({
+    userPrompt: params.prompt,
+    platforms: params.platforms,
+    apiKey,
+    modelId: thumbnailGeminiModelId(),
+    maxPromptLength,
+    researchEnabled: thumbnailGeminiResearchEnabled() && !!apiKey,
+    enrichEnabled: thumbnailGeminiEnrichEnabled(),
+    spellcheckEnabled: thumbnailGeminiSpellcheckEnabled(),
+    thinkingBudget: thumbnailGeminiThinkingBudget(),
+    thinkingLevel: thumbnailGeminiThinkingLevel(),
+    enrichFn: enrichThumbnailBriefWithGemini,
+    spellcheckFn: spellcheckThumbnailBriefWithGemini,
+  });
+
+  const researchBlock = prepared.research
+    ? formatThumbnailResearchBlock(prepared.research)
+    : "";
+  const researchLogos = prepared.research?.logosAndWordmarks ?? [];
+
+  return {
+    instructionPrompt: prepared.instructionPrompt,
+    originalPrompt: prepared.originalPrompt,
+    geminiResearchUsed: prepared.geminiResearchUsed,
+    geminiEnrichUsed: prepared.geminiEnrichUsed,
+    geminiSpellcheckUsed: prepared.geminiSpellcheckUsed,
+    researchBlock,
+    researchLogos,
+  };
 }
 
 function extractMustKeepChecklist(prompt: string): string {
@@ -1278,54 +1366,32 @@ async function generateThumbnailSchnell(params: {
   const imageModel =
     process.env.THUMBNAIL_GEMINI_IMAGE_MODEL?.trim() ||
     "gemini-2.5-flash-image";
-  const maxPromptLength = 500;
-  const truncatedPrompt =
-    params.prompt.length > maxPromptLength
-      ? params.prompt.slice(0, maxPromptLength) + "..."
-      : params.prompt;
-  let geminiEnrichUsed = false;
-  let geminiSpellcheckUsed = false;
-  let instructionPrompt = truncatedPrompt;
-
-  const enrichOn = thumbnailGeminiEnrichEnabled();
-  const spellcheckOn = thumbnailGeminiSpellcheckEnabled();
-  if (enrichOn) {
-    const enriched = await enrichThumbnailBriefWithGemini({
-      userPrompt: truncatedPrompt,
-      platforms: params.platforms,
-    });
-    if (enriched) {
-      geminiEnrichUsed = true;
-      instructionPrompt =
-        enriched.length > maxPromptLength
-          ? enriched.slice(0, maxPromptLength) + "..."
-          : enriched;
-    }
-  }
-
-  if (!geminiEnrichUsed && spellcheckOn) {
-    const fixed = await spellcheckThumbnailBriefWithGemini({
-      userPrompt: truncatedPrompt,
-    });
-    if (fixed) {
-      geminiSpellcheckUsed = true;
-      instructionPrompt =
-        fixed.length > maxPromptLength
-          ? fixed.slice(0, maxPromptLength) + "..."
-          : fixed;
-    }
-  }
+  const prepared = await buildPreparedThumbnailPrompt({
+    prompt: params.prompt,
+    platforms: params.platforms,
+    maxPromptLength: 800,
+  });
+  const {
+    instructionPrompt,
+    originalPrompt: truncatedPrompt,
+    geminiEnrichUsed,
+    geminiSpellcheckUsed,
+    researchBlock,
+    researchLogos,
+  } = prepared;
+  const geminiResearchUsed = prepared.geminiResearchUsed;
 
   const spec = thumbnailSpecFromPlatforms(params.platforms);
   const useFluxTypographySpellingHints = false;
 
-  const domainKeywordSource = geminiEnrichUsed
-    ? truncatedPrompt
-    : instructionPrompt.trim() !== truncatedPrompt.trim()
-      ? instructionPrompt
-      : truncatedPrompt;
+  const domainKeywordSource =
+    geminiResearchUsed || geminiEnrichUsed
+      ? truncatedPrompt
+      : instructionPrompt.trim() !== truncatedPrompt.trim()
+        ? instructionPrompt
+        : truncatedPrompt;
   const literalAnchorSource =
-    geminiEnrichUsed &&
+    (geminiResearchUsed || geminiEnrichUsed) &&
     instructionPrompt.trim() !== truncatedPrompt.trim()
       ? truncatedPrompt
       : undefined;
@@ -1339,7 +1405,9 @@ async function generateThumbnailSchnell(params: {
     literalAnchorSource,
     params.platforms,
     mustKeepChecklist,
-    useFluxTypographySpellingHints
+    useFluxTypographySpellingHints,
+    researchBlock,
+    researchLogos
   );
   const firstPass = await generateGeminiImageWithModelFallback({
     genAI,
@@ -1425,16 +1493,23 @@ async function generateThumbnailFalKontext(params: {
     throw new Error(`${modelId} requires a source image. Upload an image and try again.`);
   }
   const spec = thumbnailSpecFromPlatforms(params.platforms);
-  const mustKeepChecklist = extractMustKeepChecklist(params.prompt);
+  const prepared = await buildPreparedThumbnailPrompt({
+    prompt: params.prompt,
+    platforms: params.platforms,
+    maxPromptLength: 800,
+  });
+  const mustKeepChecklist = extractMustKeepChecklist(prepared.originalPrompt);
   const promptText = buildPromptText(
-    params.prompt,
+    prepared.instructionPrompt,
     spec,
     !!params.imageBase64,
-    params.prompt,
-    params.prompt,
+    prepared.originalPrompt,
+    prepared.originalPrompt,
     params.platforms,
     mustKeepChecklist,
-    true
+    true,
+    prepared.researchBlock,
+    prepared.researchLogos
   );
 
   const staged = params.imageBase64
@@ -1551,16 +1626,23 @@ async function generateThumbnailFalNanoEdit(params: {
   fal.config({ credentials: falKey });
   const modelId = process.env.FAL_THUMBNAIL_NANO_MODEL?.trim() || FAL_NANO_EDIT_MODEL_DEFAULT;
   const spec = thumbnailSpecFromPlatforms(params.platforms);
-  const mustKeepChecklist = extractMustKeepChecklist(params.prompt);
+  const prepared = await buildPreparedThumbnailPrompt({
+    prompt: params.prompt,
+    platforms: params.platforms,
+    maxPromptLength: 800,
+  });
+  const mustKeepChecklist = extractMustKeepChecklist(prepared.originalPrompt);
   const promptText = buildPromptText(
-    params.prompt,
+    prepared.instructionPrompt,
     spec,
     true,
-    params.prompt,
-    params.prompt,
+    prepared.originalPrompt,
+    prepared.originalPrompt,
     params.platforms,
     mustKeepChecklist,
-    true
+    true,
+    prepared.researchBlock,
+    prepared.researchLogos
   );
   const staged = await stagingImageUrlForFal({
     imageBase64: params.imageBase64,
@@ -1702,7 +1784,7 @@ export async function POST(req: NextRequest) {
     const estimate = {
       estimatedCostUsd: 0.003,
       estimatedCostNote:
-        "Gemini 2.5 Flash image generation (rough estimate).",
+        "Gemini 3.5 Flash prompt research + image generation (rough estimate).",
     };
 
     const encKey = encodeURIComponent(out.key);
