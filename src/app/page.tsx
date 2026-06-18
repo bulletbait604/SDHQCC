@@ -1693,7 +1693,10 @@ export default function HomePage() {
 
   /** Admin: refresh algorithm JSON from AI (same API as Settings → Admin Tools). */
   const handleRefreshAlgorithms = async (platformId?: string) => {
-    if (!user || !isAdmin) return
+    if (!user || !isAdmin) {
+      alert('Only admins can refresh algorithm research.')
+      return
+    }
     setIsLoadingAlgorithms(true)
     try {
       const res = await fetch('/api/algorithms', {
@@ -2927,7 +2930,7 @@ export default function HomePage() {
                 isLoadingAlgorithms={isLoadingAlgorithms}
                 algorithmError={algorithmError}
                 isAdmin={isAdmin}
-                showAdminControls={!!user}
+                showAdminControls={isAdmin}
                 onRefreshAlgorithms={handleRefreshAlgorithms}
                 expandedCard={expandedCard}
                 onExpandedCardChange={setExpandedCard}

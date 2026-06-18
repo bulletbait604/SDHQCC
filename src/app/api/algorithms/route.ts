@@ -10,6 +10,9 @@ import {
 
 export const dynamic = 'force-dynamic'
 
+const ALGORITHM_GEMINI_MODEL =
+  (process.env.ALGORITHM_GEMINI_MODEL || process.env.GEMINI_ALGORITHM_MODEL || 'gemini-2.5-flash').trim()
+
 async function readDataFromMongo(): Promise<AlgorithmSnapshotPayload | null> {
   try {
     return await readAlgorithmSnapshotFromMongo()
@@ -232,20 +235,28 @@ Requirements:
 - Return ONLY valid JSON, no markdown code blocks or explanations outside the JSON structure`
 }
 
-// Primary: Gemini 3.1 Pro for thorough algorithm analysis
+// Primary: Gemini 2.5 Flash for algorithm research (same model family as other SDHQ tools)
 async function researchWithGemini(platform: string, geminiApiKey: string): Promise<any> {
   const prompt = buildAlgorithmResearchPrompt(platform)
 
   try {
-    console.log(`[Algorithms] Trying Gemini 3.1 Pro for ${platform}...`)
+    console.log(`[Algorithms] Trying ${ALGORITHM_GEMINI_MODEL} for ${platform}...`)
     
     const ai = new GoogleGenAI({ apiKey: geminiApiKey })
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-pro-latest',
+      model: ALGORITHM_GEMINI_MODEL,
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     })
     
-    const content = response.text
+    let content: string
+    try {
+      content =
+        typeof (response as { text?: string | (() => string) }).text === 'function'
+          ? (response as { text: () => string }).text()
+          : ((response as { text?: string }).text ?? '')
+    } catch {
+      throw new Error('Gemini returned a response with no readable text')
+    }
     
     console.log(`[Algorithms] Gemini succeeded for ${platform}`)
     
@@ -574,9 +585,10 @@ export async function POST(request: Request) {
       const result = await researchAlgorithm(platform.name, maxTokens)
 
       if (result) {
-        data.data[platform.id] = result
-        if (result.provider && !providersUsed.includes(result.provider)) {
-          providersUsed.push(result.provider)
+        const { provider, ...platformData } = result
+        data.data[platform.id] = platformData
+        if (provider && !providersUsed.includes(provider)) {
+          providersUsed.push(provider)
         }
       } else {
         errors.push(`${platform.name}: No data returned`)
