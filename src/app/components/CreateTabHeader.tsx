@@ -2,6 +2,7 @@
 
 import { Hash, Image as ImageIcon, Scissors } from 'lucide-react'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 
 export type CreateSubTab = 'thumbnail' | 'tags' | 'background'
 
@@ -33,8 +34,8 @@ interface Props {
   labels: { thumbnail: string; tags: string; background: string }
   pickToolLabel: string
   darkMode: boolean
-  tabTriggerActiveClasses: string
-  tabTriggerInactiveClasses: string
+  tabListClasses: string
+  tabTriggerClasses: string
 }
 
 export default function CreateTabHeader({
@@ -42,8 +43,8 @@ export default function CreateTabHeader({
   labels,
   pickToolLabel,
   darkMode,
-  tabTriggerActiveClasses,
-  tabTriggerInactiveClasses,
+  tabListClasses,
+  tabTriggerClasses,
 }: Props) {
   const title = createTabTitle(activeSubTab, labels)
 
@@ -55,11 +56,7 @@ export default function CreateTabHeader({
           {pickToolLabel}
         </p>
       </div>
-      <TabsList
-        className={`grid w-full max-w-2xl mx-auto grid-cols-3 mb-6 rounded-xl ${
-          darkMode ? 'bg-sdhq-dark-800/80' : 'bg-cyan-50'
-        }`}
-      >
+      <TabsList className={cn('grid w-full max-w-2xl mx-auto grid-cols-3 mb-6 rounded-xl p-1', tabListClasses)}>
         {(Object.keys(SUB_TAB_META) as CreateSubTab[]).map((id) => {
           const meta = SUB_TAB_META[id]
           const Icon = meta.icon
@@ -69,7 +66,10 @@ export default function CreateTabHeader({
             <TabsTrigger
               key={id}
               value={id}
-              className={`flex items-center justify-center gap-1.5 text-xs sm:text-sm data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
+              className={cn(
+                'flex items-center justify-center gap-1.5 text-xs sm:text-sm',
+                tabTriggerClasses
+              )}
             >
               <Icon className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline truncate">{label}</span>

@@ -194,8 +194,8 @@ export default function HomePage() {
     headerClasses,
     cardClasses,
     tabListClasses,
-    tabTriggerActiveClasses,
-    tabTriggerInactiveClasses,
+    tabTriggerClasses,
+    createSubTabListClasses,
     textClasses,
     subtitleClasses,
   } = getHomeThemeClasses(darkMode)
@@ -293,8 +293,8 @@ export default function HomePage() {
             textClasses={textClasses}
             subtitleClasses={subtitleClasses}
             tabListClasses={tabListClasses}
-            tabTriggerActiveClasses={tabTriggerActiveClasses}
-            tabTriggerInactiveClasses={tabTriggerInactiveClasses}
+            tabTriggerClasses={tabTriggerClasses}
+            createSubTabListClasses={createSubTabListClasses}
             language={language}
             t={t}
             platforms={platforms}

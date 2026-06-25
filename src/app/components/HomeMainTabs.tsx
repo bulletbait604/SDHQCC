@@ -1,6 +1,7 @@
 'use client'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 import { Settings, Video, Wand2, GraduationCap, BarChart3, Film } from 'lucide-react'
 import ResourceHubTab from '@/app/components/ResourceHubTab'
 import CreateTabHeader, { type CreateSubTab } from '@/app/components/CreateTabHeader'
@@ -33,8 +34,8 @@ export interface HomeMainTabsProps {
   textClasses: string
   subtitleClasses: string
   tabListClasses: string
-  tabTriggerActiveClasses: string
-  tabTriggerInactiveClasses: string
+  tabTriggerClasses: string
+  createSubTabListClasses: string
   language: HomeLanguage
   t: Record<string, string>
   platforms: Platform[]
@@ -108,8 +109,8 @@ export default function HomeMainTabs({
   textClasses,
   subtitleClasses,
   tabListClasses,
-  tabTriggerActiveClasses,
-  tabTriggerInactiveClasses,
+  tabTriggerClasses,
+  createSubTabListClasses,
   language,
   t,
   platforms,
@@ -168,46 +169,28 @@ export default function HomeMainTabs({
       <TabsList
         className={`grid w-full grid-cols-2 ${isOwner ? 'sm:grid-cols-6' : 'sm:grid-cols-5'} ${tabListClasses}`}
       >
-        <TabsTrigger
-          value="educate"
-          className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
-        >
+        <TabsTrigger value="educate" className={cn('flex items-center space-x-2', tabTriggerClasses)}>
           <GraduationCap className="w-4 h-4" />
           <span className="hidden sm:inline">{t.educate}</span>
         </TabsTrigger>
-        <TabsTrigger
-          value="create"
-          className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
-        >
+        <TabsTrigger value="create" className={cn('flex items-center space-x-2', tabTriggerClasses)}>
           <Wand2 className="w-4 h-4" />
           <span className="hidden sm:inline">{t.create}</span>
         </TabsTrigger>
-        <TabsTrigger
-          value="analyze"
-          className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
-        >
+        <TabsTrigger value="analyze" className={cn('flex items-center space-x-2', tabTriggerClasses)}>
           <BarChart3 className="w-4 h-4" />
           <span className="hidden sm:inline">{t.analyze}</span>
         </TabsTrigger>
-        <TabsTrigger
-          value="kick-clips"
-          className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
-        >
+        <TabsTrigger value="kick-clips" className={cn('flex items-center space-x-2', tabTriggerClasses)}>
           <Video className="w-4 h-4" />
           <span className="hidden sm:inline">{t.kickClips}</span>
         </TabsTrigger>
-        <TabsTrigger
-          value="settings"
-          className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
-        >
+        <TabsTrigger value="settings" className={cn('flex items-center space-x-2', tabTriggerClasses)}>
           <Settings className="w-4 h-4" />
           <span className="hidden sm:inline">{t.settings}</span>
         </TabsTrigger>
         {isOwner && (
-          <TabsTrigger
-            value="clip-editor"
-            className={`flex items-center space-x-2 data-[state=active]:${tabTriggerActiveClasses} data-[state=inactive]:${tabTriggerInactiveClasses}`}
-          >
+          <TabsTrigger value="clip-editor" className={cn('flex items-center space-x-2', tabTriggerClasses)}>
             <Film className="w-4 h-4" />
             <span className="hidden sm:inline">{t.clipEditor}</span>
           </TabsTrigger>
@@ -249,8 +232,8 @@ export default function HomeMainTabs({
               }}
               pickToolLabel={t.createPickTool}
               darkMode={darkMode}
-              tabTriggerActiveClasses={tabTriggerActiveClasses}
-              tabTriggerInactiveClasses={tabTriggerInactiveClasses}
+              tabListClasses={createSubTabListClasses}
+              tabTriggerClasses={tabTriggerClasses}
             />
 
             <TabsContent value="tags">
