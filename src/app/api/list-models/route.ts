@@ -1,66 +1,58 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
+import { verifyStaffUser, isProductionDeployment } from '@/lib/auth/staffAccess'
 
-export async function GET() {
+export const dynamic = 'force-dynamic'
+
+export async function GET(request: NextRequest) {
+  if (isProductionDeployment()) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
   try {
-    console.log('[DEBUG] List Models: Fetching available models...')
-    
+    await verifyStaffUser(request)
+  } catch (error) {
+    if (error instanceof AuthError) return createAuthErrorResponse(error)
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  try {
     const geminiApiKey = process.env.GEMINI_API
-    
     if (!geminiApiKey) {
-      console.error('[DEBUG] List Models: GEMINI_API not configured')
-      return NextResponse.json({ 
-        error: 'API not configured',
-        details: 'GEMINI_API not configured'
-      }, { status: 503 })
+      return NextResponse.json({ error: 'API not configured' }, { status: 503 })
     }
 
-    // Make a direct API call to list models
     const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
-      headers: {
-        'x-goog-api-key': geminiApiKey
-      }
+      headers: { 'x-goog-api-key': geminiApiKey },
     })
-    
+
     if (!response.ok) {
-      throw new Error(`Failed to fetch models: ${response.status} ${response.statusText}`)
+      throw new Error(`Failed to fetch models: ${response.status}`)
     }
-    
+
     const data = await response.json()
     const models = data.models || []
-    
-    console.log(`[DEBUG] List Models: Found ${models.length} models`)
-    
-    // Filter for generateContent models and sort them
     const generateContentModels = models
-      .filter((model: any) => 
+      .filter((model: { supportedGenerationMethods?: string[] }) =>
         model.supportedGenerationMethods?.includes('generateContent')
       )
-      .map((model: any) => ({
+      .map((model: { name?: string; displayName?: string; description?: string; supportedGenerationMethods?: string[] }) => ({
         name: model.name || 'Unknown',
         displayName: model.displayName || model.name || 'Unknown',
         description: model.description || 'No description available',
-        supportedMethods: model.supportedGenerationMethods || []
+        supportedMethods: model.supportedGenerationMethods || [],
       }))
-      .sort((a: any, b: any) => a.name.localeCompare(b.name))
-    
-    console.log('[DEBUG] List Models: Successfully listed generateContent models')
-    
+      .sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name))
+
     return NextResponse.json({
       success: true,
       totalModels: models.length,
       generateContentModels: generateContentModels.length,
       models: generateContentModels,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     })
-    
-  } catch (error: any) {
-    console.error('[DEBUG] List Models: Error listing models:', error)
-    
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to list models',
-      details: error.message || 'Unknown error',
-      timestamp: new Date().toISOString()
-    }, { status: 500 })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({ success: false, error: 'Failed to list models', details: message }, { status: 500 })
   }
 }

@@ -10,6 +10,9 @@ import {
   INTERNAL_API_SECRET_HEADER,
   getInternalApiSecret,
 } from '@/lib/internalApi'
+import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
+import { isStaffRole } from '@/lib/auth/staffAccess'
+import { isAllowlistedOwner } from '@/lib/ownerAllowlist'
 
 // Reference to global verified payments from webhook (legacy)
 declare global {
@@ -162,14 +165,23 @@ async function logSubscriptionActivity(
 
 export async function POST(req: NextRequest) {
   try {
+    const sessionUser = await verifyAuth(req)
     const body = await req.json()
-    const username = typeof body.username === 'string' ? body.username : ''
+    const usernameRaw = typeof body.username === 'string' ? body.username : ''
+    const username = usernameRaw.toLowerCase().trim()
     const subscriptionId = typeof body.subscriptionId === 'string' ? body.subscriptionId : ''
     const paypalEmailRaw = typeof body.paypalEmail === 'string' ? body.paypalEmail : ''
     const paypalEmailEntered = paypalEmailRaw.trim()
 
     if (!username) {
       return NextResponse.json({ error: 'Missing username' }, { status: 400 })
+    }
+
+    const isStaff =
+      isStaffRole(sessionUser.role) ||
+      isAllowlistedOwner(sessionUser.username)
+    if (username !== sessionUser.username && !isStaff) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     // First, check MongoDB for active subscription
@@ -380,6 +392,7 @@ export async function POST(req: NextRequest) {
     })
     
   } catch (error) {
+    if (error instanceof AuthError) return createAuthErrorResponse(error)
     console.error('Check subscription error:', error)
     const errorMessage = error instanceof Error ? error.message : 'Failed to verify subscription'
     return NextResponse.json(

@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai'
 import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
 
-export const THUMBNAIL_RESEARCH_MODEL_DEFAULT = 'gemini-3.5-flash'
+export const THUMBNAIL_RESEARCH_MODEL_DEFAULT = 'gemini-2.5-flash'
 
 const PLATFORM_LABELS: Record<string, string> = {
   'youtube-shorts': 'YouTube Shorts',

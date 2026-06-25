@@ -28,6 +28,17 @@ import { runMetadataPass } from '@/lib/clip-editor/passes/pass12-metadata'
 import { runViralityReviewPass } from '@/lib/clip-editor/passes/passVirality'
 import { pollShotstackRender } from '@/lib/clip-editor/services/shotstack'
 import { formatUnknownError } from '@/lib/clip-editor/formatError'
+import {
+  buildHeuristicGeminiVideoPlan,
+  buildHeuristicHookAnalysis,
+  buildHeuristicRetentionAnalysis,
+} from '@/lib/clip-editor/passes/heuristicAnalysis'
+import { runRulesPacingPass } from '@/lib/clip-editor/passes/rulesPacing'
+import { hookOverlayPlanSchema } from '@/lib/clip-editor/schemas'
+import {
+  clipEditorTierConfig,
+  shouldRunViralityPhase,
+} from '@/lib/clip-editor/tier'
 
 async function refreshSourceUrl(r2FileKey: string): Promise<string> {
   const url = await generatePresignedReadUrl(r2FileKey, 86400)
@@ -61,6 +72,7 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
   }
 
   try {
+    const tier = clipEditorTierConfig()
     const sourceReadUrl = await refreshSourceUrl(job.r2FileKey)
     const jobWithUrl = { ...job, sourceReadUrl }
 
@@ -78,25 +90,59 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
       case 'VIDEO_ANALYSIS': {
         const transcript = job.passes.transcript
         if (!transcript) throw new Error('Missing transcript for video analysis')
-        if (!job.passes.geminiVideo) {
-          const geminiVideo = await runGeminiVideoAnalysisPass({
-            sourceReadUrl,
-            r2FileKey: job.r2FileKey,
-            mimeType: job.mimeType,
+
+        const passPatch: {
+          geminiVideo?: Awaited<ReturnType<typeof runGeminiVideoAnalysisPass>>
+          hooks?: ReturnType<typeof buildHeuristicHookAnalysis>
+          retention?: ReturnType<typeof buildHeuristicRetentionAnalysis>
+        } = {}
+
+        if (tier.useGeminiVideoAnalysis) {
+          if (!job.passes.geminiVideo) {
+            passPatch.geminiVideo = await runGeminiVideoAnalysisPass({
+              sourceReadUrl,
+              r2FileKey: job.r2FileKey,
+              mimeType: job.mimeType,
+              platform: job.platform,
+              layoutTemplate: job.layoutTemplate,
+              durationSeconds: transcript.durationSeconds,
+              transcriptExcerpt: transcript.fullTranscript,
+            })
+          }
+        } else if (!job.passes.geminiVideo) {
+          passPatch.geminiVideo = buildHeuristicGeminiVideoPlan({
+            transcript,
             platform: job.platform,
             layoutTemplate: job.layoutTemplate,
-            durationSeconds: transcript.durationSeconds,
-            transcriptExcerpt: transcript.fullTranscript,
           })
-          await updateClipEditorJobPasses(jobId, { geminiVideo })
         }
-        await updateClipEditorJobState(jobId, 'HOOK_ANALYSIS')
+
+        if (!tier.useGeminiHookRetentionAnalysis) {
+          if (!job.passes.hooks) {
+            passPatch.hooks = buildHeuristicHookAnalysis(transcript)
+          }
+          if (!job.passes.retention) {
+            passPatch.retention = buildHeuristicRetentionAnalysis(transcript)
+          }
+        }
+
+        if (Object.keys(passPatch).length > 0) {
+          await updateClipEditorJobPasses(jobId, passPatch)
+        }
+
+        const nextState = tier.useGeminiHookRetentionAnalysis ? 'HOOK_ANALYSIS' : 'CUT_RANKING'
+        await updateClipEditorJobState(jobId, nextState)
         await scheduleClipEditorStep(jobId)
-        return { done: false, rescheduled: true, state: 'HOOK_ANALYSIS' }
+        return { done: false, rescheduled: true, state: nextState }
       }
       case 'HOOK_ANALYSIS': {
         const transcript = job.passes.transcript
         if (!transcript) throw new Error('Missing transcript')
+        if (!tier.useGeminiHookRetentionAnalysis) {
+          await updateClipEditorJobState(jobId, 'CUT_RANKING')
+          await scheduleClipEditorStep(jobId)
+          return { done: false, rescheduled: true, state: 'CUT_RANKING' }
+        }
         if (!job.passes.hooks) {
           const hooks = await runHookAnalysisPass(transcript)
           await updateClipEditorJobPasses(jobId, { hooks })
@@ -146,7 +192,7 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
         const cutRanking = job.passes.cutRanking
         const reframing = job.passes.reframing
         if (!transcript || !cutRanking || !reframing) throw new Error('Missing cut pass outputs')
-        if (!job.passes.viralityCut) {
+        if (shouldRunViralityPhase('cut', tier) && !job.passes.viralityCut) {
           const viralityCut = await runViralityReviewPass({
             phase: 'cut',
             platform: job.platform,
@@ -167,6 +213,10 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
           })
           await updateClipEditorJobPasses(jobId, { cutPhasePlan })
         }
+        if (!tier.renderCutPreview) {
+          await updateClipEditorJobState(jobId, 'CUT_PHASE_DONE')
+          return { done: false, rescheduled: false, state: 'CUT_PHASE_DONE', phasePaused: true }
+        }
         await updateClipEditorJobState(jobId, 'RENDERING_CUT_PREVIEW')
         await scheduleClipEditorStep(jobId)
         return { done: false, rescheduled: true, state: 'RENDERING_CUT_PREVIEW' }
@@ -177,6 +227,7 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
         if (!job.cutShotstackRenderId) {
           const { renderId } = await submitShotstackRenderForEditPlan(jobWithUrl, cutPlan, {
             richCaptions: false,
+            tier,
           })
           await updateClipEditorJobState(jobId, 'RENDERING_CUT_PREVIEW', {
             cutShotstackRenderId: renderId,
@@ -203,12 +254,14 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
         const cutRanking = job.passes.cutRanking
         if (!transcript || !cutRanking) throw new Error('Missing data for pacing')
         if (!job.passes.pacing) {
-          const pacing = await runPacingPass(
-            transcript,
-            cutRanking,
-            job.platform,
-            job.passes.viralityCut
-          )
+          const pacing = tier.useGeminiPacing
+            ? await runPacingPass(
+                transcript,
+                cutRanking,
+                job.platform,
+                job.passes.viralityCut
+              )
+            : runRulesPacingPass(transcript, cutRanking, job.platform)
           await updateClipEditorJobPasses(jobId, { pacing })
         }
         await updateClipEditorJobState(jobId, 'BROLL_PLANNING')
@@ -220,7 +273,7 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
         const retention = job.passes.retention
         if (!transcript || !retention) throw new Error('Missing data for b-roll')
         if (!job.passes.broll) {
-          const broll = runBrollPass(transcript, retention)
+          const broll = runBrollPass(transcript, retention, tier)
           await updateClipEditorJobPasses(jobId, { broll })
         }
         await updateClipEditorJobState(jobId, 'VIRALITY_EFFECTS')
@@ -232,7 +285,7 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
         const cutRanking = job.passes.cutRanking
         const pacing = job.passes.pacing
         if (!transcript || !cutRanking || !pacing) throw new Error('Missing effects pass outputs')
-        if (!job.passes.viralityEffects) {
+        if (shouldRunViralityPhase('effects', tier) && !job.passes.viralityEffects) {
           const viralityEffects = await runViralityReviewPass({
             phase: 'effects',
             platform: job.platform,
@@ -245,13 +298,11 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
           })
           await updateClipEditorJobPasses(jobId, { viralityEffects })
         }
-        await updateClipEditorJobState(jobId, 'TEXT_TRANSCRIBING')
+        await updateClipEditorJobState(jobId, 'CAPTIONING')
         await scheduleClipEditorStep(jobId)
-        return { done: false, rescheduled: true, state: 'TEXT_TRANSCRIBING' }
+        return { done: false, rescheduled: true, state: 'CAPTIONING' }
       }
       case 'TEXT_TRANSCRIBING': {
-        const transcript = await runTranscriptionPass(sourceReadUrl)
-        await updateClipEditorJobPasses(jobId, { transcript })
         await updateClipEditorJobState(jobId, 'CAPTIONING')
         await scheduleClipEditorStep(jobId)
         return { done: false, rescheduled: true, state: 'CAPTIONING' }
@@ -260,7 +311,7 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
         const transcript = job.passes.transcript
         const hooks = job.passes.hooks
         if (!transcript || !hooks) throw new Error('Missing data for captioning')
-        if (!job.passes.viralityText) {
+        if (shouldRunViralityPhase('text', tier) && !job.passes.viralityText) {
           const viralityText = await runViralityReviewPass({
             phase: 'text',
             platform: job.platform,
@@ -278,7 +329,11 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
         }
         const viralityText = job.passes.viralityText
         if (!job.passes.hookOverlay) {
-          const hookOverlay = await runHookOverlayPass(hooks, job.platform, viralityText)
+          const hookOverlay = tier.useGeminiHookOverlay
+            ? await runHookOverlayPass(hooks, job.platform, viralityText)
+            : hookOverlayPlanSchema.parse({
+                overlays: [{ start: 0, end: 2, text: 'wait for it', animation: 'pop' }],
+              })
           await updateClipEditorJobPasses(jobId, { hookOverlay })
         }
         await updateClipEditorJobState(jobId, 'EDIT_PLAN')
@@ -317,7 +372,7 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
       }
       case 'RENDERING': {
         if (!job.shotstackRenderId) {
-          const { renderId } = await submitShotstackRenderPass(jobWithUrl)
+          const { renderId } = await submitShotstackRenderPass(jobWithUrl, tier)
           await updateClipEditorJobState(jobId, 'RENDERING', { shotstackRenderId: renderId })
           await scheduleClipEditorStep(jobId, 5)
           return { done: false, rescheduled: true, state: 'RENDERING' }
@@ -335,7 +390,7 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
         const finalized = await finalizeShotstackOutput(jobWithUrl, poll.url, 'final')
         const transcript = job.passes.transcript
         const finalEditPlan = job.passes.finalEditPlan
-        if (transcript && finalEditPlan) {
+        if (tier.useGeminiMetadata && transcript && finalEditPlan) {
           const metadata = await runMetadataPass(transcript, finalEditPlan)
           await updateClipEditorJobPasses(jobId, { metadata })
         }

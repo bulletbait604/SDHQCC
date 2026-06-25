@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { estimateClipEditorCost } from '@/lib/clip-editor/estimateCost'
+import { parseClipEditorQualityTier } from '@/lib/clip-editor/tier'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,5 +13,7 @@ export async function GET(request: NextRequest) {
       { status: 400 }
     )
   }
-  return NextResponse.json(estimateClipEditorCost(durationSeconds))
+  const tierOverride = request.nextUrl.searchParams.get('tier')
+  const tier = tierOverride ? parseClipEditorQualityTier(tierOverride) : undefined
+  return NextResponse.json(estimateClipEditorCost(durationSeconds, tier))
 }

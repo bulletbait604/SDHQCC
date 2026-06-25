@@ -7,6 +7,7 @@ import {
 } from '@/lib/auth/verifyAuth'
 import { getClipEditorJobForUser } from '@/lib/clip-editor/jobs'
 import { CLIP_EDITOR_STATE_LABELS } from '@/lib/clip-editor/jobStates'
+import { clipEditorTierPublicSummary } from '@/lib/clip-editor/tier'
 
 export const dynamic = 'force-dynamic'
 
@@ -53,6 +54,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       cutPhasePlan: job.passes.cutPhasePlan,
       cutRanking: job.passes.cutRanking,
       geminiVideo: job.passes.geminiVideo,
+      qualityTier: clipEditorTierPublicSummary(),
       editPlan: job.state === 'COMPLETE' ? job.passes.finalEditPlan : undefined,
     })
   } catch (error) {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   ExternalLink,
@@ -40,6 +40,20 @@ type UserPhase =
   | 'finish_running'
   | 'complete'
   | 'failed'
+
+type QualityTierInfo = {
+  tier: 'fast' | 'standard' | 'max'
+  label: string
+  description: string
+  targetMaxUsd: number
+  envVar: string
+}
+
+const TIER_BADGE_CLASS: Record<QualityTierInfo['tier'], string> = {
+  fast: 'bg-amber-500/15 text-amber-600 border-amber-500/40',
+  standard: 'bg-sdhq-cyan-500/15 text-sdhq-cyan-700 border-sdhq-cyan-500/40',
+  max: 'bg-purple-500/15 text-purple-700 border-purple-500/40',
+}
 
 type ViralityReview = {
   viralityScore?: number
@@ -141,6 +155,20 @@ export default function ClipEditorTab({
   const [statusText, setStatusText] = useState<string>('')
   const [progressPercent, setProgressPercent] = useState<number | null>(null)
   const [busy, setBusy] = useState<'upload' | 'cut' | 'finish' | null>(null)
+  const [qualityTier, setQualityTier] = useState<QualityTierInfo | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/clip-editor/config')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.tier) setQualityTier(data as QualityTierInfo)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const setProgress = useCallback((value: number) => {
     setProgressPercent(Math.min(100, Math.max(0, Math.round(value))))
@@ -413,8 +441,22 @@ export default function ClipEditorTab({
           <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{title}</h3>
         </div>
         <p className={`max-w-xl ${textClasses} text-base`}>{tagline}</p>
+        {qualityTier && (
+          <div className="mt-3 max-w-lg space-y-1">
+            <span
+              className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${TIER_BADGE_CLASS[qualityTier.tier]}`}
+            >
+              Quality: {qualityTier.label}
+            </span>
+            <p className={`text-xs ${subtitleClasses}`}>{qualityTier.description}</p>
+            <p className={`text-xs ${subtitleClasses}`}>
+              ~${qualityTier.targetMaxUsd.toFixed(2)} / clip · set{' '}
+              <code className="text-[11px]">{qualityTier.envVar}</code> in Vercel
+            </p>
+          </div>
+        )}
         <p className={`max-w-lg text-sm mt-2 ${subtitleClasses}`}>
-          Two passes for your platform — cut preview, then effects + captions in one final render.
+          Two passes for your platform — cut preview (when tier allows), then effects + captions in one final render.
         </p>
       </div>
 
@@ -548,6 +590,12 @@ export default function ClipEditorTab({
                 ? 'Owner / subscriber — unlimited passes · Pass 1: cut preview · Pass 2: effects, captions, final render'
                 : '1 coin per pass (2 total) · Pass 1: cut preview · Pass 2: effects, captions, and final render'}
             </p>
+
+            {cutDone && !cutPreviewUrl && qualityTier?.tier === 'fast' && (
+              <p className={`text-sm text-center ${subtitleClasses}`}>
+                Cut plan ready — fast tier skips the preview render. Run Finish for the full edited clip.
+              </p>
+            )}
 
             {cutPreviewUrl && (
               <div

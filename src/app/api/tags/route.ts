@@ -1,7 +1,10 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 import { buildTagGeneratorPrompt } from '@/lib/tagGeneratorPrompt'
 import { estimateTagGenerationUsd } from '@/lib/estimatedInferenceCost'
+import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
+import { spendToolCoins } from '@/lib/coins/spendToolCoins'
+import { verifyStaffUser } from '@/lib/auth/staffAccess'
 
 // Force dynamic rendering to prevent static optimization
 export const dynamic = 'force-dynamic'
@@ -256,29 +259,31 @@ export async function GET() {
   return response
 }
 
-// DELETE — legacy no-op (admin); server no longer tracks per-day tag uses
-export async function DELETE(request: Request) {
+// DELETE — legacy admin reset (staff only)
+export async function DELETE(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { userId } = body
-
-    const isAdmin = userId && ['bulletbait604', 'Bulletbait604'].includes(userId)
-
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
+    await verifyStaffUser(request)
     return NextResponse.json({
       message: 'No server use-counter store (legacy endpoint)',
     })
-  } catch {
+  } catch (error) {
+    if (error instanceof AuthError) return createAuthErrorResponse(error)
     return NextResponse.json({ error: 'Failed to reset rate limit' }, { status: 500 })
   }
 }
 
 // POST endpoint - generate tags from description
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const user = await verifyAuth(request)
+    const spend = await spendToolCoins(user, 'tag-generator')
+    if (!spend.ok) {
+      return NextResponse.json(
+        { error: spend.reason, required: spend.required, available: spend.available },
+        { status: spend.status }
+      )
+    }
+
     const body = await request.json()
     const { description, platform, count = 10 } = body
 
@@ -304,8 +309,9 @@ export async function POST(request: Request) {
     response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
 
     return response
-  } catch (error: any) {
-    const errorMessage = error.message || 'Unknown error'
+  } catch (error: unknown) {
+    if (error instanceof AuthError) return createAuthErrorResponse(error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     console.error('[Tags API] Final error:', errorMessage)
     return NextResponse.json(
       {

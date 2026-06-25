@@ -142,7 +142,7 @@ export function estimateThumbnailGenerationUsd(params: {
   if (params.geminiResearchUsed) {
     research = numEnv('ESTIMATE_THUMBNAIL_GEMINI_RESEARCH_USD', 0.001)
     lines.push(
-      `Gemini 3.5 research (${process.env.THUMBNAIL_GEMINI_MODEL || 'gemini-3.5-flash'}, rough)`
+      `Gemini research (${process.env.THUMBNAIL_GEMINI_MODEL || 'gemini-2.5-flash'}, rough)`
     )
   }
 

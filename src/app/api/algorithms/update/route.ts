@@ -1,17 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
-import { isAllowlistedOwner } from '@/lib/ownerAllowlist'
-import { INTERNAL_API_SECRET_HEADER, isValidInternalApiSecret } from '@/lib/internalApi'
+import {
+  INTERNAL_API_SECRET_HEADER,
+  getInternalApiSecret,
+  isValidInternalApiSecret,
+} from '@/lib/internalApi'
+import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
+import { verifyStaffUser } from '@/lib/auth/staffAccess'
+
+export const dynamic = 'force-dynamic'
 
 async function runAlgorithmsUpdate(): Promise<Response> {
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/algorithms`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    }
-  )
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.CLIP_EDITOR_APP_URL || 'http://localhost:3000'
+  const secret = getInternalApiSecret()
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (secret) {
+    headers[INTERNAL_API_SECRET_HEADER] = secret
+  }
+
+  const response = await fetch(`${baseUrl}/api/algorithms`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({}),
+  })
   const data = await response.json().catch(() => ({}))
 
   if (!response.ok) {
@@ -39,13 +49,7 @@ export async function POST(req: NextRequest) {
       return await runAlgorithmsUpdate()
     }
 
-    const user = await verifyAuth(req)
-    const ok =
-      ['admin', 'owner'].includes(user.role) || isAllowlistedOwner(user.username)
-    if (!ok) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
+    await verifyStaffUser(req)
     return await runAlgorithmsUpdate()
   } catch (error: unknown) {
     if (error instanceof AuthError) return createAuthErrorResponse(error)

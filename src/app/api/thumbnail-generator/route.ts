@@ -15,6 +15,9 @@ import {
   THUMBNAIL_RESEARCH_MODEL_DEFAULT,
 } from "@/lib/thumbnailPromptResearch";
 import { estimateThumbnailGenerationUsd } from "@/lib/estimatedInferenceCost";
+import { verifyAuth, AuthError, createAuthErrorResponse } from "@/lib/auth/verifyAuth";
+import { spendToolCoins } from "@/lib/coins/spendToolCoins";
+import { isSafeR2ObjectKey } from "@/lib/r2KeyValidation";
 
 /** Vercel / long-running: Fal + R2 can exceed default 10s. */
 export const maxDuration = 120;
@@ -28,9 +31,9 @@ function mimeFromThumbnailKey(key: string): string {
   return "image/png";
 }
 
-/** Prompt research via Gemini 3.5 Flash; paint via Fal Nano Banana Pro by default. */
+/** Prompt research + paint via Gemini (2.5 Flash research, 2.5 Flash Image paint by default). */
 const THUMBNAIL_GEMINI_MODEL_DEFAULT = THUMBNAIL_RESEARCH_MODEL_DEFAULT;
-const THUMBNAIL_PROVIDER_DEFAULT = "fal";
+const THUMBNAIL_PROVIDER_DEFAULT = "gemini";
 const FAL_NANO_PRO_T2I = "fal-ai/nano-banana-pro";
 const FAL_NANO_PRO_EDIT = "fal-ai/nano-banana-pro/edit";
 const FAL_NANO_FLASH_T2I = "fal-ai/nano-banana";
@@ -1320,6 +1323,15 @@ async function generateThumbnailFal(params: {
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await verifyAuth(req);
+    const spend = await spendToolCoins(user, "thumbnail-generator");
+    if (!spend.ok) {
+      return NextResponse.json(
+        { error: spend.reason, required: spend.required, available: spend.available },
+        { status: spend.status }
+      );
+    }
+
     const body = await req.json();
     const {
       prompt,
@@ -1355,7 +1367,7 @@ export async function POST(req: NextRequest) {
 
     if (typeof sourceImageKey === "string" && sourceImageKey.trim()) {
       const sk = sourceImageKey.trim();
-      if (!sk.startsWith("thumbnails/")) {
+      if (!isSafeR2ObjectKey(sk) || !sk.startsWith("thumbnails/")) {
         return NextResponse.json(
           { error: "Invalid source image key" },
           { status: 400 }
@@ -1401,7 +1413,7 @@ export async function POST(req: NextRequest) {
         : {
             estimatedCostUsd: 0.003,
             estimatedCostNote:
-              "Gemini 3.5 Flash research + Gemini image generation (rough estimate).",
+              "Gemini 2.5 Flash research + Gemini image generation (rough estimate).",
           };
 
     const encKey = encodeURIComponent(out.key);
@@ -1417,6 +1429,7 @@ export async function POST(req: NextRequest) {
       estimatedCostNote: estimate.estimatedCostNote,
     });
   } catch (err: unknown) {
+    if (err instanceof AuthError) return createAuthErrorResponse(err);
     const message = err instanceof Error ? err.message : String(err);
     console.error("[Thumbnail] Error:", err);
 

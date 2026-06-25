@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { capturePayPalCheckoutOrder } from '@/lib/paypalServerApi'
+import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 
 /**
  * Merchant-side order capture (replaces client `actions.order.capture()` which can fail with
@@ -10,6 +11,8 @@ import { capturePayPalCheckoutOrder } from '@/lib/paypalServerApi'
  */
 export async function POST(req: NextRequest) {
   try {
+    await verifyAuth(req)
+
     const body = await req.json()
     const orderId = typeof body.orderId === 'string' ? body.orderId.trim() : ''
     if (!orderId) {
@@ -23,6 +26,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, status: result.status })
   } catch (e) {
+    if (e instanceof AuthError) return createAuthErrorResponse(e)
     const message = e instanceof Error ? e.message : 'Capture failed'
     return NextResponse.json({ error: message }, { status: 500 })
   }

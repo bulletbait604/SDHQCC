@@ -5,21 +5,35 @@ import {
   readResolvedSegmentsFromShotstack,
   uploadClipEditorCaptionVtt,
 } from '@/lib/clip-editor/vttCaptions'
+import type { ClipEditorTierConfig } from '@/lib/clip-editor/tier'
+import { clipEditorTierConfig } from '@/lib/clip-editor/tier'
 import type { ClipEditorJobDocument, FinalEditPlan } from '@/lib/clip-editor/types'
 
 export type ShotstackOutputKind = 'cut-preview' | 'effects-preview' | 'final'
 
+function applyRenderResolution(
+  output: Record<string, unknown>,
+  resolution: ClipEditorTierConfig['renderResolution']
+): Record<string, unknown> {
+  return {
+    ...output,
+    resolution,
+    quality: resolution === '720' ? 'medium' : 'high',
+  }
+}
+
 export async function submitShotstackRenderForEditPlan(
   job: ClipEditorJobDocument,
   editPlan: FinalEditPlan,
-  options?: { richCaptions?: boolean }
+  options?: { richCaptions?: boolean; tier?: ClipEditorTierConfig }
 ): Promise<{ renderId: string }> {
+  const tier = options?.tier ?? clipEditorTierConfig()
   const transcript = job.passes.transcript
   if (!transcript) {
     throw new Error('Missing transcript before render')
   }
 
-  const useRichCaptions = options?.richCaptions ?? editPlan.captions.length > 0
+  const useRichCaptions = options?.richCaptions ?? (tier.richCaptions && editPlan.captions.length > 0)
 
   let payload = buildShotstackPackageFromEditPlan({
     sourceUrl: job.sourceReadUrl,
@@ -29,6 +43,16 @@ export async function submitShotstackRenderForEditPlan(
     geminiVideo: job.passes.geminiVideo,
     sourceDurationSeconds: job.sourceDurationSeconds,
   })
+
+  payload = {
+    ...payload,
+    output: applyRenderResolution(
+      payload.output && typeof payload.output === 'object'
+        ? (payload.output as Record<string, unknown>)
+        : {},
+      tier.renderResolution
+    ),
+  }
 
   if (useRichCaptions) {
     const segments = readResolvedSegmentsFromShotstack({
@@ -50,6 +74,15 @@ export async function submitShotstackRenderForEditPlan(
         sourceDurationSeconds: job.sourceDurationSeconds,
         richCaptionUrl,
       })
+      payload = {
+        ...payload,
+        output: applyRenderResolution(
+          payload.output && typeof payload.output === 'object'
+            ? (payload.output as Record<string, unknown>)
+            : {},
+          tier.renderResolution
+        ),
+      }
     }
   }
 
@@ -60,15 +93,19 @@ export async function submitShotstackRenderForEditPlan(
   return { renderId }
 }
 
-/** Final render (text pass) — uses full edit plan + karaoke captions when present. */
+/** Final render (text pass) — uses full edit plan + karaoke captions when tier allows. */
 export async function submitShotstackRenderPass(
-  job: ClipEditorJobDocument
+  job: ClipEditorJobDocument,
+  tier: ClipEditorTierConfig = clipEditorTierConfig()
 ): Promise<{ renderId: string }> {
   const editPlan = job.passes.finalEditPlan
   if (!editPlan) {
     throw new Error('Missing final edit plan before render')
   }
-  return submitShotstackRenderForEditPlan(job, editPlan, { richCaptions: true })
+  return submitShotstackRenderForEditPlan(job, editPlan, {
+    richCaptions: tier.richCaptions,
+    tier,
+  })
 }
 
 export async function finalizeShotstackOutput(

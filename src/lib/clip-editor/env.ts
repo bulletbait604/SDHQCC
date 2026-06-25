@@ -40,3 +40,11 @@ export function openAiFallbackEnabled(): boolean {
   const key = (process.env.OPENAI_API_KEY || '').trim()
   return key.length > 0
 }
+
+export {
+  clipEditorQualityTier,
+  clipEditorTierConfig,
+  clipEditorTierPublicSummary,
+  parseClipEditorQualityTier,
+} from '@/lib/clip-editor/tier'
+export type { ClipEditorQualityTier, ClipEditorTierConfig } from '@/lib/clip-editor/tier'

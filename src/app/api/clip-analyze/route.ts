@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 import clientPromise from '@/lib/mongodb'
-import { verifyAuth, hasUnlimitedAccess, AuthError } from '@/lib/auth/verifyAuth'
+import { verifyAuth, hasUnlimitedAccess, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
+import { spendToolCoins } from '@/lib/coins/spendToolCoins'
+import { toolCoinCost } from '@/lib/coins/toolCosts'
 import {
   getFileFromR2,
   deleteFileFromR2,
@@ -19,7 +21,7 @@ import { estimateClipAnalysisUsd } from '@/lib/estimatedInferenceCost'
 // Force dynamic rendering to prevent static optimization
 export const dynamic = 'force-dynamic'
 
-const CLIP_ANALYZE_COIN_COST = 2
+const CLIP_ANALYZE_COIN_COST = toolCoinCost('clip-analyzer') ?? 2
 
 /** Gemini can fetch HTTPS / signed URLs directly; larger clips still use the Files API after R2. */
 const GEMINI_EXTERNAL_URL_MAX_BYTES = 100 * 1024 * 1024
@@ -591,6 +593,16 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
     })
 
     const clipCost = estimateClipAnalysisUsd()
+
+    if (!hasUnlimitedAccess(user)) {
+      const spend = await spendToolCoins(user, 'clip-analyzer')
+      if (!spend.ok) {
+        return NextResponse.json(
+          { error: spend.reason, required: spend.required, available: spend.available },
+          { status: spend.status }
+        )
+      }
+    }
 
     const response = NextResponse.json({
       ...analysisResult,

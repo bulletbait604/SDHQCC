@@ -8,7 +8,7 @@ import {
 import { clipEditorTwoPassConfigurationHints } from '@/lib/clipEditorServerKeys'
 import { generatePresignedReadUrl, putBufferToR2 } from '@/lib/r2'
 import { submitVizardClip } from '@/lib/vizard'
-import { normalizeHttpMediaUrl } from '@/lib/normalizeMediaUrl'
+import { assertSafeExternalMediaUrl } from '@/lib/http/ssrfGuard'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +31,11 @@ async function rehostHttpVideoToR2PresignedRead(params: {
   fileName: string
   mimeType: string
 }): Promise<string | null> {
+  try {
+    assertSafeExternalMediaUrl(params.sourceUrl)
+  } catch {
+    return null
+  }
   const res = await fetch(params.sourceUrl, {
     method: 'GET',
     headers: {
@@ -76,9 +81,12 @@ export async function POST(request: NextRequest) {
       mimeType?: string
     }
 
-    const videoUrl = normalizeHttpMediaUrl(body.videoUrl)
-    if (!videoUrl) {
-      return NextResponse.json({ error: 'videoUrl must be a valid http(s) URL.' }, { status: 400 })
+    let videoUrl: string
+    try {
+      videoUrl = assertSafeExternalMediaUrl(body.videoUrl)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'videoUrl must be a valid public https URL.'
+      return NextResponse.json({ error: message }, { status: 400 })
     }
     if (!body.platform || !isTargetPlatform(body.platform)) {
       return NextResponse.json(

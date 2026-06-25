@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 import clientPromise from '@/lib/mongodb'
 import {
@@ -7,6 +7,12 @@ import {
   readAlgorithmSnapshotFromMongo,
   type AlgorithmSnapshotPayload,
 } from '@/lib/algorithmSnapshotRead'
+import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
+import { verifyStaffUser } from '@/lib/auth/staffAccess'
+import {
+  INTERNAL_API_SECRET_HEADER,
+  isValidInternalApiSecret,
+} from '@/lib/internalApi'
 
 export const dynamic = 'force-dynamic'
 
@@ -536,7 +542,17 @@ export async function GET() {
   return NextResponse.json(storedData)
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const internalSecret = request.headers.get(INTERNAL_API_SECRET_HEADER)
+  if (!isValidInternalApiSecret(internalSecret)) {
+    try {
+      await verifyStaffUser(request)
+    } catch (error) {
+      if (error instanceof AuthError) return createAuthErrorResponse(error)
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+  }
+
   if (!hasAlgorithmAiProviderConfigured()) {
     return NextResponse.json(
       {
