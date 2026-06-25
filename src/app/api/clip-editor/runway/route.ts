@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Runway is not configured',
-          details: 'Set RUNWAYML_API_SECRET or RUNWAY_API.',
+          details: 'Set RUNWAY_API (or RUNWAYML_API_SECRET).',
         },
         { status: 503 }
       )

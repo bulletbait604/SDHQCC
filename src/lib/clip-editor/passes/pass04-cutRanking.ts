@@ -1,6 +1,7 @@
 import { cutRankingSchema } from '@/lib/clip-editor/schemas'
 import type {
   CutRanking,
+  GeminiVideoPlan,
   HookAnalysis,
   RetentionAnalysis,
   TranscriptAnalysis,
@@ -31,7 +32,8 @@ const FILLER = new Set(['um', 'uh', 'like', 'you know', 'basically', 'literally'
 export function runCutRankingPass(
   transcript: TranscriptAnalysis,
   hooks: HookAnalysis,
-  retention: RetentionAnalysis
+  retention: RetentionAnalysis,
+  geminiVideo?: GeminiVideoPlan
 ): CutRanking {
   const duration = transcript.durationSeconds
   const candidates: CutRanking['segments'] = []
@@ -74,6 +76,21 @@ export function runCutRankingPass(
       deadAirPenalty: deadAir,
       fillerPenalty: fillerCount,
       reason: hook.reason,
+    })
+  }
+
+  for (const seg of geminiVideo?.viralSegments ?? []) {
+    candidates.push({
+      start: Math.max(0, seg.start),
+      end: Math.min(duration, seg.end),
+      score: seg.viralityScore,
+      hookScore: seg.viralityScore,
+      emotionalIntensity: seg.viralityScore / 100,
+      speakingSpeed: 1,
+      surpriseFactor: seg.viralityScore >= 85 ? 1 : 0.6,
+      deadAirPenalty: 0,
+      fillerPenalty: 0,
+      reason: seg.explanation || seg.title,
     })
   }
 

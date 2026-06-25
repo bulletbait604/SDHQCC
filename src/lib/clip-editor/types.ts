@@ -17,6 +17,7 @@ import type {
   retentionAnalysisSchema,
   transcriptAnalysisSchema,
   viralityReviewSchema,
+  viralSegmentSchema,
 } from '@/lib/clip-editor/schemas'
 import type { ClipEditorJobState, ClipEditorUserPhase } from '@/lib/clip-editor/jobStates'
 
@@ -25,6 +26,7 @@ export type ClipLayoutTemplate = z.infer<typeof layoutTemplateSchema>
 export type CreateClipEditorJobBody = z.infer<typeof createClipEditorJobBodySchema>
 export type TranscriptAnalysis = z.infer<typeof transcriptAnalysisSchema>
 export type GeminiVideoPlan = z.infer<typeof geminiVideoPlanSchema>
+export type ViralSegment = z.infer<typeof viralSegmentSchema>
 export type HookAnalysis = z.infer<typeof hookAnalysisSchema>
 export type RetentionAnalysis = z.infer<typeof retentionAnalysisSchema>
 export type CutRanking = z.infer<typeof cutRankingSchema>

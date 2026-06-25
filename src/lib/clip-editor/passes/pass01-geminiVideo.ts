@@ -59,7 +59,7 @@ export async function runGeminiVideoAnalysisPass(params: {
   const cleanupGeminiName = uploaded.name
   const geminiFileUri = uploaded.uri
 
-  const prompt = `You are a viral short-form editor (OpusClip / StreamLadder quality). Watch this video directly.
+  const prompt = `You are a viral media data scientist and short-form editor (OpusClip / StreamLadder quality). Watch this video directly.
 
 Target platform: ${params.platform}
 Platform directive: ${platformEditingDirective(params.platform)}
@@ -87,6 +87,15 @@ Return valid JSON only (no markdown fences):
   "captionStyle": "karaoke|bold|clean",
   "hookStyle": "pop|glitch|clean|urgent",
   "keywordHighlights": ["3-8 spoken words to emphasize in captions"],
+  "viralSegments": [
+    {
+      "start_time": number,
+      "end_time": number,
+      "title": "short hook title",
+      "explanation": "why this moment will perform",
+      "virality_score": 1-100
+    }
+  ],
   "primaryWindow": {
     "start": number,
     "end": number,
@@ -102,11 +111,11 @@ Return valid JSON only (no markdown fences):
 }
 
 Rules:
-- primaryWindow must be ONE continuous excerpt (12-38s) with the strongest hook at the start of that window.
-- Use exact source timestamps in seconds (0 to ${params.durationSeconds.toFixed(1)}).
-- Pick layoutTemplate from what you see (stackedFacecam for facecam+gameplay, focusCrop for talking head, etc.).
-- Do not invent moments not in the video.
-- renderSeconds should match primaryWindow length (capped at 38).
+- Identify 3 to 7 highly engaging segments with strong initial hooks in viralSegments.
+- Each viralSegments entry must be 12-38 seconds with start_time/end_time in source seconds (0 to ${params.durationSeconds.toFixed(1)}).
+- Rank segments by virality_score (1-100); highest score first.
+- primaryWindow must match your single best viralSegments entry (same start/end).
+- Use exact source timestamps in seconds. Do not invent moments not in the video.
 - hookTitle and hookPlan are required strings.`
 
   try {

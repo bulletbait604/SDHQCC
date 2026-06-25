@@ -148,6 +148,9 @@ export default function ClipEditorTab({
   const [viralityCut, setViralityCut] = useState<ViralityReview | null>(null)
   const [viralityEffects, setViralityEffects] = useState<ViralityReview | null>(null)
   const [viralityText, setViralityText] = useState<ViralityReview | null>(null)
+  const [viralSegments, setViralSegments] = useState<
+    Array<{ title: string; explanation: string; start: number; end: number; viralityScore: number }>
+  >([])
   const [uploadStatus, setUploadStatus] = useState<string>('')
   const [cutPreviewUrl, setCutPreviewUrl] = useState<string | null>(null)
   const [finalClipUrl, setFinalClipUrl] = useState<string | null>(null)
@@ -294,6 +297,26 @@ export default function ClipEditorTab({
     }
     if (data.viralityText && typeof data.viralityText === 'object') {
       setViralityText(data.viralityText as ViralityReview)
+    }
+    if (Array.isArray(data.viralSegments)) {
+      setViralSegments(
+        data.viralSegments.filter(
+          (s): s is { title: string; explanation: string; start: number; end: number; viralityScore: number } =>
+            !!s &&
+            typeof s === 'object' &&
+            typeof (s as { title?: unknown }).title === 'string'
+        )
+      )
+    } else if (Array.isArray(data.clipCandidates)) {
+      setViralSegments(
+        data.clipCandidates.map((c: Record<string, unknown>) => ({
+          title: String(c.title || 'Clip'),
+          explanation: String(c.explanation || ''),
+          start: Number(c.startTime ?? c.start ?? 0),
+          end: Number(c.endTime ?? c.end ?? 0),
+          viralityScore: Number(c.viralityScore ?? 0),
+        }))
+      )
     }
     const cutUrl = normalizeHttpMediaUrl(data.cutPreviewUrl)
     if (cutUrl) setCutPreviewUrl(cutUrl)
@@ -616,6 +639,37 @@ export default function ClipEditorTab({
                     Open cut preview
                   </a>
                 </Button>
+              </div>
+            )}
+            {viralSegments.length > 0 && (
+              <div
+                className={`rounded-xl border p-4 ${darkMode ? 'bg-sdhq-dark-800 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-200'}`}
+              >
+                <p className={`text-sm font-semibold mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-700'}`}>
+                  AI-detected viral moments ({viralSegments.length})
+                </p>
+                <ul className="space-y-2">
+                  {viralSegments.map((seg, idx) => (
+                    <li
+                      key={`${seg.start}-${idx}`}
+                      className={`text-sm rounded-lg p-2 ${darkMode ? 'bg-sdhq-dark-900/60' : 'bg-white border border-sdhq-cyan-100'}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                          {idx === 0 ? '★ ' : ''}
+                          {seg.title}
+                        </span>
+                        <span className="text-sdhq-cyan-500 font-mono text-xs shrink-0">
+                          {seg.viralityScore}/100
+                        </span>
+                      </div>
+                      <p className={`mt-1 text-xs ${subtitleClasses}`}>{seg.explanation}</p>
+                      <p className={`mt-1 text-xs font-mono ${subtitleClasses}`}>
+                        {seg.start.toFixed(1)}s – {seg.end.toFixed(1)}s
+                      </p>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
             {viralityCut && (

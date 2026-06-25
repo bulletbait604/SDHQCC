@@ -11,6 +11,7 @@ import { createClipEditorJobBodySchema } from '@/lib/clip-editor/schemas'
 import { createClipEditorJob } from '@/lib/clip-editor/jobs'
 import { isQStashFullyConfigured, clipEditorAppBaseUrl } from '@/lib/clip-editor/dispatch'
 import { CLIP_EDITOR_STATE_LABELS } from '@/lib/clip-editor/jobStates'
+import { upsertVideoForJob } from '@/lib/clip-editor/clipStore'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,6 +61,15 @@ export async function POST(request: NextRequest) {
       username: storageUser,
       sourceReadUrl,
       body,
+    })
+
+    await upsertVideoForJob({
+      jobId: job._id,
+      userId: user.id,
+      username: storageUser,
+      r2FileKey: body.r2FileKey,
+      r2Url: sourceReadUrl,
+      state: job.state,
     })
 
     return NextResponse.json({

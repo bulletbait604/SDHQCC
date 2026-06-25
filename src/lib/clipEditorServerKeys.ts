@@ -15,7 +15,7 @@ export function resolveDeepgramApiKey(): string | undefined {
 
 export function resolveRunwayApiSecret(): string | undefined {
   const key =
-    (process.env.RUNWAYML_API_SECRET || process.env.RUNWAY_API || '').trim() || undefined
+    (process.env.RUNWAY_API || process.env.RUNWAYML_API_SECRET || '').trim() || undefined
   return key
 }
 

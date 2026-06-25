@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const runwaySecret = resolveRunwayApiSecret()
     if (!runwaySecret) {
       return NextResponse.json(
-        { error: 'Runway is not configured', details: 'Set RUNWAYML_API_SECRET or RUNWAY_API.' },
+        { error: 'Runway is not configured', details: 'Set RUNWAY_API (or RUNWAYML_API_SECRET).' },
         { status: 503 }
       )
     }

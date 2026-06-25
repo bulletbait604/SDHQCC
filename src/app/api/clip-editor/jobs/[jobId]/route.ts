@@ -8,6 +8,7 @@ import {
 import { getClipEditorJobForUser } from '@/lib/clip-editor/jobs'
 import { CLIP_EDITOR_STATE_LABELS } from '@/lib/clip-editor/jobStates'
 import { clipEditorTierPublicSummary } from '@/lib/clip-editor/tier'
+import { listClipsForJob } from '@/lib/clip-editor/clipStore'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const phasePaused = job.state === 'CUT_PHASE_DONE'
+    const clipCandidates = await listClipsForJob(job._id)
 
     return NextResponse.json({
       jobId: job._id,
@@ -54,6 +56,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       cutPhasePlan: job.passes.cutPhasePlan,
       cutRanking: job.passes.cutRanking,
       geminiVideo: job.passes.geminiVideo,
+      viralSegments: job.passes.geminiVideo?.viralSegments,
+      clipCandidates,
       qualityTier: clipEditorTierPublicSummary(),
       editPlan: job.state === 'COMPLETE' ? job.passes.finalEditPlan : undefined,
     })

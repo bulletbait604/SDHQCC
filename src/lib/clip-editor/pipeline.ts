@@ -39,6 +39,12 @@ import {
   clipEditorTierConfig,
   shouldRunViralityPhase,
 } from '@/lib/clip-editor/tier'
+import {
+  replaceClipsForVideo,
+  updateVideoStatusForJob,
+  upsertVideoForJob,
+  markSelectedClipComplete,
+} from '@/lib/clip-editor/clipStore'
 
 async function refreshSourceUrl(r2FileKey: string): Promise<string> {
   const url = await generatePresignedReadUrl(r2FileKey, 86400)
@@ -130,6 +136,24 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
           await updateClipEditorJobPasses(jobId, passPatch)
         }
 
+        const geminiPlan = passPatch.geminiVideo ?? job.passes.geminiVideo
+        if (geminiPlan?.viralSegments?.length) {
+          await upsertVideoForJob({
+            jobId,
+            userId: job.userId,
+            username: job.username,
+            r2FileKey: job.r2FileKey,
+            r2Url: sourceReadUrl,
+            state: 'VIDEO_ANALYSIS',
+          })
+          await replaceClipsForVideo({
+            videoId: jobId,
+            jobId,
+            segments: geminiPlan.viralSegments,
+          })
+          await updateVideoStatusForJob(jobId, 'VIDEO_ANALYSIS')
+        }
+
         const nextState = tier.useGeminiHookRetentionAnalysis ? 'HOOK_ANALYSIS' : 'CUT_RANKING'
         await updateClipEditorJobState(jobId, nextState)
         await scheduleClipEditorStep(jobId)
@@ -168,7 +192,12 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
         const retention = job.passes.retention
         if (!transcript || !hooks || !retention) throw new Error('Missing analysis for cut ranking')
         if (!job.passes.cutRanking) {
-          const cutRanking = runCutRankingPass(transcript, hooks, retention)
+          const cutRanking = runCutRankingPass(
+            transcript,
+            hooks,
+            retention,
+            job.passes.geminiVideo
+          )
           await updateClipEditorJobPasses(jobId, { cutRanking })
         }
         await updateClipEditorJobState(jobId, 'REFRAMING')
@@ -273,7 +302,14 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
         const retention = job.passes.retention
         if (!transcript || !retention) throw new Error('Missing data for b-roll')
         if (!job.passes.broll) {
-          const broll = runBrollPass(transcript, retention, tier)
+          const broll = await runBrollPass({
+            transcript,
+            retention,
+            tier,
+            geminiVideo: job.passes.geminiVideo,
+            viralityEffects: job.passes.viralityEffects ?? job.passes.viralityCut,
+            username: job.username,
+          })
           await updateClipEditorJobPasses(jobId, { broll })
         }
         await updateClipEditorJobState(jobId, 'VIRALITY_EFFECTS')
@@ -400,6 +436,15 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
           outputR2Key: finalized.outputR2Key,
           shotstackRenderId: job.shotstackRenderId,
         })
+        await updateVideoStatusForJob(jobId, 'COMPLETE')
+        if (job.shotstackRenderId) {
+          await markSelectedClipComplete({
+            jobId,
+            shotstackJobId: job.shotstackRenderId,
+            finalVideoUrl: finalized.outputUrl,
+            finalR2Key: finalized.outputR2Key,
+          })
+        }
         return { done: true, rescheduled: false, state: 'COMPLETE' }
       }
       default:
@@ -409,6 +454,7 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
     const detail = formatUnknownError(error)
     const message = `[${job.state}] ${detail}`
     await markClipEditorJobFailed(jobId, message)
+    await updateVideoStatusForJob(jobId, 'FAILED').catch(() => undefined)
     throw new Error(message)
   }
 }

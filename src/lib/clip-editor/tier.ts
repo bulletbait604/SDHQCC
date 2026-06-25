@@ -24,7 +24,7 @@ export type ClipEditorTierConfig = {
   broll: {
     enabled: boolean
     maxPlacements: number
-    provider: 'none' | 'fal'
+    provider: 'none' | 'fal' | 'runway'
     confidenceThreshold: number
   }
   renderResolution: '720' | '1080'
@@ -82,7 +82,7 @@ const TIER_PRESETS: Record<ClipEditorQualityTier, Omit<ClipEditorTierConfig, 'ti
     richCaptions: true,
     useGeminiHookOverlay: true,
     useGeminiMetadata: true,
-    broll: { enabled: true, maxPlacements: 2, provider: 'fal', confidenceThreshold: 0.65 },
+    broll: { enabled: true, maxPlacements: 2, provider: 'runway', confidenceThreshold: 0.65 },
     renderResolution: '1080',
     shotstackRenderCount: 2,
     geminiTextPassMultiplier: 1.8,

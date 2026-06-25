@@ -79,6 +79,13 @@ export function buildShotstackPackageFromEditPlan(params: {
     stickerOverlays: [],
     preferredTransitions: ['fadeFast', 'fade'],
     subtitles: [],
+    brollOverlays: params.editPlan.broll
+      .filter((p) => typeof p.assetUrl === 'string' && p.assetUrl.length > 0)
+      .map((p) => ({
+        assetUrl: p.assetUrl as string,
+        timelineStartSeconds: Math.max(0, p.start - window.start),
+        durationSeconds: Math.min(Math.max(0.8, p.end - p.start), 3.5),
+      })),
   }
 
   const styled =

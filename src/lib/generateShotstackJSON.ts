@@ -38,6 +38,11 @@ export interface GenerateShotstackInput {
     stickerOverlays?: StickerOverlay[]
     ctaOverlay?: TimedTextOverlay
     keywordHighlights?: string[]
+    brollOverlays?: Array<{
+      assetUrl: string
+      timelineStartSeconds: number
+      durationSeconds: number
+    }>
   }
   /** Optional Deepgram (or compatible) word timings — when present, micro-cuts snap to speech/silence. */
   transcriptWords?: TranscriptWord[]
@@ -926,6 +931,41 @@ function buildStickerClips(params: {
   return clips
 }
 
+function buildBrollVideoClips(params: {
+  overlays?: Array<{
+    assetUrl: string
+    timelineStartSeconds: number
+    durationSeconds: number
+  }>
+  renderSeconds: number
+}): Array<Record<string, unknown>> {
+  const clips: Array<Record<string, unknown>> = []
+  for (const overlay of params.overlays || []) {
+    if (clips.length >= 4) break
+    if (!overlay.assetUrl) continue
+    const start = clamp(overlay.timelineStartSeconds, 0, Math.max(0, params.renderSeconds - 0.5))
+    const length = clamp(
+      overlay.durationSeconds,
+      0.8,
+      Math.max(0.8, params.renderSeconds - start)
+    )
+    clips.push({
+      asset: {
+        type: 'video',
+        src: overlay.assetUrl,
+        volume: 0,
+      },
+      start: Number(start.toFixed(2)),
+      length: Number(length.toFixed(2)),
+      opacity: 0.88,
+      scale: 1.04,
+      position: 'center',
+      transition: { in: 'fade', out: 'fadeFast' },
+    })
+  }
+  return clips
+}
+
 function buildCtaClips(params: {
   cta?: TimedTextOverlay
   platform: TargetPlatform
@@ -1336,6 +1376,14 @@ export function generateShotstackJSON({
   })
   if (hookClips.length) {
     tracks.push({ clips: hookClips })
+  }
+
+  const brollClips = buildBrollVideoClips({
+    overlays: blueprint?.brollOverlays,
+    renderSeconds: pacing.renderSeconds,
+  })
+  if (brollClips.length) {
+    tracks.push({ clips: brollClips })
   }
 
   const calloutClips = buildTimedTextClips({

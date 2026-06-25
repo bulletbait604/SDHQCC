@@ -8,6 +8,13 @@ export function buildPrimaryClipWindow(
 ): { start: number; end: number } {
   const duration = Math.max(1, durationSeconds)
 
+  if (geminiVideo?.viralSegments?.length) {
+    const best = geminiVideo.viralSegments[0]
+    const gStart = Math.max(0, best.start)
+    const gEnd = Math.min(duration, Math.max(best.end, gStart + 10))
+    return { start: Number(gStart.toFixed(2)), end: Number(gEnd.toFixed(2)) }
+  }
+
   if (geminiVideo?.primaryWindow && geminiVideo.primaryWindow.confidence >= 0.55) {
     const g = geminiVideo.primaryWindow
     let start = Math.max(0, g.start)

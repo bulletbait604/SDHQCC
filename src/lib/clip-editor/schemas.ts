@@ -82,6 +82,15 @@ export const hookAnalysisSchema = z.object({
   hooks: z.array(hookItemSchema),
 })
 
+/** AI-detected viral segment (Gemini multimodal analysis). */
+export const viralSegmentSchema = z.object({
+  start: z.number().finite(),
+  end: z.number().finite(),
+  title: z.string(),
+  explanation: z.string(),
+  viralityScore: z.number().finite().min(1).max(100),
+})
+
 const cropRegionSchema = z.object({
   x: z.number().finite().min(0).max(1),
   y: z.number().finite().min(0).max(1),
@@ -112,6 +121,8 @@ export const geminiVideoPlanSchema = z.object({
     confidence: z.number().finite().min(0).max(1),
     reason: z.string(),
   }),
+  /** 3–7 candidate clips from multimodal viral analysis (OpusClip-style). */
+  viralSegments: z.array(viralSegmentSchema).max(10).optional(),
   regions: z
     .object({
       gameplay: cropRegionSchema.optional(),
@@ -230,6 +241,9 @@ export const brollPlacementSchema = z.object({
   prompt: z.string(),
   confidence: z.number().finite().min(0).max(1),
   provider: z.enum(['runway', 'fal', 'none']).optional(),
+  /** Runway/Fal generated asset URL (stored in R2 when available). */
+  assetUrl: z.string().optional(),
+  assetR2Key: z.string().optional(),
 })
 
 export const brollPlanSchema = z.object({
@@ -339,4 +353,6 @@ export const createClipEditorJobBodySchema = z.object({
   sourceDurationSeconds: z.number().finite().positive().max(120).optional(),
   mimeType: z.string().optional(),
   fileName: z.string().optional(),
+  /** When true, schedules the cut phase worker immediately after job creation. */
+  autoStart: z.boolean().optional(),
 })
