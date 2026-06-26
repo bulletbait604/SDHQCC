@@ -3,13 +3,15 @@ import { pacingPlanSchema } from '@/lib/clip-editor/schemas'
 import type {
   ClipEditorPlatform,
   CutRanking,
+  GeminiVideoPlan,
   PacingPlan,
   TranscriptAnalysis,
   ViralityReview,
 } from '@/lib/clip-editor/types'
 import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
 import { resolveClipEditorAlgorithmNotes } from '@/lib/clipEditorAlgorithmNotes'
-import { platformEditingDirective } from '@/lib/platformEditing'
+import { platformClipEditorDirective } from '@/lib/platformEditing'
+import { buildPrimaryClipWindow } from '@/lib/clip-editor/primaryClipWindow'
 
 function targetVisualChangeSeconds(platform: ClipEditorPlatform): number {
   switch (platform) {
@@ -28,20 +30,23 @@ export async function runPacingPass(
   transcript: TranscriptAnalysis,
   ranking: CutRanking,
   platform: ClipEditorPlatform,
-  viralityHints?: ViralityReview
+  viralityHints?: ViralityReview,
+  geminiVideo?: GeminiVideoPlan
 ): Promise<PacingPlan> {
-  const top = ranking.segments[0]
+  const excerpt = buildPrimaryClipWindow(ranking, transcript.durationSeconds, geminiVideo, platform)
   const snapshot = await readAlgorithmSnapshotFromMongo()
   const algorithmNotes = resolveClipEditorAlgorithmNotes(snapshot, platform)
   const prompt = `Create pacing strategy for a ${platform} short-form clip.
 
-Platform directive: ${platformEditingDirective(platform)}
+Platform directive: ${platformClipEditorDirective(platform)}
 Algorithm notes: ${JSON.stringify(algorithmNotes)}
 ${viralityHints?.promptHints ? `Virality review hints (apply these): ${viralityHints.promptHints}` : ''}
 
+This clip uses ONE continuous excerpt (no jump-cut montage). Pacing = subtle zooms and motion within the excerpt, not hard cuts every 1.5s.
+
 Platform targets:
-- TikTok: visual change every 1-2s, punchy zoom-ins on emphasis words
-- YouTube Shorts: 2-4s, loop-friendly motion
+- TikTok: gentle opening zoom for 3s hook, then 1 subtle zoom every 4-6s within the excerpt
+- YouTube Shorts: loop-friendly motion, 2-4s visual changes
 - Instagram Reels: cinematic zooms, cleaner transitions
 
 Return JSON only:
@@ -52,7 +57,7 @@ Return JSON only:
   "targetVisualChangeSeconds": number
 }
 
-Primary segment: ${top.start.toFixed(1)}s - ${top.end.toFixed(1)}s
+Continuous excerpt: ${excerpt.start.toFixed(1)}s - ${excerpt.end.toFixed(1)}s (${(excerpt.end - excerpt.start).toFixed(1)}s)
 Duration: ${transcript.durationSeconds.toFixed(1)}s
 Transcript excerpt:
 ${transcript.fullTranscript.slice(0, 6000)}`

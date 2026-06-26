@@ -196,7 +196,8 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
             transcript,
             hooks,
             retention,
-            job.passes.geminiVideo
+            job.passes.geminiVideo,
+            job.platform
           )
           await updateClipEditorJobPasses(jobId, { cutRanking })
         }
@@ -239,6 +240,7 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
             landscapeMode: job.landscapeMode,
             durationSeconds: transcript.durationSeconds,
             geminiVideo: job.passes.geminiVideo,
+            platform: job.platform,
           })
           await updateClipEditorJobPasses(jobId, { cutPhasePlan })
         }
@@ -288,7 +290,8 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
                 transcript,
                 cutRanking,
                 job.platform,
-                job.passes.viralityCut
+                job.passes.viralityCut,
+                job.passes.geminiVideo
               )
             : runRulesPacingPass(transcript, cutRanking, job.platform)
           await updateClipEditorJobPasses(jobId, { pacing })
@@ -399,6 +402,7 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
             landscapeMode: job.landscapeMode,
             durationSeconds: transcript.durationSeconds,
             geminiVideo: job.passes.geminiVideo,
+            platform: job.platform,
           })
           await updateClipEditorJobPasses(jobId, { finalEditPlan })
         }

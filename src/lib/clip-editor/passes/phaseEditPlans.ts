@@ -3,6 +3,7 @@ import { buildPrimaryClipWindow } from '@/lib/clip-editor/primaryClipWindow'
 import type {
   BrollPlan,
   CaptionTimeline,
+  ClipEditorPlatform,
   ClipLayoutTemplate,
   CutRanking,
   FinalEditPlan,
@@ -20,8 +21,14 @@ export function runCutPhaseEditPlanPass(params: {
   landscapeMode: 'crop' | 'letterbox'
   durationSeconds: number
   geminiVideo?: GeminiVideoPlan
+  platform?: ClipEditorPlatform
 }): FinalEditPlan {
-  const window = buildPrimaryClipWindow(params.ranking, params.durationSeconds, params.geminiVideo)
+  const window = buildPrimaryClipWindow(
+    params.ranking,
+    params.durationSeconds,
+    params.geminiVideo,
+    params.platform ?? 'tiktok'
+  )
   return finalEditPlanSchema.parse({
     cuts: [{ start: window.start, end: window.end, trimStart: window.start }],
     zooms: [],
@@ -47,8 +54,14 @@ export function runEffectsPhaseEditPlanPass(params: {
   landscapeMode: 'crop' | 'letterbox'
   durationSeconds: number
   geminiVideo?: GeminiVideoPlan
+  platform?: ClipEditorPlatform
 }): FinalEditPlan {
-  const window = buildPrimaryClipWindow(params.ranking, params.durationSeconds, params.geminiVideo)
+  const window = buildPrimaryClipWindow(
+    params.ranking,
+    params.durationSeconds,
+    params.geminiVideo,
+    params.platform ?? 'tiktok'
+  )
   return finalEditPlanSchema.parse({
     cuts: [{ start: window.start, end: window.end, trimStart: window.start }],
     zooms: params.pacing.zooms,
@@ -75,8 +88,14 @@ export function runFinalEditPlanPass(params: {
   landscapeMode: 'crop' | 'letterbox'
   durationSeconds: number
   geminiVideo?: GeminiVideoPlan
+  platform?: ClipEditorPlatform
 }): FinalEditPlan {
-  const window = buildPrimaryClipWindow(params.ranking, params.durationSeconds, params.geminiVideo)
+  const window = buildPrimaryClipWindow(
+    params.ranking,
+    params.durationSeconds,
+    params.geminiVideo,
+    params.platform ?? 'tiktok'
+  )
   return finalEditPlanSchema.parse({
     cuts: [{ start: window.start, end: window.end, trimStart: window.start }],
     zooms: params.pacing.zooms,

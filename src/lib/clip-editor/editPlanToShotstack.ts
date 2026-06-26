@@ -1,6 +1,7 @@
 import { applyStreamLadderStyleBlueprint, generateShotstackJSON } from '@/lib/generateShotstackJSON'
 import { platformSafeZoneOffsets, type TargetPlatform } from '@/lib/platformEditing'
 import { buildPrimaryClipWindow } from '@/lib/clip-editor/primaryClipWindow'
+import { clampRenderSeconds } from '@/lib/clip-editor/excerptBounds'
 import type { FinalEditPlan, GeminiVideoPlan, TranscriptAnalysis } from '@/lib/clip-editor/types'
 import type { ShotstackRenderPayload } from '@/lib/clip-editor/services/shotstack'
 import { defaultShotstackOutput } from '@/lib/clip-editor/services/shotstack'
@@ -25,8 +26,9 @@ export function buildShotstackPackageFromEditPlan(params: {
   const gemini = params.geminiVideo
 
   const ranking = { segments: params.editPlan.rankedSegments }
-  const window = buildPrimaryClipWindow(ranking, duration, gemini)
+  const window = buildPrimaryClipWindow(ranking, duration, gemini, platform)
   const clipLen = window.end - window.start
+  const excerptSeconds = clampRenderSeconds(clipLen, platform, duration)
 
   const hookText =
     gemini?.hookTitle?.trim() ||
@@ -58,12 +60,10 @@ export function buildShotstackPackageFromEditPlan(params: {
   )
 
   const blueprint = {
-    cutSeconds: gemini?.cutSeconds ?? (platform === 'tiktok' ? 2.1 : 2.6),
-    introHookSeconds: gemini?.introHookSeconds ?? 2,
-    renderSeconds: Math.min(
-      45,
-      Math.max(12, gemini?.renderSeconds ?? clipLen)
-    ),
+    continuousExcerpt: true,
+    cutSeconds: excerptSeconds,
+    introHookSeconds: Math.min(2.5, excerptSeconds * 0.12),
+    renderSeconds: excerptSeconds,
     captionWordsPerChunk: 4,
     contentType: gemini?.contentType ?? ('unknown' as const),
     layoutTemplate,
@@ -77,7 +77,7 @@ export function buildShotstackPackageFromEditPlan(params: {
     sourceMoments,
     textOverlays: [],
     stickerOverlays: [],
-    preferredTransitions: ['fadeFast', 'fade'],
+    preferredTransitions: ['fade'],
     subtitles: [],
     brollOverlays: params.editPlan.broll
       .filter((p) => typeof p.assetUrl === 'string' && p.assetUrl.length > 0)
@@ -89,7 +89,7 @@ export function buildShotstackPackageFromEditPlan(params: {
   }
 
   const styled =
-    applyStreamLadderStyleBlueprint(platform, duration, blueprint) ?? blueprint
+    applyStreamLadderStyleBlueprint(platform, window.end, blueprint) ?? blueprint
 
   const shotstack = generateShotstackJSON({
     sourceUrl: params.sourceUrl,
@@ -105,7 +105,7 @@ export function buildShotstackPackageFromEditPlan(params: {
       word: w.word,
       punctuated_word: w.word,
     })),
-    sourceDurationSeconds: duration,
+    sourceDurationSeconds: window.end,
   })
 
   const output =

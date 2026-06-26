@@ -1,11 +1,13 @@
 import { cutRankingSchema } from '@/lib/clip-editor/schemas'
 import type {
+  ClipEditorPlatform,
   CutRanking,
   GeminiVideoPlan,
   HookAnalysis,
   RetentionAnalysis,
   TranscriptAnalysis,
 } from '@/lib/clip-editor/types'
+import { expandExcerptWindow } from '@/lib/clip-editor/excerptBounds'
 
 function segmentScore(params: {
   start: number
@@ -33,14 +35,24 @@ export function runCutRankingPass(
   transcript: TranscriptAnalysis,
   hooks: HookAnalysis,
   retention: RetentionAnalysis,
-  geminiVideo?: GeminiVideoPlan
+  geminiVideo?: GeminiVideoPlan,
+  platform: ClipEditorPlatform = 'tiktok'
 ): CutRanking {
   const duration = transcript.durationSeconds
   const candidates: CutRanking['segments'] = []
 
   for (const hook of hooks.hooks) {
-    const start = Math.max(0, hook.start)
-    const end = Math.min(duration, Math.max(hook.end, start + 2))
+    const rawStart = Math.max(0, hook.start)
+    const rawEnd = Math.min(duration, Math.max(hook.end, rawStart + 0.5))
+    const expanded = expandExcerptWindow({
+      start: rawStart,
+      end: rawEnd,
+      duration,
+      platform,
+      hookFocusAt: rawStart,
+    })
+    const start = expanded.start
+    const end = expanded.end
     const overlapDrop = retention.dropMoments.some(
       (d) => d.start < end && d.end > start && d.severity > 0.55
     )
@@ -95,10 +107,16 @@ export function runCutRankingPass(
   }
 
   if (candidates.length === 0) {
-    const window = Math.min(45, duration)
-    candidates.push({
+    const fallback = expandExcerptWindow({
       start: 0,
-      end: window,
+      end: Math.min(45, duration),
+      duration,
+      platform,
+      hookFocusAt: 0,
+    })
+    candidates.push({
+      start: fallback.start,
+      end: fallback.end,
       score: 55,
       reason: 'Fallback full-window segment',
     })

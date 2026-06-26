@@ -38,6 +38,8 @@ export interface GenerateShotstackInput {
     stickerOverlays?: StickerOverlay[]
     ctaOverlay?: TimedTextOverlay
     keywordHighlights?: string[]
+    /** Clip Editor: one uninterrupted trim from source (no jump-cut montage). */
+    continuousExcerpt?: boolean
     brollOverlays?: Array<{
       assetUrl: string
       timelineStartSeconds: number
@@ -222,6 +224,12 @@ export function applyStreamLadderStyleBlueprint(
   input: GenerateShotstackInput['editBlueprint'] | undefined
 ): GenerateShotstackInput['editBlueprint'] | undefined {
   if (!input) return undefined
+  if (input.continuousExcerpt) {
+    return {
+      ...input,
+      preferredTransitions: ['fade'],
+    }
+  }
   const out: GenerateShotstackInput['editBlueprint'] = { ...input }
   out.preferredTransitions = mergePreferredTransitionsList(platform, input.preferredTransitions)
   if (typeof input.cutSeconds === 'number' && Number.isFinite(input.cutSeconds)) {
@@ -1346,13 +1354,36 @@ export function generateShotstackJSON({
         : requestedRenderSeconds,
   }
   const cutLen = pacing.chunkSeconds
-  const segments: VideoSeg[] = buildSourceMomentSegments(
-    blueprint?.sourceMoments,
-    pacing,
-    sourceDurationCap,
-    transcriptWords
-  )
-  fillTimelineToTarget(segments, { ...pacing, chunkSeconds: cutLen }, sourceDurationCap, transcriptWords)
+
+  let segments: VideoSeg[] = []
+  if (blueprint?.continuousExcerpt && blueprint.sourceMoments?.length) {
+    const moments = normalizeSourceMoments(blueprint.sourceMoments, sourceDurationCap)
+    const moment = moments[0]
+    if (moment) {
+      const excerptLen = clamp(moment.end - moment.start, 5, 45)
+      pacing.renderSeconds = excerptLen
+      pacing.chunkSeconds = excerptLen
+      segments = [
+        {
+          start: 0,
+          length: Number(excerptLen.toFixed(2)),
+          trim: Number(moment.start.toFixed(2)),
+          sourceMomentIndex: moment.sourceMomentIndex,
+          effect: moment.effect ?? 'zoomInSlow',
+          role: moment.role ?? 'hook',
+          focusRegion: moment.focusRegion,
+        },
+      ]
+    }
+  } else {
+    segments = buildSourceMomentSegments(
+      blueprint?.sourceMoments,
+      pacing,
+      sourceDurationCap,
+      transcriptWords
+    )
+    fillTimelineToTarget(segments, { ...pacing, chunkSeconds: cutLen }, sourceDurationCap, transcriptWords)
+  }
   const layoutTemplate = resolveLayoutTemplate(
     blueprint?.layoutTemplate,
     blueprint?.contentType,

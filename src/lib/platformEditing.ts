@@ -18,6 +18,17 @@ export function platformEditingDirective(platform: TargetPlatform): string {
   return `Focus on a 3-second visual hook. Edit for "Chaos Pacing"—cut every 1.5 seconds to keep retention high.`
 }
 
+/** Clip Editor: one continuous excerpt — not micro-cut montage. */
+export function platformClipEditorDirective(platform: TargetPlatform): string {
+  if (platform === 'youtube') {
+    return `YouTube Shorts: open with a 2–3s hook, then one continuous 12–45s excerpt optimized for loop replay. No unrelated jump cuts.`
+  }
+  if (platform === 'reels') {
+    return `Instagram Reels: cinematic 3s hook, then one continuous 10–38s excerpt. Prefer 18–28s when source allows. No unrelated jump cuts.`
+  }
+  return `TikTok 2026: 3-second visual hook, then ONE continuous 7–15s excerpt (ideal 12–14s) for FYP discoverability. Never output sub-7s clips. No unrelated jump-cut montages.`
+}
+
 export function platformSafeZoneOffsets(platform: TargetPlatform): SafeZoneOffsets {
   if (platform === 'youtube') {
     return {

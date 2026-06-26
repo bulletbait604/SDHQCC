@@ -211,3 +211,24 @@ test('transcript words nudge segment cuts toward speech boundaries', () => {
   const nearLastWord = Math.abs(e0 - 12.5) < 0.22
   assert.ok(nearWordEnd || nearGapStart || nearLastWord, `unexpected cut end ${e0}`)
 })
+
+test('continuousExcerpt renders one uninterrupted source trim', () => {
+  const edit = generateShotstackJSON({
+    sourceUrl: 'https://example.com/source.mp4',
+    platform: 'tiktok',
+    safeZone,
+    editBlueprint: {
+      continuousExcerpt: true,
+      cutSeconds: 22,
+      renderSeconds: 22,
+      sourceMoments: [{ startSeconds: 8, endSeconds: 30, role: 'hook' }],
+    },
+    sourceDurationSeconds: 30,
+  })
+
+  const segs = edit.metadata.resolvedSegments as Array<{ trim: number; length: number; start: number }>
+  assert.equal(segs.length, 1)
+  assert.equal(segs[0]!.trim, 8)
+  assert.ok(Math.abs(segs[0]!.length - 22) < 0.5)
+  assert.equal(segs[0]!.start, 0)
+})

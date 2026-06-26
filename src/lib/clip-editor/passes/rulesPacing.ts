@@ -25,29 +25,25 @@ export function runRulesPacingPass(
   const zooms: PacingPlan['zooms'] = []
 
   if (top) {
-    for (let t = top.start + target; t < top.end - 0.4; t += target) {
-      zooms.push({
-        atSeconds: Number(t.toFixed(2)),
-        style: platform === 'tiktok' ? 'zoomIn' : 'zoomInSlow',
-        durationSeconds: platform === 'youtube' ? 0.9 : 0.55,
-      })
-      if (zooms.length >= 10) break
-    }
-  }
-
-  const emphasisWords = transcript.words.filter((w) => /[!?]$/.test(w.word)).slice(0, 4)
-  for (const w of emphasisWords) {
-    if (zooms.some((z) => Math.abs(z.atSeconds - w.start) < 0.35)) continue
+    const excerptLen = top.end - top.start
+    // Gentle open zoom only — avoid rapid-fire zoom cuts on a continuous excerpt.
     zooms.push({
-      atSeconds: w.start,
-      style: 'zoomIn',
-      durationSeconds: 0.45,
+      atSeconds: Number(top.start.toFixed(2)),
+      style: platform === 'tiktok' ? 'zoomInSlow' : 'zoomInSlow',
+      durationSeconds: Math.min(1.2, excerptLen * 0.08),
     })
+    if (excerptLen > 18 && platform !== 'tiktok') {
+      zooms.push({
+        atSeconds: Number((top.start + excerptLen * 0.55).toFixed(2)),
+        style: 'zoomInSlow',
+        durationSeconds: 0.75,
+      })
+    }
   }
 
   return pacingPlanSchema.parse({
     cuts: [],
-    zooms: zooms.slice(0, 12),
+    zooms: zooms.slice(0, 4),
     effectTiming: [],
     targetVisualChangeSeconds: target,
   })

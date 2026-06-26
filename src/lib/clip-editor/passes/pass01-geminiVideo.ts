@@ -4,7 +4,8 @@ import { normalizeGeminiVideoPlan, preprocessGeminiVideoRaw } from '@/lib/clip-e
 import type { ClipEditorPlatform, ClipLayoutTemplate, GeminiVideoPlan } from '@/lib/clip-editor/types'
 import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
 import { resolveClipEditorAlgorithmNotes } from '@/lib/clipEditorAlgorithmNotes'
-import { platformEditingDirective, platformSafeZoneOffsets } from '@/lib/platformEditing'
+import { platformClipEditorDirective, platformSafeZoneOffsets } from '@/lib/platformEditing'
+import { excerptMinMaxSeconds } from '@/lib/clip-editor/excerptBounds'
 import { getFileFromR2 } from '@/lib/r2'
 import {
   deleteGeminiUploadedFile,
@@ -49,6 +50,7 @@ export async function runGeminiVideoAnalysisPass(params: {
   const snapshot = await readAlgorithmSnapshotFromMongo()
   const algorithmNotes = resolveClipEditorAlgorithmNotes(snapshot, params.platform)
   const safeZone = platformSafeZoneOffsets(params.platform)
+  const excerptBounds = excerptMinMaxSeconds(params.platform, params.durationSeconds)
   const mimeType = normalizeVideoMimeType(params.mimeType)
 
   // Always use Gemini Files API — presigned R2 URLs frequently cause HTTP 400 from generateContent.
@@ -62,7 +64,8 @@ export async function runGeminiVideoAnalysisPass(params: {
   const prompt = `You are a viral media data scientist and short-form editor (OpusClip / StreamLadder quality). Watch this video directly.
 
 Target platform: ${params.platform}
-Platform directive: ${platformEditingDirective(params.platform)}
+Platform directive: ${platformClipEditorDirective(params.platform)}
+Excerpt length target: ${excerptBounds.min}–${excerptBounds.max}s (ideal ${excerptBounds.ideal}s)
 Safe zone: ${JSON.stringify(safeZone)}
 Requested layout: ${params.layoutTemplate}
 Source duration (seconds): ${params.durationSeconds.toFixed(1)}
@@ -83,7 +86,7 @@ Return valid JSON only (no markdown fences):
   "layoutTemplate": "auto|fullFrame|stackedFacecam|pictureInPicture|splitScreen|focusCrop",
   "cutSeconds": 1.5-3.5,
   "introHookSeconds": 1.5-2.5,
-  "renderSeconds": 12-38,
+  "renderSeconds": ${excerptBounds.min}-${excerptBounds.max},
   "captionStyle": "karaoke|bold|clean",
   "hookStyle": "pop|glitch|clean|urgent",
   "keywordHighlights": ["3-8 spoken words to emphasize in captions"],
@@ -112,9 +115,10 @@ Return valid JSON only (no markdown fences):
 
 Rules:
 - Identify 3 to 7 highly engaging segments with strong initial hooks in viralSegments.
-- Each viralSegments entry must be 12-38 seconds with start_time/end_time in source seconds (0 to ${params.durationSeconds.toFixed(1)}).
+- Each viralSegments entry must be ${excerptBounds.min}-${excerptBounds.max} seconds with start_time/end_time in source seconds (0 to ${params.durationSeconds.toFixed(1)}).
 - Rank segments by virality_score (1-100); highest score first.
 - primaryWindow must match your single best viralSegments entry (same start/end).
+- Prefer ONE continuous excerpt for the short — do not plan jump-cut montages across unrelated timestamps.
 - Use exact source timestamps in seconds. Do not invent moments not in the video.
 - hookTitle and hookPlan are required strings.`
 
@@ -123,9 +127,10 @@ Rules:
       videoFileUri: geminiFileUri,
       mimeType,
       allowOpenAiFallback: false,
-      preprocess: (parsed) => preprocessGeminiVideoRaw(parsed, params.durationSeconds),
+      preprocess: (parsed) =>
+        preprocessGeminiVideoRaw(parsed, params.durationSeconds, params.platform),
     })
-    return normalizeGeminiVideoPlan(raw, params.durationSeconds)
+    return normalizeGeminiVideoPlan(raw, params.durationSeconds, params.platform)
   } finally {
     const apiKey = (process.env.GEMINI_API || '').trim()
     if (apiKey) {

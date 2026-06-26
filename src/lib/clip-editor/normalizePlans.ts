@@ -1,5 +1,10 @@
 import { geminiVideoPlanSchema, viralSegmentSchema } from '@/lib/clip-editor/schemas'
-import type { GeminiVideoPlan } from '@/lib/clip-editor/types'
+import type { ClipEditorPlatform, GeminiVideoPlan } from '@/lib/clip-editor/types'
+import {
+  clampRenderSeconds,
+  expandExcerptWindow,
+  excerptMinMaxSeconds,
+} from '@/lib/clip-editor/excerptBounds'
 import { z } from 'zod'
 
 const CAPTION_STYLES = ['karaoke', 'bold', 'clean'] as const
@@ -127,15 +132,23 @@ function normalizeEnumFields(o: Record<string, unknown>): void {
 function clampSegmentWindow(
   start: number,
   end: number,
-  duration: number
+  duration: number,
+  platform: ClipEditorPlatform
 ): { start: number; end: number } {
-  let s = Math.max(0, Math.min(start, duration - 1))
-  let e = Math.max(s + 5, Math.min(end, duration))
-  if (e - s > 45) e = s + 45
-  return { start: Number(s.toFixed(2)), end: Number(e.toFixed(2)) }
+  return expandExcerptWindow({
+    start,
+    end,
+    duration,
+    platform,
+    hookFocusAt: start,
+  })
 }
 
-function normalizeViralSegmentsRaw(raw: unknown, durationSeconds: number): z.infer<typeof viralSegmentSchema>[] {
+function normalizeViralSegmentsRaw(
+  raw: unknown,
+  durationSeconds: number,
+  platform: ClipEditorPlatform
+): z.infer<typeof viralSegmentSchema>[] {
   if (!Array.isArray(raw)) return []
   const duration = Math.max(1, durationSeconds)
   const out: z.infer<typeof viralSegmentSchema>[] = []
@@ -157,7 +170,7 @@ function normalizeViralSegmentsRaw(raw: unknown, durationSeconds: number): z.inf
           : null
     if (startRaw == null || endRaw == null) continue
 
-    const { start, end } = clampSegmentWindow(startRaw, endRaw, duration)
+    const { start, end } = clampSegmentWindow(startRaw, endRaw, duration, platform)
     const title =
       typeof row.title === 'string' && row.title.trim()
         ? row.title.trim().slice(0, 80)
@@ -195,10 +208,15 @@ function normalizeViralSegmentsRaw(raw: unknown, durationSeconds: number): z.inf
 }
 
 /** Coerce Gemini video JSON into safe values before Zod / after parse. */
-export function preprocessGeminiVideoRaw(raw: unknown, durationSeconds: number): unknown {
+export function preprocessGeminiVideoRaw(
+  raw: unknown,
+  durationSeconds: number,
+  platform: ClipEditorPlatform = 'tiktok'
+): unknown {
   if (!raw || typeof raw !== 'object') return raw
   const o = { ...(raw as Record<string, unknown>) }
   const duration = Math.max(1, durationSeconds)
+  const { ideal } = excerptMinMaxSeconds(platform, duration)
 
   if (typeof o.hookTitle !== 'string' || !o.hookTitle.trim()) {
     o.hookTitle = 'Watch this'
@@ -209,9 +227,17 @@ export function preprocessGeminiVideoRaw(raw: unknown, durationSeconds: number):
 
   normalizeEnumFields(o)
 
+  if (typeof o.renderSeconds === 'number' || o.renderSeconds === undefined) {
+    o.renderSeconds = clampRenderSeconds(
+      typeof o.renderSeconds === 'number' ? o.renderSeconds : ideal,
+      platform,
+      duration
+    )
+  }
+
   const viralFromModel =
     o.viralSegments ?? o.viral_segments ?? o.clips ?? o.segments
-  const viralSegments = normalizeViralSegmentsRaw(viralFromModel, duration)
+  const viralSegments = normalizeViralSegmentsRaw(viralFromModel, duration, platform)
   if (viralSegments.length > 0) {
     o.viralSegments = viralSegments
     const best = viralSegments[0]
@@ -224,17 +250,23 @@ export function preprocessGeminiVideoRaw(raw: unknown, durationSeconds: number):
     if (typeof o.hookTitle !== 'string' || !String(o.hookTitle).trim()) {
       o.hookTitle = best.title
     }
+    o.renderSeconds = clampRenderSeconds(best.end - best.start, platform, duration)
   }
 
   const pwRaw = o.primaryWindow
   if (pwRaw && typeof pwRaw === 'object') {
     const pw = { ...(pwRaw as Record<string, unknown>) }
     let start = typeof pw.start === 'number' && Number.isFinite(pw.start) ? pw.start : 0
-    let end = typeof pw.end === 'number' && Number.isFinite(pw.end) ? pw.end : start + 20
-    if (end <= start) end = Math.min(duration, start + 20)
-    start = Math.max(0, Math.min(start, duration - 1))
-    end = Math.max(start + 5, Math.min(end, duration))
-    if (end - start > 45) end = start + 45
+    let end = typeof pw.end === 'number' && Number.isFinite(pw.end) ? pw.end : start + ideal
+    const expanded = expandExcerptWindow({
+      start,
+      end,
+      duration,
+      platform,
+      hookFocusAt: start,
+    })
+    start = expanded.start
+    end = expanded.end
     pw.start = start
     pw.end = end
     if (typeof pw.confidence !== 'number' || !Number.isFinite(pw.confidence)) {
@@ -244,14 +276,16 @@ export function preprocessGeminiVideoRaw(raw: unknown, durationSeconds: number):
       pw.reason = 'Best continuous excerpt for a short'
     }
     o.primaryWindow = pw
+    o.renderSeconds = clampRenderSeconds(end - start, platform, duration)
   } else {
-    const end = Math.min(duration, 28)
+    const end = Math.min(duration, Math.max(ideal, Math.min(28, duration)))
     o.primaryWindow = {
       start: 0,
       end,
       confidence: 0.5,
       reason: 'Fallback excerpt (model omitted primaryWindow)',
     }
+    o.renderSeconds = clampRenderSeconds(end, platform, duration)
   }
 
   return o
@@ -259,8 +293,9 @@ export function preprocessGeminiVideoRaw(raw: unknown, durationSeconds: number):
 
 export function normalizeGeminiVideoPlan(
   plan: GeminiVideoPlan,
-  durationSeconds: number
+  durationSeconds: number,
+  platform: ClipEditorPlatform = 'tiktok'
 ): GeminiVideoPlan {
-  const preprocessed = preprocessGeminiVideoRaw(plan, durationSeconds)
+  const preprocessed = preprocessGeminiVideoRaw(plan, durationSeconds, platform)
   return geminiVideoPlanSchema.parse(preprocessed)
 }
