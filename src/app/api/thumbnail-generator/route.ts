@@ -21,6 +21,7 @@ import {
   estimateThumbnailVideoAnalysisUsd,
   mergeUserPromptWithVideoAnalysis,
 } from "@/lib/thumbnailVideoAnalysis";
+import { thumbnailVideoAnalysisSchema, type ThumbnailVideoAnalysis } from "@/lib/thumbnailVideoAnalysisSchema";
 import {
   THUMBNAIL_CLIP_MAX_BYTES,
   THUMBNAIL_CLIP_SUBSCRIBER_UPSELL,
@@ -1352,6 +1353,7 @@ export async function POST(req: NextRequest) {
       referenceClipR2Key,
       referenceClipMimeType,
       referenceClipDurationSeconds,
+      referenceClipAnalysis,
       mimeType,
       sessionId,
       platforms,
@@ -1362,6 +1364,7 @@ export async function POST(req: NextRequest) {
       referenceClipR2Key?: string;
       referenceClipMimeType?: string;
       referenceClipDurationSeconds?: number;
+      referenceClipAnalysis?: unknown;
       mimeType?: string;
       sessionId?: string;
       platforms?: string[];
@@ -1375,11 +1378,22 @@ export async function POST(req: NextRequest) {
 
     let effectivePrompt = userPrompt;
     let videoAnalysisUsed = false;
+    let clipFrameUsed = false;
     let videoAnalysisEstimate: { estimatedCostUsd: number; estimatedCostNote: string } | null =
       null;
     let clipCleanupKey: string | null = null;
+    let clipAnalysis: ThumbnailVideoAnalysis | null = null;
 
-    if (typeof referenceClipR2Key === "string" && referenceClipR2Key.trim()) {
+    if (referenceClipAnalysis != null) {
+      clipAnalysis = thumbnailVideoAnalysisSchema.parse(referenceClipAnalysis);
+      videoAnalysisEstimate = estimateThumbnailVideoAnalysisUsd(
+        typeof referenceClipDurationSeconds === "number" &&
+          Number.isFinite(referenceClipDurationSeconds)
+          ? referenceClipDurationSeconds
+          : 300
+      );
+      videoAnalysisUsed = true;
+    } else if (typeof referenceClipR2Key === "string" && referenceClipR2Key.trim()) {
       const clipKey = referenceClipR2Key.trim();
       if (!isSafeR2ObjectKey(clipKey) || !clipKey.startsWith("uploads/thumbnail-clips/")) {
         return NextResponse.json(
@@ -1417,19 +1431,8 @@ export async function POST(req: NextRequest) {
         durationSeconds: durationSec,
       });
 
-      effectivePrompt = mergeUserPromptWithVideoAnalysis(
-        userPrompt,
-        analysis,
-        platformId
-      );
+      clipAnalysis = analysis;
       videoAnalysisUsed = true;
-    }
-
-    if (!effectivePrompt.trim()) {
-      return NextResponse.json(
-        { error: "Describe your thumbnail or upload a reference clip to analyze" },
-        { status: 400 }
-      );
     }
 
     let effectiveB64: string | null =
@@ -1458,6 +1461,33 @@ export async function POST(req: NextRequest) {
       }
       effectiveB64 = buf.toString("base64");
       effectiveMime = mimeFromThumbnailKey(sk);
+    }
+
+    if (clipAnalysis) {
+      clipFrameUsed = !!effectiveB64;
+      effectivePrompt = mergeUserPromptWithVideoAnalysis(
+        userPrompt,
+        clipAnalysis,
+        platformId,
+        { clipFrameProvided: clipFrameUsed }
+      );
+    }
+
+    if (!effectivePrompt.trim()) {
+      return NextResponse.json(
+        { error: "Describe your thumbnail or upload a reference clip to analyze" },
+        { status: 400 }
+      );
+    }
+
+    if (clipAnalysis && !effectiveB64) {
+      return NextResponse.json(
+        {
+          error:
+            "Clip analysis requires a captured video frame. Re-upload your clip and try again.",
+        },
+        { status: 400 }
+      );
     }
 
     const provider = thumbnailProvider();
@@ -1520,6 +1550,7 @@ export async function POST(req: NextRequest) {
       provider: provider === "gemini" ? "gemini" : "fal",
       falModel: out.model,
       videoAnalysisUsed,
+      clipFrameUsed,
       referenceClipMaxBytes: THUMBNAIL_CLIP_MAX_BYTES,
       estimatedCostUsd: estimate.estimatedCostUsd,
       estimatedCostNote: estimate.estimatedCostNote,

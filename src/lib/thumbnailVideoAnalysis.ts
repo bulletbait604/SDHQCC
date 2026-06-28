@@ -79,15 +79,20 @@ function isVerticalPlatform(platformId: string): boolean {
 
 export function formatVideoAnalysisForThumbnailPrompt(
   analysis: ThumbnailVideoAnalysis,
-  platformId: string
+  platformId: string,
+  options?: { clipFrameProvided?: boolean }
 ): string {
   const vertical = isVerticalPlatform(platformId)
   const aspect = vertical
     ? '9:16 vertical thumbnail (YouTube Shorts / TikTok / Reels)'
     : 'platform-appropriate aspect ratio'
 
+  const frameBlock = options?.clipFrameProvided
+    ? `CRITICAL: The attached image IS the exact video frame at ${analysis.bestMomentTimestamp}. Keep the subject, pose, and scene recognizable. Edit ON TOP of this frame: add bold text overlays, stickers, arrows, emoji-style graphics, color grading, and viral thumbnail polish — do NOT replace with unrelated stock art.`
+    : 'Create a viral click-worthy thumbnail based on this analyzed clip moment.'
+
   return [
-    'Create a viral click-worthy thumbnail based on this analyzed clip moment.',
+    frameBlock,
     `Target: ${PLATFORM_LABELS[platformId] || platformId} — ${aspect}.`,
     `Peak moment: ${analysis.bestMomentTimestamp}.`,
     `Subject: ${analysis.subjectDescription}`,
@@ -107,9 +112,10 @@ export function formatVideoAnalysisForThumbnailPrompt(
 export function mergeUserPromptWithVideoAnalysis(
   userPrompt: string,
   analysis: ThumbnailVideoAnalysis,
-  platformId: string
+  platformId: string,
+  options?: { clipFrameProvided?: boolean }
 ): string {
-  const videoBlock = formatVideoAnalysisForThumbnailPrompt(analysis, platformId)
+  const videoBlock = formatVideoAnalysisForThumbnailPrompt(analysis, platformId, options)
   const trimmed = userPrompt.trim()
   if (!trimmed) return videoBlock
   return `${videoBlock}\n\nCreator overrides / extra direction:\n${trimmed}`
@@ -158,6 +164,7 @@ ${durationNote}
 ${algoContext ? `Platform algorithm notes:\n${algoContext}` : ''}
 
 Find the ONE peak moment that would maximize clicks on ${PLATFORM_LABELS[params.platformId] || params.platformId}. Consider facial expression, action peak, contrast, curiosity gap, and on-image text opportunities aligned with the platform algorithm.
+Return bestMomentTimestamp as precise MM:SS (or H:MM:SS for long clips) — we extract that exact frame for the thumbnail base image.
 
 Return valid JSON only (no markdown):
 {

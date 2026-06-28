@@ -17,6 +17,7 @@ interface ThumbnailResult {
   key: string
   description?: string
   videoAnalysisUsed?: boolean
+  clipFrameUsed?: boolean
 }
 
 import {
@@ -25,6 +26,8 @@ import {
   thumbnailClipDurationExceededMessage,
   thumbnailClipMaxDurationSeconds,
 } from '@/lib/thumbnailClipLimits'
+import { parseBestMomentTimestamp } from '@/lib/thumbnailClipFrame'
+import { extractVideoFrameAsJpeg } from '@/lib/thumbnailClipFrameClient'
 
 const CLIP_MAX_BYTES = THUMBNAIL_CLIP_MAX_BYTES
 const VALID_CLIP_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska']
@@ -255,12 +258,6 @@ export default function ThumbnailGenerator({
         setClipR2Key(uploadedClipKey)
       }
 
-      if (clipFile) {
-        setLoadingStep('Gemini analyzing clip + platform algorithm…')
-      } else {
-        setLoadingStep('Generating viral thumbnail…')
-      }
-
       const platformName =
         availablePlatforms.find((p) => p.id === selectedPlatform)?.name ?? 'your platform'
       const enhancedPrompt = hasPrompt
@@ -275,19 +272,60 @@ export default function ThumbnailGenerator({
       }
       if (sourceKey) {
         body.sourceImageKey = sourceKey
+      } else if (clipFile) {
+        // Clip path: analyze → capture frame → paint on that frame (below)
       } else {
         const b64 = base64Override ?? imageBase64
         if (b64) body.imageBase64 = b64
       }
-      if (uploadedClipKey && clipFile) {
-        body.referenceClipR2Key = uploadedClipKey
-        body.referenceClipMimeType = clipFile.type
+
+      if (clipFile && uploadedClipKey) {
+        setLoadingStep('Gemini analyzing clip for best moment…')
+        const analyzeRes = await fetch('/api/thumbnail-generator/analyze-clip', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            referenceClipR2Key: uploadedClipKey,
+            referenceClipMimeType: clipFile.type,
+            referenceClipDurationSeconds:
+              clipDurationSeconds != null ? Math.round(clipDurationSeconds) : undefined,
+            platforms: [selectedPlatform],
+          }),
+        })
+        const analyzeData = (await analyzeRes.json()) as {
+          analysis?: { bestMomentTimestamp?: string }
+          error?: string
+        }
+        if (!analyzeRes.ok) {
+          throw new Error(analyzeData.error || 'Clip analysis failed')
+        }
+        if (!analyzeData.analysis?.bestMomentTimestamp) {
+          throw new Error('Clip analysis did not return a best moment timestamp')
+        }
+
+        setLoadingStep('Capturing best frame from clip…')
+        const seekSec = parseBestMomentTimestamp(
+          analyzeData.analysis.bestMomentTimestamp,
+          clipDurationSeconds ?? undefined
+        )
+        const frame = await extractVideoFrameAsJpeg(clipFile, seekSec)
+        body.imageBase64 = frame.base64
+        body.mimeType = frame.mimeType
+        body.referenceClipAnalysis = analyzeData.analysis
         if (clipDurationSeconds != null) {
           body.referenceClipDurationSeconds = Math.round(clipDurationSeconds)
         }
+        setClipR2Key(null)
+      } else {
+        setLoadingStep('Generating viral thumbnail…')
       }
 
-      setLoadingStep('Painting thumbnail…')
+      setLoadingStep(
+        body.referenceClipAnalysis
+          ? 'Painting thumbnail on clip frame…'
+          : 'Painting thumbnail…'
+      )
       const result = await fetch('/api/thumbnail-generator', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -305,6 +343,7 @@ export default function ThumbnailGenerator({
         key: result.key,
         description: result.description,
         videoAnalysisUsed: result.videoAnalysisUsed,
+        clipFrameUsed: result.clipFrameUsed,
       }
 
       setHistory((prev) => {
@@ -326,7 +365,9 @@ export default function ThumbnailGenerator({
           typeof result.estimatedCostNote === 'string' ? result.estimatedCostNote : undefined
         onLogActivity({
           action: 'thumbnail_generation',
-          details: result.videoAnalysisUsed
+          details: result.clipFrameUsed
+            ? `[Gemini 2.5] Clip frame + overlays thumbnail for ${platformName}`
+            : result.videoAnalysisUsed
             ? `[Gemini 2.5] Clip-analyzed thumbnail for ${platformName}`
             : `[Gemini 2.5] Generated thumbnail: ${(prompt || 'clip').substring(0, 50)}`,
           ...(est !== undefined ? { estimatedCostUsd: est } : {}),
@@ -419,7 +460,7 @@ export default function ThumbnailGenerator({
           Powered By: Gemini 2.5 Flash
         </p>
         <p className={`${textClasses} text-base`}>
-          Upload a clip — Gemini 2.5 analyzes it against your platform algorithm, then paints a viral thumbnail
+          Upload a clip — Gemini finds the best frame, then paints text overlays and stickers on top
         </p>
       </div>
 
@@ -524,7 +565,7 @@ export default function ThumbnailGenerator({
                       </button>
                     </div>
                     <p className={`text-[10px] ${subtle}`}>
-                      Gemini watches clip + platform algorithm → viral thumbnail
+                      Best frame captured → overlays added for viral thumb
                     </p>
                   </div>
                 ) : (

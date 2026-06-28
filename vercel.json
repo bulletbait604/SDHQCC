@@ -3,6 +3,9 @@
     "src/app/api/thumbnail-generator/route.ts": {
       "maxDuration": 300
     },
+    "src/app/api/thumbnail-generator/analyze-clip/route.ts": {
+      "maxDuration": 300
+    },
     "src/app/api/clip-editor/steps/run/route.ts": {
       "maxDuration": 300
     }
