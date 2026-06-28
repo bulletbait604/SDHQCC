@@ -1,5 +1,4 @@
 import { GoogleGenAI } from '@google/genai'
-import { z } from 'zod'
 import { getFileFromR2, deleteFileFromR2 } from '@/lib/r2'
 import {
   deleteGeminiUploadedFile,
@@ -10,6 +9,16 @@ import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
 import {
   THUMBNAIL_CLIP_MAX_BYTES,
 } from '@/lib/thumbnailClipLimits'
+import {
+  parseThumbnailVideoAnalysisJson,
+  type ThumbnailVideoAnalysis,
+} from '@/lib/thumbnailVideoAnalysisSchema'
+
+export {
+  thumbnailVideoAnalysisSchema,
+  preprocessThumbnailVideoAnalysisRaw,
+  type ThumbnailVideoAnalysis,
+} from '@/lib/thumbnailVideoAnalysisSchema'
 
 export {
   THUMBNAIL_CLIP_MAX_BYTES,
@@ -31,19 +40,6 @@ const PLATFORM_LABELS: Record<string, string> = {
   'facebook-reels': 'Facebook Reels',
   twitter: 'X (Twitter)',
 }
-
-export const thumbnailVideoAnalysisSchema = z.object({
-  bestMomentTimestamp: z.string().max(40),
-  subjectDescription: z.string().max(500),
-  emotionalHook: z.string().max(200),
-  onImageText: z.array(z.string().max(60)).max(4),
-  colorPalette: z.string().max(200),
-  compositionNotes: z.string().max(400),
-  viralThumbnailBrief: z.string().max(1200),
-  algorithmAlignment: z.string().max(500),
-})
-
-export type ThumbnailVideoAnalysis = z.infer<typeof thumbnailVideoAnalysisSchema>
 
 function normalizeMimeType(mimeType: string): string {
   const m = (mimeType || '').trim().toLowerCase()
@@ -79,15 +75,6 @@ async function algorithmContextForPlatform(platformId: string): Promise<string> 
 
 function isVerticalPlatform(platformId: string): boolean {
   return ['youtube-shorts', 'tiktok', 'facebook-reels'].includes(platformId)
-}
-
-function parseAnalysisJson(raw: string): ThumbnailVideoAnalysis {
-  let clean = raw.trim()
-  if (clean.includes('```')) {
-    clean = clean.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-  }
-  const parsed = JSON.parse(clean) as unknown
-  return thumbnailVideoAnalysisSchema.parse(parsed)
 }
 
 export function formatVideoAnalysisForThumbnailPrompt(
@@ -178,8 +165,8 @@ Return valid JSON only (no markdown):
   "subjectDescription": "who/what is the focal subject at that moment",
   "emotionalHook": "the feeling that stops the scroll",
   "onImageText": ["2-4 short ALL-CAPS headline options to paint on the thumbnail"],
-  "colorPalette": "dominant colors + mood",
-  "compositionNotes": "where to place subject, text, and negative space for ${vertical ? '9:16 vertical' : 'this platform'}",
+  "colorPalette": "dominant colors + mood (max 120 characters, comma-separated)",
+  "compositionNotes": "where to place subject, text, and negative space for ${vertical ? '9:16 vertical' : 'this platform'} (max 300 chars)",
   "viralThumbnailBrief": "Detailed art direction paragraph for an AI image generator (130 words max)",
   "algorithmAlignment": "How this thumbnail leverages ${PLATFORM_LABELS[params.platformId] || params.platformId} discovery patterns"
 }`
@@ -205,7 +192,7 @@ Return valid JSON only (no markdown):
         : ''
 
     if (!raw.trim()) throw new Error('Gemini returned empty video analysis')
-    return parseAnalysisJson(raw)
+    return parseThumbnailVideoAnalysisJson(raw)
   } finally {
     await deleteGeminiUploadedFile(apiKey, cleanupName).catch(() => undefined)
   }
