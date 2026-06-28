@@ -37,8 +37,9 @@ function sanitizeFilename(filename: string): string {
 }
 
 export type GenerateUploadUrlOpts = {
-  /** Clip analyzer: `uploads/clips/<user>/<ts>-<file>` so the analyze API can authorize deletes */
+  /** Clip analyzer / clip editor / thumbnail: `uploads/clips/<user>/…` or `uploads/thumbnail-clips/<user>/…` */
   clipUsername?: string
+  purpose?: 'clip-analyzer' | 'clip-editor' | 'thumbnail-generator'
 }
 
 // Generate presigned URL for upload (valid for 5 minutes)
@@ -54,9 +55,17 @@ export async function generateUploadUrl(
 
   const timestamp = Date.now()
   const safeName = sanitizeFilename(filename)
-  const fileKey = opts?.clipUsername
-    ? `uploads/clips/${sanitizePathSegment(opts.clipUsername)}/${timestamp}-${safeName}`
-    : `uploads/${timestamp}-${filename}`
+  let fileKey: string
+  if (opts?.clipUsername) {
+    const userSeg = sanitizePathSegment(opts.clipUsername)
+    if (opts.purpose === 'thumbnail-generator') {
+      fileKey = `uploads/thumbnail-clips/${userSeg}/${timestamp}-${safeName}`
+    } else {
+      fileKey = `uploads/clips/${userSeg}/${timestamp}-${safeName}`
+    }
+  } else {
+    fileKey = `uploads/${timestamp}-${filename}`
+  }
 
   try {
     const command = new PutObjectCommand({

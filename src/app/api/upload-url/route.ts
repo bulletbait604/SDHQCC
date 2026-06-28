@@ -71,7 +71,19 @@ export async function POST(request: NextRequest) {
     try {
       result = await generateUploadUrl(filename, contentType, {
         clipUsername:
-          purpose === 'clip-analyzer' || purpose === 'clip-editor' ? user.username : undefined,
+          purpose === 'clip-analyzer' ||
+          purpose === 'clip-editor' ||
+          purpose === 'thumbnail-generator'
+            ? user.username
+            : undefined,
+        purpose:
+          purpose === 'thumbnail-generator'
+            ? 'thumbnail-generator'
+            : purpose === 'clip-editor'
+              ? 'clip-editor'
+              : purpose === 'clip-analyzer'
+                ? 'clip-analyzer'
+                : undefined,
       })
     } catch (generateError: unknown) {
       console.error('Upload URL API: Error in generateUploadUrl:', generateError)

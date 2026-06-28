@@ -15,12 +15,24 @@ import {
   THUMBNAIL_RESEARCH_MODEL_DEFAULT,
 } from "@/lib/thumbnailPromptResearch";
 import { estimateThumbnailGenerationUsd } from "@/lib/estimatedInferenceCost";
-import { verifyAuth, AuthError, createAuthErrorResponse } from "@/lib/auth/verifyAuth";
+import {
+  analyzeThumbnailReferenceClip,
+  cleanupThumbnailReferenceClip,
+  estimateThumbnailVideoAnalysisUsd,
+  mergeUserPromptWithVideoAnalysis,
+} from "@/lib/thumbnailVideoAnalysis";
+import {
+  THUMBNAIL_CLIP_MAX_BYTES,
+  THUMBNAIL_CLIP_SUBSCRIBER_UPSELL,
+  thumbnailClipDurationExceededMessage,
+  thumbnailClipMaxDurationSeconds,
+} from "@/lib/thumbnailClipLimits";
+import { verifyAuth, AuthError, createAuthErrorResponse, hasUnlimitedAccess } from "@/lib/auth/verifyAuth";
 import { spendToolCoins } from "@/lib/coins/spendToolCoins";
 import { isSafeR2ObjectKey } from "@/lib/r2KeyValidation";
 
-/** Vercel / long-running: Fal + R2 can exceed default 10s. */
-export const maxDuration = 120;
+/** Vercel / long-running: video analysis + image gen can exceed default 10s. */
+export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 function mimeFromThumbnailKey(key: string): string {
@@ -1337,6 +1349,9 @@ export async function POST(req: NextRequest) {
       prompt,
       imageBase64,
       sourceImageKey,
+      referenceClipR2Key,
+      referenceClipMimeType,
+      referenceClipDurationSeconds,
       mimeType,
       sessionId,
       platforms,
@@ -1344,14 +1359,75 @@ export async function POST(req: NextRequest) {
       prompt?: string;
       imageBase64?: string;
       sourceImageKey?: string;
+      referenceClipR2Key?: string;
+      referenceClipMimeType?: string;
+      referenceClipDurationSeconds?: number;
       mimeType?: string;
       sessionId?: string;
       platforms?: string[];
     };
 
-    if (!prompt) {
+    const userPrompt = typeof prompt === "string" ? prompt : "";
+    const platformId =
+      Array.isArray(platforms) && platforms.length > 0
+        ? platforms[0]!
+        : "youtube-shorts";
+
+    let effectivePrompt = userPrompt;
+    let videoAnalysisUsed = false;
+    let videoAnalysisEstimate: { estimatedCostUsd: number; estimatedCostNote: string } | null =
+      null;
+    let clipCleanupKey: string | null = null;
+
+    if (typeof referenceClipR2Key === "string" && referenceClipR2Key.trim()) {
+      const clipKey = referenceClipR2Key.trim();
+      if (!isSafeR2ObjectKey(clipKey) || !clipKey.startsWith("uploads/thumbnail-clips/")) {
+        return NextResponse.json(
+          { error: "Invalid reference clip key" },
+          { status: 400 }
+        );
+      }
+      clipCleanupKey = clipKey;
+      const clipMime =
+        typeof referenceClipMimeType === "string" && referenceClipMimeType.length > 0
+          ? referenceClipMimeType
+          : "video/mp4";
+      const durationSec =
+        typeof referenceClipDurationSeconds === "number" &&
+        Number.isFinite(referenceClipDurationSeconds)
+          ? referenceClipDurationSeconds
+          : undefined;
+
+      const maxDurationSec = thumbnailClipMaxDurationSeconds(hasUnlimitedAccess(user));
+      if (durationSec != null && durationSec > maxDurationSec) {
+        return NextResponse.json(
+          { error: thumbnailClipDurationExceededMessage(hasUnlimitedAccess(user)) },
+          { status: 400 }
+        );
+      }
+
+      videoAnalysisEstimate = estimateThumbnailVideoAnalysisUsd(
+        durationSec ?? 300
+      );
+
+      const analysis = await analyzeThumbnailReferenceClip({
+        r2FileKey: clipKey,
+        mimeType: clipMime,
+        platformId,
+        durationSeconds: durationSec,
+      });
+
+      effectivePrompt = mergeUserPromptWithVideoAnalysis(
+        userPrompt,
+        analysis,
+        platformId
+      );
+      videoAnalysisUsed = true;
+    }
+
+    if (!effectivePrompt.trim()) {
       return NextResponse.json(
-        { error: "Prompt is required" },
+        { error: "Describe your thumbnail or upload a reference clip to analyze" },
         { status: 400 }
       );
     }
@@ -1385,24 +1461,31 @@ export async function POST(req: NextRequest) {
     }
 
     const provider = thumbnailProvider();
-    const out =
-      provider === "fal"
-        ? await generateThumbnailFal({
-            prompt,
-            imageBase64: effectiveB64,
-            mimeType: effectiveMime,
-            platforms,
-            sessionId,
-          })
-        : await generateThumbnailSchnell({
-            prompt,
-            imageBase64: effectiveB64,
-            mimeType: effectiveMime,
-            platforms,
-            sessionId,
-          });
+    let out;
+    try {
+      out =
+        provider === "fal"
+          ? await generateThumbnailFal({
+              prompt: effectivePrompt,
+              imageBase64: effectiveB64,
+              mimeType: effectiveMime,
+              platforms,
+              sessionId,
+            })
+          : await generateThumbnailSchnell({
+              prompt: effectivePrompt,
+              imageBase64: effectiveB64,
+              mimeType: effectiveMime,
+              platforms,
+              sessionId,
+            });
+    } finally {
+      if (clipCleanupKey) {
+        await cleanupThumbnailReferenceClip(clipCleanupKey).catch(() => undefined);
+      }
+    }
 
-    const estimate =
+    const paintEstimate =
       provider === "fal"
         ? estimateThumbnailGenerationUsd({
             falModel: out.model,
@@ -1416,6 +1499,17 @@ export async function POST(req: NextRequest) {
               "Gemini 2.5 Flash research + Gemini image generation (rough estimate).",
           };
 
+    const estimate = videoAnalysisUsed && videoAnalysisEstimate
+      ? {
+          estimatedCostUsd:
+            Math.round(
+              (paintEstimate.estimatedCostUsd + videoAnalysisEstimate.estimatedCostUsd) *
+                100_000
+            ) / 100_000,
+          estimatedCostNote: `${videoAnalysisEstimate.estimatedCostNote}; ${paintEstimate.estimatedCostNote}`,
+        }
+      : paintEstimate;
+
     const encKey = encodeURIComponent(out.key);
 
     return NextResponse.json({
@@ -1425,6 +1519,8 @@ export async function POST(req: NextRequest) {
       description: out.description,
       provider: provider === "gemini" ? "gemini" : "fal",
       falModel: out.model,
+      videoAnalysisUsed,
+      referenceClipMaxBytes: THUMBNAIL_CLIP_MAX_BYTES,
       estimatedCostUsd: estimate.estimatedCostUsd,
       estimatedCostNote: estimate.estimatedCostNote,
     });

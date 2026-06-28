@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import Image from 'next/image'
-import { Wand2, Upload, X, Download, Loader2, ImageIcon, RotateCcw } from 'lucide-react'
+import { Wand2, X, Download, Loader2, ImageIcon, RotateCcw, Film } from 'lucide-react'
 import { useCoins } from '@/hooks/useCoins'
 
 interface Platform {
@@ -16,7 +16,18 @@ interface ThumbnailResult {
   prompt: string
   key: string
   description?: string
+  videoAnalysisUsed?: boolean
 }
+
+import {
+  THUMBNAIL_CLIP_MAX_BYTES,
+  THUMBNAIL_CLIP_SUBSCRIBER_UPSELL,
+  thumbnailClipDurationExceededMessage,
+  thumbnailClipMaxDurationSeconds,
+} from '@/lib/thumbnailClipLimits'
+
+const CLIP_MAX_BYTES = THUMBNAIL_CLIP_MAX_BYTES
+const VALID_CLIP_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska']
 
 function thumbnailImageSrc(key: string): string {
   return `/api/image?key=${encodeURIComponent(key)}`
@@ -58,6 +69,12 @@ export default function ThumbnailGenerator({
   const [result, setResult] = useState<ThumbnailResult | null>(null)
   const [history, setHistory] = useState<ThumbnailResult[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const clipInputRef = useRef<HTMLInputElement>(null)
+
+  const [clipFile, setClipFile] = useState<File | null>(null)
+  const [clipDurationSeconds, setClipDurationSeconds] = useState<number | null>(null)
+  const [clipR2Key, setClipR2Key] = useState<string | null>(null)
+  const [loadingStep, setLoadingStep] = useState('')
   
   const [selectedPlatform, setSelectedPlatform] = useState('youtube-shorts')
 
@@ -74,6 +91,9 @@ export default function ThumbnailGenerator({
   })
   
   const COIN_COST = 2 // Thumbnail generator costs 2 coins
+  
+  const clipMaxDurationSec = thumbnailClipMaxDurationSeconds(hasUnlimitedAccess)
+  const clipMaxMinutes = Math.round(clipMaxDurationSec / 60)
   
   // Available platforms for thumbnails
   const availablePlatforms = [
@@ -123,16 +143,84 @@ export default function ThumbnailGenerator({
     reader.readAsDataURL(file)
   }
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    const file = e.dataTransfer.files?.[0]
-    if (file && file.type.startsWith('image/')) handleFileChange(file)
-  }
-
   const clearImage = () => {
     setImageFile(null)
     setImageBase64(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  // ── Generate ───────────────────────────────────────────────────────────────
+
+  const readClipDuration = (file: File): Promise<number | null> => {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file)
+      const video = document.createElement('video')
+      video.preload = 'metadata'
+      video.onloadedmetadata = () => {
+        URL.revokeObjectURL(url)
+        resolve(Number.isFinite(video.duration) ? video.duration : null)
+      }
+      video.onerror = () => {
+        URL.revokeObjectURL(url)
+        resolve(null)
+      }
+      video.src = url
+    })
+  }
+
+  const handleClipChange = async (file: File) => {
+    if (!VALID_CLIP_TYPES.includes(file.type)) {
+      setError('Please upload MP4, WebM, MOV, AVI, or MKV.')
+      return
+    }
+    if (file.size > CLIP_MAX_BYTES) {
+      setError('Clip must be under 2 GB. Compress long VODs before uploading.')
+      return
+    }
+    const duration = await readClipDuration(file)
+    if (duration != null && duration > clipMaxDurationSec) {
+      setError(thumbnailClipDurationExceededMessage(hasUnlimitedAccess))
+      return
+    }
+    setClipFile(file)
+    setClipDurationSeconds(duration)
+    setClipR2Key(null)
+    setError('')
+  }
+
+  const clearClip = () => {
+    setClipFile(null)
+    setClipDurationSeconds(null)
+    setClipR2Key(null)
+    if (clipInputRef.current) clipInputRef.current.value = ''
+  }
+
+  const uploadClipToR2 = async (file: File): Promise<string> => {
+    const presignRes = await fetch('/api/upload-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        filename: file.name,
+        contentType: file.type,
+        purpose: 'thumbnail-generator',
+      }),
+    })
+    if (!presignRes.ok) {
+      const errBody = await presignRes.json().catch(() => ({}))
+      throw new Error((errBody as { error?: string }).error || 'Could not get upload URL')
+    }
+    const { uploadUrl, fileKey } = (await presignRes.json()) as {
+      uploadUrl: string
+      fileKey: string
+    }
+    const putRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type },
+      body: file,
+    })
+    if (!putRes.ok) throw new Error('Failed to upload clip to storage')
+    return fileKey
   }
 
   // ── Generate ───────────────────────────────────────────────────────────────
@@ -142,7 +230,12 @@ export default function ThumbnailGenerator({
     mimeOverride?: string,
     sourceKey?: string
   ) => {
-    if (!prompt.trim()) {
+    const hasPrompt = prompt.trim().length > 0
+    const hasClip = !!clipFile
+    const hasImage = !!(base64Override ?? imageBase64) || !!sourceKey
+
+    if (!hasPrompt && !hasClip) {
+      setError('Add a reference clip, a text prompt, or both.')
       return
     }
     if (!hasUnlimitedAccess && !hasEnoughCoins('thumbnail-generator')) {
@@ -152,75 +245,100 @@ export default function ThumbnailGenerator({
 
     setIsGenerating(true)
     setError('')
-
-    const platformName =
-      availablePlatforms.find((p) => p.id === selectedPlatform)?.name ?? 'your platform'
-    const enhancedPrompt = `Create a thumbnail optimized for ${platformName}. ${prompt}`
-
-    const body: Record<string, unknown> = {
-      prompt: enhancedPrompt,
-      mimeType: mimeOverride ?? imageMime,
-      sessionId: userId || 'anon',
-      platforms: [selectedPlatform],
-    }
-    if (sourceKey) {
-      body.sourceImageKey = sourceKey
-    } else {
-      const b64 = base64Override ?? imageBase64
-      if (b64) body.imageBase64 = b64
-    }
-
-    const result = await fetch('/api/thumbnail-generator', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(body),
-    }).then(r => r.json())
+    setLoadingStep('')
 
     try {
+      let uploadedClipKey = clipR2Key
+      if (clipFile && !uploadedClipKey) {
+        setLoadingStep('Uploading reference clip…')
+        uploadedClipKey = await uploadClipToR2(clipFile)
+        setClipR2Key(uploadedClipKey)
+      }
+
+      if (clipFile) {
+        setLoadingStep('Gemini analyzing clip + platform algorithm…')
+      } else {
+        setLoadingStep('Generating viral thumbnail…')
+      }
+
+      const platformName =
+        availablePlatforms.find((p) => p.id === selectedPlatform)?.name ?? 'your platform'
+      const enhancedPrompt = hasPrompt
+        ? `Create a thumbnail optimized for ${platformName}. ${prompt}`
+        : `Create a viral thumbnail optimized for ${platformName} from the analyzed reference clip.`
+
+      const body: Record<string, unknown> = {
+        prompt: enhancedPrompt,
+        mimeType: mimeOverride ?? imageMime,
+        sessionId: userId || 'anon',
+        platforms: [selectedPlatform],
+      }
+      if (sourceKey) {
+        body.sourceImageKey = sourceKey
+      } else {
+        const b64 = base64Override ?? imageBase64
+        if (b64) body.imageBase64 = b64
+      }
+      if (uploadedClipKey && clipFile) {
+        body.referenceClipR2Key = uploadedClipKey
+        body.referenceClipMimeType = clipFile.type
+        if (clipDurationSeconds != null) {
+          body.referenceClipDurationSeconds = Math.round(clipDurationSeconds)
+        }
+      }
+
+      setLoadingStep('Painting thumbnail…')
+      const result = await fetch('/api/thumbnail-generator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      }).then((r) => r.json())
+
       if (result.error) {
         throw new Error(result.error)
       }
 
       const newResult: ThumbnailResult = {
         mimeType: result.mimeType || 'image/png',
-        prompt,
+        prompt: prompt || 'From reference clip',
         key: result.key,
         description: result.description,
+        videoAnalysisUsed: result.videoAnalysisUsed,
       }
 
-      // Keep last 3 completed generations (same shape as result cards)
       setHistory((prev) => {
         const withoutDup = prev.filter((p) => p.key !== newResult.key)
         return [newResult, ...withoutDup].slice(0, 3)
       })
       setResult(newResult)
+      setClipR2Key(null)
+      clearClip()
 
       onBalanceRefresh?.()
 
-      // Log thumbnail generation activity
       if (user && onLogActivity) {
         const est =
-          typeof result.estimatedCostUsd === 'number' &&
-          Number.isFinite(result.estimatedCostUsd)
+          typeof result.estimatedCostUsd === 'number' && Number.isFinite(result.estimatedCostUsd)
             ? result.estimatedCostUsd
             : undefined
         const note =
-          typeof result.estimatedCostNote === 'string'
-            ? result.estimatedCostNote
-            : undefined
+          typeof result.estimatedCostNote === 'string' ? result.estimatedCostNote : undefined
         onLogActivity({
           action: 'thumbnail_generation',
-          details: `[Gemini 3.5 + Nano Banana Pro] Generated thumbnail with prompt: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
+          details: result.videoAnalysisUsed
+            ? `[Gemini 2.5] Clip-analyzed thumbnail for ${platformName}`
+            : `[Gemini 2.5] Generated thumbnail: ${(prompt || 'clip').substring(0, 50)}`,
           ...(est !== undefined ? { estimatedCostUsd: est } : {}),
           ...(note !== undefined ? { estimatedCostNote: note } : {}),
         })
       }
-      
-    } catch (err: any) {
-      setError(err.message || 'Something went wrong. Please try again.')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      setError(message)
     } finally {
       setIsGenerating(false)
+      setLoadingStep('')
     }
   }
 
@@ -259,14 +377,9 @@ export default function ThumbnailGenerator({
     return 'aspect-video w-full max-w-[300px] mx-auto'
   })()
 
-  const presets = [
-    { label: '🎮 Gaming', text: 'Explosive gaming thumbnail with dramatic lighting, neon accents, and space for a bold title' },
-    { label: '📚 Tutorial', text: 'Clean professional tutorial thumbnail with clear focal point and space for step number and title' },
-    { label: '🔥 Viral', text: 'Maximum visual impact, high saturation, shocking composition designed to maximise clicks' },
-    { label: '🎨 Cinematic', text: 'Moody cinematic thumbnail with film-grade colour grading and dramatic shadows' },
-    { label: '💼 Business', text: 'Professional modern business thumbnail with clean layout and trustworthy feel' },
-    { label: '⚡ Tech', text: 'Futuristic tech thumbnail with glowing UI elements, circuit patterns, and bold typography space' },
-  ]
+  const canGenerate =
+    (prompt.trim().length > 0 || clipFile != null) &&
+    (hasUnlimitedAccess || hasEnoughCoins('thumbnail-generator'))
 
   return (
     <div className={`relative py-8 ${cardClasses} ${isComponentDisabled ? 'pointer-events-none' : ''}`}>
@@ -305,7 +418,9 @@ export default function ThumbnailGenerator({
         <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
           Powered By: Gemini 2.5 Flash
         </p>
-        <p className={`${textClasses} text-base`}>Generate AI-powered thumbnails for any platform</p>
+        <p className={`${textClasses} text-base`}>
+          Upload a clip — Gemini 2.5 analyzes it against your platform algorithm, then paints a viral thumbnail
+        </p>
       </div>
 
       <div className="max-w-5xl mx-auto px-4 space-y-6">
@@ -315,71 +430,144 @@ export default function ThumbnailGenerator({
           {/* ── Left: Controls ─────────────────────────────────────────────── */}
           <div className="space-y-4">
 
-            {/* Image upload */}
-            <div
-              onDrop={handleDrop}
-              onDragOver={e => e.preventDefault()}
-              className={`border-2 border-dashed rounded-xl p-4 transition-colors ${card} ${imageFile ? 'border-cyan-500' : 'border-gray-600 hover:border-gray-500'}`}
-            >
-              {imageBase64 ? (
-                <div className="space-y-3">
-                  <div className="relative">
-                    <Image
-                      src={`data:${imageMime};base64,${imageBase64}`}
-                      alt="Uploaded"
-                      width={400}
-                      height={160}
-                      unoptimized
-                      className="w-full max-h-40 object-contain rounded-lg"
-                    />
-                    <button
-                      onClick={clearImage}
-                      className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
+            {/* Reference uploads — image + clip side by side */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div
+                onDrop={(e) => {
+                  e.preventDefault()
+                  const file = e.dataTransfer.files?.[0]
+                  if (file?.type.startsWith('image/')) handleFileChange(file)
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                className={`border-2 border-dashed rounded-xl p-3 transition-colors min-h-[140px] flex flex-col ${card} ${imageFile ? 'border-cyan-500' : 'border-gray-600 hover:border-gray-500'}`}
+              >
+                <p className={`text-xs font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                  Reference image
+                </p>
+                {imageBase64 ? (
+                  <div className="space-y-2 flex-1">
+                    <div className="relative">
+                      <Image
+                        src={`data:${imageMime};base64,${imageBase64}`}
+                        alt="Uploaded"
+                        width={200}
+                        height={120}
+                        unoptimized
+                        className="w-full max-h-24 object-contain rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={clearImage}
+                        className="absolute top-1 right-1 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <p className={`text-xs truncate ${subtle}`}>{imageFile?.name}</p>
                   </div>
-                  <p className={`text-xs truncate ${subtle}`}>{imageFile?.name}</p>
-                </div>
-              ) : (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full flex flex-col items-center gap-2 py-4"
-                >
-                  <ImageIcon className={`w-8 h-8 ${subtle}`} />
-                  <p className={`text-sm ${subtle}`}>Drop an image or click to upload</p>
-                  <p className={`text-xs ${subtle}`}>Optional — PNG, JPG, WEBP</p>
-                </button>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={e => { const f = e.target.files?.[0]; if (f) handleFileChange(f) }}
-              />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-1 w-full flex flex-col items-center justify-center gap-1 py-2"
+                  >
+                    <ImageIcon className={`w-7 h-7 ${subtle}`} />
+                    <p className={`text-xs text-center ${subtle}`}>Drop image or click</p>
+                    <p className={`text-[10px] ${subtle}`}>Optional · PNG, JPG, WEBP</p>
+                  </button>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) handleFileChange(f)
+                  }}
+                />
+              </div>
+
+              <div
+                onDrop={(e) => {
+                  e.preventDefault()
+                  const file = e.dataTransfer.files?.[0]
+                  if (file?.type.startsWith('video/')) void handleClipChange(file)
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                className={`border-2 border-dashed rounded-xl p-3 transition-colors min-h-[140px] flex flex-col ${card} ${clipFile ? 'border-cyan-500' : 'border-gray-600 hover:border-gray-500'}`}
+              >
+                <p className={`text-xs font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                  Reference clip
+                </p>
+                {clipFile ? (
+                  <div className="space-y-2 flex-1">
+                    <div className="flex items-start gap-2">
+                      <Film className="w-8 h-8 text-cyan-400 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-xs truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                          {clipFile.name}
+                        </p>
+                        <p className={`text-[10px] ${subtle}`}>
+                          {(clipFile.size / (1024 * 1024)).toFixed(1)} MB
+                          {clipDurationSeconds != null
+                            ? ` · ${Math.floor(clipDurationSeconds / 60)}m ${Math.round(clipDurationSeconds % 60)}s`
+                            : ''}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={clearClip}
+                        className="p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors shrink-0"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <p className={`text-[10px] ${subtle}`}>
+                      Gemini watches clip + platform algorithm → viral thumbnail
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => clipInputRef.current?.click()}
+                    className="flex-1 w-full flex flex-col items-center justify-center gap-1 py-2"
+                  >
+                    <Film className={`w-7 h-7 ${subtle}`} />
+                    <p className={`text-xs text-center ${subtle}`}>Drop clip or click</p>
+                    <p className={`text-[10px] text-center ${subtle}`}>
+                      Up to {clipMaxMinutes} min · 2 GB max
+                    </p>
+                  </button>
+                )}
+                <input
+                  ref={clipInputRef}
+                  type="file"
+                  accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-matroska"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) void handleClipChange(f)
+                  }}
+                />
+              </div>
             </div>
 
-            {/* Style presets */}
-            <div className="flex flex-wrap gap-2">
-              {presets.map(p => (
-                <button
-                  key={p.label}
-                  onClick={() => setPrompt(p.text)}
-                  className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${card} hover:border-cyan-500 hover:text-cyan-400`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
+            {!hasUnlimitedAccess && (
+              <p className={`text-xs ${subtle} -mt-1`}>{THUMBNAIL_CLIP_SUBSCRIBER_UPSELL}</p>
+            )}
 
-            {/* Prompt */}
+            {/* Prompt (optional when clip uploaded) */}
             <textarea
               value={prompt}
-              onChange={e => setPrompt(e.target.value)}
-              placeholder={imageBase64
-                ? "Describe how to use your image in the thumbnail... (e.g. 'Place me on the left side with a red explosive background and bold white text space on the right')"
-                : "Describe the thumbnail you want... (e.g. 'A dramatic gaming thumbnail for a Minecraft video with lava and a shocked face')"}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder={
+                clipFile
+                  ? "Optional: override style, text, or mood (e.g. 'more shock value, red outline text')"
+                  : imageBase64
+                    ? "Describe how to use your image…"
+                    : "Or describe the thumbnail you want…"
+              }
               rows={4}
               className={`w-full border rounded-xl px-4 py-3 text-base resize-none outline-none transition-all backdrop-blur-sm ${inputClasses}`}
             />
@@ -416,13 +604,25 @@ export default function ThumbnailGenerator({
             )}
             <button
               onClick={() => generate()}
-              disabled={isGenerating || !prompt.trim() || (!hasUnlimitedAccess && !hasEnoughCoins('thumbnail-generator'))}
+              disabled={isGenerating || !canGenerate}
               className="w-full py-4 rounded-xl font-bold text-lg transition-all bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 text-black disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(6,182,212,0.4)]"
             >
               {isGenerating ? (
-                <><Loader2 className="w-5 h-5 animate-spin" /><span>Generating...</span></>
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>{loadingStep || 'Generating…'}</span>
+                </>
               ) : (
-                <><Wand2 className="w-5 h-5" /><span>{imageBase64 ? 'Generate with Image' : 'Generate Thumbnail'} (2 coins)</span></>
+                <>
+                  <Wand2 className="w-5 h-5" />
+                  <span>
+                    {clipFile
+                      ? 'Analyze clip & generate (2 coins)'
+                      : imageBase64
+                        ? 'Generate with image (2 coins)'
+                        : 'Generate thumbnail (2 coins)'}
+                  </span>
+                </>
               )}
             </button>
 
@@ -438,7 +638,9 @@ export default function ThumbnailGenerator({
             {isGenerating ? (
               <div className={`flex flex-col items-center justify-center h-64 rounded-xl border ${card}`}>
                 <Loader2 className="w-10 h-10 animate-spin text-cyan-400 mb-3" />
-                <p className={`text-sm ${subtle}`}>Generating thumbnail...</p>
+                <p className={`text-sm ${subtle}`}>
+                  {loadingStep || 'Generating thumbnail…'}
+                </p>
                 <p className={`text-xs mt-1 ${subtle}`}>
                   This may take up to 1 minute depending on site traffic. Please wait. DO NOT refresh until finished.
                 </p>
@@ -490,7 +692,7 @@ export default function ThumbnailGenerator({
                   />
                   <button
                     onClick={reEdit}
-                    disabled={isGenerating || !prompt.trim()}
+                    disabled={isGenerating || (!prompt.trim() && !clipFile)}
                     className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-40 flex items-center gap-1.5"
                   >
                     <RotateCcw className="w-4 h-4" />
