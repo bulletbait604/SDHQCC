@@ -54,6 +54,7 @@ export function useClipAnalyzer({
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
   const [copiedTags, setCopiedTags] = useState(false)
   const [copiedDescription, setCopiedDescription] = useState(false)
+  const [copiedTitle, setCopiedTitle] = useState<number | null>(null)
 
   const clipEditSuggestionTags = useMemo(
     () =>
@@ -334,6 +335,8 @@ export function useClipAnalyzer({
     setCopiedTags,
     copiedDescription,
     setCopiedDescription,
+    copiedTitle,
+    setCopiedTitle,
     clipEditSuggestionTags,
     toggleCard,
     handleResetClip,

@@ -4,7 +4,11 @@ import { Button } from '@/components/ui/button'
 import { Video } from 'lucide-react'
 import type { KickUser, Platform } from '@/lib/home/types'
 import { platformsBannerLogos as bannerLogos } from '@/lib/home/defaultPlatforms'
-import { getRecommendedTagCount } from '@/lib/home/tagUtils'
+import {
+  formatYouTubeTagsForCopy,
+  isYouTubeClipPlatform,
+  stripHashtagsFromDescription,
+} from '@/lib/clipAnalyzerMetadata'
 import type { useClipAnalyzer } from '@/hooks/useClipAnalyzer'
 
 type AnalyzerState = ReturnType<typeof useClipAnalyzer>
@@ -52,12 +56,22 @@ export default function AnalyzeTab({
     setCopiedTags,
     copiedDescription,
     setCopiedDescription,
+    copiedTitle,
+    setCopiedTitle,
     clipEditSuggestionTags,
     toggleCard,
     handleResetClip,
     handleAnalyzeClip,
   } = analyzer
   const platformsBannerLogos = bannerLogos(platforms)
+  const isYouTube = isYouTubeClipPlatform(clipPlatform)
+  const youtubeTagsCopyText = formatYouTubeTagsForCopy(clipEditSuggestionTags)
+  const youtubeDescription =
+    clipAnalysisResult?.description != null
+      ? stripHashtagsFromDescription(
+          clipAnalysisResult.description.replace(/<[^>]*>/g, '')
+        )
+      : ''
 
   return (
 <div className={`relative py-8 ${cardClasses} ${!hasTabAccess('analyze') && !hasTabAccess('clip-analyzer') ? 'pointer-events-none' : ''}`}>
@@ -565,12 +579,12 @@ export default function AnalyzeTab({
                   Post Suggestions
                 </h4>
                 <div className={`text-sm px-3 py-1 rounded ${darkMode ? 'bg-sdhq-dark-700 text-sdhq-cyan-400' : 'bg-gray-100 text-sdhq-cyan-600'}`}>
-                  {clipPlatform === 'tiktok' ? '🎵 TikTok' : clipPlatform === 'youtube' || clipPlatform === 'youtube-shorts' || clipPlatform === 'youtube-long' ? '▶️ YouTube' : '📸 Instagram'} Optimized
+                  {clipPlatform === 'tiktok' ? '🎵 TikTok' : isYouTube ? '▶️ YouTube' : '📸 Instagram'} Optimized
                 </div>
               </div>
               
               {/* YouTube: Separate Title, Description, Tags */}
-              {clipPlatform === 'youtube' || clipPlatform === 'youtube-shorts' || clipPlatform === 'youtube-long' ? (
+              {isYouTube ? (
                 <>
                   {/* Title Options */}
                   <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 mb-4 ${
@@ -585,35 +599,33 @@ export default function AnalyzeTab({
                           Title Options
                         </div>
                       </div>
+                      <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                        Plain text — paste into YouTube title field
+                      </span>
                     </div>
                     <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
                       <ul className={`mt-3 space-y-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                         {(clipAnalysisResult.titles || [clipAnalysisResult.title])
                           .filter((t): t is string => typeof t === 'string' && t.length > 0)
                           .map((title, idx) => {
-                          const platformEmojis: Record<string, string[]> = {
-                            youtube: ['🔴', '🎬', '▶️', '💡', '🚀'],
-                            'youtube-shorts': ['🎬', '⚡', '🔴', '📱', '🚀'],
-                            'youtube-long': ['🔴', '🎬', '▶️', '💡', '🚀']
-                          }
-                          const emojis = platformEmojis[clipPlatform] || ['✨']
-                          const randomEmoji = emojis[idx % emojis.length]
-                          const enhancedTitle = `${randomEmoji} ${title} ${randomEmoji}`
+                          const plainTitle = title.replace(/^#+\s*/, '').trim()
                           return (
                             <li key={idx} className="flex items-start gap-3 group text-base">
                               <span className="text-sdhq-cyan-500 mt-0.5">{idx + 1}.</span>
-                              <span className="flex-1">{enhancedTitle}</span>
+                              <span className="flex-1">{plainTitle}</span>
                               <button
                                 onClick={() => {
-                                  navigator.clipboard.writeText(enhancedTitle)
-                                  setCopiedTags(true)
-                                  setTimeout(() => setCopiedTags(false), 1000)
+                                  navigator.clipboard.writeText(plainTitle)
+                                  setCopiedTitle(idx)
+                                  setTimeout(() => setCopiedTitle(null), 2000)
                                 }}
-                                className={`opacity-0 group-hover:opacity-100 px-3 py-1 rounded text-xs transition-all ${
-                                  darkMode ? 'bg-sdhq-dark-600 text-sdhq-cyan-400 hover:bg-sdhq-cyan-500/20' : 'bg-gray-100 text-sdhq-cyan-600 hover:bg-sdhq-cyan-50'
+                                className={`px-3 py-1 rounded text-xs transition-all ${
+                                  copiedTitle === idx
+                                    ? (darkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600')
+                                    : (darkMode ? 'bg-sdhq-dark-600 text-sdhq-cyan-400 hover:bg-sdhq-cyan-500/20 opacity-0 group-hover:opacity-100' : 'bg-gray-100 text-sdhq-cyan-600 hover:bg-sdhq-cyan-50 opacity-0 group-hover:opacity-100')
                                 }`}
                               >
-                                Copy
+                                {copiedTitle === idx ? '✓ Copied!' : 'Copy'}
                               </button>
                             </li>
                           )
@@ -623,7 +635,7 @@ export default function AnalyzeTab({
                   </div>
 
                   {/* Description */}
-                  {clipAnalysisResult.description && (
+                  {youtubeDescription && (
                     <div className={`rounded-xl border-2 overflow-hidden transition-all duration-300 mb-4 ${
                       darkMode 
                         ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
@@ -638,7 +650,7 @@ export default function AnalyzeTab({
                         </div>
                         <button
                           onClick={() => {
-                            navigator.clipboard.writeText(clipAnalysisResult.description?.replace(/<[^>]*>/g, '') || '')
+                            navigator.clipboard.writeText(youtubeDescription)
                             setCopiedDescription(true)
                             setTimeout(() => setCopiedDescription(false), 2000)
                           }}
@@ -652,8 +664,8 @@ export default function AnalyzeTab({
                         </button>
                       </div>
                       <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
-                        <p className={`mt-3 text-base ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                          {clipAnalysisResult.description?.replace(/<[^>]*>/g, '')}
+                        <p className={`mt-3 text-base whitespace-pre-wrap ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                          {youtubeDescription}
                         </p>
                       </div>
                     </div>
@@ -666,21 +678,25 @@ export default function AnalyzeTab({
                         ? 'bg-sdhq-dark-700/50 border-sdhq-cyan-500/20' 
                         : 'bg-white border-sdhq-cyan-200'
                     }`}>
-                      <div className="p-4 flex items-center justify-between">
+                      <div className="p-4 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <span className="text-2xl">#️⃣</span>
-                          <div className={`text-base font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                            Tags (≥8 when analysis includes enough · cap {Math.max(8, getRecommendedTagCount(clipPlatform, platforms))})
+                          <span className="text-2xl">🏷️</span>
+                          <div>
+                            <div className={`text-base font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                              Tags
+                            </div>
+                            <div className={`text-xs mt-0.5 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                              Comma-separated for YouTube Studio (no #)
+                            </div>
                           </div>
                         </div>
                         <button
                           onClick={() => {
-                            const tagsText = clipEditSuggestionTags.map((t: string) => t.replace(/^#/, '')).join(', ')
-                            navigator.clipboard.writeText(tagsText)
+                            navigator.clipboard.writeText(youtubeTagsCopyText)
                             setCopiedTags(true)
                             setTimeout(() => setCopiedTags(false), 2000)
                           }}
-                          className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
+                          className={`px-3 py-1.5 rounded text-sm font-medium transition-all shrink-0 ${
                             copiedTags
                               ? (darkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600')
                               : (darkMode ? 'bg-sdhq-dark-600 text-sdhq-cyan-400 hover:bg-sdhq-cyan-500/20' : 'bg-gray-100 text-sdhq-cyan-600 hover:bg-sdhq-cyan-50')
@@ -691,25 +707,32 @@ export default function AnalyzeTab({
                       </div>
                         <div className={`px-4 pb-4 border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'}`}>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {clipEditSuggestionTags.map((tag: string, idx: number) => (
+                          {clipEditSuggestionTags.map((tag: string, idx: number) => {
+                            const plainTag = tag.replace(/^#/, '')
+                            return (
                             <span key={idx} className={`px-3 py-1.5 rounded text-sm font-mono cursor-pointer hover:scale-105 transition-transform ${
                               darkMode 
                                 ? 'bg-sdhq-dark-800 text-sdhq-cyan-400 border border-sdhq-cyan-500/20 hover:bg-sdhq-cyan-500/10' 
                                 : 'bg-gray-100 text-sdhq-cyan-600 border border-sdhq-cyan-300 hover:bg-sdhq-cyan-50'
                             }`}
                             onClick={() => {
-                              navigator.clipboard.writeText(tag.replace(/^#/, ''))
+                              navigator.clipboard.writeText(plainTag)
                               setCopiedTags(true)
                               setTimeout(() => setCopiedTags(false), 1000)
                             }}
-                            title="Click to copy"
+                            title="Click to copy single tag"
                             >
-                              {tag.replace(/^#/, '')}
+                              {plainTag}
                             </span>
-                          ))}
+                          )})}
                         </div>
-                        <div className={`mt-3 text-sm ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                          💡 Showing {clipEditSuggestionTags.length} of {(clipAnalysisResult.tags || []).length} tags for {clipPlatform}
+                        <div className={`mt-3 p-3 rounded-lg text-sm font-mono break-all ${
+                          darkMode ? 'bg-sdhq-dark-900/80 text-gray-300 border border-sdhq-dark-600' : 'bg-gray-50 text-gray-700 border border-gray-200'
+                        }`}>
+                          {youtubeTagsCopyText}
+                        </div>
+                        <div className={`mt-2 text-sm ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                          {clipEditSuggestionTags.length} tag{clipEditSuggestionTags.length === 1 ? '' : 's'} ready to paste into YouTube Studio
                         </div>
                       </div>
                     </div>

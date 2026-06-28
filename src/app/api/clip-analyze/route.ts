@@ -17,6 +17,11 @@ import {
   deleteGeminiUploadedFile,
 } from '@/lib/geminiFiles'
 import { estimateClipAnalysisUsd } from '@/lib/estimatedInferenceCost'
+import {
+  isYouTubeClipPlatform,
+  normalizeClipAnalysisMetadata,
+  youtubeShortsMetadataPromptBlock,
+} from '@/lib/clipAnalyzerMetadata'
 
 // Force dynamic rendering to prevent static optimization
 export const dynamic = 'force-dynamic'
@@ -132,6 +137,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Platform is required' }, { status: 400 })
     }
     const targetPlatform = normalizeTargetPlatform(platform)
+    const isYouTubeMetadata = isYouTubeClipPlatform(platform)
 
     // Note: 150MB limit is enforced on the frontend for direct URLs
     // Videos larger than 150MB may not be accessible for analysis
@@ -384,7 +390,10 @@ CRITICAL ANALYSIS REQUIREMENTS:
 - Platform-specific optimization: 20 points
 - Metadata quality (title/description/tags): 20 points
 8. **TAG REQUIREMENTS (minimum 8 entries in "tags"; aim for 15-20 when relevant):
-Include a comprehensive mix of:
+${
+  isYouTubeMetadata
+    ? youtubeShortsMetadataPromptBlock()
+    : `Include a comprehensive mix of:
 1. Platform-specific trending tags (e.g., #fyp, #foryou, #reels, #shorts)
 2. Content-specific tags (what the video is actually about)
 3. Game tags (if gaming content - include the game name and related tags)
@@ -392,6 +401,8 @@ Include a comprehensive mix of:
 5. Streaming platform tags (if from a stream - e.g., #twitchclip, #youtubelive)
 6. Broad category tags for discoverability
 7. Niche-specific tags for targeted audience
+Use # prefix in each tag string for TikTok/Instagram.`
+}
 
 Return this exact JSON structure:
 {
@@ -423,7 +434,7 @@ Return this exact JSON structure:
     "<optimized title option 3: 50-60 chars max, strong hook + keywords>"
   ],
   "description": "<optimized description: 150-200 characters, keywords + call to action, platform-optimized - NO abbreviations>",
-  "tags": ["<at least 8; ideally 15-20 specific, relevant hashtags for platform - mix of platform, content, game, context, and streaming tags>"]
+  "tags": ["<at least 8; ideally 15-20 specific, relevant ${isYouTubeMetadata ? 'keywords WITHOUT # symbols (plain text for YouTube Studio)' : 'hashtags for platform'} - mix of platform, content, game, context, and streaming tags>"]
 }
 IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside of JSON.
 `
@@ -582,6 +593,22 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         userMessage: 'Gemini is having a tough time right now. Please check back later.',
         details: 'Gemini API analysis failed'
       }, { status: 503 })
+    }
+
+    if (analysisResult && typeof analysisResult === 'object') {
+      const meta = normalizeClipAnalysisMetadata(platform, {
+        title: (analysisResult as Record<string, unknown>).title,
+        titles: (analysisResult as Record<string, unknown>).titles,
+        description: (analysisResult as Record<string, unknown>).description,
+        tags: (analysisResult as Record<string, unknown>).tags,
+      })
+      analysisResult = {
+        ...(analysisResult as Record<string, unknown>),
+        title: meta.title,
+        titles: meta.titles,
+        description: meta.description,
+        tags: meta.tags,
+      }
     }
 
     console.log('[DEBUG] Returning successful analysis response:', {

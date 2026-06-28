@@ -16,8 +16,8 @@ export function getRecommendedTagCount(platformId: string, platforms: Platform[]
 
   if (platformId === 'tiktok') return 8
   if (platformId === 'instagram') return 30
-  if (platformId === 'youtube-shorts') return 5
-  if (platformId === 'youtube-long' || platformId === 'youtube') return 10
+  if (platformId === 'youtube-shorts') return 15
+  if (platformId === 'youtube-long' || platformId === 'youtube') return 15
   if (platformId === 'facebook-reels') return 5
   return 10
 }
