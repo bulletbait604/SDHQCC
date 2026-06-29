@@ -34,6 +34,8 @@ type Post4MeResponse = {
   tags: string[]
   combinedCaption?: string
   youtubeTagsCopy?: string
+  viralityScore?: number
+  viralitySummary?: string
   estimatedCostUsd?: number
   estimatedCostNote?: string
 }
@@ -391,11 +393,42 @@ export default function Post4MeTab({
               <Send className="w-12 h-12 mb-3 opacity-40" />
               <p>Upload a clip and generate platform-ready title, description, and tags.</p>
               <p className="text-xs mt-2">
-                TikTok & Instagram → one combined caption. YouTube → separate fields.
+                TikTok & Instagram → one combined caption with emojis + hashtags. YouTube → separate fields.
               </p>
             </div>
           ) : isYouTube ? (
             <div className="space-y-4">
+              {result.viralityScore != null && (
+                <div
+                  className={`p-3 rounded-lg border ${
+                    result.viralityScore >= 80
+                      ? darkMode
+                        ? 'bg-green-500/10 border-green-500/30'
+                        : 'bg-green-50 border-green-200'
+                      : darkMode
+                        ? 'bg-amber-500/10 border-amber-500/30'
+                        : 'bg-amber-50 border-amber-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold uppercase text-sdhq-cyan-400">
+                      Virality score
+                    </span>
+                    <span
+                      className={`text-lg font-bold ${
+                        result.viralityScore >= 80 ? 'text-green-400' : 'text-amber-400'
+                      }`}
+                    >
+                      {result.viralityScore}/100
+                    </span>
+                  </div>
+                  {result.viralitySummary && (
+                    <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {result.viralitySummary}
+                    </p>
+                  )}
+                </div>
+              )}
               <p
                 className={`text-xs font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}
               >
@@ -477,6 +510,37 @@ export default function Post4MeTab({
             </div>
           ) : (
             <div className="space-y-3">
+              {result.viralityScore != null && (
+                <div
+                  className={`p-3 rounded-lg border ${
+                    result.viralityScore >= 80
+                      ? darkMode
+                        ? 'bg-green-500/10 border-green-500/30'
+                        : 'bg-green-50 border-green-200'
+                      : darkMode
+                        ? 'bg-amber-500/10 border-amber-500/30'
+                        : 'bg-amber-50 border-amber-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold uppercase text-sdhq-cyan-400">
+                      Virality score
+                    </span>
+                    <span
+                      className={`text-lg font-bold ${
+                        result.viralityScore >= 80 ? 'text-green-400' : 'text-amber-400'
+                      }`}
+                    >
+                      {result.viralityScore}/100
+                    </span>
+                  </div>
+                  {result.viralitySummary && (
+                    <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {result.viralitySummary}
+                    </p>
+                  )}
+                </div>
+              )}
               <p
                 className={`text-xs font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}
               >

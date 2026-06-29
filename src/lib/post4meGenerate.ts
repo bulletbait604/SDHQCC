@@ -8,9 +8,13 @@ import {
 } from '@/lib/geminiFiles'
 import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
 import {
+  post4meMetadataPromptBlock,
+  post4meTagViralityRules,
+  post4meViralityScoringBlock,
+} from '@/lib/post4meViralityPrompt'
+import {
   isYouTubeClipPlatform,
   normalizeClipAnalysisMetadata,
-  youtubeShortsMetadataPromptBlock,
   type NormalizedClipMetadata,
 } from '@/lib/clipAnalyzerMetadata'
 import { getRecommendedTagCount } from '@/lib/home/tagUtils'
@@ -31,11 +35,15 @@ const post4meRawSchema = z.object({
   titles: z.array(z.string()).optional(),
   description: z.string(),
   tags: z.array(z.string()),
+  viralityScore: z.number().min(0).max(100).optional(),
+  viralitySummary: z.string().max(400).optional(),
 })
 
 export type Post4MeResult = NormalizedClipMetadata & {
   platformId: string
   isYouTube: boolean
+  viralityScore?: number
+  viralitySummary?: string
 }
 
 function extractFirstBalancedJsonObject(raw: string): string | null {
@@ -88,15 +96,18 @@ async function algorithmContextForPlatform(platformId: string): Promise<string> 
   const summaries = Array.isArray(rec.summaries)
     ? rec.summaries.filter((s): s is string => typeof s === 'string').slice(0, 6)
     : []
-  const titleTips = typeof rec.titleTips === 'string' ? rec.titleTips.slice(0, 400) : ''
+  const titleTips = typeof rec.titleTips === 'string' ? rec.titleTips.slice(0, 600) : ''
   const descriptionTips =
-    typeof rec.descriptionTips === 'string' ? rec.descriptionTips.slice(0, 400) : ''
+    typeof rec.descriptionTips === 'string' ? rec.descriptionTips.slice(0, 500) : ''
+  const keyChanges =
+    typeof rec.keyChanges === 'string' ? rec.keyChanges.slice(0, 500) : ''
 
   return [
     `**${label} algorithm snapshot:**`,
     summaries.length ? `Insights: ${summaries.join(' | ')}` : '',
     titleTips ? `Title/hook guidance: ${titleTips}` : '',
     descriptionTips ? `Description/caption guidance: ${descriptionTips}` : '',
+    keyChanges ? `Algorithm ranking signals: ${keyChanges}` : '',
   ]
     .filter(Boolean)
     .join('\n')
@@ -104,11 +115,12 @@ async function algorithmContextForPlatform(platformId: string): Promise<string> 
 
 function tagGuidance(platformId: string, platforms: Platform[]): string {
   const count = getRecommendedTagCount(platformId, platforms)
+  const viralRules = post4meTagViralityRules(platformId)
   const isYouTube = isYouTubeClipPlatform(platformId)
   if (isYouTube) {
-    return `Provide at least ${Math.min(8, count)} tags as plain keywords WITHOUT # (YouTube Studio format). Aim for ${count} relevant tags.`
+    return `${viralRules} Minimum ${Math.min(8, count)} tags; aim for ${count}. Plain keywords WITHOUT #.`
   }
-  return `Provide ${count} hashtags WITH # prefix for ${PLATFORM_LABELS[platformId] || platformId} discoverability.`
+  return `${viralRules} Provide ${count} hashtags WITH # prefix.`
 }
 
 export async function generatePost4MeFromClip(params: {
@@ -142,30 +154,32 @@ export async function generatePost4MeFromClip(params: {
   const cleanupName = uploaded.name
   await pollGeminiFileUntilActive(apiKey, uploaded.uri, { maxRetries: 60, retryDelayMs: 2000 })
 
-  const metadataBlock = isYouTube
-    ? youtubeShortsMetadataPromptBlock()
-    : `Return separate "description" (caption body WITHOUT hashtags) and "tags" (hashtag strings WITH #). Do NOT put hashtags inside description.`
+  const metadataBlock = post4meMetadataPromptBlock(params.platformId)
+  const viralityBlock = post4meViralityScoringBlock(params.platformId)
 
-  const prompt = `You are an elite ${PLATFORM_LABELS[params.platformId] || params.platformId} growth strategist. Watch this short clip and write publish-ready post metadata optimized for that platform's algorithm.
+  const prompt = `You are an elite viral growth strategist for ${PLATFORM_LABELS[params.platformId] || params.platformId}. Watch this clip and write publish-ready metadata engineered for maximum algorithmic reach and virality — not generic filler copy.
 
 Target platform: ${PLATFORM_LABELS[params.platformId] || params.platformId}
 ${params.durationSeconds ? `Clip length: ~${Math.round(params.durationSeconds)}s` : ''}
 
 ${algoContext ? `Platform algorithm notes:\n${algoContext}\n` : ''}
+${viralityBlock}
 ${userDirection}
 
 Requirements:
-- Analyze what happens in the clip (topic, hook, emotion, niche).
-- Write copy that maximizes discovery and clicks on ${PLATFORM_LABELS[params.platformId] || params.platformId}.
+- Analyze what happens in the clip (topic, hook, emotion, niche, share trigger).
+- Maximize discovery, CTR, completion rate, and saves/shares for ${PLATFORM_LABELS[params.platformId] || params.platformId}.
 - ${tagGuidance(params.platformId, platformList)}
 ${metadataBlock}
 
 Return valid JSON only (no markdown):
 {
-  "titles": ["3 title options if YouTube; otherwise 1 strong hook line for caption"],
-  "title": "primary title or hook (optional if titles array provided)",
+  "viralityScore": 85,
+  "viralitySummary": "Why the primary option should perform + one caveat",
+  "titles": ["highest virality option first", "second hook variant", "third hook variant"],
+  "title": "same as titles[0]",
   "description": "platform-optimized description/caption body",
-  "tags": ["platform-appropriate tags"]
+  "tags": ["platform-appropriate tags or hashtags"]
 }`
 
   try {
@@ -214,6 +228,8 @@ Return valid JSON only (no markdown):
       ...normalized,
       platformId: params.platformId,
       isYouTube,
+      viralityScore: rawMeta.viralityScore,
+      viralitySummary: rawMeta.viralitySummary?.trim(),
     }
   } finally {
     await deleteGeminiUploadedFile(apiKey, cleanupName).catch(() => undefined)

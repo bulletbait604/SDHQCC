@@ -140,6 +140,8 @@ export async function POST(request: NextRequest) {
       tags: result.tags,
       combinedCaption,
       youtubeTagsCopy,
+      viralityScore: result.viralityScore,
+      viralitySummary: result.viralitySummary,
       fileName: typeof fileName === 'string' ? fileName : undefined,
       fileSize: typeof fileSize === 'number' ? fileSize : undefined,
       estimatedCostUsd: estimate.estimatedCostUsd,
