@@ -7,6 +7,7 @@ import ResourceHubTab from '@/app/components/ResourceHubTab'
 import CreateTabHeader, { type CreateSubTab } from '@/app/components/CreateTabHeader'
 import TagGeneratorTab from '@/app/components/TagGeneratorTab'
 import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
+import Post4MeTab from '@/app/components/Post4MeTab'
 import BackgroundRemoverTab from '@/app/components/BackgroundRemoverTab'
 import AnalyzeTab from '@/app/components/AnalyzeTab'
 import ClipEditorTab from '@/app/components/ClipEditorTab'
@@ -229,6 +230,7 @@ export default function HomeMainTabs({
                 thumbnail: t.tagGeneratorPaid,
                 tags: t.tagGeneratorFree,
                 background: t.backgroundRemover,
+                post4me: t.post4me,
               }}
               pickToolLabel={t.createPickTool}
               darkMode={darkMode}
@@ -260,6 +262,23 @@ export default function HomeMainTabs({
                 isDisabled={!hasTabAccess('thumbnail-generator')}
                 onBalanceRefresh={refreshBalance}
                 onLogActivity={onThumbnailActivityLog}
+              />
+            </TabsContent>
+
+            <TabsContent value="post4me">
+              <Post4MeTab
+                darkMode={darkMode}
+                subtitleClasses={subtitleClasses}
+                platforms={platforms}
+                user={user}
+                hasEnoughCoins={hasEnoughCoins}
+                hasUnlimitedAccess={hasUnlimitedAccess}
+                coinLoading={coinLoading}
+                refreshBalance={refreshBalance}
+                onActivityLog={onActivityLog}
+                isDisabled={!hasTabAccess('post4me')}
+                title={t.post4me}
+                description={t.post4meDesc}
               />
             </TabsContent>
 

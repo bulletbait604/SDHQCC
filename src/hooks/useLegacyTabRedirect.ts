@@ -15,6 +15,7 @@ export function useLegacyTabRedirect(
       'tag-generator-free': { tab: 'create', sub: 'tags' },
       'thumbnail-generator': { tab: 'create', sub: 'thumbnail' },
       'background-remover': { tab: 'create', sub: 'background' },
+      'post4me': { tab: 'create', sub: 'post4me' },
       'clip-analyzer': { tab: 'analyze' },
       'new-tool': { tab: 'educate' },
     }

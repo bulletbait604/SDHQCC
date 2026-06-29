@@ -18,6 +18,9 @@ export const homeTranslations = {
     backgroundRemover: 'Background Remover',
     backgroundRemoverDesc:
       'Upload a photo and remove the background behind the main subject with AI.',
+    post4me: 'Post4Me',
+    post4meDesc:
+      'Upload a clip up to 90 seconds, pick a platform, and get algorithm-optimized title, description, and tags ready to paste.',
     resourceHub: 'Resource Hub',
     educate: 'Educate',
     create: 'Create',
@@ -65,6 +68,9 @@ export const homeTranslations = {
     backgroundRemover: 'Eliminador de fondo',
     backgroundRemoverDesc:
       'Sube una foto y elimina el fondo detrás del sujeto principal con IA.',
+    post4me: 'Post4Me',
+    post4meDesc:
+      'Sube un clip de hasta 90 segundos, elige una plataforma y obtén título, descripción y etiquetas optimizados.',
     resourceHub: 'Centro de recursos',
     educate: 'Educar',
     create: 'Crear',
@@ -112,6 +118,9 @@ export const homeTranslations = {
     backgroundRemover: 'Suppression d’arrière-plan',
     backgroundRemoverDesc:
       'Importez une photo et supprimez l’arrière-plan derrière le sujet principal avec l’IA.',
+    post4me: 'Post4Me',
+    post4meDesc:
+      'Importez un clip jusqu’à 90 secondes, choisissez une plateforme et obtenez titre, description et tags optimisés.',
     resourceHub: 'Centre de ressources',
     educate: 'Éduquer',
     create: 'Créer',
@@ -159,6 +168,9 @@ export const homeTranslations = {
     backgroundRemover: 'Hintergrund entfernen',
     backgroundRemoverDesc:
       'Laden Sie ein Foto hoch und entfernen Sie den Hintergrund hinter dem Hauptmotiv mit KI.',
+    post4me: 'Post4Me',
+    post4meDesc:
+      'Laden Sie einen Clip bis 90 Sekunden hoch, wählen Sie eine Plattform und erhalten Sie optimierten Titel, Beschreibung und Tags.',
     resourceHub: 'Ressourcen-Hub',
     educate: 'Lernen',
     create: 'Erstellen',

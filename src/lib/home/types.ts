@@ -70,6 +70,7 @@ export type ActivityLogAction =
   | 'sync_completed'
   | 'role_updated'
   | 'thumbnail_generation'
+  | 'post4me_generation'
   | 'token_grant'
   | 'token_purchase'
   | 'subscription_payment'

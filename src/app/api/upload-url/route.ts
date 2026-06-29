@@ -73,17 +73,20 @@ export async function POST(request: NextRequest) {
         clipUsername:
           purpose === 'clip-analyzer' ||
           purpose === 'clip-editor' ||
-          purpose === 'thumbnail-generator'
+          purpose === 'thumbnail-generator' ||
+          purpose === 'post4me'
             ? user.username
             : undefined,
         purpose:
           purpose === 'thumbnail-generator'
             ? 'thumbnail-generator'
-            : purpose === 'clip-editor'
-              ? 'clip-editor'
-              : purpose === 'clip-analyzer'
-                ? 'clip-analyzer'
-                : undefined,
+            : purpose === 'post4me'
+              ? 'post4me'
+              : purpose === 'clip-editor'
+                ? 'clip-editor'
+                : purpose === 'clip-analyzer'
+                  ? 'clip-analyzer'
+                  : undefined,
       })
     } catch (generateError: unknown) {
       console.error('Upload URL API: Error in generateUploadUrl:', generateError)

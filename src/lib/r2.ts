@@ -39,7 +39,7 @@ function sanitizeFilename(filename: string): string {
 export type GenerateUploadUrlOpts = {
   /** Clip analyzer / clip editor / thumbnail: `uploads/clips/<user>/…` or `uploads/thumbnail-clips/<user>/…` */
   clipUsername?: string
-  purpose?: 'clip-analyzer' | 'clip-editor' | 'thumbnail-generator'
+  purpose?: 'clip-analyzer' | 'clip-editor' | 'thumbnail-generator' | 'post4me'
 }
 
 // Generate presigned URL for upload (valid for 5 minutes)
@@ -60,6 +60,8 @@ export async function generateUploadUrl(
     const userSeg = sanitizePathSegment(opts.clipUsername)
     if (opts.purpose === 'thumbnail-generator') {
       fileKey = `uploads/thumbnail-clips/${userSeg}/${timestamp}-${safeName}`
+    } else if (opts.purpose === 'post4me') {
+      fileKey = `uploads/post4me-clips/${userSeg}/${timestamp}-${safeName}`
     } else {
       fileKey = `uploads/clips/${userSeg}/${timestamp}-${safeName}`
     }
