@@ -2,15 +2,17 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
-import { Settings, Video, Wand2, GraduationCap, BarChart3, Film } from 'lucide-react'
+import { Settings, Video, Wand2, GraduationCap, BarChart3, FlaskConical } from 'lucide-react'
 import ResourceHubTab from '@/app/components/ResourceHubTab'
 import CreateTabHeader, { type CreateSubTab } from '@/app/components/CreateTabHeader'
+import RdTabHeader, { type RdSubTab } from '@/app/components/RdTabHeader'
 import TagGeneratorTab from '@/app/components/TagGeneratorTab'
 import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
 import Post4MeTab from '@/app/components/Post4MeTab'
 import BackgroundRemoverTab from '@/app/components/BackgroundRemoverTab'
 import AnalyzeTab from '@/app/components/AnalyzeTab'
 import ClipEditorTab from '@/app/components/ClipEditorTab'
+import TradebotTab from '@/app/components/TradebotTab'
 import KickClipsComingSoon from '@/app/components/KickClipsComingSoon'
 import SettingsTab from '@/app/components/SettingsTab'
 import type { ActivityLogEntry, HomeLanguage, KickUser, Platform } from '@/lib/home/types'
@@ -25,6 +27,9 @@ export interface HomeMainTabsProps {
   onTabChange: (value: string) => void
   createSubTab: CreateSubTab
   onCreateSubTabChange: (sub: CreateSubTab) => void
+  rndSubTab: RdSubTab
+  onRndSubTabChange: (sub: RdSubTab) => void
+  canAccessRnd: boolean
   isOwner: boolean
   isAdmin: boolean
   user: KickUser
@@ -100,6 +105,9 @@ export default function HomeMainTabs({
   onTabChange,
   createSubTab,
   onCreateSubTabChange,
+  rndSubTab,
+  onRndSubTabChange,
+  canAccessRnd,
   isOwner,
   isAdmin,
   user,
@@ -168,7 +176,7 @@ export default function HomeMainTabs({
   return (
     <Tabs value={activeTab} onValueChange={onTabChange} className="space-y-6">
       <TabsList
-        className={`grid w-full grid-cols-2 ${isOwner ? 'sm:grid-cols-6' : 'sm:grid-cols-5'} ${tabListClasses}`}
+        className={`grid w-full grid-cols-2 ${canAccessRnd ? 'sm:grid-cols-6' : 'sm:grid-cols-5'} ${tabListClasses}`}
       >
         <TabsTrigger value="educate" className={cn('flex items-center space-x-2', tabTriggerClasses)}>
           <GraduationCap className="w-4 h-4" />
@@ -190,10 +198,10 @@ export default function HomeMainTabs({
           <Settings className="w-4 h-4" />
           <span className="hidden sm:inline">{t.settings}</span>
         </TabsTrigger>
-        {isOwner && (
-          <TabsTrigger value="clip-editor" className={cn('flex items-center space-x-2', tabTriggerClasses)}>
-            <Film className="w-4 h-4" />
-            <span className="hidden sm:inline">{t.clipEditor}</span>
+        {canAccessRnd && (
+          <TabsTrigger value="rnd" className={cn('flex items-center space-x-2', tabTriggerClasses)}>
+            <FlaskConical className="w-4 h-4" />
+            <span className="hidden sm:inline">{t.rnd}</span>
           </TabsTrigger>
         )}
       </TabsList>
@@ -316,21 +324,52 @@ export default function HomeMainTabs({
         />
       </TabsContent>
 
-      {isOwner && (
-        <TabsContent value="clip-editor">
-          <ClipEditorTab
-            darkMode={darkMode}
-            cardClasses={cardClasses}
-            textClasses={textClasses}
-            subtitleClasses={subtitleClasses}
-            title={t.clipEditor}
-            tagline={t.clipEditorDesc}
-            user={user}
-            hasEnoughCoins={hasEnoughCoins}
-            deductCoins={deductCoins}
-            hasUnlimitedAccess={hasUnlimitedAccess || isOwner}
-            refreshBalance={refreshBalance}
-          />
+      {canAccessRnd && (
+        <TabsContent value="rnd">
+          <Tabs
+            value={rndSubTab}
+            onValueChange={(v) => onRndSubTabChange(v as RdSubTab)}
+            className="space-y-4"
+          >
+            <div className={`${cardClasses} p-4 sm:p-6`}>
+              <RdTabHeader
+                activeSubTab={rndSubTab}
+                labels={{
+                  clipEditor: t.clipEditor,
+                  tradebot: t.tradebot,
+                }}
+                pickToolLabel={t.rndPickTool}
+                darkMode={darkMode}
+                tabListClasses={createSubTabListClasses}
+                tabTriggerClasses={tabTriggerClasses}
+              />
+
+              <TabsContent value="clip-editor">
+                <ClipEditorTab
+                  darkMode={darkMode}
+                  cardClasses={cardClasses}
+                  textClasses={textClasses}
+                  subtitleClasses={subtitleClasses}
+                  title=""
+                  tagline={t.clipEditorDesc}
+                  user={user}
+                  hasEnoughCoins={hasEnoughCoins}
+                  deductCoins={deductCoins}
+                  hasUnlimitedAccess={hasUnlimitedAccess || isOwner}
+                  refreshBalance={refreshBalance}
+                />
+              </TabsContent>
+
+              <TabsContent value="tradebot">
+                <TradebotTab
+                  darkMode={darkMode}
+                  subtitleClasses={subtitleClasses}
+                  title={t.tradebot}
+                  comingSoonLabel={t.comingSoon}
+                />
+              </TabsContent>
+            </div>
+          </Tabs>
         </TabsContent>
       )}
 

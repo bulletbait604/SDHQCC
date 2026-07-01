@@ -2,27 +2,31 @@
 
 import { useEffect } from 'react'
 import type { CreateSubTab } from '@/app/components/CreateTabHeader'
+import type { RdSubTab } from '@/app/components/RdTabHeader'
 
 /** Redirect legacy tab query/hash names to current main + create sub-tabs. */
 export function useLegacyTabRedirect(
   activeTab: string,
   setActiveTab: (tab: string) => void,
-  setCreateSubTab: (sub: CreateSubTab) => void
+  setCreateSubTab: (sub: CreateSubTab) => void,
+  setRndSubTab: (sub: RdSubTab) => void
 ) {
   useEffect(() => {
-    const legacyTabMap: Record<string, { tab: string; sub?: CreateSubTab }> = {
+    const legacyTabMap: Record<string, { tab: string; sub?: CreateSubTab; rndSub?: RdSubTab }> = {
       'resource-hub': { tab: 'educate' },
       'tag-generator-free': { tab: 'create', sub: 'tags' },
       'thumbnail-generator': { tab: 'create', sub: 'thumbnail' },
       'background-remover': { tab: 'create', sub: 'background' },
-      'post4me': { tab: 'create', sub: 'post4me' },
+      post4me: { tab: 'create', sub: 'post4me' },
       'clip-analyzer': { tab: 'analyze' },
+      'clip-editor': { tab: 'rnd', rndSub: 'clip-editor' },
       'new-tool': { tab: 'educate' },
     }
     const mapped = legacyTabMap[activeTab]
     if (mapped) {
       setActiveTab(mapped.tab)
       if (mapped.sub) setCreateSubTab(mapped.sub)
+      if (mapped.rndSub) setRndSubTab(mapped.rndSub)
     }
-  }, [activeTab, setActiveTab, setCreateSubTab])
+  }, [activeTab, setActiveTab, setCreateSubTab, setRndSubTab])
 }

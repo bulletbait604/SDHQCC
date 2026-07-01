@@ -15,6 +15,9 @@ export const homeTranslations = {
     clipEditor: 'Clip Editor',
     clipEditorDesc:
       'Upload a raw clip (≤90s), then Cut it for a vertical preview, then Finish for effects, captions, and your final platform-ready render.',
+    rnd: 'R&D',
+    tradebot: 'Tradebot',
+    rndPickTool: 'R&D — pick a tool below',
     backgroundRemover: 'Background Remover',
     backgroundRemoverDesc:
       'Upload a photo and remove the background behind the main subject with AI.',
@@ -65,6 +68,9 @@ export const homeTranslations = {
     clipEditor: 'Editor de clips',
     clipEditorDesc:
       'Un creador de clips totalmente optimizado por IA — cortes más inteligentes, ritmo y exportaciones listas para cada plataforma — está en camino.',
+    rnd: 'I+D',
+    tradebot: 'Tradebot',
+    rndPickTool: 'I+D — elige una herramienta abajo',
     backgroundRemover: 'Eliminador de fondo',
     backgroundRemoverDesc:
       'Sube una foto y elimina el fondo detrás del sujeto principal con IA.',
@@ -115,6 +121,9 @@ export const homeTranslations = {
     clipEditor: 'Éditeur de clips',
     clipEditorDesc:
       'Un créateur de clips entièrement optimisé par IA — découpes plus fines, rythme et exports prêts pour chaque plateforme — arrive bientôt.',
+    rnd: 'R&D',
+    tradebot: 'Tradebot',
+    rndPickTool: 'R&D — choisissez un outil ci-dessous',
     backgroundRemover: 'Suppression d’arrière-plan',
     backgroundRemoverDesc:
       'Importez une photo et supprimez l’arrière-plan derrière le sujet principal avec l’IA.',
@@ -165,6 +174,9 @@ export const homeTranslations = {
     clipEditor: 'Clip-Editor',
     clipEditorDesc:
       'Ein vollständig KI-optimierter Clip-Creator — intelligentere Schnitte, Timing und exportfertige Ausgaben für jede Plattform — kommt bald.',
+    rnd: 'F&E',
+    tradebot: 'Tradebot',
+    rndPickTool: 'F&E — Werkzeug unten wählen',
     backgroundRemover: 'Hintergrund entfernen',
     backgroundRemoverDesc:
       'Laden Sie ein Foto hoch und entfernen Sie den Hintergrund hinter dem Hauptmotiv mit KI.',

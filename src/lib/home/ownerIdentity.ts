@@ -1,4 +1,5 @@
 import { OWNER_USERNAMES, TAB_PERMISSIONS, type Role } from '@/lib/home/roles'
+import { canAccessRnd } from '@/lib/home/rndAccess'
 
 export function normalizeKickUsername(username: string): string {
   return username.replace(/^@/, '').toLowerCase().trim()
@@ -22,10 +23,10 @@ export function capOwnerRole(username: string, role: Role): Role {
   return role
 }
 
-/** Tab access — clip-editor is gated on site owner, not Mongo role alone. */
+/** Tab access — R&D tools (clip editor, tradebot) for site owner + admin; clip-editor API uses verifyAuth helper. */
 export function hasTabAccessForUser(userRole: Role, tabId: string, username: string | null | undefined): boolean {
-  if (tabId === 'clip-editor') {
-    return isSiteOwner(username)
+  if (tabId === 'rnd' || tabId === 'tradebot' || tabId === 'clip-editor') {
+    return canAccessRnd(userRole, username)
   }
   return TAB_PERMISSIONS[userRole]?.[tabId] ?? true
 }

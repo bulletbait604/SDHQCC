@@ -160,10 +160,10 @@ export function hasUnlimitedAccess(user: VerifiedUser): boolean {
   return UNLIMITED_ROLES.includes(user.role)
 }
 
-/** Clip Editor entitlement: Editor badge or Owner override (including OWNER_USERNAMES allowlist). */
+/** Clip Editor entitlement: site owner, admin, editor badge, or Mongo owner role. */
 export function hasClipEditorAccess(user: VerifiedUser): boolean {
   if (isAllowlistedOwner(user.username)) return true
-  return user.role === 'editor' || user.role === 'owner'
+  return user.role === 'editor' || user.role === 'owner' || user.role === 'admin'
 }
 
 /**

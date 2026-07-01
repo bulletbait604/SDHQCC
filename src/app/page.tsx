@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react'
 import CoinPurchase from '@/app/components/CoinPurchase'
 import BannedUserScreen from '@/app/components/BannedUserScreen'
 import { type CreateSubTab } from '@/app/components/CreateTabHeader'
+import { type RdSubTab } from '@/app/components/RdTabHeader'
 import { useClipAnalyzer } from '@/hooks/useClipAnalyzer'
 import { useHomeRoles } from '@/hooks/useHomeRoles'
 import { useHomeSession } from '@/hooks/useHomeSession'
@@ -33,11 +34,13 @@ import SubscribePopup from '@/app/components/SubscribePopup'
 import LifetimePassPopup from '@/app/components/LifetimePassPopup'
 import { pollSubscriptionVerification } from '@/lib/paypal/pollSubscriptionVerification'
 import { useCoins } from '@/hooks/useCoins'
+import { canAccessRnd } from '@/lib/home/rndAccess'
 import { startKickLogin } from '@/lib/kick/startKickLogin'
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState('educate')
   const [createSubTab, setCreateSubTab] = useState<CreateSubTab>('thumbnail')
+  const [rndSubTab, setRndSubTab] = useState<RdSubTab>('clip-editor')
   const [showSettings, setShowSettings] = useState(false)
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false)
   const [showTerms, setShowTerms] = useState(false)
@@ -82,7 +85,7 @@ export default function HomePage() {
     handleLogout: sessionLogout,
   } = session
 
-  useLegacyTabRedirect(activeTab, setActiveTab, setCreateSubTab)
+  useLegacyTabRedirect(activeTab, setActiveTab, setCreateSubTab, setRndSubTab)
 
   const roles = useHomeRoles({
     user,
@@ -176,6 +179,7 @@ export default function HomePage() {
   }
 
   const t = homeTranslations[language] ?? homeTranslations.en
+  const showRnd = user ? canAccessRnd(userRole, user.username) : false
 
   const clipAnalyzer = useClipAnalyzer({
     user,
@@ -283,6 +287,9 @@ export default function HomePage() {
             onTabChange={handleMainTabChange}
             createSubTab={createSubTab}
             onCreateSubTabChange={setCreateSubTab}
+            rndSubTab={rndSubTab}
+            onRndSubTabChange={setRndSubTab}
+            canAccessRnd={showRnd}
             isOwner={isOwner}
             isAdmin={isAdmin}
             user={user}
