@@ -10,6 +10,7 @@ import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
 import {
   post4meMultiPlatformRulesBlock,
   post4meTagViralityRules,
+  post4meTitleHooksBlock,
 } from '@/lib/post4meViralityPrompt'
 import {
   isYouTubeClipPlatform,
@@ -190,9 +191,12 @@ ${userDirection}
 
 GLOBAL REQUIREMENTS:
 - Analyze what happens in the clip (topic, hook, emotion, niche, share trigger) once; tailor copy per platform.
+- TITLES/Hooks are the most important output. Every platform MUST have exactly 3 distinct, clip-specific hook lines — punchy, native, scroll-stopping. Reject bland generic phrasing (see title hooks rules per platform).
 - Each platform entry must follow THAT platform's metadata rules (YouTube = separate title/description/tags; TikTok/Instagram/Reels = separate fields internally, user will combine caption + hashtags later).
 - Tag guidance per platform:
 ${perPlatformTagRules}
+
+${post4meTitleHooksBlock('tiktok')}
 
 Return valid JSON only (no markdown):
 {
@@ -201,9 +205,9 @@ Return valid JSON only (no markdown):
       "platformId": "tiktok",
       "viralityScore": 85,
       "viralitySummary": "Why this will perform on TikTok + one caveat",
-      "titles": ["hook option 1", "hook option 2"],
+      "titles": ["specific curiosity-gap hook about the clip", "bold claim hook with clip detail", "question or POV hook with clip detail"],
       "title": "same as titles[0]",
-      "description": "caption body without hashtags",
+      "description": "caption body without hashtags — adds context/CTA, does not repeat the hook",
       "tags": ["#tag1", "#tag2"]
     }
   ]
@@ -229,6 +233,9 @@ Include one object in "results" for EVERY platform ID listed above. Order result
           ],
         },
       ],
+      config: {
+        temperature: 0.9,
+      },
     })
 
     let raw =

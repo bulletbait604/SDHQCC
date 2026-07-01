@@ -100,7 +100,9 @@ function YouTubePlatformBlock({
             <span className="text-xs font-semibold text-sdhq-cyan-400 block mb-1">
               Title option {idx + 1}
             </span>
-            <span className={`text-sm ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}>{t}</span>
+            <span className={`text-sm font-medium ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+              {t}
+            </span>
           </div>
           <CopyButton
             label="Copy"
@@ -164,7 +166,7 @@ function YouTubePlatformBlock({
   )
 }
 
-function CombinedCaptionBlock({
+function CaptionPlatformBlock({
   result,
   darkMode,
   subtitleClasses,
@@ -179,15 +181,84 @@ function CombinedCaptionBlock({
   copied: Record<string, boolean | number | null>
   setCopied: React.Dispatch<React.SetStateAction<Record<string, boolean | number | null>>>
 }) {
-  const caption = result.combinedCaption || result.description
   const panel = darkMode ? 'bg-sdhq-dark-800' : 'bg-white'
+  const hooks = result.titles.length ? result.titles : result.title ? [result.title] : []
+  const caption = result.combinedCaption || result.description
+  const hashtagLine = result.tags
+    .map((t) => (t.startsWith('#') ? t : `#${t.replace(/^#+/, '')}`))
+    .join(' ')
 
   return (
     <div className="space-y-3">
       <p className={`text-xs ${subtitleClasses}`}>
-        One combined caption — hook, description, and hashtags ready to paste.
+        Hook options first, then description and hashtags — or copy the full caption below.
       </p>
+      {hooks.map((hook, idx) => (
+        <div key={idx} className={`p-3 rounded-lg flex items-start justify-between gap-2 ${panel}`}>
+          <div className="min-w-0 flex-1">
+            <span className="text-xs font-semibold text-sdhq-cyan-400 block mb-1">
+              Hook option {idx + 1}
+            </span>
+            <span className={`text-sm font-medium ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+              {hook}
+            </span>
+          </div>
+          <CopyButton
+            label="Copy"
+            copied={copied[`${copyKey}-hook-${idx}`] === true}
+            onCopy={() => {
+              navigator.clipboard.writeText(hook)
+              setCopied((prev) => ({ ...prev, [`${copyKey}-hook-${idx}`]: true }))
+              setTimeout(
+                () => setCopied((prev) => ({ ...prev, [`${copyKey}-hook-${idx}`]: false })),
+                2000
+              )
+            }}
+          />
+        </div>
+      ))}
+      {result.description && (
+        <div className={`p-3 rounded-lg ${panel}`}>
+          <div className="flex justify-between mb-2">
+            <span className="text-xs font-semibold text-sdhq-cyan-400">Description</span>
+            <CopyButton
+              label="Copy"
+              copied={copied[`${copyKey}-desc`] === true}
+              onCopy={() => {
+                navigator.clipboard.writeText(result.description)
+                setCopied((prev) => ({ ...prev, [`${copyKey}-desc`]: true }))
+                setTimeout(
+                  () => setCopied((prev) => ({ ...prev, [`${copyKey}-desc`]: false })),
+                  2000
+                )
+              }}
+            />
+          </div>
+          <p className={`text-sm whitespace-pre-wrap ${subtitleClasses}`}>{result.description}</p>
+        </div>
+      )}
+      {result.tags.length > 0 && (
+        <div className={`p-3 rounded-lg ${panel}`}>
+          <div className="flex justify-between mb-2">
+            <span className="text-xs font-semibold text-sdhq-cyan-400">Hashtags</span>
+            <CopyButton
+              label="Copy all"
+              copied={copied[`${copyKey}-tags`] === true}
+              onCopy={() => {
+                navigator.clipboard.writeText(hashtagLine)
+                setCopied((prev) => ({ ...prev, [`${copyKey}-tags`]: true }))
+                setTimeout(
+                  () => setCopied((prev) => ({ ...prev, [`${copyKey}-tags`]: false })),
+                  2000
+                )
+              }}
+            />
+          </div>
+          <p className={`text-xs break-words ${subtitleClasses}`}>{hashtagLine}</p>
+        </div>
+      )}
       <div className={`p-4 rounded-lg ${panel}`}>
+        <p className={`text-xs font-semibold text-sdhq-cyan-400 mb-2`}>Full caption (hook + description + tags)</p>
         <p className={`text-sm whitespace-pre-wrap mb-3 ${subtitleClasses}`}>{caption}</p>
         <Button
           type="button"
@@ -265,7 +336,7 @@ export default function Post4MePlatformResults({
               setCopied={setCopied}
             />
           ) : (
-            <CombinedCaptionBlock
+            <CaptionPlatformBlock
               result={result}
               darkMode={darkMode}
               subtitleClasses={subtitleClasses}
