@@ -60,7 +60,7 @@ export async function runTradebotScan(): Promise<TradebotSnapshot> {
     if (!finnhubResult.ok) errors.push(`Finnhub: ${finnhubResult.error}`)
   } else {
     providers.finnhub = 'skipped'
-    errors.push('Finnhub: FINNHUB_API_KEY not set — stock watchlist disabled.')
+    errors.push('Finnhub: set FINNHUB_API_KEY or Finnhub_API — stock watchlist disabled.')
   }
 
   let bitbuyQuotes: Awaited<ReturnType<typeof fetchBitbuyCadQuotes>> = []

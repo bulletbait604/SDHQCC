@@ -38,14 +38,16 @@ Used for: IBIT, FBTC, ETHA, QQQ, SPY on TD Direct Investing.
 **Local development** — add to `.env.local` in the project root:
 
 ```env
-FINNHUB_API_KEY=your_finnhub_key_here
+Finnhub_API=your_finnhub_key_here
 ```
+
+(`FINNHUB_API_KEY` also works.)
 
 **Production (Vercel)**
 
 1. Go to your Vercel project → **Settings** → **Environment Variables**
 2. Add:
-   - **Name:** `FINNHUB_API_KEY`
+   - **Name:** `Finnhub_API` (or `FINNHUB_API_KEY`)
    - **Value:** your Finnhub key
    - **Environments:** Production (and Preview if you test there)
 3. **Redeploy** the app so the server picks up the new variable
@@ -97,7 +99,7 @@ TRADEBOT_GEMINI_MODEL=gemini-2.5-flash
 
 - [ ] `GEMINI_API` set (you likely already have this)
 - [ ] `MONGODB_URI` set (you likely already have this)
-- [ ] `FINNHUB_API_KEY` set ← **only new required key**
+- [ ] `Finnhub_API` or `FINNHUB_API_KEY` set ← **only new required key**
 - [ ] Redeployed after adding env vars
 - [ ] Tested **R&D → Tradebot → Run scan**
 
@@ -107,7 +109,7 @@ TRADEBOT_GEMINI_MODEL=gemini-2.5-flash
 
 | Issue | Fix |
 |-------|-----|
-| “Finnhub key needed” banner | Add `FINNHUB_API_KEY` and redeploy |
+| “Finnhub key needed” banner | Add `Finnhub_API` or `FINNHUB_API_KEY` and redeploy |
 | “CoinGecko rate limit” | Wait 60 seconds and scan again |
 | No crypto opportunities | Normal when Kraken and CoinGecko agree within fees |
 | 403 on Tradebot | Must be logged in as **owner** or **admin** |

@@ -155,6 +155,7 @@ export default function TradebotTab({
               <p className={`font-semibold ${textMain}`}>{setupTitle}</p>
               <p className={subtitleClasses}>
                 Kraken, CoinGecko, and Frankfurter FX work with no keys. Add{' '}
+                <code className="text-xs">Finnhub_API</code> or{' '}
                 <code className="text-xs">FINNHUB_API_KEY</code> for US stock/ETF quotes (IBIT, SPY,
                 etc.). See <code className="text-xs">docs/TRADEBOT_API_SETUP.md</code> in the repo.
               </p>

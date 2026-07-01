@@ -1,5 +1,10 @@
 export function finnhubApiKey(): string | undefined {
-  return (process.env.FINNHUB_API_KEY || '').trim() || undefined
+  const key =
+    process.env.FINNHUB_API_KEY ||
+    process.env.Finnhub_API ||
+    process.env.FINNHUB_API ||
+    ''
+  return key.trim() || undefined
 }
 
 export function bitbuyApiConfigured(): boolean {
