@@ -365,7 +365,13 @@ export default function HomeMainTabs({
                   darkMode={darkMode}
                   subtitleClasses={subtitleClasses}
                   title={t.tradebot}
-                  comingSoonLabel={t.comingSoon}
+                  scanLabel={t.tradebotScan}
+                  scanningLabel={t.tradebotScanning}
+                  noOpportunitiesLabel={t.tradebotNoOpportunities}
+                  aiInsightLabel={t.tradebotAiInsight}
+                  setupTitle={t.tradebotSetupTitle}
+                  lastScanLabel={t.tradebotLastScan}
+                  alertsOnlyLabel={t.tradebotAlertsOnly}
                 />
               </TabsContent>
             </div>

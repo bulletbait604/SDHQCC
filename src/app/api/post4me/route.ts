@@ -13,8 +13,10 @@ import {
   post4meClipDurationExceededMessage,
 } from '@/lib/post4meLimits'
 import { generatePost4MeFromClip, estimatePost4MeUsd } from '@/lib/post4meGenerate'
-import { buildCombinedPostCaption } from '@/lib/post4meCaption'
-import { formatYouTubeTagsForCopy } from '@/lib/clipAnalyzerMetadata'
+import {
+  buildPost4MePlatformOutputs,
+  normalizePost4MePlatformIds,
+} from '@/lib/post4meFormat'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -32,6 +34,7 @@ export async function POST(request: NextRequest) {
       fileSize,
       durationSeconds,
       platform,
+      platforms,
       prompt,
     } = body as {
       r2FileKey?: string
@@ -40,11 +43,15 @@ export async function POST(request: NextRequest) {
       fileSize?: number
       durationSeconds?: number
       platform?: string
+      platforms?: string[]
       prompt?: string
     }
 
-    if (!platform?.trim()) {
-      return NextResponse.json({ error: 'Platform is required' }, { status: 400 })
+    const platformIds = normalizePost4MePlatformIds(
+      platforms ?? (platform ? [platform] : [])
+    )
+    if (platformIds.length === 0) {
+      return NextResponse.json({ error: 'Select at least one platform' }, { status: 400 })
     }
     if (typeof r2FileKey !== 'string' || !r2FileKey.trim()) {
       return NextResponse.json({ error: 'Clip upload is required' }, { status: 400 })
@@ -100,15 +107,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const platformId = platform.trim().toLowerCase()
     const userPrompt = typeof prompt === 'string' ? prompt : ''
 
-    let result
+    let generated
     try {
-      result = await generatePost4MeFromClip({
+      generated = await generatePost4MeFromClip({
         r2FileKey: clipKey,
         mimeType: mimeType || meta.contentType || 'video/mp4',
-        platformId,
+        platformIds,
         userPrompt,
         durationSeconds: durationSec,
         platforms: DEFAULT_PLATFORMS,
@@ -128,20 +134,11 @@ export async function POST(request: NextRequest) {
     }
 
     const estimate = estimatePost4MeUsd(durationSec ?? 45)
-    const combinedCaption = result.isYouTube ? undefined : buildCombinedPostCaption(result)
-    const youtubeTagsCopy = result.isYouTube ? formatYouTubeTagsForCopy(result.tags) : undefined
+    const results = buildPost4MePlatformOutputs(generated)
 
     return NextResponse.json({
-      platform: platformId,
-      isYouTube: result.isYouTube,
-      title: result.title,
-      titles: result.titles,
-      description: result.description,
-      tags: result.tags,
-      combinedCaption,
-      youtubeTagsCopy,
-      viralityScore: result.viralityScore,
-      viralitySummary: result.viralitySummary,
+      platforms: platformIds,
+      results,
       fileName: typeof fileName === 'string' ? fileName : undefined,
       fileSize: typeof fileSize === 'number' ? fileSize : undefined,
       estimatedCostUsd: estimate.estimatedCostUsd,

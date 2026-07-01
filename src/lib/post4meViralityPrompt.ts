@@ -59,6 +59,20 @@ CAPTION METADATA (strict — separate fields for generation):
 Do NOT put hashtags inside description or title.`
 }
 
+/** Combined rules when generating metadata for multiple platforms in one response. */
+export function post4meMultiPlatformRulesBlock(platformIds: string[]): string {
+  return platformIds
+    .map((id) => {
+      const label = PLATFORM_LABELS[id] || id
+      return `
+--- ${label} (${id}) ---
+${post4meViralityScoringBlock(id)}
+${post4meMetadataPromptBlock(id)}
+Tag rules: ${post4meTagViralityRules(id)}`
+    })
+    .join('\n')
+}
+
 export function post4meTagViralityRules(platformId: string): string {
   switch (platformId) {
     case 'tiktok':

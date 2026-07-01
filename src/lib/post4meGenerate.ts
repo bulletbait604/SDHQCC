@@ -8,9 +8,8 @@ import {
 } from '@/lib/geminiFiles'
 import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
 import {
-  post4meMetadataPromptBlock,
+  post4meMultiPlatformRulesBlock,
   post4meTagViralityRules,
-  post4meViralityScoringBlock,
 } from '@/lib/post4meViralityPrompt'
 import {
   isYouTubeClipPlatform,
@@ -30,13 +29,19 @@ const PLATFORM_LABELS: Record<string, string> = {
   'facebook-reels': 'Facebook Reels',
 }
 
-const post4meRawSchema = z.object({
+const post4mePlatformEntrySchema = z.object({
+  platformId: z.string().optional(),
   title: z.string().optional(),
   titles: z.array(z.string()).optional(),
   description: z.string(),
   tags: z.array(z.string()),
   viralityScore: z.number().min(0).max(100).optional(),
   viralitySummary: z.string().max(400).optional(),
+})
+
+const post4meMultiRawSchema = z.object({
+  results: z.array(post4mePlatformEntrySchema.extend({ platformId: z.string() })).optional(),
+  platforms: z.record(post4mePlatformEntrySchema).optional(),
 })
 
 export type Post4MeResult = NormalizedClipMetadata & {
@@ -126,11 +131,14 @@ function tagGuidance(platformId: string, platforms: Platform[]): string {
 export async function generatePost4MeFromClip(params: {
   r2FileKey: string
   mimeType: string
-  platformId: string
+  platformIds: string[]
   userPrompt?: string
   durationSeconds?: number
   platforms?: Platform[]
-}): Promise<Post4MeResult> {
+}): Promise<Post4MeResult[]> {
+  const platformIds = params.platformIds.filter(Boolean)
+  if (platformIds.length === 0) throw new Error('At least one platform is required')
+
   const apiKey = (process.env.GEMINI_API || '').trim()
   if (!apiKey) throw new Error('GEMINI_API is not configured')
 
@@ -138,8 +146,6 @@ export async function generatePost4MeFromClip(params: {
   if (!buffer) throw new Error('Clip not found in storage')
 
   const platformList = params.platforms ?? []
-  const isYouTube = isYouTubeClipPlatform(params.platformId)
-  const algoContext = await algorithmContextForPlatform(params.platformId)
   const userDirection = params.userPrompt?.trim()
     ? `\nCreator direction (honor this when writing copy):\n${params.userPrompt.trim()}`
     : ''
@@ -154,33 +160,56 @@ export async function generatePost4MeFromClip(params: {
   const cleanupName = uploaded.name
   await pollGeminiFileUntilActive(apiKey, uploaded.uri, { maxRetries: 60, retryDelayMs: 2000 })
 
-  const metadataBlock = post4meMetadataPromptBlock(params.platformId)
-  const viralityBlock = post4meViralityScoringBlock(params.platformId)
+  const platformLabels = platformIds
+    .map((id) => PLATFORM_LABELS[id] || id)
+    .join(', ')
+  const algoBlocks = await Promise.all(
+    platformIds.map(async (id) => {
+      const ctx = await algorithmContextForPlatform(id)
+      return ctx ? `\n${ctx}` : ''
+    })
+  )
+  const multiRules = post4meMultiPlatformRulesBlock(platformIds)
 
-  const prompt = `You are an elite viral growth strategist for ${PLATFORM_LABELS[params.platformId] || params.platformId}. Watch this clip and write publish-ready metadata engineered for maximum algorithmic reach and virality — not generic filler copy.
+  const perPlatformTagRules = platformIds
+    .map(
+      (id) =>
+        `- ${PLATFORM_LABELS[id] || id}: ${tagGuidance(id, platformList)}`
+    )
+    .join('\n')
 
-Target platform: ${PLATFORM_LABELS[params.platformId] || params.platformId}
+  const prompt = `You are an elite viral growth strategist. Watch this clip once and write publish-ready metadata for EACH target platform below — engineered for maximum algorithmic reach, not generic filler.
+
+Target platforms: ${platformLabels}
+Platform IDs (use exactly in response): ${platformIds.join(', ')}
 ${params.durationSeconds ? `Clip length: ~${Math.round(params.durationSeconds)}s` : ''}
 
-${algoContext ? `Platform algorithm notes:\n${algoContext}\n` : ''}
-${viralityBlock}
+${algoBlocks.filter(Boolean).join('\n')}
+${multiRules}
 ${userDirection}
 
-Requirements:
-- Analyze what happens in the clip (topic, hook, emotion, niche, share trigger).
-- Maximize discovery, CTR, completion rate, and saves/shares for ${PLATFORM_LABELS[params.platformId] || params.platformId}.
-- ${tagGuidance(params.platformId, platformList)}
-${metadataBlock}
+GLOBAL REQUIREMENTS:
+- Analyze what happens in the clip (topic, hook, emotion, niche, share trigger) once; tailor copy per platform.
+- Each platform entry must follow THAT platform's metadata rules (YouTube = separate title/description/tags; TikTok/Instagram/Reels = separate fields internally, user will combine caption + hashtags later).
+- Tag guidance per platform:
+${perPlatformTagRules}
 
 Return valid JSON only (no markdown):
 {
-  "viralityScore": 85,
-  "viralitySummary": "Why the primary option should perform + one caveat",
-  "titles": ["highest virality option first", "second hook variant", "third hook variant"],
-  "title": "same as titles[0]",
-  "description": "platform-optimized description/caption body",
-  "tags": ["platform-appropriate tags or hashtags"]
-}`
+  "results": [
+    {
+      "platformId": "tiktok",
+      "viralityScore": 85,
+      "viralitySummary": "Why this will perform on TikTok + one caveat",
+      "titles": ["hook option 1", "hook option 2"],
+      "title": "same as titles[0]",
+      "description": "caption body without hashtags",
+      "tags": ["#tag1", "#tag2"]
+    }
+  ]
+}
+
+Include one object in "results" for EVERY platform ID listed above. Order results the same as the platform ID list.`
 
   try {
     const genAI = new GoogleGenAI({ apiKey })
@@ -221,16 +250,44 @@ Return valid JSON only (no markdown):
       parsed = JSON.parse(extracted)
     }
 
-    const rawMeta = post4meRawSchema.parse(parsed)
-    const normalized = normalizeClipAnalysisMetadata(params.platformId, rawMeta)
+    const multi = post4meMultiRawSchema.parse(parsed)
+    const entries: Array<z.infer<typeof post4mePlatformEntrySchema> & { platformId: string }> =
+      []
 
-    return {
-      ...normalized,
-      platformId: params.platformId,
-      isYouTube,
-      viralityScore: rawMeta.viralityScore,
-      viralitySummary: rawMeta.viralitySummary?.trim(),
+    if (multi.results?.length) {
+      for (const row of multi.results) {
+        if (row.platformId) entries.push(row as typeof entries[number])
+      }
+    } else if (multi.platforms) {
+      for (const [platformId, row] of Object.entries(multi.platforms)) {
+        entries.push({ ...row, platformId })
+      }
     }
+
+    const byId = new Map(entries.map((e) => [e.platformId.trim().toLowerCase(), e]))
+    const results: Post4MeResult[] = []
+
+    for (const platformId of platformIds) {
+      const rawMeta = byId.get(platformId)
+      if (!rawMeta) {
+        console.warn(`[Post4Me] Missing platform in Gemini response: ${platformId}`)
+        continue
+      }
+      const normalized = normalizeClipAnalysisMetadata(platformId, rawMeta)
+      results.push({
+        ...normalized,
+        platformId,
+        isYouTube: isYouTubeClipPlatform(platformId),
+        viralityScore: rawMeta.viralityScore,
+        viralitySummary: rawMeta.viralitySummary?.trim(),
+      })
+    }
+
+    if (results.length === 0) {
+      throw new Error('Gemini did not return metadata for any selected platform')
+    }
+
+    return results
   } finally {
     await deleteGeminiUploadedFile(apiKey, cleanupName).catch(() => undefined)
   }

@@ -1,21 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Send, Film, Loader2, Copy } from 'lucide-react'
+import { Send, Film, Loader2, Check } from 'lucide-react'
 import type { ActivityLogEntry, KickUser, Platform } from '@/lib/home/types'
 import { platformsBannerLogos } from '@/lib/home/defaultPlatforms'
 import { postActivityLog } from '@/lib/home/activityLogUtils'
-import {
-  formatYouTubeTagsForCopy,
-  isYouTubeClipPlatform,
-  stripHashtagsFromDescription,
-} from '@/lib/clipAnalyzerMetadata'
 import {
   POST4ME_CLIP_MAX_BYTES,
   POST4ME_CLIP_MAX_DURATION_SECONDS,
   post4meClipDurationExceededMessage,
 } from '@/lib/post4meLimits'
+import type { Post4MePlatformOutput } from '@/lib/post4meFormat'
+import Post4MePlatformResults from '@/app/components/Post4MePlatformResults'
 
 const VALID_CLIP_TYPES = [
   'video/mp4',
@@ -26,16 +23,8 @@ const VALID_CLIP_TYPES = [
 ]
 
 type Post4MeResponse = {
-  platform: string
-  isYouTube: boolean
-  title?: string
-  titles?: string[]
-  description: string
-  tags: string[]
-  combinedCaption?: string
-  youtubeTagsCopy?: string
-  viralityScore?: number
-  viralitySummary?: string
+  platforms: string[]
+  results: Post4MePlatformOutput[]
   estimatedCostUsd?: number
   estimatedCostNote?: string
 }
@@ -69,25 +58,30 @@ export default function Post4MeTab({
   title,
   description,
 }: Post4MeTabProps) {
-  const [platformId, setPlatformId] = useState('tiktok')
+  const [selectedPlatformIds, setSelectedPlatformIds] = useState<string[]>(['tiktok'])
   const [prompt, setPrompt] = useState('')
   const [clipFile, setClipFile] = useState<File | null>(null)
   const [clipDurationSeconds, setClipDurationSeconds] = useState<number | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<Post4MeResponse | null>(null)
-  const [copiedTitle, setCopiedTitle] = useState<number | null>(null)
-  const [copiedDescription, setCopiedDescription] = useState(false)
-  const [copiedTags, setCopiedTags] = useState(false)
-  const [copiedCaption, setCopiedCaption] = useState(false)
 
   const bannerLogos = platformsBannerLogos(platforms)
-  const isYouTube = result ? result.isYouTube : isYouTubeClipPlatform(platformId)
-  const youtubeTagsCopy =
-    result?.youtubeTagsCopy ?? (result?.tags ? formatYouTubeTagsForCopy(result.tags) : '')
-  const youtubeDescription = result?.description
-    ? stripHashtagsFromDescription(result.description.replace(/<[^>]*>/g, ''))
-    : ''
+  const platformImages = useMemo(
+    () => Object.fromEntries(platforms.map((p) => [p.id, p.image])),
+    [platforms]
+  )
+
+  const togglePlatform = (id: string) => {
+    setSelectedPlatformIds((prev) => {
+      if (prev.includes(id)) {
+        if (prev.length === 1) return prev
+        return prev.filter((p) => p !== id)
+      }
+      return [...prev, id]
+    })
+    setResult(null)
+  }
 
   const readClipDuration = (file: File): Promise<number | null> =>
     new Promise((resolve) => {
@@ -154,6 +148,10 @@ export default function Post4MeTab({
   }
 
   const handleGenerate = async () => {
+    if (selectedPlatformIds.length === 0) {
+      setError('Select at least one platform.')
+      return
+    }
     if (!clipFile) {
       setError('Upload a clip up to 90 seconds.')
       return
@@ -184,7 +182,7 @@ export default function Post4MeTab({
           fileSize: clipFile.size,
           durationSeconds:
             clipDurationSeconds != null ? Math.round(clipDurationSeconds) : undefined,
-          platform: platformId,
+          platforms: selectedPlatformIds,
           prompt: prompt.trim(),
         }),
       })
@@ -199,13 +197,15 @@ export default function Post4MeTab({
       refreshBalance()
 
       if (user && onActivityLog) {
-        const platformName = platforms.find((p) => p.id === platformId)?.name ?? platformId
+        const platformNames = data.results
+          .map((r) => r.platformName)
+          .join(', ')
         const entry: ActivityLogEntry = {
           id: Date.now().toString(),
           username: user.username,
           timestamp: new Date().toISOString(),
           action: 'post4me_generation',
-          details: `Post4Me copy for ${platformName}`,
+          details: `Post4Me copy for ${platformNames}`,
           ...(typeof data.estimatedCostUsd === 'number'
             ? { estimatedCostUsd: data.estimatedCostUsd }
             : {}),
@@ -272,23 +272,46 @@ export default function Post4MeTab({
             <label
               className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}
             >
-              Target platform
+              Target platforms (select one or more)
             </label>
-            <select
-              value={platformId}
-              onChange={(e) => {
-                setPlatformId(e.target.value)
-                setResult(null)
-              }}
-              disabled={isGenerating}
-              className={`w-full px-4 py-3 rounded-xl border outline-none ${inputClasses}`}
-            >
-              {platforms.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {platforms.map((p) => {
+                const selected = selectedPlatformIds.includes(p.id)
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    disabled={isGenerating}
+                    onClick={() => togglePlatform(p.id)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-colors ${
+                      selected
+                        ? darkMode
+                          ? 'border-sdhq-cyan-500 bg-sdhq-cyan-500/15'
+                          : 'border-sdhq-cyan-600 bg-sdhq-cyan-50'
+                        : darkMode
+                          ? 'border-sdhq-dark-600 bg-sdhq-dark-900 hover:border-sdhq-cyan-500/50'
+                          : 'border-gray-300 bg-white hover:border-sdhq-cyan-400'
+                    }`}
+                  >
+                    <img
+                      src={p.image}
+                      alt=""
+                      className="w-8 h-8 rounded-md object-cover shrink-0"
+                    />
+                    <span
+                      className={`text-sm font-medium flex-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                    >
+                      {p.name}
+                    </span>
+                    {selected && <Check className="w-4 h-4 text-sdhq-cyan-400 shrink-0" />}
+                  </button>
+                )
+              })}
+            </div>
+            <p className={`text-xs mt-2 ${subtitleClasses}`}>
+              TikTok, Instagram & Reels → one combined caption each. YouTube → separate title,
+              description, and tags.
+            </p>
           </div>
 
           <div>
@@ -366,6 +389,7 @@ export default function Post4MeTab({
             disabled={
               isGenerating ||
               !clipFile ||
+              selectedPlatformIds.length === 0 ||
               coinLoading ||
               (!hasUnlimitedAccess && !hasEnoughCoins('post4me'))
             }
@@ -374,7 +398,8 @@ export default function Post4MeTab({
             {isGenerating ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Generating post copy…
+                Generating for {selectedPlatformIds.length} platform
+                {selectedPlatformIds.length === 1 ? '' : 's'}…
               </>
             ) : (
               <>
@@ -386,188 +411,24 @@ export default function Post4MeTab({
         </div>
 
         <div className={`p-6 rounded-xl border-2 min-h-[320px] ${card}`}>
-          {!result ? (
+          {!result?.results?.length ? (
             <div
               className={`flex flex-col items-center justify-center h-full text-center py-12 ${subtitleClasses}`}
             >
               <Send className="w-12 h-12 mb-3 opacity-40" />
-              <p>Upload a clip and generate platform-ready title, description, and tags.</p>
-              <p className="text-xs mt-2">
-                TikTok & Instagram → one combined caption with emojis + hashtags. YouTube → separate fields.
+              <p>Upload a clip, select platforms, and generate copy for each one.</p>
+              <p className="text-xs mt-2 max-w-sm">
+                Results appear in separate cards per platform — formatted for how each site expects
+                metadata.
               </p>
-            </div>
-          ) : isYouTube ? (
-            <div className="space-y-4">
-              {result.viralityScore != null && (
-                <div
-                  className={`p-3 rounded-lg border ${
-                    result.viralityScore >= 80
-                      ? darkMode
-                        ? 'bg-green-500/10 border-green-500/30'
-                        : 'bg-green-50 border-green-200'
-                      : darkMode
-                        ? 'bg-amber-500/10 border-amber-500/30'
-                        : 'bg-amber-50 border-amber-200'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold uppercase text-sdhq-cyan-400">
-                      Virality score
-                    </span>
-                    <span
-                      className={`text-lg font-bold ${
-                        result.viralityScore >= 80 ? 'text-green-400' : 'text-amber-400'
-                      }`}
-                    >
-                      {result.viralityScore}/100
-                    </span>
-                  </div>
-                  {result.viralitySummary && (
-                    <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {result.viralitySummary}
-                    </p>
-                  )}
-                </div>
-              )}
-              <p
-                className={`text-xs font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}
-              >
-                YouTube — separate fields
-              </p>
-              {(result.titles?.length ? result.titles : result.title ? [result.title] : []).map(
-                (t, idx) => (
-                  <div
-                    key={idx}
-                    className={`p-3 rounded-lg flex items-start justify-between gap-2 ${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'}`}
-                  >
-                    <span
-                      className={`text-sm flex-1 ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}
-                    >
-                      {idx + 1}. {t}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(t)
-                        setCopiedTitle(idx)
-                        setTimeout(() => setCopiedTitle(null), 2000)
-                      }}
-                      className="text-xs text-sdhq-cyan-400 shrink-0"
-                    >
-                      {copiedTitle === idx ? 'Copied!' : 'Copy'}
-                    </button>
-                  </div>
-                )
-              )}
-              {youtubeDescription && (
-                <div className={`p-3 rounded-lg ${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'}`}>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-xs font-semibold text-sdhq-cyan-400">Description</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(youtubeDescription)
-                        setCopiedDescription(true)
-                        setTimeout(() => setCopiedDescription(false), 2000)
-                      }}
-                      className="text-xs text-sdhq-cyan-400"
-                    >
-                      {copiedDescription ? 'Copied!' : 'Copy'}
-                    </button>
-                  </div>
-                  <p
-                    className={`text-sm whitespace-pre-wrap ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}
-                  >
-                    {youtubeDescription}
-                  </p>
-                </div>
-              )}
-              {result.tags.length > 0 && (
-                <div className={`p-3 rounded-lg ${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'}`}>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-xs font-semibold text-sdhq-cyan-400">
-                      Tags (comma-separated, no #)
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(youtubeTagsCopy)
-                        setCopiedTags(true)
-                        setTimeout(() => setCopiedTags(false), 2000)
-                      }}
-                      className="text-xs text-sdhq-cyan-400"
-                    >
-                      {copiedTags ? 'Copied!' : 'Copy all'}
-                    </button>
-                  </div>
-                  <p
-                    className={`text-xs font-mono break-all ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
-                  >
-                    {youtubeTagsCopy}
-                  </p>
-                </div>
-              )}
             </div>
           ) : (
-            <div className="space-y-3">
-              {result.viralityScore != null && (
-                <div
-                  className={`p-3 rounded-lg border ${
-                    result.viralityScore >= 80
-                      ? darkMode
-                        ? 'bg-green-500/10 border-green-500/30'
-                        : 'bg-green-50 border-green-200'
-                      : darkMode
-                        ? 'bg-amber-500/10 border-amber-500/30'
-                        : 'bg-amber-50 border-amber-200'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold uppercase text-sdhq-cyan-400">
-                      Virality score
-                    </span>
-                    <span
-                      className={`text-lg font-bold ${
-                        result.viralityScore >= 80 ? 'text-green-400' : 'text-amber-400'
-                      }`}
-                    >
-                      {result.viralityScore}/100
-                    </span>
-                  </div>
-                  {result.viralitySummary && (
-                    <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {result.viralitySummary}
-                    </p>
-                  )}
-                </div>
-              )}
-              <p
-                className={`text-xs font-semibold uppercase ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}
-              >
-                Combined caption (description + hashtags)
-              </p>
-              <div className={`p-4 rounded-lg ${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'}`}>
-                <p
-                  className={`text-sm whitespace-pre-wrap mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}
-                >
-                  {result.combinedCaption || result.description}
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    navigator.clipboard.writeText(result.combinedCaption || result.description)
-                    setCopiedCaption(true)
-                    setTimeout(() => setCopiedCaption(false), 2000)
-                  }}
-                  className="w-full"
-                >
-                  <Copy className="w-4 h-4 mr-2" />
-                  {copiedCaption ? 'Copied!' : 'Copy full caption'}
-                </Button>
-              </div>
-            </div>
+            <Post4MePlatformResults
+              results={result.results}
+              darkMode={darkMode}
+              subtitleClasses={subtitleClasses}
+              platformImages={platformImages}
+            />
           )}
         </div>
       </div>
