@@ -63,13 +63,15 @@ export default function BungieConnectBanner({
         </div>
       )}
 
-      <GlassCard darkMode={darkMode} padding="lg">
+      <GlassCard darkMode={darkMode} padding="none" className="overflow-hidden">
         {!configured ? (
-          <p className={cn('text-sm leading-relaxed', t.muted)}>
-            Bungie sign-in is not configured on the server yet.
-          </p>
+          <div className="p-5 sm:p-6">
+            <p className={cn('text-sm leading-relaxed', t.muted)}>
+              Bungie sign-in is not configured on the server yet.
+            </p>
+          </div>
         ) : linked ? (
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="d2-hero-strip px-5 py-4 flex flex-wrap items-center gap-4">
             {status?.emblemUrl ? (
               <GlowIcon item={{ name: status.bungieDisplayName ?? 'Guardian', iconUrl: status.emblemUrl }} size={56} glow="gold" className="rounded-2xl" />
             ) : null}
@@ -98,8 +100,8 @@ export default function BungieConnectBanner({
             </div>
           </div>
         ) : variant === 'overview' ? (
-          <div className="flex flex-col sm:flex-row gap-5 sm:items-center">
-            <GlowIcon size={64} glow="gold" className="rounded-2xl shrink-0 mx-auto sm:mx-0" />
+          <div className="d2-hero-strip px-5 sm:px-6 py-6 flex flex-col sm:flex-row gap-5 sm:items-center">
+            <GlowIcon size={64} glow="gold" className="rounded-sm shrink-0 mx-auto sm:mx-0" />
             <button
               type="button"
               onClick={connect}
@@ -110,14 +112,16 @@ export default function BungieConnectBanner({
             </button>
           </div>
         ) : (
-          <button type="button" onClick={connect} className={destinyPrimaryBtn(darkMode)}>
-            <Link2 className="w-4 h-4" />
-            Connect Bungie
-          </button>
+          <div className="p-5">
+            <button type="button" onClick={connect} className={destinyPrimaryBtn(darkMode)}>
+              <Link2 className="w-4 h-4" />
+              Connect Bungie
+            </button>
+          </div>
         )}
 
         {!linked && configured && status?.redirectUri && variant === 'overview' && (
-          <details className={cn('mt-5 rounded-2xl p-4', t.glassInset)}>
+          <details className={cn('mx-5 mb-5 rounded-lg p-4', t.glassInset)}>
             <summary className={cn('text-xs font-medium cursor-pointer select-none', t.muted)}>
               Developer setup (redirect URL)
             </summary>

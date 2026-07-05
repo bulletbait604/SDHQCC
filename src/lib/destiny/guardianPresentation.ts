@@ -28,6 +28,15 @@ export interface GuardianPresentation {
   characterThumbnailUrl?: string
 }
 
+export interface CharacterPresentation {
+  characterId: string
+  characterClass: DestinyCharacterClass
+  powerLevel: number
+  emblemUrl?: string
+  emblemBackgroundUrl?: string
+  emblemColor?: string
+}
+
 function emblemColorCss(color?: { red?: number; green?: number; blue?: number; alpha?: number }): string | undefined {
   if (!color) return undefined
   const r = color.red ?? 0
@@ -102,4 +111,42 @@ export async function fetchGuardianPresentation(
     emblemColor: emblemColorCss(character.emblemColor),
     characterThumbnailUrl,
   }
+}
+
+type BungieCharacterRecord = {
+  classType?: number
+  light?: number
+  emblemPath?: string
+  emblemBackgroundPath?: string
+  emblemColor?: { red?: number; green?: number; blue?: number; alpha?: number }
+}
+
+function mapCharacterRecord(
+  characterId: string,
+  character: BungieCharacterRecord
+): CharacterPresentation {
+  const classType = character.classType ?? 1
+  return {
+    characterId,
+    characterClass: CLASS_MAP[classType] ?? 'hunter',
+    powerLevel: character.light ?? 0,
+    emblemUrl: buildBungieIconUrl(character.emblemPath),
+    emblemBackgroundUrl: buildBungieIconUrl(character.emblemBackgroundPath),
+    emblemColor: emblemColorCss(character.emblemColor),
+  }
+}
+
+/** All characters for DIM-style header tiles (component 200). */
+export async function fetchAllCharactersPresentation(
+  membershipType: number,
+  membershipId: string,
+  accessToken: string
+): Promise<CharacterPresentation[]> {
+  const profile = (await getPlayerProfile(membershipType, membershipId, [200], accessToken)) as {
+    characters?: { data?: Record<string, BungieCharacterRecord> }
+  }
+
+  return Object.entries(profile.characters?.data ?? {})
+    .map(([characterId, character]) => mapCharacterRecord(characterId, character))
+    .sort((a, b) => b.powerLevel - a.powerLevel)
 }

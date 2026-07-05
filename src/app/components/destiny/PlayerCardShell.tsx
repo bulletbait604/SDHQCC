@@ -45,7 +45,7 @@ export default function PlayerCardShell({ darkMode, onProfileLoaded }: Props) {
   }, [load])
 
   return (
-    <div className="mb-4 flex justify-start w-full max-w-3xl">
+    <div className="mb-4 flex justify-start w-full max-w-4xl">
       <PlayerCardCompact
         profile={profile}
         darkMode={darkMode}

@@ -1,4 +1,4 @@
-import type { LeaderboardEntry, PlayerProfile, ReputationReview, ResolvedEmblem, RunRecord, TrustReview } from '@/lib/destiny/types'
+import type { LeaderboardEntry, PlayerProfile, ReputationReview, ResolvedEmblem, RunRecord, TrustReview, CharacterSummary } from '@/lib/destiny/types'
 import type { StoredDestinyUser } from '@/lib/destiny/destinyUserStore'
 import {
   buildProfileFlexStats,
@@ -38,6 +38,7 @@ export function buildPlayerProfileFromStored(
     trustReviews?: TrustReview[]
     seasonLeaderboardEntries?: LeaderboardEntry[]
     displayEmblem?: ResolvedEmblem | null
+    characters?: CharacterSummary[]
   }
 ): PlayerProfile {
   const userRuns = runs.filter((r) => r.ownerUserId === stored.userId)
@@ -124,6 +125,7 @@ export function buildPlayerProfileFromStored(
     prizeEligibility: prizeEligibilityForUser(seasonEntries, verified.length),
     currentLoadout: options?.loadout,
     displayEmblem: displayEmblem ?? undefined,
+    characters: options?.characters,
   }
 
   return {

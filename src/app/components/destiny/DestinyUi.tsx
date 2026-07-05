@@ -1,13 +1,15 @@
 'use client'
 
-import { Inbox } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { DestinyIconRef, LeaderboardEntry } from '@/lib/destiny/types'
+import { TopNestLogoMark } from '@/app/components/destiny/TopNestBrandBanner'
 import {
   destinyChip,
+  elementBorderClass,
   formatDuration,
   getDestinyTheme,
   platformIcon,
+  tierBorderClass,
 } from '@/app/components/destiny/destinyTheme'
 
 export function ItemIcon({
@@ -17,6 +19,7 @@ export function ItemIcon({
   size = 40,
   className,
   title,
+  square = true,
 }: {
   item?: DestinyIconRef
   name?: string
@@ -24,10 +27,14 @@ export function ItemIcon({
   size?: number
   className?: string
   title?: string
+  /** Square corners like light.gg item tiles (default). Set false for circular class icons. */
+  square?: boolean
 }) {
   const url = item?.iconUrl ?? iconUrl
   const label = item?.name ?? name ?? 'Item'
   const tier = item?.tierLabel
+  const rarityClass = tierBorderClass(tier)
+  const elementClass = elementBorderClass(label)
 
   if (url) {
     return (
@@ -35,7 +42,13 @@ export function ItemIcon({
         src={url}
         alt=""
         title={title ?? (tier ? `${label} (${tier})` : label)}
-        className={cn('shrink-0 rounded-xl bg-black/20 object-cover ring-1 ring-white/10', className)}
+        className={cn(
+          'd2-item-thumb',
+          square ? 'rounded-sm' : 'rounded-full',
+          rarityClass,
+          elementClass,
+          className
+        )}
         style={{ width: size, height: size }}
       />
     )
@@ -45,7 +58,8 @@ export function ItemIcon({
     <div
       title={label}
       className={cn(
-        'shrink-0 rounded-xl bg-white/[0.06] ring-1 ring-white/10 flex items-center justify-center text-[10px] text-white/40',
+        'd2-item-thumb d2-rarity-common flex items-center justify-center text-[10px] text-white/30',
+        square ? 'rounded-sm' : 'rounded-full',
         className
       )}
       style={{ width: size, height: size }}
@@ -66,11 +80,11 @@ export function GearStrip({
 }) {
   const t = getDestinyTheme(darkMode)
   return (
-    <div className="flex flex-wrap gap-3 items-start">
+    <div className="flex flex-wrap gap-2 items-start">
       {items.filter(Boolean).map((item, i) => (
         <div key={i} className="flex flex-col items-center gap-1 max-w-[76px]">
           <ItemIcon item={item} size={size} />
-          <span className={cn('text-[10px] text-center line-clamp-2 leading-snug', t.caption)}>
+          <span className={cn('text-[9px] text-center line-clamp-2 leading-snug', t.caption)}>
             {item?.name}
           </span>
         </div>
@@ -94,11 +108,13 @@ export function SubclassBadge({
 }) {
   const t = getDestinyTheme(darkMode)
   return (
-    <div className="flex items-center gap-3">
-      <ItemIcon item={classRef} name={characterClass} size={36} className="rounded-full" />
+    <div className="flex items-center gap-2.5">
+      <ItemIcon item={classRef} name={characterClass} size={36} square={false} />
       <ItemIcon item={subclassRef} name={subclass} size={32} />
-      <span className={cn('text-sm font-medium', t.body)}>
-        {subclass} · {characterClass}
+      <span className={cn('text-sm font-semibold', t.body)}>
+        <span className={cn('uppercase tracking-wide text-[11px]', t.gold)}>{subclass}</span>
+        <span className={cn('mx-1.5 text-white/25')}>·</span>
+        <span className="capitalize">{characterClass}</span>
       </span>
     </div>
   )
@@ -115,17 +131,23 @@ export function ActivityBadge({
   darkMode: boolean
   size?: number
 }) {
+  const t = getDestinyTheme(darkMode)
   return (
-    <div className="flex items-center gap-3">
-      <img
-        src={activityRef?.iconUrl}
-        alt=""
-        className="d2-section-icon shrink-0"
-        style={{ width: size, height: size }}
-      />
-      <span className={cn('font-black text-sm tracking-tight uppercase', getDestinyTheme(darkMode).heading)}>
-        {name}
-      </span>
+    <div className="flex items-center gap-3 d2-panel-inset px-3 py-2 rounded-lg">
+      {activityRef?.iconUrl ? (
+        <img
+          src={activityRef.iconUrl}
+          alt=""
+          className="d2-item-thumb d2-rarity-legendary rounded-sm shrink-0 object-cover"
+          style={{ width: size, height: size }}
+        />
+      ) : (
+        <div
+          className="d2-item-thumb d2-rarity-legendary rounded-sm shrink-0 bg-black/40"
+          style={{ width: size, height: size }}
+        />
+      )}
+      <span className={cn('font-black text-xs tracking-[0.08em] uppercase', t.heading)}>{name}</span>
     </div>
   )
 }
@@ -144,7 +166,7 @@ export function GlassCard({
   const t = getDestinyTheme(darkMode)
   const pad = padding === 'lg' ? 'p-6 sm:p-7' : padding === 'none' ? '' : 'p-5 sm:p-6'
   return (
-    <div className={cn('rounded-[1.25rem]', pad, t.glass, className)}>{children}</div>
+    <div className={cn(pad, t.glass, className)}>{children}</div>
   )
 }
 
@@ -159,15 +181,76 @@ export function SectionTitle({
   iconUrl?: string
   darkMode: boolean
 }) {
-  const t = getDestinyTheme(darkMode)
   return (
-    <div className="mb-4 flex items-center gap-3">
+    <div className="d2-panel-header">
       {iconUrl ? (
-        <img src={iconUrl} alt="" className="d2-section-icon shrink-0" />
+        <img
+          src={iconUrl}
+          alt=""
+          className="d2-item-thumb d2-rarity-legendary rounded-sm shrink-0 w-11 h-11 object-cover"
+        />
       ) : null}
       <div>
-        <h4 className={cn('text-base font-black tracking-tight uppercase', t.heading)}>{title}</h4>
-        {subtitle && <p className={cn('text-xs mt-0.5', t.caption)}>{subtitle}</p>}
+        <h4 className="d2-panel-header-title">{title}</h4>
+        {subtitle && <p className="d2-panel-header-sub">{subtitle}</p>}
+      </div>
+    </div>
+  )
+}
+
+/** Tracker.gg-style stat highlight card. */
+export function StatCard({
+  label,
+  value,
+  sub,
+  darkMode,
+}: {
+  label: string
+  value: React.ReactNode
+  sub?: string
+  darkMode: boolean
+}) {
+  const t = getDestinyTheme(darkMode)
+  return (
+    <div className="d2-stat-card">
+      <p className="d2-stat-card-label">{label}</p>
+      <p className="d2-stat-card-value">{value}</p>
+      {sub ? <p className={cn('text-[11px] mt-1.5', t.muted)}>{sub}</p> : null}
+    </div>
+  )
+}
+
+/** Blueberries.gg-style reset countdown. */
+export function ResetCountdown({
+  days,
+  hours,
+  minutes,
+  seconds,
+  label = 'Weekly reset',
+}: {
+  days: number
+  hours: number
+  minutes: number
+  seconds?: number
+  label?: string
+}) {
+  const units = [
+    { n: days, l: 'Days' },
+    { n: hours, l: 'Hrs' },
+    { n: minutes, l: 'Min' },
+    ...(seconds != null ? [{ n: seconds, l: 'Sec' }] : []),
+  ]
+
+  return (
+    <div>
+      <p className="d2-panel-header-title text-xs mb-3">{label}</p>
+      <div className={cn('d2-countdown', seconds == null && 'grid-cols-3')}>
+        {units.map(({ n, l }) => (
+          <div key={l} className="d2-countdown-unit">
+            <p className="d2-countdown-num">{n}</p>
+            <p className="d2-countdown-lbl">{l}</p>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -185,7 +268,7 @@ export function PageIntro({
   const t = getDestinyTheme(darkMode)
   return (
     <div className="mb-6">
-      <h3 className={cn('text-xl font-semibold tracking-tight', t.heading)}>{title}</h3>
+      <h3 className={cn('text-xl font-black tracking-tight uppercase', t.heading)}>{title}</h3>
       {description && <p className={cn('text-sm mt-2 leading-relaxed max-w-2xl', t.muted)}>{description}</p>}
     </div>
   )
@@ -207,7 +290,7 @@ export function SegmentedControl<T extends string>({
   const t = getDestinyTheme(darkMode)
   return (
     <div className="space-y-2">
-      {label && <p className={cn('text-xs font-medium', t.caption)}>{label}</p>}
+      {label && <p className={cn('text-xs font-medium uppercase tracking-wide', t.caption)}>{label}</p>}
       <div className="flex flex-wrap gap-2">
         {options.map((opt) => (
           <button
@@ -227,9 +310,9 @@ export function SegmentedControl<T extends string>({
 export function LoadingBlock({ darkMode, label = 'Loading…' }: { darkMode: boolean; label?: string }) {
   const t = getDestinyTheme(darkMode)
   return (
-    <div className={cn('rounded-[1.25rem] p-10 text-center', t.glass)}>
-      <div className="mx-auto w-8 h-8 rounded-full border-2 border-white/20 border-t-white/70 animate-spin mb-3" />
-      <p className={cn('text-sm', t.muted)}>{label}</p>
+    <div className={cn('p-10 text-center', t.glass)}>
+      <TopNestLogoMark size={56} className="mx-auto mb-4 animate-pulse" />
+      <p className={cn('text-sm uppercase tracking-[0.15em]', t.bronze)}>{label}</p>
     </div>
   )
 }
@@ -245,11 +328,9 @@ export function EmptyBlock({
 }) {
   const t = getDestinyTheme(darkMode)
   return (
-    <div className={cn('rounded-2xl p-10 text-center', t.glassInset)}>
-      <div className="mx-auto w-12 h-12 rounded-2xl bg-white/[0.06] flex items-center justify-center mb-4">
-        <Inbox className="w-6 h-6 text-white/30" />
-      </div>
-      <p className={cn('text-sm font-medium', t.body)}>{message}</p>
+    <div className={cn('rounded-lg p-10 text-center', t.glassInset)}>
+      <TopNestLogoMark size={48} className="mx-auto mb-4 opacity-60" />
+      <p className={cn('text-sm font-semibold', t.body)}>{message}</p>
       {hint && <p className={cn('text-xs mt-2 leading-relaxed max-w-xs mx-auto', t.muted)}>{hint}</p>}
     </div>
   )
@@ -265,28 +346,30 @@ function LeaderboardRow({
   darkMode: boolean
 }) {
   const t = getDestinyTheme(darkMode)
-  const medal =
-    entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : entry.rank === 3 ? '🥉' : String(entry.rank)
 
   return (
-    <div
-      className={cn(
-        'flex items-center gap-3 py-3 px-3 rounded-2xl transition-colors',
-        darkMode ? 'hover:bg-white/[0.04]' : 'hover:bg-black/[0.03]'
-      )}
-    >
-      <span className={cn('w-8 text-center text-sm font-semibold shrink-0', entry.rank <= 3 ? t.gold : t.caption)}>
-        {medal}
+    <div className="d2-leaderboard-row">
+      <span
+        className={cn(
+          'd2-leaderboard-rank',
+          entry.rank <= 3 ? 'd2-leaderboard-rank-top' : t.caption
+        )}
+      >
+        {entry.rank}
       </span>
       {entry.emblemUrl ? (
-        <img src={entry.emblemUrl} alt="" className="w-12 h-12 rounded-xl ring-2 ring-white/15 shrink-0 shadow-lg object-cover" />
+        <img
+          src={entry.emblemUrl}
+          alt=""
+          className="w-10 h-10 rounded-sm shrink-0 object-cover ring-1 ring-white/15"
+        />
       ) : (
-        <div className="w-12 h-12 rounded-xl bg-white/[0.06] shrink-0 ring-1 ring-white/10" />
+        <div className="w-10 h-10 rounded-sm bg-black/40 shrink-0 ring-1 ring-white/10" />
       )}
       <div className="flex-1 min-w-0">
-        <p className={cn('font-medium text-sm truncate', t.heading)}>{entry.bungieDisplayName}</p>
+        <p className={cn('font-semibold text-sm truncate', t.heading)}>{entry.bungieDisplayName}</p>
         {!compact && (
-          <p className={cn('text-xs mt-0.5 truncate', t.muted)}>
+          <p className={cn('text-[11px] mt-0.5 truncate', t.muted)}>
             {entry.clanTag ? `${entry.clanTag} · ` : ''}
             {platformIcon(entry.platform)}
             {entry.powerLevel ? ` · ${entry.powerLevel} PL` : ''}
@@ -294,8 +377,8 @@ function LeaderboardRow({
         )}
       </div>
       <div className="text-right shrink-0">
-        <p className={cn('text-sm font-semibold tabular-nums', t.gold)}>{entry.points}</p>
-        <p className={cn('text-[10px]', t.caption)}>pts</p>
+        <p className="d2-stat-card-value text-base">{entry.points}</p>
+        <p className={cn('text-[9px] uppercase tracking-wide', t.caption)}>pts</p>
         {!compact && entry.reputationScore != null && entry.reputationScore > 0 && (
           <p className={cn('text-[10px] mt-0.5', t.muted)}>
             ★ {entry.reputationScore.toFixed(1)}
@@ -327,7 +410,7 @@ export function LeaderboardTable({
   }
 
   return (
-    <div className="space-y-0.5 -mx-1">
+    <div className="-mx-1">
       {entries.map((e) => (
         <LeaderboardRow key={`${e.userId}-${e.rank}`} entry={e} compact={compact} darkMode={darkMode} />
       ))}
@@ -343,14 +426,12 @@ export function StatusPill({
   tone: 'gold' | 'purple' | 'blue' | 'red' | 'green' | 'neutral'
 }) {
   const tones = {
-    gold: 'bg-amber-400/10 text-amber-200/90 ring-amber-400/20',
-    purple: 'bg-violet-400/10 text-violet-200/90 ring-violet-400/20',
-    blue: 'bg-sky-400/10 text-sky-200/90 ring-sky-400/20',
-    red: 'bg-red-400/10 text-red-200/90 ring-red-400/20',
-    green: 'bg-emerald-400/10 text-emerald-200/90 ring-emerald-400/20',
-    neutral: 'bg-white/[0.06] text-white/70 ring-white/10',
+    gold: 'd2-badge-gold',
+    purple: 'd2-badge-purple',
+    blue: 'd2-badge-blue',
+    red: 'd2-badge-red',
+    green: 'd2-badge-green',
+    neutral: 'd2-badge-neutral',
   }
-  return (
-    <span className={cn('text-xs px-3 py-1 rounded-full ring-1 font-medium', tones[tone])}>{label}</span>
-  )
+  return <span className={cn('d2-badge-pill', tones[tone])}>{label}</span>
 }

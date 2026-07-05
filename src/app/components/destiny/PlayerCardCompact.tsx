@@ -1,7 +1,9 @@
 'use client'
 
 import type { PlayerProfile } from '@/lib/destiny/types'
-import { CharacterEmblem, GameCard, GlowIcon } from '@/app/components/destiny/destinyGameUi'
+import { CharacterTileRow } from '@/app/components/destiny/CharacterTile'
+import GuardianProfileBanner from '@/app/components/destiny/GuardianProfileBanner'
+import { GameCard } from '@/app/components/destiny/destinyGameUi'
 import { getDestinyTheme } from '@/app/components/destiny/destinyTheme'
 import { cn } from '@/lib/utils'
 
@@ -12,80 +14,82 @@ interface Props {
   loading?: boolean
 }
 
-function classLabel(characterClass?: string) {
-  if (!characterClass) return 'Guardian'
-  return characterClass.charAt(0).toUpperCase() + characterClass.slice(1)
+function fallbackCharacters(profile: PlayerProfile): PlayerProfile['characters'] {
+  if (profile.characters?.length) return profile.characters
+  if (!profile.characterClass) return undefined
+  return [
+    {
+      characterId: profile.activeCharacterId ?? 'active',
+      characterClass: profile.characterClass,
+      powerLevel: profile.powerLevel ?? 0,
+      emblemUrl: profile.displayEmblem?.iconUrl ?? profile.emblemUrl,
+      emblemBackgroundUrl: profile.displayEmblem?.backgroundUrl ?? profile.emblemBackgroundUrl,
+      emblemColor: profile.displayEmblem?.color ?? profile.emblemColor,
+      classRef: profile.classRef,
+    },
+  ]
 }
 
-/** Short wide banner — emblem, class, name, GR, PL, T.R. only. */
+function CompactStats({ profile }: { profile: PlayerProfile }) {
+  const trust = profile.trustRank
+  return (
+    <>
+      <div className="d2-compact-stat" title="Guardian Rank">
+        <span className="d2-compact-stat-label">GR</span>
+        <span className="d2-compact-stat-value">{profile.guardianRank ?? '—'}</span>
+      </div>
+      <div className="d2-compact-stat d2-compact-stat-gold" title="Gear Level">
+        <span className="d2-compact-stat-label">PL</span>
+        <span className="d2-compact-stat-value">{profile.powerLevel ?? '—'}</span>
+      </div>
+      <div className="d2-trust-badge-compact shrink-0" title={trust?.topNestTitle ?? 'Unrated'}>
+        <span className="text-sm font-black text-amber-300 leading-none">T.R.</span>
+      </div>
+    </>
+  )
+}
+
+/** Short wide banner — Tracker header + DIM character tiles + stats. */
 export default function PlayerCardCompact({ profile, darkMode, linked = true, loading }: Props) {
   const t = getDestinyTheme(darkMode)
 
   if (loading) {
     return (
-      <div className={cn('d2-game-card d2-player-compact animate-pulse w-full max-w-3xl', t.glassInset)}>
-        <div className="h-[72px] rounded-xl bg-white/5 mx-3 my-2" />
+      <div className={cn('d2-panel animate-pulse w-full max-w-4xl overflow-hidden', t.glassInset)}>
+        <div className="h-24 bg-white/5" />
+        <div className="h-12 bg-black/20 mx-3 my-2 rounded" />
       </div>
     )
   }
 
   if (!profile) {
     return (
-      <GameCard className="d2-player-compact w-full max-w-3xl px-4 py-3">
+      <GameCard className="w-full max-w-4xl px-4 py-3">
         <p className={cn('text-xs text-center', t.muted)}>Link Bungie to load your Guardian</p>
       </GameCard>
     )
   }
 
-  const trust = profile.trustRank
-  const emblem = profile.displayEmblem
-  const emblemBg = emblem?.backgroundUrl ?? profile.emblemBackgroundUrl
-  const emblemIcon = emblem?.iconUrl ?? profile.emblemUrl
+  const characters = fallbackCharacters(profile)
 
   return (
-    <GameCard className="d2-player-compact w-full max-w-3xl">
-      <div className="flex items-center gap-3 px-3 py-2 min-h-[76px]">
-        <CharacterEmblem
-          compact
-          backgroundUrl={emblemBg}
-          iconUrl={emblemIcon}
-          accentColor={emblem?.color ?? profile.emblemColor}
-          characterClass={profile.characterClass}
-          classIconUrl={profile.classRef?.iconUrl}
-          title={emblem?.name ?? 'Emblem'}
-        />
-
-        <div className="flex-1 min-w-0 flex items-center gap-3">
-          {profile.classRef ? (
-            <GlowIcon item={profile.classRef} size={32} glow="auto" className="rounded-full shrink-0" />
-          ) : null}
-          <div className="min-w-0 flex-1">
-            <h2 className="text-base sm:text-lg font-black text-white truncate leading-tight">
-              {profile.bungieDisplayName}
-            </h2>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-white/45">
-              {classLabel(profile.characterClass)}
-            </p>
+    <GameCard className="w-full max-w-4xl overflow-hidden p-0">
+      <GuardianProfileBanner profile={profile} compact stats={<CompactStats profile={profile} />}>
+        {characters?.length ? (
+          <div className="dim-player-header -mx-1 mt-3 px-1 pt-2 pb-1 rounded-md">
+            <CharacterTileRow
+              characters={characters}
+              activeCharacterId={profile.activeCharacterId}
+              compact
+            />
           </div>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="d2-compact-stat" title="Guardian Rank">
-            <span className="d2-compact-stat-label">GR</span>
-            <span className="d2-compact-stat-value">{profile.guardianRank ?? '—'}</span>
-          </div>
-          <div className="d2-compact-stat d2-compact-stat-gold" title="Gear Level">
-            <span className="d2-compact-stat-label">PL</span>
-            <span className="d2-compact-stat-value">{profile.powerLevel ?? '—'}</span>
-          </div>
-          <div className="d2-trust-badge-compact shrink-0" title={trust?.topNestTitle ?? 'Unrated'}>
-            <span className="text-sm font-black text-amber-300 leading-none">T.R.</span>
-          </div>
-        </div>
-      </div>
+        ) : null}
+      </GuardianProfileBanner>
 
       {!linked && (
-        <p className="text-[10px] text-center text-amber-200/60 pb-2">Connect Bungie on Home</p>
+        <p className="text-[10px] text-center text-amber-200/60 py-2 border-t border-white/[0.06]">
+          Connect Bungie on Home
+        </p>
       )}
     </GameCard>
   )

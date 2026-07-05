@@ -49,7 +49,7 @@ export default function TopLoadoutsByClass({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {(['titan', 'hunter', 'warlock'] as const).map((cls) => (
           <div key={cls}>
-            <p className={cn('text-sm font-semibold mb-3', t.heading)}>{CLASS_LABELS[cls]}</p>
+            <p className={cn('d2-class-divider', `d2-class-${cls}`)}>{CLASS_LABELS[cls]}</p>
             <div className="space-y-3">
               {topByClass[cls]?.length ? (
                 topByClass[cls].map((b) => (

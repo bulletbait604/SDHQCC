@@ -361,6 +361,19 @@ export interface AdminReviewRecord {
   run?: RunRecord
 }
 
+/** One guardian slot — DIM-style horizontal character tile data. */
+export interface CharacterSummary {
+  characterId: string
+  characterClass: DestinyCharacterClass
+  powerLevel: number
+  emblemUrl?: string
+  emblemBackgroundUrl?: string
+  emblemColor?: string
+  classRef?: DestinyIconRef
+  /** Equipped title / seal name when available from Bungie. */
+  title?: string
+}
+
 export interface PlayerProfile extends DestinyUser {
   raidPoints: number
   dungeonPoints: number
@@ -375,6 +388,8 @@ export interface PlayerProfile extends DestinyUser {
   prizeEligibility: string
   currentLoadout?: BuildSnapshot
   classRef?: DestinyIconRef
+  /** All characters on the linked account (DIM-style tile row). */
+  characters?: CharacterSummary[]
   flexStats?: ProfileFlexStat[]
   bungieStats?: GuardianBungieStats
   trustRank?: TrustRankSummary

@@ -11,7 +11,7 @@ import {
   ShieldAlert,
 } from 'lucide-react'
 import type { DestinyTopNestTab } from '@/lib/destiny/types'
-import { destinyNavPrimary, destinyNavSecondary, getDestinyTheme } from '@/app/components/destiny/destinyTheme'
+import { destinyNavPrimary, destinyNavSecondary } from '@/app/components/destiny/destinyTheme'
 import { cn } from '@/lib/utils'
 
 const PRIMARY: { id: DestinyTopNestTab; label: string; icon: LucideIcon }[] = [
@@ -37,16 +37,15 @@ interface Props {
 }
 
 export default function DestinyNav({ activeTab, onTabChange, darkMode, showAdmin = true }: Props) {
-  const t = getDestinyTheme(darkMode)
   const exploreTabs = EXPLORE.filter((tab) => !tab.adminOnly || showAdmin)
   const navActiveTab = LEGACY_PROFILE_TABS.includes(activeTab) ? 'profile' : activeTab
 
   return (
-    <div className="space-y-3 mb-6">
+    <div className="space-y-0 mb-4">
       <nav
         className={cn(
-          'grid grid-cols-3 gap-2 p-2 rounded-2xl',
-          darkMode ? 'bg-black/30 ring-1 ring-white/10 shadow-xl' : 'bg-white/60 ring-1 ring-black/5 shadow-lg'
+          'd2-tab-bar grid grid-cols-3 gap-0',
+          darkMode ? 'bg-black/20' : 'bg-black/[0.03]'
         )}
         aria-label="Main sections"
       >
@@ -60,17 +59,14 @@ export default function DestinyNav({ activeTab, onTabChange, darkMode, showAdmin
               onClick={() => onTabChange(tab.id)}
               className={destinyNavPrimary(active, darkMode)}
             >
-              <Icon className={cn('w-6 h-6 shrink-0', active && 'text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]')} />
-              <span className="uppercase tracking-wide text-[10px] sm:text-xs">{tab.label}</span>
+              <Icon className={cn('w-5 h-5 shrink-0', active && 'text-[var(--tn-arc)] drop-shadow-[0_0_8px_var(--tn-arc-glow)]')} />
+              <span className="uppercase tracking-[0.12em] text-[10px] sm:text-xs font-bold">{tab.label}</span>
             </button>
           )
         })}
       </nav>
 
-      <nav
-        className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin"
-        aria-label="More sections"
-      >
+      <nav className="d2-tab-bar flex gap-0 overflow-x-auto mt-0" aria-label="More sections">
         {exploreTabs.map((tab) => {
           const Icon = tab.icon
           const active = activeTab === tab.id
@@ -81,7 +77,7 @@ export default function DestinyNav({ activeTab, onTabChange, darkMode, showAdmin
               onClick={() => onTabChange(tab.id)}
               className={destinyNavSecondary(active, darkMode)}
             >
-              <Icon className={cn('w-5 h-5 shrink-0', active && 'text-amber-300')} />
+              <Icon className={cn('w-4 h-4 shrink-0', active && 'text-[var(--tn-solar)]')} />
               {tab.label}
             </button>
           )

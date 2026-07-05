@@ -3,7 +3,8 @@ import { verifyAuth } from '@/lib/auth/verifyAuth'
 import { destinyAuthHandler } from '@/lib/destiny/apiHandler'
 import { enrichProfile } from '@/lib/destiny/enrich'
 import { resolveDisplayEmblem } from '@/lib/destiny/guardianEmblems'
-import { getDestinyUserBySiteUserId } from '@/lib/destiny/destinyUserStore'
+import { fetchAllCharactersPresentation } from '@/lib/destiny/guardianPresentation'
+import { getDestinyUserBySiteUserId, getValidAccessToken } from '@/lib/destiny/destinyUserStore'
 import { fetchLiveLoadout, refreshGuardianFromBungie } from '@/lib/destiny/liveBungieData'
 import { buildPlayerProfileFromStored, emptyPlayerProfile } from '@/lib/destiny/profileBuilder'
 import { sanitizeFlexPreferences } from '@/lib/destiny/profileFlex'
@@ -15,6 +16,20 @@ import {
 } from '@/lib/destiny/store'
 
 export const dynamic = 'force-dynamic'
+
+async function fetchProfileCharacters(stored: Awaited<ReturnType<typeof getDestinyUserBySiteUserId>>) {
+  if (!stored?.oauth) return undefined
+  const accessToken = await getValidAccessToken(stored)
+  const membershipType = stored.destinyMembershipType
+  const membershipId = stored.bungieMembershipId
+  if (!accessToken || !membershipType || !membershipId) return undefined
+
+  try {
+    return await fetchAllCharactersPresentation(membershipType, membershipId, accessToken)
+  } catch {
+    return undefined
+  }
+}
 
 async function buildProfile(siteUserId: string, scope: 'summary' | 'full') {
   let stored = await getDestinyUserBySiteUserId(siteUserId)
@@ -49,6 +64,7 @@ async function buildProfile(siteUserId: string, scope: 'summary' | 'full') {
     trustReviews,
     seasonLeaderboardEntries,
     displayEmblem,
+    characters: await fetchProfileCharacters(stored),
   })
 
   return {

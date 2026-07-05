@@ -4,10 +4,10 @@ import { Copy } from 'lucide-react'
 import type { BuildIntelligenceCard } from '@/lib/destiny/types'
 import {
   ActivityBadge,
-  GearStrip,
-  SubclassBadge,
   StatusPill,
+  SubclassBadge,
 } from '@/app/components/destiny/DestinyUi'
+import WeaponArmoryTable from '@/app/components/destiny/WeaponArmoryTable'
 import { formatDuration, getDestinyTheme } from '@/app/components/destiny/destinyTheme'
 import { cn } from '@/lib/utils'
 
@@ -22,34 +22,33 @@ export default function CommunityBuildCard({
 }) {
   const t = getDestinyTheme(darkMode)
 
+  const weaponRows = [
+    { slot: 'Exo', item: build.exoticArmorRef, fallback: build.exoticArmor },
+    { slot: 'W1', item: build.weaponRefs?.[0], fallback: build.weapons[0] },
+    { slot: 'W2', item: build.weaponRefs?.[1], fallback: build.weapons[1] },
+    { slot: 'W3', item: build.weaponRefs?.[2], fallback: build.weapons[2] },
+  ]
+
   return (
-    <div className={cn('rounded-2xl p-4', t.glassInset)}>
-      <div className="flex justify-between gap-2 mb-2">
-        <p className={cn('font-semibold text-sm tracking-tight', t.heading)}>{build.buildName}</p>
+    <div className="d2-panel-inset p-4 rounded-lg space-y-3">
+      <div className="flex justify-between gap-2">
+        <p className="d2-panel-header-title text-xs">{build.buildName}</p>
         {!compact && <StatusPill label={build.role} tone="gold" />}
       </div>
       {!compact && (
         <ActivityBadge activityRef={build.activityRef} name={build.activityName} darkMode={darkMode} size={36} />
       )}
-      <div className="mt-3">
-        <SubclassBadge
-          classRef={build.classRef}
-          subclassRef={build.subclassRef}
-          characterClass={build.characterClass}
-          subclass={build.subclass}
-          darkMode={darkMode}
-        />
-      </div>
-      <div className="mt-3">
-        <GearStrip
-          darkMode={darkMode}
-          size={compact ? 32 : 36}
-          items={[build.exoticArmorRef, build.exoticWeaponRef, ...(build.weaponRefs ?? [])]}
-        />
-      </div>
+      <SubclassBadge
+        classRef={build.classRef}
+        subclassRef={build.subclassRef}
+        characterClass={build.characterClass}
+        subclass={build.subclass}
+        darkMode={darkMode}
+      />
+      <WeaponArmoryTable rows={weaponRows} title="Gear" showHeader={!compact} />
       {!compact && (
         <>
-          <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
+          <div className="grid grid-cols-2 gap-2 text-xs">
             <span className={t.gold}>{build.usageRatePercent}% usage</span>
             <span className={t.blue}>{build.successRatePercent}% success</span>
             <span className={t.muted}>Avg {formatDuration(build.averageClearSeconds)}</span>
@@ -57,7 +56,7 @@ export default function CommunityBuildCard({
           </div>
           <button
             type="button"
-            className="mt-3 flex items-center gap-1 text-xs text-white/60 hover:text-white/90"
+            className="flex items-center gap-1 text-xs text-white/60 hover:text-white/90"
             onClick={() =>
               navigator.clipboard.writeText(
                 `${build.buildName}: ${build.subclass} ${build.characterClass}, ${build.exoticArmor}, ${build.weapons.join(', ')}`

@@ -208,8 +208,17 @@ export async function enrichProfile(
     ? await resolveClassIcon(profile.characterClass)
     : undefined
 
+  const characters = profile.characters?.length
+    ? await Promise.all(
+        profile.characters.map(async (c) => ({
+          ...c,
+          classRef: c.classRef ?? (await resolveClassIcon(c.characterClass)),
+        }))
+      )
+    : undefined
+
   if (scope === 'summary') {
-    return { ...profile, classRef }
+    return { ...profile, classRef, characters }
   }
 
   const currentLoadout = profile.currentLoadout
@@ -225,6 +234,7 @@ export async function enrichProfile(
   return {
     ...profile,
     classRef,
+    characters,
     currentLoadout,
     recentRuns,
   }

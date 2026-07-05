@@ -4,12 +4,15 @@ import type { BuildSnapshot, DestinyIconRef, PlayerProfile } from '@/lib/destiny
 import {
   AbilityChip,
   BuildSection,
-  CharacterEmblem,
   GameCard,
   GlowIcon,
   IconTooltip,
-  StatOrb,
 } from '@/app/components/destiny/destinyGameUi'
+import ArmorStatMatrix from '@/app/components/destiny/ArmorStatMatrix'
+import BuildSynergyRail from '@/app/components/destiny/BuildSynergyRail'
+import { CharacterTileRow } from '@/app/components/destiny/CharacterTile'
+import GuardianProfileBanner from '@/app/components/destiny/GuardianProfileBanner'
+import WeaponArmoryTable, { buildWeaponRows } from '@/app/components/destiny/WeaponArmoryTable'
 import { getDestinyTheme, subclassGlow } from '@/app/components/destiny/destinyTheme'
 import { cn } from '@/lib/utils'
 
@@ -18,27 +21,12 @@ interface Props {
   darkMode: boolean
 }
 
-const STAT_KEYS = [
-  { key: 'Resilience' as const, label: 'HP' },
-  { key: 'Strength' as const, label: 'ME' },
-  { key: 'Discipline' as const, label: 'GN' },
-  { key: 'Intellect' as const, label: 'SU' },
-  { key: 'Mobility' as const, label: 'CL' },
-  { key: 'Recovery' as const, label: 'WE' },
-] as const
-
 const ABILITY_SLOTS = [
   { slot: 'Super', getRef: (l?: BuildSnapshot) => l?.superRef, getFallback: (l?: BuildSnapshot) => l?.super },
   { slot: 'Class', getRef: (l?: BuildSnapshot) => l?.classAbilityRef, getFallback: (l?: BuildSnapshot) => l?.abilities?.[1] },
   { slot: 'Jump', getRef: (l?: BuildSnapshot) => l?.jumpRef, getFallback: (l?: BuildSnapshot) => l?.abilities?.[2] },
   { slot: 'Melee', getRef: (l?: BuildSnapshot) => l?.meleeRef, getFallback: (l?: BuildSnapshot) => l?.abilities?.[3] },
   { slot: 'Grenade', getRef: (l?: BuildSnapshot) => l?.grenadeRef, getFallback: (l?: BuildSnapshot) => l?.abilities?.[4] },
-] as const
-
-const WEAPON_SLOTS = [
-  { slot: 'Kinetic', getRef: (l?: BuildSnapshot) => l?.kineticWeaponRef, getFallback: (l?: BuildSnapshot) => l?.kineticWeapon },
-  { slot: 'Energy', getRef: (l?: BuildSnapshot) => l?.energyWeaponRef, getFallback: (l?: BuildSnapshot) => l?.energyWeapon },
-  { slot: 'Power', getRef: (l?: BuildSnapshot) => l?.powerWeaponRef, getFallback: (l?: BuildSnapshot) => l?.powerWeapon },
 ] as const
 
 function AbilitySlotCell({
@@ -62,43 +50,68 @@ function AbilitySlotCell({
   )
 }
 
-/** Full build card for Profile — abilities, weapons, stats, loadout. */
+/** Full build inspector — Tracker banner, light.gg armory, stat matrix, synergy rail. */
 export default function PlayerCardDetail({ profile, darkMode }: Props) {
   const t = getDestinyTheme(darkMode)
   const loadout = profile.currentLoadout
   const elementGlow = subclassGlow(loadout?.subclass)
-  const emblem = profile.displayEmblem
-  const emblemBg = emblem?.backgroundUrl ?? profile.emblemBackgroundUrl
-  const emblemIcon = emblem?.iconUrl ?? profile.emblemUrl
+  const characters =
+    profile.characters?.length
+      ? profile.characters
+      : profile.characterClass
+        ? [
+            {
+              characterId: profile.activeCharacterId ?? 'active',
+              characterClass: profile.characterClass,
+              powerLevel: profile.powerLevel ?? 0,
+              emblemUrl: profile.displayEmblem?.iconUrl ?? profile.emblemUrl,
+              emblemBackgroundUrl: profile.displayEmblem?.backgroundUrl ?? profile.emblemBackgroundUrl,
+              emblemColor: profile.displayEmblem?.color ?? profile.emblemColor,
+              classRef: profile.classRef,
+            },
+          ]
+        : []
+
+  const trust = profile.trustRank
 
   return (
-    <GameCard className="w-full">
-      <div className="flex gap-3 p-3 border-b border-white/[0.06]">
-        <CharacterEmblem
-          backgroundUrl={emblemBg}
-          iconUrl={emblemIcon}
-          accentColor={emblem?.color ?? profile.emblemColor}
-          characterClass={profile.characterClass}
-          classIconUrl={profile.classRef?.iconUrl}
-          title={emblem?.name ?? 'Emblem'}
-        />
-        <div className="flex-1 min-w-0">
-          <h3 className={cn('text-lg font-black', t.heading)}>{profile.bungieDisplayName}</h3>
-          <p className={cn('text-xs uppercase tracking-wide', t.caption)}>
-            {loadout?.subclass ?? 'Subclass'} · {profile.characterClass ?? '—'} · PL {profile.powerLevel ?? '—'}
-          </p>
-        </div>
+    <GameCard className="w-full overflow-hidden p-0">
+      <GuardianProfileBanner profile={profile}>
+        {characters.length ? (
+          <div className="mt-3">
+            <CharacterTileRow
+              characters={characters}
+              activeCharacterId={profile.activeCharacterId}
+              subtitleFor={(c) =>
+                c.characterId === profile.activeCharacterId && loadout?.subclass
+                  ? loadout.subclass
+                  : undefined
+              }
+            />
+          </div>
+        ) : null}
+      </GuardianProfileBanner>
+
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.06] bg-black/20">
+        {profile.trustRank ? (
+          <div className="d2-trust-badge-compact" title={trust?.topNestTitle}>
+            <span className="text-xs font-black text-amber-300">T.R.</span>
+            <span className="text-[9px] text-white/60 ml-1">{trust?.topNestTitle}</span>
+          </div>
+        ) : null}
+        <p className={cn('text-xs ml-auto', t.caption)}>
+          {loadout?.subclass ?? 'Subclass'} · PL {profile.powerLevel ?? '—'}
+        </p>
       </div>
 
       {!loadout ? (
         <p className={cn('p-4 text-sm', t.muted)}>Sync Bungie to load live build data.</p>
       ) : (
-        <div className="p-3 space-y-2.5">
-          <BuildSection label="Subclass">
-            <div className="flex items-center gap-3">
-              <AbilityChip item={loadout.subclassRef} fallback={loadout.subclass} size={52} glow={elementGlow} slotLabel="Subclass" />
-              <p className="text-sm font-bold text-white/90 truncate flex-1">{loadout.subclass}</p>
-            </div>
+        <div className="p-3 space-y-3">
+          <BuildSynergyRail build={loadout} />
+
+          <BuildSection label="Armory">
+            <WeaponArmoryTable rows={buildWeaponRows(loadout)} title="Equipped" />
           </BuildSection>
 
           <BuildSection label="Abilities">
@@ -130,29 +143,8 @@ export default function PlayerCardDetail({ profile, darkMode }: Props) {
             </BuildSection>
           ) : null}
 
-          {WEAPON_SLOTS.some(({ getRef, getFallback }) => getRef(loadout) || getFallback(loadout)) ? (
-            <BuildSection label="Weapons">
-              <div className="grid grid-cols-3 gap-2">
-                {WEAPON_SLOTS.map(({ slot, getRef, getFallback }) => (
-                  <AbilitySlotCell
-                    key={slot}
-                    slot={slot}
-                    item={getRef(loadout)}
-                    fallback={getFallback(loadout)}
-                    glow="auto"
-                    size={44}
-                  />
-                ))}
-              </div>
-            </BuildSection>
-          ) : null}
-
           <BuildSection label="Armor stats">
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-              {STAT_KEYS.map(({ key, label }) => (
-                <StatOrb key={key} statKey={key} label={label} value={loadout.stats[key] ?? '—'} darkMode={darkMode} />
-              ))}
-            </div>
+            <ArmorStatMatrix stats={loadout.stats} compact />
           </BuildSection>
         </div>
       )}

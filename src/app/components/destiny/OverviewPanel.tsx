@@ -1,22 +1,32 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Crown, Swords, Clock, Trophy } from 'lucide-react'
 import type { OverviewPayload } from '@/lib/destiny/types'
 import BungieConnectBanner from '@/app/components/destiny/BungieConnectBanner'
+import ActivityIntelAccordion from '@/app/components/destiny/ActivityIntelAccordion'
 import {
-  ActivityBadge,
   GlassCard,
   ItemIcon,
   LeaderboardTable,
   LoadingBlock,
+  ResetCountdown,
   SectionTitle,
+  StatCard,
   StatusPill,
 } from '@/app/components/destiny/DestinyUi'
 import { cn } from '@/lib/utils'
 import { formatDuration, getDestinyTheme } from '@/app/components/destiny/destinyTheme'
 import TopLoadoutsByClass from '@/app/components/destiny/TopLoadoutsByClass'
 import { useBungieLink } from '@/hooks/useBungieLink'
+
+function countdownParts(ms: number) {
+  const totalSec = Math.max(0, Math.floor(ms / 1000))
+  return {
+    days: Math.floor(totalSec / 86400),
+    hours: Math.floor((totalSec % 86400) / 3600),
+    minutes: Math.floor((totalSec % 3600) / 60),
+  }
+}
 
 export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
   const [data, setData] = useState<OverviewPayload | null>(null)
@@ -52,16 +62,56 @@ export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <BungieConnectBanner darkMode={darkMode} bungie={bungie} variant="overview" />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <StatusPill
-          label={data.bungieApiConfigured ? 'Live data' : 'API key needed'}
-          tone={data.bungieApiConfigured ? 'green' : 'neutral'}
+      <GlassCard darkMode={darkMode}>
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-6 items-start">
+          <div>
+            <SectionTitle title="Today in Destiny" subtitle={data.weeklyReset.weekLabel} darkMode={darkMode} />
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <StatusPill
+                label={data.bungieApiConfigured ? 'Live data' : 'API key needed'}
+                tone={data.bungieApiConfigured ? 'green' : 'neutral'}
+              />
+              <StatusPill label={data.weeklyReset.resetTimeLabel} tone="neutral" />
+            </div>
+            {data.weeklyReset.pantheon && (
+              <p className={cn('text-xs mb-3 italic', t.purple)}>Pantheon: {data.weeklyReset.pantheon}</p>
+            )}
+          </div>
+          <ResetCountdown
+            {...countdownParts(data.weeklyReset.resetsInMs)}
+            label="Weekly reset in"
+          />
+        </div>
+      </GlassCard>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        <StatCard
+          darkMode={darkMode}
+          label="Featured raid"
+          value={data.featuredRaid.name}
+          sub={`Resets ${data.featuredRaid.resetsIn}`}
         />
-        <StatusPill label={`Reset ${data.weeklyReset.resetsInLabel}`} tone="neutral" />
-        <StatusPill label={data.weeklyReset.weekLabel} tone="neutral" />
+        <StatCard
+          darkMode={darkMode}
+          label="Featured dungeon"
+          value={data.featuredDungeon.name}
+          sub={`Resets ${data.featuredDungeon.resetsIn}`}
+        />
+        <StatCard
+          darkMode={darkMode}
+          label="Season"
+          value={`${data.seasonCountdown.days}d ${data.seasonCountdown.hours}h`}
+          sub={data.season.name}
+        />
+        <StatCard
+          darkMode={darkMode}
+          label="Season prizes"
+          value={`${data.seasonCountdown.days}d left`}
+          sub={data.prizeSummary.length > 48 ? 'See Season tab for details' : data.prizeSummary}
+        />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -80,90 +130,12 @@ export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
       </div>
 
       <GlassCard darkMode={darkMode}>
-        <SectionTitle title="Weekly Reset" subtitle={data.weeklyReset.weekLabel} darkMode={darkMode} />
-        {data.weeklyReset.pantheon && (
-          <p className={cn('text-xs mb-3', t.purple)}>Pantheon: {data.weeklyReset.pantheon}</p>
-        )}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <p className={cn('text-xs font-semibold mb-2', t.gold)}>Featured Raids</p>
-            <div className="space-y-2">
-              {data.weeklyReset.featuredRaids.map((raid) => (
-                <ActivityBadge
-                  key={raid.name}
-                  activityRef={raid}
-                  name={raid.name}
-                  darkMode={darkMode}
-                  size={56}
-                />
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className={cn('text-xs font-semibold mb-2', t.gold)}>Featured Dungeons</p>
-            <div className="space-y-2">
-              {data.weeklyReset.featuredDungeons.map((dungeon) => (
-                <ActivityBadge
-                  key={dungeon.name}
-                  activityRef={dungeon}
-                  name={dungeon.name}
-                  darkMode={darkMode}
-                  size={56}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
+        <SectionTitle title="Weekly rotation" subtitle={data.weeklyReset.weekLabel} darkMode={darkMode} />
+        <ActivityIntelAccordion
+          raids={data.weeklyReset.featuredRaids}
+          dungeons={data.weeklyReset.featuredDungeons}
+        />
       </GlassCard>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <GlassCard darkMode={darkMode}>
-          <div className="flex items-center gap-2 mb-2">
-            <Swords className="w-4 h-4 text-amber-400" />
-            <span className={t.heading}>Featured Raid</span>
-          </div>
-          <ActivityBadge
-            activityRef={data.featuredRaid}
-            name={data.featuredRaid.name}
-            darkMode={darkMode}
-            size={56}
-          />
-          <p className={cn('text-xs mt-2', t.muted)}>
-            Resets in {data.featuredRaid.resetsIn}
-          </p>
-        </GlassCard>
-        <GlassCard darkMode={darkMode}>
-          <div className="flex items-center gap-2 mb-2">
-            <Crown className="w-4 h-4 text-purple-400" />
-            <span className={t.heading}>Featured Dungeon</span>
-          </div>
-          <ActivityBadge
-            activityRef={data.featuredDungeon}
-            name={data.featuredDungeon.name}
-            darkMode={darkMode}
-            size={56}
-          />
-          <p className={cn('text-xs mt-2', t.muted)}>
-            Resets in {data.featuredDungeon.resetsIn}
-          </p>
-        </GlassCard>
-        <GlassCard darkMode={darkMode}>
-          <div className="flex items-center gap-2 mb-2">
-            <Trophy className="w-4 h-4 text-amber-400" />
-            <span className={t.heading}>Season Prizes</span>
-          </div>
-          <p className={cn('text-xs', t.muted)}>{data.prizeSummary}</p>
-        </GlassCard>
-        <GlassCard darkMode={darkMode}>
-          <div className="flex items-center gap-2 mb-2">
-            <Clock className="w-4 h-4 text-sky-400" />
-            <span className={t.heading}>{data.season.name}</span>
-          </div>
-          <p className={cn('text-xs', t.muted)}>
-            {data.seasonCountdown.days}d {data.seasonCountdown.hours}h remaining
-          </p>
-        </GlassCard>
-      </div>
 
       {data.hallOfFamePreview.length > 0 && (
         <GlassCard darkMode={darkMode}>
@@ -176,7 +148,7 @@ export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
             {data.hallOfFamePreview.slice(0, 6).map((winner, i) => (
               <div
                 key={`${winner.category}-${winner.rank}-${i}`}
-                className="rounded-xl ring-1 ring-white/10 bg-white/[0.03] px-3 py-2 flex justify-between gap-2"
+                className="d2-panel-inset px-3 py-2 rounded-lg flex justify-between gap-2"
               >
                 <span className={cn('text-sm', t.body)}>
                   #{winner.rank} {winner.displayName} {winner.clanTag}

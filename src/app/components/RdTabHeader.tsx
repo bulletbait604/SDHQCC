@@ -1,15 +1,16 @@
 'use client'
 
-import { Bot, Film, Sparkles } from 'lucide-react'
+import { Bot, Film } from 'lucide-react'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TopNestLogoMark } from '@/app/components/destiny/TopNestBrandBanner'
 import { cn } from '@/lib/utils'
 
 export type RdSubTab = 'clip-editor' | 'tradebot' | 'destiny-top-nest'
 
-const SUB_TAB_META: Record<RdSubTab, { icon: typeof Film; shortLabel: string }> = {
+const SUB_TAB_META: Record<RdSubTab, { icon: typeof Film; shortLabel: string; useLogo?: boolean }> = {
   'clip-editor': { icon: Film, shortLabel: 'Clip Editor' },
   tradebot: { icon: Bot, shortLabel: 'Tradebot' },
-  'destiny-top-nest': { icon: Sparkles, shortLabel: 'Top Nest' },
+  'destiny-top-nest': { icon: Film, shortLabel: 'Top Nest', useLogo: true },
 }
 
 export function rdTabTitle(
@@ -59,6 +60,9 @@ export default function RdTabHeader({
   return (
     <>
       <div className="flex flex-col items-center mb-4 text-center">
+        {activeSubTab === 'destiny-top-nest' ? (
+          <TopNestLogoMark size={48} className="mb-2" />
+        ) : null}
         <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{title}</h3>
         <p className={`text-sm mt-1 ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}`}>
           {pickToolLabel}
@@ -79,7 +83,11 @@ export default function RdTabHeader({
                 tabTriggerClasses
               )}
             >
-              <Icon className="w-4 h-4 shrink-0" />
+              {meta.useLogo ? (
+                <TopNestLogoMark size={18} className="shrink-0" />
+              ) : (
+                <Icon className="w-4 h-4 shrink-0" />
+              )}
               <span className="hidden sm:inline truncate">{labelFor(id)}</span>
               <span className="sm:hidden">{meta.shortLabel}</span>
             </TabsTrigger>
