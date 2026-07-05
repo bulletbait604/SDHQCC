@@ -5,7 +5,7 @@ export const ACTIVE_SEASON: Season = {
   id: 'dtn-nest-s1',
   name: 'Nest Season 1 — Monument Era',
   startDate: '2026-06-09T17:00:00Z',
-  endDate: '2026-06-30T17:00:00Z',
+  endDate: '2026-07-31T17:00:00Z',
   status: 'active',
   prizeRules: {
     raid: {

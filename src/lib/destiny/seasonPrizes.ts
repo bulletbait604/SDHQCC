@@ -26,9 +26,9 @@ export function computeSeasonStandings(
   hallOfFame: SeasonWinner[]
   eligibility: string
 } {
-  const raidTop = aggregateLeaderboard(runs, usersById, 'raid', 'season').slice(0, 5)
-  const dungeonTop = aggregateLeaderboard(runs, usersById, 'dungeon', 'season').slice(0, 5)
-  const clanTop = aggregateClanLeaderboard(runs, usersById, 'season').slice(0, 3)
+  const raidTop = aggregateLeaderboard(runs, usersById, 'raid', 'season', season).slice(0, 5)
+  const dungeonTop = aggregateLeaderboard(runs, usersById, 'dungeon', 'season', season).slice(0, 5)
+  const clanTop = aggregateClanLeaderboard(runs, usersById, 'season', season).slice(0, 3)
 
   const hallOfFame: SeasonWinner[] = [
     ...toWinners(raidTop, 'raid', season, 5),
@@ -57,6 +57,7 @@ function toWinners(
   return entries.slice(0, maxRank).map((entry) => ({
     category,
     rank: entry.rank,
+    userId: entry.userId,
     displayName: entry.bungieDisplayName,
     clanTag: entry.clanTag,
     prize: prizeForRank(category, entry.rank, season.prizeRules),

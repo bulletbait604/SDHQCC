@@ -164,6 +164,8 @@ export interface LeaderboardEntry {
   fastestClearSeconds?: number
   fastestActivityName?: string
   fastestActivityRef?: DestinyIconRef
+  reputationScore?: number
+  reputationReviewCount?: number
 }
 
 export interface FireteamLobby {
@@ -253,10 +255,26 @@ export interface SeasonPrizeRules {
 export interface SeasonWinner {
   category: LeaderboardCategory
   rank: number
+  userId?: string
   displayName: string
   clanTag?: string
   prize: string
   seasonId: string
+}
+
+export interface PrizeClaim {
+  id: string
+  userId: string
+  seasonId: string
+  category: LeaderboardCategory
+  rank: number
+  prize: string
+  platform: DestinyPlatform
+  contact: string
+  status: 'pending' | 'fulfilled' | 'rejected'
+  createdAt: string
+  updatedAt?: string
+  adminNotes?: string
 }
 
 export interface Season {

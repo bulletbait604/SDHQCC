@@ -383,6 +383,7 @@ export default function HomeMainTabs({
                   subtitleClasses={subtitleClasses}
                   title={t.destinyTopNest}
                   tagline={t.destinyTopNestDesc}
+                  isAdmin={isAdmin}
                 />
               </TabsContent>
             </div>

@@ -5,12 +5,13 @@ import { getDestinyUserBySiteUserId, getDestinyUserByBungieMembershipId } from '
 import {
   buildReviewableRuns,
   usersByMembershipMap,
+  validateReviewSubmission,
 } from '@/lib/destiny/fireteamReputation'
 import {
   findReputationReview,
   getReputationReviewsByReviewer,
   getReputationReviewsForUser,
-  getRunsForUser,
+  getRunsForParticipant,
   loadUsersMap,
   saveReputationReview,
 } from '@/lib/destiny/store'
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
     if (scope === 'reviewable') {
       const stored = await getDestinyUserBySiteUserId(userId)
       const [runs, usersById, reviewsByReviewer] = await Promise.all([
-        getRunsForUser(userId, 20),
+        getRunsForParticipant(userId, stored?.bungieMembershipId, 30),
         loadUsersMap(),
         getReputationReviewsByReviewer(userId),
       ])
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
   return destinyAuthHandler(req, async () => {
     const authUser = await verifyAuth(req)
     const reviewerId = authUser.username.toLowerCase()
+    const stored = await getDestinyUserBySiteUserId(reviewerId)
     const body = (await req.json().catch(() => ({}))) as Partial<ReputationReview> & {
       reviewedBungieMembershipId?: string
     }
@@ -76,6 +78,24 @@ export async function POST(req: NextRequest) {
     }
     if (reviewedUserId === reviewerId) {
       return NextResponse.json({ error: 'Cannot review yourself' }, { status: 400 })
+    }
+
+    const [runs, usersById] = await Promise.all([
+      getRunsForParticipant(reviewerId, stored?.bungieMembershipId, 50),
+      loadUsersMap(),
+    ])
+    const membershipMap = usersByMembershipMap(Array.from(usersById.values()))
+
+    const validation = validateReviewSubmission(
+      reviewerId,
+      stored?.bungieMembershipId,
+      reviewedUserId,
+      body.runId,
+      runs,
+      membershipMap
+    )
+    if (!validation.ok) {
+      return NextResponse.json({ error: validation.error }, { status: 400 })
     }
 
     if (body.runId) {

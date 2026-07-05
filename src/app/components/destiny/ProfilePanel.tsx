@@ -7,6 +7,7 @@ import BungieConnectBanner from '@/app/components/destiny/BungieConnectBanner'
 import GuardianHeroCard from '@/app/components/destiny/GuardianHeroCard'
 import ProfileFlexEditor from '@/app/components/destiny/ProfileFlexEditor'
 import FireteamReviewSection from '@/app/components/destiny/FireteamReviewSection'
+import ReputationSummarySection from '@/app/components/destiny/ReputationSummarySection'
 import ProfileLoadoutsSection from '@/app/components/destiny/ProfileLoadoutsSection'
 import {
   GearStrip,
@@ -127,6 +128,8 @@ export default function ProfilePanel({
           )}
 
           <FireteamReviewSection darkMode={darkMode} linked={linked} />
+
+          <ReputationSummarySection darkMode={darkMode} />
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[

@@ -12,4 +12,5 @@ export const DESTINY_COLLECTIONS = {
   externalBuildSources: 'destiny_external_build_sources',
   manifestCache: 'destiny_manifest_cache',
   oauthStates: 'bungie_oauth_states',
+  prizeClaims: 'destiny_prize_claims',
 } as const

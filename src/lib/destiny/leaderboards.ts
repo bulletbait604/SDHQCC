@@ -3,8 +3,8 @@ import type {
   LeaderboardEntry,
   LeaderboardPeriod,
   RunRecord,
+  Season,
 } from '@/lib/destiny/types'
-import { ACTIVE_SEASON } from '@/lib/destiny/seasonConfig'
 import { getWeeklyResetState } from '@/lib/destiny/weeklyRotation'
 import type { StoredDestinyUser } from '@/lib/destiny/destinyUserStore'
 
@@ -16,7 +16,7 @@ interface UserAgg {
   fastestActivityName?: string
 }
 
-function periodStart(period: LeaderboardPeriod): Date | null {
+function periodStart(period: LeaderboardPeriod, season: Season): Date | null {
   const now = Date.now()
   switch (period) {
     case 'weekly': {
@@ -26,17 +26,17 @@ function periodStart(period: LeaderboardPeriod): Date | null {
     case 'monthly':
       return new Date(now - 30 * 24 * 60 * 60 * 1000)
     case 'season':
-      return new Date(ACTIVE_SEASON.startDate)
+      return new Date(season.startDate)
     case 'all_time':
       return null
   }
 }
 
-function runMatchesPeriod(run: RunRecord, period: LeaderboardPeriod): boolean {
-  const start = periodStart(period)
+function runMatchesPeriod(run: RunRecord, period: LeaderboardPeriod, season: Season): boolean {
+  const start = periodStart(period, season)
   if (!start) return true
   if (period === 'season') {
-    const end = new Date(ACTIVE_SEASON.endDate).getTime()
+    const end = new Date(season.endDate).getTime()
     const t = new Date(run.completedAt).getTime()
     return t >= start.getTime() && t <= end
   }
@@ -54,13 +54,14 @@ export function aggregateLeaderboard(
   runs: RunRecord[],
   usersById: Map<string, StoredDestinyUser>,
   category: LeaderboardCategory,
-  period: LeaderboardPeriod
+  period: LeaderboardPeriod,
+  season: Season
 ): LeaderboardEntry[] {
   const agg = new Map<string, UserAgg>()
 
   for (const run of runs) {
     if (!run.ownerUserId) continue
-    if (!runMatchesPeriod(run, period)) continue
+    if (!runMatchesPeriod(run, period, season)) continue
     if (!runMatchesCategory(run, category)) continue
 
     const pts = run.pointsAwarded ?? 0
@@ -99,7 +100,7 @@ export function aggregateLeaderboard(
       guardianRank: user?.guardianRank,
       powerLevel: user?.powerLevel,
       category,
-      seasonId: ACTIVE_SEASON.id,
+      seasonId: season.id,
       period,
       points: row.points,
       verifiedClears: row.verifiedClears,
@@ -118,13 +119,14 @@ function runDisplayName(runs: RunRecord[], userId: string): string {
 export function aggregateClanLeaderboard(
   runs: RunRecord[],
   usersById: Map<string, StoredDestinyUser>,
-  period: LeaderboardPeriod
+  period: LeaderboardPeriod,
+  season: Season
 ): LeaderboardEntry[] {
   const byClan = new Map<string, UserAgg & { clanTag?: string; clanName?: string }>()
 
   for (const run of runs) {
     if (!run.ownerUserId || !run.isFullClanTeam) continue
-    if (!runMatchesPeriod(run, period)) continue
+    if (!runMatchesPeriod(run, period, season)) continue
     if (run.verificationStatus !== 'verified') continue
 
     const user = usersById.get(run.ownerUserId)
@@ -151,7 +153,7 @@ export function aggregateClanLeaderboard(
       clanTag: row.clanTag,
       platform: 'steam' as const,
       category: 'full_clan_team' as const,
-      seasonId: ACTIVE_SEASON.id,
+      seasonId: season.id,
       period,
       points: row.points,
       verifiedClears: row.verifiedClears,

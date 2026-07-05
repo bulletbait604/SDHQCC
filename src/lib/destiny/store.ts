@@ -7,6 +7,7 @@ import clientPromise from '@/lib/mongodb'
 import { DESTINY_COLLECTIONS } from '@/lib/destiny/collections'
 import { buildOverviewPayload } from '@/lib/destiny/overviewBuilder'
 import { computeSeasonStandings } from '@/lib/destiny/seasonPrizes'
+import { computeReputationScore } from '@/lib/destiny/reputation'
 import { aggregateClanLeaderboard, aggregateLeaderboard } from '@/lib/destiny/leaderboards'
 import {
   getResearchedMetaBuilds,
@@ -25,6 +26,7 @@ import type {
   FireteamLobby,
   LeaderboardEntry,
   OverviewPayload,
+  PrizeClaim,
   ReputationReview,
   RunRecord,
   Season,
@@ -40,12 +42,16 @@ export async function ensureDestinyIndexes(): Promise<void> {
   await database.collection(DESTINY_COLLECTIONS.runRecords).createIndex({ pgcrId: 1 }, { unique: true })
   await database.collection(DESTINY_COLLECTIONS.runRecords).createIndex({ verificationStatus: 1, completedAt: -1 })
   await database.collection(DESTINY_COLLECTIONS.runRecords).createIndex({ ownerUserId: 1, completedAt: -1 })
+  await database.collection(DESTINY_COLLECTIONS.runRecords).createIndex({ 'teamMembers.membershipId': 1, completedAt: -1 })
   await database.collection(DESTINY_COLLECTIONS.leaderboardEntries).createIndex({ category: 1, seasonId: 1, period: 1, rank: 1 })
   await database.collection(DESTINY_COLLECTIONS.fireteamLobbies).createIndex({ status: 1, createdAt: -1 })
   await database.collection(DESTINY_COLLECTIONS.buildSnapshots).createIndex({ runId: 1, userId: 1 }, { unique: true })
   await database.collection(DESTINY_COLLECTIONS.reputationReviews).createIndex({ reviewedUserId: 1, createdAt: -1 })
   await database.collection(DESTINY_COLLECTIONS.reputationReviews).createIndex({ reviewerId: 1, runId: 1 })
   await database.collection(DESTINY_COLLECTIONS.users).createIndex({ bungieMembershipId: 1 }, { unique: true, sparse: true })
+  await database.collection(DESTINY_COLLECTIONS.seasons).createIndex({ status: 1 })
+  await database.collection(DESTINY_COLLECTIONS.prizeClaims).createIndex({ userId: 1, seasonId: 1 })
+  await database.collection(DESTINY_COLLECTIONS.prizeClaims).createIndex({ status: 1, createdAt: -1 })
 }
 
 async function loadAllRuns(): Promise<RunRecord[]> {
@@ -75,11 +81,12 @@ export async function getSeasonStandingsInput(): Promise<{
 
 export async function getSeasonStandingForUser(userId: string): Promise<LeaderboardEntry[]> {
   try {
+    const season = await getSeasonData()
     const [runs, usersById] = await Promise.all([loadAllRuns(), loadUsersMap()])
     return [
-      ...aggregateLeaderboard(runs, usersById, 'raid', 'season'),
-      ...aggregateLeaderboard(runs, usersById, 'dungeon', 'season'),
-      ...aggregateLeaderboard(runs, usersById, 'full_clan_team', 'season'),
+      ...aggregateLeaderboard(runs, usersById, 'raid', 'season', season),
+      ...aggregateLeaderboard(runs, usersById, 'dungeon', 'season', season),
+      ...aggregateLeaderboard(runs, usersById, 'full_clan_team', 'season', season),
     ].filter((entry) => entry.userId === userId)
   } catch {
     return []
@@ -101,9 +108,47 @@ export async function getRunsForUser(userId: string, limit = 25): Promise<RunRec
   }
 }
 
+export async function getRunsForParticipant(
+  userId: string,
+  membershipId: string | undefined,
+  limit = 25
+): Promise<RunRecord[]> {
+  try {
+    await ensureDestinyIndexes()
+    const database = await db()
+    const or: Record<string, unknown>[] = [{ ownerUserId: userId }]
+    if (membershipId) {
+      or.push({ 'teamMembers.membershipId': membershipId })
+    }
+    return (await database
+      .collection(DESTINY_COLLECTIONS.runRecords)
+      .find({ $or: or })
+      .sort({ completedAt: -1 })
+      .limit(limit)
+      .toArray()) as unknown as RunRecord[]
+  } catch {
+    return getRunsForUser(userId, limit)
+  }
+}
+
+async function attachReputationScores(entries: LeaderboardEntry[]): Promise<LeaderboardEntry[]> {
+  return Promise.all(
+    entries.map(async (entry) => {
+      const reviews = await getReputationReviewsForUser(entry.userId)
+      const score = computeReputationScore(reviews)
+      return {
+        ...entry,
+        reputationScore: score > 0 ? score : undefined,
+        reputationReviewCount: reviews.length || undefined,
+      }
+    })
+  )
+}
+
 export async function getOverviewData(): Promise<OverviewPayload> {
   try {
     await ensureDestinyIndexes()
+    const season = await getSeasonData()
     const [runs, usersById, lobbies, buildCards] = await Promise.all([
       loadAllRuns(),
       loadUsersMap(),
@@ -112,11 +157,15 @@ export async function getOverviewData(): Promise<OverviewPayload> {
     ])
 
     const recentRuns = runs.slice(0, 10)
-    const raidTop10 = aggregateLeaderboard(runs, usersById, 'raid', 'season')
-    const dungeonTop10 = aggregateLeaderboard(runs, usersById, 'dungeon', 'season')
-    const clanTop5 = aggregateClanLeaderboard(runs, usersById, 'season')
+    const raidTop10 = await attachReputationScores(
+      aggregateLeaderboard(runs, usersById, 'raid', 'season', season)
+    )
+    const dungeonTop10 = await attachReputationScores(
+      aggregateLeaderboard(runs, usersById, 'dungeon', 'season', season)
+    )
+    const clanTop5 = aggregateClanLeaderboard(runs, usersById, 'season', season)
     const topLoadoutsByClass = rankTopLoadoutsByClass(buildCards, 2)
-    const { hallOfFame } = computeSeasonStandings(runs, usersById, ACTIVE_SEASON)
+    const { hallOfFame } = computeSeasonStandings(runs, usersById, season)
 
     return buildOverviewPayload({
       raidTop10,
@@ -127,6 +176,7 @@ export async function getOverviewData(): Promise<OverviewPayload> {
       trendingBuilds: buildCards.slice(0, 3),
       topLoadoutsByClass,
       hallOfFamePreview: hallOfFame.slice(0, 9),
+      season,
     })
   } catch {
     const emptyLoadouts = rankTopLoadoutsByClass([], 2)
@@ -149,11 +199,13 @@ export async function getLeaderboardEntries(
 ): Promise<LeaderboardEntry[]> {
   try {
     await ensureDestinyIndexes()
+    const season = await getSeasonData()
     const [runs, usersById] = await Promise.all([loadAllRuns(), loadUsersMap()])
-    if (category === 'full_clan_team') {
-      return aggregateClanLeaderboard(runs, usersById, period)
-    }
-    return aggregateLeaderboard(runs, usersById, category, period)
+    const entries =
+      category === 'full_clan_team'
+        ? aggregateClanLeaderboard(runs, usersById, period, season)
+        : aggregateLeaderboard(runs, usersById, category, period, season)
+    return attachReputationScores(entries)
   } catch {
     return []
   }
@@ -176,13 +228,101 @@ export async function getFireteamLobbies(): Promise<FireteamLobby[]> {
 
 export async function getSeasonData(): Promise<Season> {
   try {
+    await ensureDestinyIndexes()
     const database = await db()
-    const row = await database.collection(DESTINY_COLLECTIONS.seasons).findOne({ status: 'active' })
-    if (row) return row as unknown as Season
+    const active = await database.collection(DESTINY_COLLECTIONS.seasons).findOne({ status: 'active' })
+    if (active) return active as unknown as Season
+
+    const latest = await database
+      .collection(DESTINY_COLLECTIONS.seasons)
+      .findOne({}, { sort: { endDate: -1 } })
+    if (latest) return latest as unknown as Season
+
+    await database.collection(DESTINY_COLLECTIONS.seasons).updateOne(
+      { id: ACTIVE_SEASON.id },
+      { $set: { ...ACTIVE_SEASON, updatedAt: new Date().toISOString() } },
+      { upsert: true }
+    )
+    return ACTIVE_SEASON
   } catch {
-    /* use config */
+    return ACTIVE_SEASON
   }
-  return ACTIVE_SEASON
+}
+
+export async function saveSeasonData(season: Season): Promise<void> {
+  const database = await db()
+  await database.collection(DESTINY_COLLECTIONS.seasons).updateOne(
+    { id: season.id },
+    { $set: { ...season, updatedAt: new Date().toISOString() } },
+    { upsert: true }
+  )
+}
+
+export async function finalizeActiveSeason(): Promise<Season> {
+  const season = await getSeasonData()
+  const { runs, usersById } = await getSeasonStandingsInput()
+  const { hallOfFame } = computeSeasonStandings(runs, usersById, season)
+
+  const archived: Season = {
+    ...season,
+    status: 'archived',
+    winners: hallOfFame,
+    endDate: new Date().toISOString(),
+  }
+
+  await saveSeasonData(archived)
+  return archived
+}
+
+export async function getPrizeClaimsForUser(userId: string, seasonId: string): Promise<PrizeClaim[]> {
+  try {
+    const database = await db()
+    const rows = await database
+      .collection(DESTINY_COLLECTIONS.prizeClaims)
+      .find({ userId, seasonId })
+      .sort({ createdAt: -1 })
+      .toArray()
+    return rows as unknown as PrizeClaim[]
+  } catch {
+    return []
+  }
+}
+
+export async function getPendingPrizeClaims(): Promise<PrizeClaim[]> {
+  try {
+    const database = await db()
+    const rows = await database
+      .collection(DESTINY_COLLECTIONS.prizeClaims)
+      .find({ status: 'pending' })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .toArray()
+    return rows as unknown as PrizeClaim[]
+  } catch {
+    return []
+  }
+}
+
+export async function savePrizeClaim(claim: PrizeClaim): Promise<void> {
+  const database = await db()
+  await database.collection(DESTINY_COLLECTIONS.prizeClaims).updateOne(
+    { id: claim.id },
+    { $set: { ...claim, updatedAt: new Date().toISOString() } },
+    { upsert: true }
+  )
+}
+
+export async function updatePrizeClaimStatus(
+  claimId: string,
+  status: PrizeClaim['status'],
+  adminNotes?: string
+): Promise<boolean> {
+  const database = await db()
+  const result = await database.collection(DESTINY_COLLECTIONS.prizeClaims).updateOne(
+    { id: claimId },
+    { $set: { status, adminNotes, updatedAt: new Date().toISOString() } }
+  )
+  return result.matchedCount > 0
 }
 
 export async function getAdminReviewQueue(): Promise<AdminReviewRecord[]> {

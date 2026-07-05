@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Gift, Clock, Trophy, Target } from 'lucide-react'
-import type { LeaderboardEntry, Season, SeasonWinner, WeeklyResetInfo } from '@/lib/destiny/types'
+import type { LeaderboardEntry, PrizeClaim, Season, SeasonWinner, WeeklyResetInfo } from '@/lib/destiny/types'
 import type { UserPrizeTrackEntry } from '@/lib/destiny/seasonPrizes'
+import SeasonPrizeClaimSection from '@/app/components/destiny/SeasonPrizeClaimSection'
 import { ActivityBadge, GlassCard, LoadingBlock, SectionTitle } from '@/app/components/destiny/DestinyUi'
 import { formatDuration, getDestinyTheme } from '@/app/components/destiny/destinyTheme'
 import { cn } from '@/lib/utils'
@@ -20,6 +21,9 @@ export default function SeasonPanel({ darkMode }: { darkMode: boolean }) {
   const [eligibility, setEligibility] = useState('')
   const [hallOfFame, setHallOfFame] = useState<SeasonWinner[]>([])
   const [prizeTrack, setPrizeTrack] = useState<UserPrizeTrackEntry[]>([])
+  const [prizeClaims, setPrizeClaims] = useState<PrizeClaim[]>([])
+  const [prizeEligible, setPrizeEligible] = useState<UserPrizeTrackEntry[]>([])
+  const [seasonEnded, setSeasonEnded] = useState(false)
   const [myStandings, setMyStandings] = useState<LeaderboardEntry[]>([])
   const [weeklyReset, setWeeklyReset] = useState<WeeklyResetInfo | null>(null)
   const [loading, setLoading] = useState(true)
@@ -36,6 +40,9 @@ export default function SeasonPanel({ darkMode }: { darkMode: boolean }) {
         setEligibility(json.eligibility)
         setHallOfFame(json.hallOfFame ?? [])
         setPrizeTrack(json.prizeTrack ?? [])
+        setPrizeEligible(json.prizeEligible ?? [])
+        setPrizeClaims(json.prizeClaims ?? [])
+        setSeasonEnded(Boolean(json.seasonEnded))
         setMyStandings(json.myStandings ?? [])
         setWeeklyReset(json.weeklyReset ?? null)
       }
@@ -103,6 +110,23 @@ export default function SeasonPanel({ darkMode }: { darkMode: boolean }) {
               </div>
             ))}
           </div>
+        </GlassCard>
+      )}
+
+      <SeasonPrizeClaimSection
+        darkMode={darkMode}
+        prizeEligible={prizeEligible}
+        prizeClaims={prizeClaims}
+        seasonEnded={seasonEnded}
+        onClaimed={() => void load()}
+      />
+
+      {season?.status === 'archived' && (
+        <GlassCard darkMode={darkMode}>
+          <SectionTitle title="Season complete" darkMode={darkMode} />
+          <p className={cn('text-sm', t.muted)}>
+            Winners are locked. Final hall of fame below reflects official season results.
+          </p>
         </GlassCard>
       )}
 

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Mic, Users, Plus } from 'lucide-react'
+import FireteamReviewSection from '@/app/components/destiny/FireteamReviewSection'
+import { useBungieLink } from '@/hooks/useBungieLink'
 import type { FireteamLobby } from '@/lib/destiny/types'
 import {
   ActivityBadge,
@@ -19,6 +21,7 @@ export default function FireteamPanel({ darkMode }: { darkMode: boolean }) {
   const [lobbies, setLobbies] = useState<FireteamLobby[]>([])
   const [loading, setLoading] = useState(true)
   const t = getDestinyTheme(darkMode)
+  const bungie = useBungieLink()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -44,6 +47,8 @@ export default function FireteamPanel({ darkMode }: { darkMode: boolean }) {
         title="Find a fireteam"
         description="Browse open raid and dungeon lobbies. Connect Bungie on Home to create your own."
       />
+
+      <FireteamReviewSection darkMode={darkMode} linked={bungie.linked} />
 
       <GlassCard darkMode={darkMode}>
         <div className="flex flex-wrap items-center justify-end gap-3 mb-6">

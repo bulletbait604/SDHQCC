@@ -283,6 +283,12 @@ function LeaderboardRow({
       <div className="text-right shrink-0">
         <p className={cn('text-sm font-semibold tabular-nums', t.gold)}>{entry.points}</p>
         <p className={cn('text-[10px]', t.caption)}>pts</p>
+        {!compact && entry.reputationScore != null && entry.reputationScore > 0 && (
+          <p className={cn('text-[10px] mt-0.5', t.muted)}>
+            ★ {entry.reputationScore.toFixed(1)}
+            {entry.reputationReviewCount ? ` (${entry.reputationReviewCount})` : ''}
+          </p>
+        )}
       </div>
     </div>
   )

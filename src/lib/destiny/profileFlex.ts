@@ -92,7 +92,7 @@ export function buildProfileFlexStats(
     reputation: {
       id: 'reputation',
       label: FLEX_STAT_LABELS.reputation,
-      value: profile.reputationScore.toFixed(1),
+      value: profile.reputationScore > 0 ? profile.reputationScore.toFixed(1) : '—',
     },
     season_rank: {
       id: 'season_rank',

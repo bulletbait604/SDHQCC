@@ -28,6 +28,7 @@ interface Props {
   subtitleClasses: string
   title: string
   tagline: string
+  isAdmin?: boolean
 }
 
 function resolveProfileView(tab: DestinyTopNestTab): ProfileView {
@@ -40,7 +41,7 @@ function resolveLoadoutSection(tab: DestinyTopNestTab): LoadoutSection | undefin
   return undefined
 }
 
-export default function DestinyTopNestTab({ darkMode, subtitleClasses, title, tagline }: Props) {
+export default function DestinyTopNestTab({ darkMode, subtitleClasses, title, tagline, isAdmin = false }: Props) {
   const [activeTab, setActiveTab] = useState<DestinyTopNestTab>('overview')
   const [profileView, setProfileView] = useState<ProfileView>('guardian')
   const [loadoutSection, setLoadoutSection] = useState<LoadoutSection | undefined>()
@@ -119,7 +120,7 @@ export default function DestinyTopNestTab({ darkMode, subtitleClasses, title, ta
         <p className={cn('text-sm mt-3 leading-relaxed', subtitleClasses, theme.muted)}>{tagline}</p>
       </header>
 
-      <DestinyNav activeTab={activeTab} onTabChange={handleTabChange} darkMode={darkMode} />
+      <DestinyNav activeTab={activeTab} onTabChange={handleTabChange} darkMode={darkMode} showAdmin={isAdmin} />
 
       <div className="animate-in fade-in duration-300">{renderPanel()}</div>
     </div>

@@ -1,11 +1,7 @@
 import { getWeeklyResetState } from '@/lib/destiny/weeklyRotation'
 import { destinyApiConfigured } from '@/lib/destiny/env'
-import {
-  ACTIVE_SEASON,
-  getSeasonCountdown,
-  PRIZE_SUMMARY,
-} from '@/lib/destiny/seasonConfig'
-import type { OverviewPayload, SeasonWinner } from '@/lib/destiny/types'
+import { ACTIVE_SEASON, getSeasonCountdown, PRIZE_SUMMARY } from '@/lib/destiny/seasonConfig'
+import type { OverviewPayload, Season, SeasonWinner } from '@/lib/destiny/types'
 import type { TopLoadoutsByClass } from '@/lib/destiny/loadoutRankings'
 
 export function buildOverviewPayload(input: {
@@ -17,7 +13,9 @@ export function buildOverviewPayload(input: {
   trendingBuilds: OverviewPayload['trendingBuilds']
   topLoadoutsByClass: TopLoadoutsByClass
   hallOfFamePreview?: SeasonWinner[]
+  season?: Season
 }): OverviewPayload {
+  const season = input.season ?? ACTIVE_SEASON
   const weekly = getWeeklyResetState()
   const primaryRaid = weekly.featuredRaids[0]
   const primaryDungeon = weekly.featuredDungeons[0]
@@ -48,8 +46,8 @@ export function buildOverviewPayload(input: {
       difficulty: primaryDungeon?.difficulty ?? 'normal',
       resetsIn: weekly.resetsInLabel,
     },
-    season: ACTIVE_SEASON,
-    seasonCountdown: getSeasonCountdown(),
+    season,
+    seasonCountdown: getSeasonCountdown(season),
     prizeSummary: PRIZE_SUMMARY,
     lookingForGroup: input.lookingForGroup,
     trendingBuilds: input.trendingBuilds,

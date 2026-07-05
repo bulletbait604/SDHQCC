@@ -71,7 +71,7 @@ export function buildPlayerProfileFromStored(
     .map(([name]) => name)
 
   const reviews = options?.reviews ?? []
-  const reputationScore = computeReputationScore(reviews) || Math.min(5, 3 + verified.length * 0.05)
+  const reputationScore = computeReputationScore(reviews)
   const badges = reputationBadges(reviews, verified.length)
   if (fullClanPoints > 0 && !badges.includes('Clan team scorer')) {
     badges.push('Clan team scorer')
