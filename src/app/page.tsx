@@ -88,6 +88,7 @@ export default function HomePage() {
 
   useHomeTabUrl({
     ready: mounted,
+    enabled: !!user,
     activeTab,
     createSubTab,
     rndSubTab,

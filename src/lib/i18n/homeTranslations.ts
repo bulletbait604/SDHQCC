@@ -25,9 +25,6 @@ export const homeTranslations = {
     tradebotSetupTitle: 'Finnhub key needed for stocks',
     tradebotLastScan: 'Last scan',
     tradebotAlertsOnly: 'Alerts only — execute trades manually on TD Active Trader or Bitbuy.',
-    destinyTopNest: "Destiny's Top Nest",
-    destinyTopNestDesc:
-      'Destiny 2 community hub — verified leaderboards, loadouts, fireteam finder, and season prizes.',
     backgroundRemover: 'Background Remover',
     backgroundRemoverDesc:
       'Upload a photo and remove the background behind the main subject with AI.',
@@ -88,9 +85,6 @@ export const homeTranslations = {
     tradebotSetupTitle: 'Se necesita clave Finnhub para acciones',
     tradebotLastScan: 'Último escaneo',
     tradebotAlertsOnly: 'Solo alertas — opera manualmente en TD o Bitbuy.',
-    destinyTopNest: "Destiny's Top Nest",
-    destinyTopNestDesc:
-      'Centro comunitario de Destiny 2 — clasificaciones verificadas, loadouts, fireteam y premios de temporada.',
     backgroundRemover: 'Eliminador de fondo',
     backgroundRemoverDesc:
       'Sube una foto y elimina el fondo detrás del sujeto principal con IA.',
@@ -151,9 +145,6 @@ export const homeTranslations = {
     tradebotSetupTitle: 'Clé Finnhub requise pour les actions',
     tradebotLastScan: 'Dernier scan',
     tradebotAlertsOnly: 'Alertes seulement — exécutez sur TD ou Bitbuy.',
-    destinyTopNest: "Destiny's Top Nest",
-    destinyTopNestDesc:
-      'Hub Destiny 2 — classements vérifiés, loadouts, fireteam et récompenses de saison.',
     backgroundRemover: 'Suppression d’arrière-plan',
     backgroundRemoverDesc:
       'Importez une photo et supprimez l’arrière-plan derrière le sujet principal avec l’IA.',
@@ -213,10 +204,7 @@ export const homeTranslations = {
     tradebotAiInsight: 'KI-Einblick',
     tradebotSetupTitle: 'Finnhub-Schlüssel für Aktien nötig',
     tradebotLastScan: 'Letzter Scan',
-    tradebotAlertsOnly: 'Nur Alerts — manuell auf TD oder Bitbuy handeln.',
-    destinyTopNest: "Destiny's Top Nest",
-    destinyTopNestDesc:
-      'Destiny-2-Hub — verifizierte Bestenlisten, Loadouts, Fireteam-Finder und Saisonpreise.',
+    tradebotAlertsOnly: 'Nur Hinweise — Trades manuell bei TD oder Bitbuy.',
     backgroundRemover: 'Hintergrund entfernen',
     backgroundRemoverDesc:
       'Laden Sie ein Foto hoch und entfernen Sie den Hintergrund hinter dem Hauptmotiv mit KI.',

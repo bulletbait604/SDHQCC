@@ -1,44 +1,42 @@
 import type { CreateSubTab } from '@/app/components/CreateTabHeader'
 import type { RdSubTab } from '@/app/components/RdTabHeader'
-import type { DestinyTopNestTab } from '@/lib/destiny/types'
 
 export interface HomeTabState {
   tab: string
   create?: CreateSubTab
   rnd?: RdSubTab
-  destiny?: DestinyTopNestTab
 }
+
+export const DEFAULT_HOME_TAB = 'educate'
+export const DEFAULT_CREATE_SUB: CreateSubTab = 'thumbnail'
+export const DEFAULT_RND_SUB: RdSubTab = 'clip-editor'
+
+const TAB_QUERY_KEYS = ['tab', 'create', 'rnd'] as const
 
 const MAIN_TABS = new Set(['educate', 'create', 'analyze', 'kick-clips', 'settings', 'rnd'])
 const CREATE_SUBS = new Set<CreateSubTab>(['tags', 'thumbnail', 'post4me', 'background'])
-const RND_SUBS = new Set<RdSubTab>(['clip-editor', 'tradebot', 'destiny-top-nest'])
-const DESTINY_TABS = new Set<DestinyTopNestTab>([
-  'overview',
-  'leaderboards',
-  'fireteam',
-  'profile',
-  'loadouts',
-  'builds',
-  'clans',
-  'season',
-  'admin',
-])
+const RND_SUBS = new Set<RdSubTab>(['clip-editor', 'tradebot'])
 
-/** Legacy ?tab= names from older links and OAuth redirects. */
+/** Legacy ?tab= names from older links. */
 const LEGACY_TAB_MAP: Record<string, HomeTabState> = {
-  'resource-hub': { tab: 'educate' },
+  'resource-hub': { tab: DEFAULT_HOME_TAB },
   'tag-generator-free': { tab: 'create', create: 'tags' },
   'thumbnail-generator': { tab: 'create', create: 'thumbnail' },
   'background-remover': { tab: 'create', create: 'background' },
   post4me: { tab: 'create', create: 'post4me' },
   'clip-analyzer': { tab: 'analyze' },
   'clip-editor': { tab: 'rnd', rnd: 'clip-editor' },
-  'destiny-top-nest': { tab: 'rnd', rnd: 'destiny-top-nest' },
-  'new-tool': { tab: 'educate' },
+  'destiny-top-nest': { tab: 'rnd', rnd: 'clip-editor' },
+  'new-tool': { tab: DEFAULT_HOME_TAB },
 }
 
-export function isDestinyTopNestTab(value: string): value is DestinyTopNestTab {
-  return DESTINY_TABS.has(value as DestinyTopNestTab)
+export function normalizeHomeTabState(state: HomeTabState): HomeTabState {
+  const tab = state.tab || DEFAULT_HOME_TAB
+  return {
+    tab,
+    create: tab === 'create' ? (state.create ?? DEFAULT_CREATE_SUB) : state.create,
+    rnd: tab === 'rnd' ? (state.rnd ?? DEFAULT_RND_SUB) : state.rnd,
+  }
 }
 
 export function parseHomeTabFromSearch(search: string): HomeTabState {
@@ -46,56 +44,56 @@ export function parseHomeTabFromSearch(search: string): HomeTabState {
   const tabParam = params.get('tab')
 
   if (tabParam && LEGACY_TAB_MAP[tabParam]) {
-    const legacy = LEGACY_TAB_MAP[tabParam]
-    const destinyParam = params.get('destiny')
-    return {
-      ...legacy,
-      destiny:
-        legacy.rnd === 'destiny-top-nest' && destinyParam && isDestinyTopNestTab(destinyParam)
-          ? destinyParam
-          : legacy.rnd === 'destiny-top-nest' && params.get('bungie')
-            ? 'overview'
-            : legacy.destiny,
-    }
+    return normalizeHomeTabState(LEGACY_TAB_MAP[tabParam])
   }
 
-  const tab = tabParam && MAIN_TABS.has(tabParam) ? tabParam : 'educate'
+  const tab = tabParam && MAIN_TABS.has(tabParam) ? tabParam : DEFAULT_HOME_TAB
   const createParam = params.get('create')
   const rndParam = params.get('rnd')
-  const destinyParam = params.get('destiny')
 
-  const create = createParam && CREATE_SUBS.has(createParam as CreateSubTab)
-    ? (createParam as CreateSubTab)
-    : undefined
+  const create =
+    createParam && CREATE_SUBS.has(createParam as CreateSubTab)
+      ? (createParam as CreateSubTab)
+      : undefined
   const rnd = rndParam && RND_SUBS.has(rndParam as RdSubTab) ? (rndParam as RdSubTab) : undefined
-  let destiny =
-    destinyParam && isDestinyTopNestTab(destinyParam) ? destinyParam : undefined
 
-  if (!destiny && rnd === 'destiny-top-nest' && params.get('bungie')) {
-    destiny = 'overview'
-  }
-
-  return { tab, create, rnd, destiny }
+  return normalizeHomeTabState({ tab, create, rnd })
 }
 
-/** Update tab-related query params while preserving unrelated ones (e.g. verified). */
+export function buildTabQuery(state: HomeTabState): URLSearchParams {
+  const normalized = normalizeHomeTabState(state)
+  const q = new URLSearchParams()
+
+  const isHomeDefault =
+    normalized.tab === DEFAULT_HOME_TAB && !normalized.create && !normalized.rnd
+
+  if (isHomeDefault) return q
+
+  q.set('tab', normalized.tab)
+
+  if (normalized.tab === 'create') {
+    const sub = normalized.create ?? DEFAULT_CREATE_SUB
+    if (sub !== DEFAULT_CREATE_SUB) q.set('create', sub)
+  }
+
+  if (normalized.tab === 'rnd') {
+    const sub = normalized.rnd ?? DEFAULT_RND_SUB
+    if (sub !== DEFAULT_RND_SUB) q.set('rnd', sub)
+  }
+
+  return q
+}
+
 export function syncHomeTabToUrl(state: HomeTabState) {
   if (typeof window === 'undefined') return
 
   const params = new URLSearchParams(window.location.search)
-  params.set('tab', state.tab)
+  for (const key of TAB_QUERY_KEYS) params.delete(key)
 
-  if (state.tab === 'create' && state.create) params.set('create', state.create)
-  else params.delete('create')
-
-  if (state.tab === 'rnd' && state.rnd) params.set('rnd', state.rnd)
-  else params.delete('rnd')
-
-  if (state.rnd === 'destiny-top-nest' && state.destiny && state.destiny !== 'overview') {
-    params.set('destiny', state.destiny)
-  } else {
-    params.delete('destiny')
-  }
+  const tabQuery = buildTabQuery(state)
+  tabQuery.forEach((value, key) => {
+    params.set(key, value)
+  })
 
   const qs = params.toString()
   const next = qs ? `${window.location.pathname}?${qs}` : window.location.pathname
@@ -110,7 +108,7 @@ export function readStoredHomeTabState(): HomeTabState | null {
     const raw = sessionStorage.getItem(HOME_TAB_STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as HomeTabState
-    return parsed?.tab ? parsed : null
+    return parsed?.tab ? normalizeHomeTabState(parsed) : null
   } catch {
     return null
   }
@@ -119,17 +117,15 @@ export function readStoredHomeTabState(): HomeTabState | null {
 export function writeStoredHomeTabState(state: HomeTabState) {
   if (typeof window === 'undefined') return
   try {
-    sessionStorage.setItem(HOME_TAB_STORAGE_KEY, JSON.stringify(state))
+    sessionStorage.setItem(HOME_TAB_STORAGE_KEY, JSON.stringify(normalizeHomeTabState(state)))
   } catch {
     /* storage full or disabled */
   }
 }
 
-/** Prefer URL params, then sessionStorage backup, then defaults. */
 export function resolveHomeTabState(search: string): HomeTabState {
   const params = new URLSearchParams(search)
-  const hasUrlState =
-    params.has('tab') || params.has('create') || params.has('rnd') || params.has('destiny')
+  const hasUrlState = params.has('tab') || params.has('create') || params.has('rnd')
 
   if (hasUrlState) return parseHomeTabFromSearch(search)
 
@@ -139,22 +135,19 @@ export function resolveHomeTabState(search: string): HomeTabState {
   return parseHomeTabFromSearch(search)
 }
 
-/** Persist tab state to URL and sessionStorage (survives refresh even before URL sync runs). */
 export function persistHomeTabState(state: HomeTabState) {
   syncHomeTabToUrl(state)
   writeStoredHomeTabState(state)
 }
 
-export function syncDestinySubTabToUrl(destinyTab: DestinyTopNestTab) {
+export function clearHomeTabState() {
+  stripUrlParams([...TAB_QUERY_KEYS])
   if (typeof window === 'undefined') return
-
-  const params = new URLSearchParams(window.location.search)
-  if (destinyTab === 'overview') params.delete('destiny')
-  else params.set('destiny', destinyTab)
-
-  const qs = params.toString()
-  const next = qs ? `${window.location.pathname}?${qs}` : window.location.pathname
-  window.history.replaceState(null, '', next)
+  try {
+    sessionStorage.removeItem(HOME_TAB_STORAGE_KEY)
+  } catch {
+    /* ignore */
+  }
 }
 
 export function stripUrlParams(keys: string[]) {
@@ -173,8 +166,4 @@ export function stripUrlParams(keys: string[]) {
   const qs = params.toString()
   const next = qs ? `${window.location.pathname}?${qs}` : window.location.pathname
   window.history.replaceState(null, '', next)
-}
-
-export function defaultBungieReturnPath(): string {
-  return '/?tab=rnd&rnd=destiny-top-nest'
 }

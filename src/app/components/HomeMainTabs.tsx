@@ -13,7 +13,6 @@ import BackgroundRemoverTab from '@/app/components/BackgroundRemoverTab'
 import AnalyzeTab from '@/app/components/AnalyzeTab'
 import ClipEditorTab from '@/app/components/ClipEditorTab'
 import TradebotTab from '@/app/components/TradebotTab'
-import DestinyTopNestTab from '@/app/components/DestinyTopNestTab'
 import KickClipsComingSoon from '@/app/components/KickClipsComingSoon'
 import SettingsTab from '@/app/components/SettingsTab'
 import type { ActivityLogEntry, HomeLanguage, KickUser, Platform } from '@/lib/home/types'
@@ -338,7 +337,6 @@ export default function HomeMainTabs({
                 labels={{
                   clipEditor: t.clipEditor,
                   tradebot: t.tradebot,
-                  destinyTopNest: t.destinyTopNest,
                 }}
                 pickToolLabel={t.rndPickTool}
                 darkMode={darkMode}
@@ -374,16 +372,6 @@ export default function HomeMainTabs({
                   setupTitle={t.tradebotSetupTitle}
                   lastScanLabel={t.tradebotLastScan}
                   alertsOnlyLabel={t.tradebotAlertsOnly}
-                />
-              </TabsContent>
-
-              <TabsContent value="destiny-top-nest">
-                <DestinyTopNestTab
-                  darkMode={darkMode}
-                  subtitleClasses={subtitleClasses}
-                  title={t.destinyTopNest}
-                  tagline={t.destinyTopNestDesc}
-                  isAdmin={isAdmin}
                 />
               </TabsContent>
             </div>

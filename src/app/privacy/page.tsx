@@ -32,10 +32,6 @@ export default function PrivacyPolicy() {
               Kick OAuth
             </li>
             <li>
-              <strong>Linked gaming accounts:</strong> Bungie display name, membership IDs, guardian profile summary,
-              and OAuth tokens (stored server-side) when you connect Top Nest to Bungie.net
-            </li>
-            <li>
               <strong>Content you submit:</strong> tags, descriptions, thumbnails, and other tool inputs
             </li>
             <li>
@@ -59,8 +55,8 @@ export default function PrivacyPolicy() {
           <ul className="list-disc list-inside text-gray-600 space-y-2 mb-4">
             <li>
               <strong>Strictly necessary cookies:</strong> Session authentication (httpOnly JWT), OAuth state and return
-              paths (Kick and Bungie login flows), and security tokens. These are required for login and linked
-              accounts and do not require advertising consent.
+              paths (Kick login flows), and security tokens. These are required for login and do not require
+              advertising consent.
             </li>
             <li>
               <strong>Preference cookies:</strong> Language and dark/light theme choices stored in browser cookies
@@ -81,7 +77,7 @@ export default function PrivacyPolicy() {
           </p>
           <p className="text-gray-600 leading-relaxed">
             You can manage non-essential cookies through our consent banner or your browser settings. Blocking essential
-            cookies may prevent sign-in and account linking.
+            cookies may prevent sign-in.
           </p>
         </section>
 
@@ -90,10 +86,6 @@ export default function PrivacyPolicy() {
           <ul className="list-disc list-inside text-gray-600 space-y-2">
             <li>
               <strong>Kick:</strong> OAuth authentication — subject to Kick&apos;s policies
-            </li>
-            <li>
-              <strong>Bungie.net:</strong> Optional Destiny account linking — subject to Bungie&apos;s terms and privacy
-              policy
             </li>
             <li>
               <strong>PayPal:</strong> Payments and subscriptions
@@ -124,7 +116,7 @@ export default function PrivacyPolicy() {
         <section className="mb-8">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">5. How We Use Your Information</h2>
           <ul className="list-disc list-inside text-gray-600 space-y-2">
-            <li>Provide creator tools, AI analysis, and Top Nest features</li>
+            <li>Provide creator tools and AI analysis</li>
             <li>Authenticate you and maintain your session</li>
             <li>Process payments and manage subscriptions or coin balances</li>
             <li>Display personalized ads to non-subscribers (with consent where required)</li>
@@ -137,8 +129,7 @@ export default function PrivacyPolicy() {
           <h2 className="text-xl font-semibold text-gray-800 mb-4">6. Data Storage and Security</h2>
           <p className="text-gray-600 leading-relaxed">
             We use industry-standard measures including encrypted connections (HTTPS), httpOnly session cookies, and
-            access controls. Video uploads are processed temporarily and deleted after analysis. Bungie OAuth refresh
-            tokens are stored server-side only and are not exposed to the browser.
+            access controls. Video uploads are processed temporarily and deleted after analysis.
           </p>
         </section>
 
@@ -155,7 +146,6 @@ export default function PrivacyPolicy() {
             <li>Export your data in a portable format</li>
             <li>Opt out of targeted advertising and certain data sales/sharing</li>
             <li>Withdraw consent for non-essential cookies</li>
-            <li>Disconnect linked third-party accounts (e.g. Bungie) from within the app</li>
           </ul>
           <p className="text-gray-600 leading-relaxed mt-4">
             To exercise these rights, contact us at the email below. We will respond within the timeframe required by

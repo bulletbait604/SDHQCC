@@ -29,8 +29,8 @@ export default function TermsOfService() {
           <h2 className="text-xl font-semibold text-gray-800 mb-4">2. Description of Service</h2>
           <p className="text-gray-600 leading-relaxed">
             SDHQ provides AI-powered content creation tools for streamers and creators, including tag generation,
-            thumbnail tools, clip analysis, Post4Me copy generation, and experimental R&amp;D features such as
-            Destiny&apos;s Top Nest (Top Nest). Features may change, move, or be removed without notice as part of ongoing development.
+            thumbnail tools, clip analysis, Post4Me copy generation, and experimental R&amp;D features. Features may
+            change, move, or be removed without notice as part of ongoing development.
           </p>
         </section>
 
@@ -39,11 +39,6 @@ export default function TermsOfService() {
           <ul className="list-disc list-inside text-gray-600 space-y-2">
             <li>You must sign in with a valid Kick account to access most features.</li>
             <li>You are responsible for activity under your account and for keeping your Kick credentials secure.</li>
-            <li>
-              Optional Bungie.net linking is subject to Bungie&apos;s terms. You authorize us to access Bungie API data
-              needed to provide Top Nest features.
-            </li>
-            <li>You may disconnect Bungie at any time from the Top Nest profile panel.</li>
           </ul>
         </section>
 
@@ -60,7 +55,7 @@ export default function TermsOfService() {
           <h2 className="text-xl font-semibold text-gray-800 mb-4">5. User Content and License</h2>
           <p className="text-gray-600 leading-relaxed">
             You retain ownership of content you submit. You grant SDHQ a limited license to process that content solely
-            to operate the service (e.g. generate tags, analyze clips, display linked guardian data). You represent that
+            to operate the service (e.g. generate tags, analyze clips). You represent that
             you have the rights to submit the content you provide.
           </p>
         </section>
@@ -69,7 +64,7 @@ export default function TermsOfService() {
           <h2 className="text-xl font-semibold text-gray-800 mb-4">6. Acceptable Use</h2>
           <p className="text-gray-600 leading-relaxed mb-4">You agree not to:</p>
           <ul className="list-disc list-inside text-gray-600 space-y-2">
-            <li>Violate applicable laws or third-party terms (Kick, Bungie, platform ToS)</li>
+            <li>Violate applicable laws or third-party terms (Kick, platform ToS)</li>
             <li>Attempt to bypass authentication, access controls, or rate limits</li>
             <li>Upload malware, harass others, or abuse staff tools</li>
             <li>Scrape or reverse-engineer the service except where permitted by law</li>
@@ -81,8 +76,7 @@ export default function TermsOfService() {
           <h2 className="text-xl font-semibold text-gray-800 mb-4">7. AI and Game Data Disclaimer</h2>
           <p className="text-gray-600 leading-relaxed">
             AI-generated recommendations, tags, and analysis are provided &quot;as is&quot; without guarantee of accuracy,
-            virality, or in-game results. Top Nest leaderboard and build data may include mock or incomplete
-            information during R&amp;D phases. Bungie.net data is provided by Bungie and may be delayed or unavailable.
+            virality, or in-game results.
           </p>
         </section>
 

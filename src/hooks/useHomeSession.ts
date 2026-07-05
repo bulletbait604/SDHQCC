@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { homeTranslations } from '@/lib/i18n/homeTranslations'
 import type { HomeLanguage, KickUser } from '@/lib/home/types'
 import { getClientCookie, setClientCookie } from '@/lib/clientCookies'
+import { clearHomeTabState } from '@/lib/home/tabUrl'
 
 export interface UseHomeSessionOptions {
   onSessionReady: () => void
@@ -168,6 +169,7 @@ export function useHomeSession({ onSessionReady, fetchUserRole }: UseHomeSession
       }
       document.cookie = 'kickCodeVerifier=; path=/; max-age=0'
       document.cookie = 'kickAuthReturn=; path=/; max-age=0'
+      clearHomeTabState()
       window.location.replace('/')
     }
   }, [])

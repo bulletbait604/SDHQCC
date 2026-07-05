@@ -58,9 +58,8 @@ export function PrivacyPolicyModal({
           <section>
             <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>1. Information We Collect</h4>
             <p>
-              Kick account data, optional Bungie account linking, content you submit to our tools, temporary video uploads
-              for analysis, and payment identifiers from PayPal. Tab navigation is stored in the page URL (not tracking
-              cookies).
+              Kick account data, content you submit to our tools, temporary video uploads for analysis, and payment
+              identifiers from PayPal. Tab navigation is stored in the page URL (not tracking cookies).
             </p>
           </section>
           <section>
@@ -76,7 +75,7 @@ export function PrivacyPolicyModal({
           </section>
           <section>
             <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>3. Third-Party Services</h4>
-            <p>Kick, Bungie.net, PayPal, Monetag/AdSense, Vercel Analytics, and MongoDB Atlas.</p>
+            <p>Kick, PayPal, Monetag/AdSense, Vercel Analytics, and MongoDB Atlas.</p>
           </section>
           <section>
             <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>4. Your Rights</h4>
@@ -102,11 +101,11 @@ export function TermsOfServiceModal({
 }) {
   const sections = [
     ['1. Acceptance of Terms', 'By using SDHQ you agree to these Terms and our Privacy Policy.'],
-    ['2. Service', 'AI creator tools and experimental R&D features (including Destiny\'s Top Nest). Features may change.'],
-    ['3. Accounts', 'Sign in with Kick. Optional Bungie linking subject to Bungie terms. You may disconnect anytime.'],
+    ['2. Service', 'AI creator tools and experimental R&D features. Features may change.'],
+    ['3. Accounts', 'Sign in with Kick. You are responsible for activity under your account.'],
     ['4. Payments', 'Subscriptions, coins, and lifetime passes via PayPal. Free tier includes ads.'],
     ['5. Acceptable Use', 'No abuse, bypassing security, or violating third-party platform terms.'],
-    ['6. AI Disclaimer', 'Recommendations are not guaranteed. Destiny data may include mock content during R&D.'],
+    ['6. AI Disclaimer', 'Recommendations are not guaranteed.'],
     ['7. Liability', 'Service provided as-is; liability limited to the extent permitted by law.'],
     ['8. Full Terms', 'See /terms for the complete Terms of Service.'],
   ] as const
