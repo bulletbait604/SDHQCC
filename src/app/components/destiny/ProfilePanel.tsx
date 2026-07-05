@@ -41,13 +41,28 @@ export default function ProfilePanel({ darkMode }: { darkMode: boolean }) {
         fetch('/api/destiny/profile', { credentials: 'include' }),
         fetch('/api/destiny/auth/bungie/status', { credentials: 'include' }),
       ])
+
+      let profileJson: { profile?: PlayerProfile; bungieLinked?: boolean } | null = null
       if (profileRes.ok) {
-        const json = await profileRes.json()
-        setProfile(json.profile)
+        profileJson = await profileRes.json()
+        setProfile(profileJson?.profile ?? null)
       }
+
+      let status: BungieLinkStatus | null = null
       if (statusRes.ok) {
-        setBungieStatus(await statusRes.json())
+        status = await statusRes.json()
       }
+
+      if (profileJson?.bungieLinked && !status?.linked) {
+        status = {
+          configured: status?.configured ?? true,
+          linked: true,
+          bungieDisplayName: profileJson.profile?.bungieDisplayName,
+          connectedAt: profileJson.profile?.connectedAt,
+        }
+      }
+
+      if (status) setBungieStatus(status)
     } finally {
       setLoading(false)
     }

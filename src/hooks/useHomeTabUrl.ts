@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react'
 import type { CreateSubTab } from '@/app/components/CreateTabHeader'
 import type { RdSubTab } from '@/app/components/RdTabHeader'
-import { parseHomeTabFromSearch, syncHomeTabToUrl } from '@/lib/home/tabUrl'
+import { persistHomeTabState, resolveHomeTabState } from '@/lib/home/tabUrl'
 
 /** Restore tabs from the URL on load and keep the URL in sync when tabs change. */
 export function useHomeTabUrl(options: {
@@ -25,27 +25,25 @@ export function useHomeTabUrl(options: {
     setRndSubTab,
   } = options
 
-  const appliedFromUrl = useRef(false)
-  const skipNextUrlSync = useRef(true)
+  const restoredFromStorage = useRef(false)
 
   useEffect(() => {
-    if (!ready || appliedFromUrl.current) return
-    appliedFromUrl.current = true
+    if (!ready || restoredFromStorage.current) return
+    restoredFromStorage.current = true
 
-    const parsed = parseHomeTabFromSearch(window.location.search)
-    setActiveTab(parsed.tab)
-    if (parsed.create) setCreateSubTab(parsed.create)
-    if (parsed.rnd) setRndSubTab(parsed.rnd)
-  }, [ready, setActiveTab, setCreateSubTab, setRndSubTab])
+    const resolved = resolveHomeTabState(window.location.search)
+    setActiveTab(resolved.tab)
+    if (resolved.create) setCreateSubTab(resolved.create)
+    if (resolved.rnd) setRndSubTab(resolved.rnd)
+    persistHomeTabState({
+      tab: resolved.tab,
+      create: resolved.create ?? createSubTab,
+      rnd: resolved.rnd ?? rndSubTab,
+    })
+  }, [ready, setActiveTab, setCreateSubTab, setRndSubTab, createSubTab, rndSubTab])
 
   useEffect(() => {
-    if (!ready || !appliedFromUrl.current) return
-
-    if (skipNextUrlSync.current) {
-      skipNextUrlSync.current = false
-      return
-    }
-
-    syncHomeTabToUrl({ tab: activeTab, create: createSubTab, rnd: rndSubTab })
+    if (!ready || !restoredFromStorage.current) return
+    persistHomeTabState({ tab: activeTab, create: createSubTab, rnd: rndSubTab })
   }, [ready, activeTab, createSubTab, rndSubTab])
 }

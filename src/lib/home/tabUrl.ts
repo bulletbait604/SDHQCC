@@ -102,6 +102,49 @@ export function syncHomeTabToUrl(state: HomeTabState) {
   window.history.replaceState(null, '', next)
 }
 
+export const HOME_TAB_STORAGE_KEY = 'sdhq_home_tabs'
+
+export function readStoredHomeTabState(): HomeTabState | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = sessionStorage.getItem(HOME_TAB_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as HomeTabState
+    return parsed?.tab ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+export function writeStoredHomeTabState(state: HomeTabState) {
+  if (typeof window === 'undefined') return
+  try {
+    sessionStorage.setItem(HOME_TAB_STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    /* storage full or disabled */
+  }
+}
+
+/** Prefer URL params, then sessionStorage backup, then defaults. */
+export function resolveHomeTabState(search: string): HomeTabState {
+  const params = new URLSearchParams(search)
+  const hasUrlState =
+    params.has('tab') || params.has('create') || params.has('rnd') || params.has('destiny')
+
+  if (hasUrlState) return parseHomeTabFromSearch(search)
+
+  const stored = readStoredHomeTabState()
+  if (stored) return stored
+
+  return parseHomeTabFromSearch(search)
+}
+
+/** Persist tab state to URL and sessionStorage (survives refresh even before URL sync runs). */
+export function persistHomeTabState(state: HomeTabState) {
+  syncHomeTabToUrl(state)
+  writeStoredHomeTabState(state)
+}
+
 export function syncDestinySubTabToUrl(destinyTab: DestinyTopNestTab) {
   if (typeof window === 'undefined') return
 

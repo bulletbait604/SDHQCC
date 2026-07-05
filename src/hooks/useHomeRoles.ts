@@ -77,11 +77,17 @@ export function useHomeRoles({
   )
 
   useEffect(() => {
-    const hasRnd = canAccessRnd(userRole, user?.username)
-    if (!hasRnd && (activeTab === 'rnd' || activeTab === 'clip-editor')) {
+    if (!user?.username) return
+
+    if (canAccessRnd(userRole, user.username)) return
+
+    const sessionRole = capOwnerRole(user.username, (user.role as Role) || 'free')
+    if (canAccessRnd(sessionRole, user.username)) return
+
+    if (activeTab === 'rnd') {
       setActiveTab('educate')
     }
-  }, [activeTab, user?.username, userRole, setActiveTab])
+  }, [activeTab, user, userRole, setActiveTab])
 
   const fetchUsersWithRoles = useCallback(async () => {
     try {

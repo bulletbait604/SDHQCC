@@ -17,6 +17,7 @@ export function useHomeSession({ onSessionReady, fetchUserRole }: UseHomeSession
   fetchUserRoleRef.current = fetchUserRole
 
   const [mounted, setMounted] = useState(false)
+  const [sessionChecked, setSessionChecked] = useState(false)
   const [user, setUser] = useState<KickUser | null>(null)
   const [language, setLanguage] = useState<HomeLanguage>('en')
   const [darkMode, setDarkMode] = useState(true)
@@ -110,6 +111,7 @@ export function useHomeSession({ onSessionReady, fetchUserRole }: UseHomeSession
         console.error('Error loading session:', err)
         applyAnonymousUiFromCookies()
       } finally {
+        setSessionChecked(true)
         onSessionReadyRef.current()
       }
     })()
@@ -172,6 +174,7 @@ export function useHomeSession({ onSessionReady, fetchUserRole }: UseHomeSession
 
   return {
     mounted,
+    sessionChecked,
     user,
     setUser,
     language,

@@ -71,6 +71,7 @@ export default function HomePage() {
 
   const {
     mounted,
+    sessionChecked,
     user,
     language,
     darkMode,
@@ -86,7 +87,7 @@ export default function HomePage() {
   } = session
 
   useHomeTabUrl({
-    ready: mounted && !!user,
+    ready: mounted,
     activeTab,
     createSubTab,
     rndSubTab,
@@ -243,7 +244,7 @@ export default function HomePage() {
     setShowClearConfirm(false)
   }
 
-  if (!mounted) {
+  if (!mounted || !sessionChecked) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-sdhq-dark-900">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sdhq-cyan-500"></div>
