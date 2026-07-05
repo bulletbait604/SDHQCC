@@ -18,6 +18,26 @@ export type FireteamGoal =
   | 'chill_clear'
   | 'competitive_scoring'
 export type FireteamStatus = 'open' | 'full' | 'in_progress' | 'closed'
+
+export const PROFILE_FLEX_STAT_IDS = [
+  'guardian_rank',
+  'power_level',
+  'raid_points',
+  'dungeon_points',
+  'verified_clears',
+  'fastest_clear',
+  'reputation',
+  'season_rank',
+] as const
+
+export type ProfileFlexStatId = (typeof PROFILE_FLEX_STAT_IDS)[number]
+
+export interface ProfileFlexStat {
+  id: ProfileFlexStatId
+  label: string
+  value: string
+  detail?: string
+}
 export type DestinyTopNestTab =
   | 'overview'
   | 'leaderboards'
@@ -67,10 +87,15 @@ export interface DestinyUser {
   clanTag?: string
   emblemUrl?: string
   bannerUrl?: string
+  emblemBackgroundUrl?: string
+  characterThumbnailUrl?: string
+  emblemColor?: string
+  activeCharacterId?: string
   guardianRank?: number
   powerLevel?: number
   characterClass?: DestinyCharacterClass
   connectedAt?: string
+  profileFlexStats?: ProfileFlexStatId[]
   /** Bungie membership type enum (1=xbox, 2=ps, 3=steam, 6=epic) for API calls */
   destinyMembershipType?: number
 }
@@ -271,6 +296,7 @@ export interface PlayerProfile extends DestinyUser {
   prizeEligibility: string
   currentLoadout?: BuildSnapshot
   classRef?: DestinyIconRef
+  flexStats?: ProfileFlexStat[]
 }
 
 export interface BuildIntelligenceCard {

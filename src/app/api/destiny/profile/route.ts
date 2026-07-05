@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth } from '@/lib/auth/verifyAuth'
 import { destinyAuthHandler } from '@/lib/destiny/apiHandler'
 import { enrichProfile } from '@/lib/destiny/enrich'
-import { getDestinyUserBySiteUserId } from '@/lib/destiny/destinyUserStore'
+import { getDestinyUserBySiteUserId, upsertDestinyUser } from '@/lib/destiny/destinyUserStore'
 import { fetchLiveLoadout, refreshGuardianFromBungie } from '@/lib/destiny/liveBungieData'
 import { buildPlayerProfileFromStored, emptyPlayerProfile } from '@/lib/destiny/profileBuilder'
+import { sanitizeFlexPreferences } from '@/lib/destiny/profileFlex'
 import {
   getReputationReviewsForUser,
   getRunsForUser,
@@ -43,5 +44,24 @@ export async function GET(req: NextRequest) {
       profile: await enrichProfile(profile),
       bungieLinked: true,
     })
+  })
+}
+
+export async function PATCH(req: NextRequest) {
+  return destinyAuthHandler(req, async () => {
+    const authUser = await verifyAuth(req)
+    const siteUserId = authUser.username.toLowerCase()
+    const stored = await getDestinyUserBySiteUserId(siteUserId)
+
+    if (!stored?.oauth) {
+      return NextResponse.json({ error: 'Link Bungie before customizing profile display' }, { status: 400 })
+    }
+
+    const body = (await req.json().catch(() => null)) as { profileFlexStats?: unknown } | null
+    const profileFlexStats = sanitizeFlexPreferences(body?.profileFlexStats)
+
+    await upsertDestinyUser(siteUserId, { profileFlexStats })
+
+    return NextResponse.json({ profileFlexStats })
   })
 }

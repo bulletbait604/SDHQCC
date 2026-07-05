@@ -5,7 +5,7 @@ import {
   getGroupsForMember,
   getPlayerProfile,
 } from '@/lib/destiny/bungieClient'
-import { fetchLinkedGuardianSummary } from '@/lib/destiny/bungieOAuth'
+import { fetchGuardianPresentation } from '@/lib/destiny/guardianPresentation'
 import type { StoredDestinyUser } from '@/lib/destiny/destinyUserStore'
 import { getValidAccessToken, upsertDestinyUser } from '@/lib/destiny/destinyUserStore'
 import { resolveInventoryItem } from '@/lib/destiny/manifest'
@@ -40,12 +40,24 @@ export async function refreshGuardianFromBungie(stored: StoredDestinyUser): Prom
   if (!accessToken || !membershipType || !membershipId) return stored
 
   try {
-    const summary = await fetchLinkedGuardianSummary(membershipType, membershipId, accessToken)
+    const presentation = await fetchGuardianPresentation(
+      membershipType,
+      membershipId,
+      accessToken,
+      stored.bungieDisplayName
+    )
+    if (!presentation) return stored
+
     const updated = await upsertDestinyUser(stored.userId, {
-      emblemUrl: summary.emblemUrl,
-      powerLevel: summary.powerLevel,
-      characterClass: summary.characterClass,
-      bungieDisplayName: stored.bungieDisplayName || summary.displayName,
+      emblemUrl: presentation.emblemUrl,
+      emblemBackgroundUrl: presentation.emblemBackgroundUrl,
+      emblemColor: presentation.emblemColor,
+      characterThumbnailUrl: presentation.characterThumbnailUrl,
+      activeCharacterId: presentation.characterId,
+      guardianRank: presentation.guardianRank,
+      powerLevel: presentation.powerLevel,
+      characterClass: presentation.characterClass,
+      bungieDisplayName: stored.bungieDisplayName || presentation.displayName,
     })
     return updated
   } catch {

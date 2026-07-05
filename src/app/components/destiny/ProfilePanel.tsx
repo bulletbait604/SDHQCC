@@ -1,20 +1,22 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Star, Trophy, Unlink, Loader2 } from 'lucide-react'
+import { Trophy, Unlink, Loader2 } from 'lucide-react'
 import type { PlayerProfile } from '@/lib/destiny/types'
 import BungieConnectBanner from '@/app/components/destiny/BungieConnectBanner'
+import GuardianHeroCard from '@/app/components/destiny/GuardianHeroCard'
+import ProfileFlexEditor from '@/app/components/destiny/ProfileFlexEditor'
 import ProfileLoadoutsSection from '@/app/components/destiny/ProfileLoadoutsSection'
 import {
   GearStrip,
   GlassCard,
-  ItemIcon,
   LoadingBlock,
   SectionTitle,
   SegmentedControl,
   StatusPill,
 } from '@/app/components/destiny/DestinyUi'
-import { formatDuration, getDestinyTheme, platformIcon } from '@/app/components/destiny/destinyTheme'
+import { formatDuration, getDestinyTheme } from '@/app/components/destiny/destinyTheme'
+import { DEFAULT_PROFILE_FLEX_STATS } from '@/lib/destiny/profileFlex'
 import { useBungieLink } from '@/hooks/useBungieLink'
 import { cn } from '@/lib/utils'
 
@@ -113,48 +115,15 @@ export default function ProfilePanel({
             </GlassCard>
           )}
 
-          <GlassCard darkMode={darkMode}>
-            <div className="flex flex-col sm:flex-row gap-4 items-start">
-              {profile.emblemUrl ? (
-                <img
-                  src={profile.emblemUrl}
-                  alt=""
-                  className="w-20 h-20 rounded-2xl ring-1 ring-white/10 object-cover"
-                />
-              ) : (
-                <div className="w-20 h-20 rounded-2xl bg-white/[0.06]" />
-              )}
-              <div className="flex-1 min-w-0">
-                <h3 className={cn('text-2xl font-semibold tracking-tight', t.heading)}>
-                  {profile.bungieDisplayName}
-                </h3>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  {profile.classRef && (
-                    <ItemIcon item={profile.classRef} size={24} className="rounded-full" />
-                  )}
-                  <p className={cn('text-sm', t.muted)}>
-                    {profile.clanTag} {profile.clanName} · {platformIcon(profile.platform)} · GR{' '}
-                    {profile.guardianRank} · PL {profile.powerLevel}
-                  </p>
-                </div>
-                <p className={cn('text-xs mt-2', t.caption)}>
-                  {linked ? 'Live Bungie data' : 'Connect Bungie on Home to sync your Guardian'}
-                </p>
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {profile.badges.map((b) => (
-                    <StatusPill key={b} label={b} tone="gold" />
-                  ))}
-                </div>
-              </div>
-              <div className="text-right">
-                <p className={cn('text-xs', t.caption)}>Reputation</p>
-                <p className={cn('text-2xl font-semibold flex items-center gap-1 justify-end', t.gold)}>
-                  <Star className="w-5 h-5" />
-                  {profile.reputationScore.toFixed(1)}
-                </p>
-              </div>
-            </div>
-          </GlassCard>
+          <GuardianHeroCard profile={profile} darkMode={darkMode} linked={linked} />
+
+          {linked && (
+            <ProfileFlexEditor
+              darkMode={darkMode}
+              initialSelection={profile.profileFlexStats ?? DEFAULT_PROFILE_FLEX_STATS}
+              onSaved={() => void load()}
+            />
+          )}
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[

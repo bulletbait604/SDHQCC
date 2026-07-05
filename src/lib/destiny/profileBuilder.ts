@@ -1,5 +1,10 @@
 import type { LeaderboardEntry, PlayerProfile, ReputationReview, RunRecord } from '@/lib/destiny/types'
 import type { StoredDestinyUser } from '@/lib/destiny/destinyUserStore'
+import {
+  buildProfileFlexStats,
+  DEFAULT_PROFILE_FLEX_STATS,
+  sanitizeFlexPreferences,
+} from '@/lib/destiny/profileFlex'
 import { prizeEligibilityForUser } from '@/lib/destiny/seasonPrizes'
 import { computeReputationScore, reputationBadges } from '@/lib/destiny/reputation'
 
@@ -73,8 +78,11 @@ export function buildPlayerProfileFromStored(
   }
 
   const seasonEntries = options?.seasonLeaderboardEntries ?? []
+  const flexPreferences = sanitizeFlexPreferences(
+    stored.profileFlexStats ?? DEFAULT_PROFILE_FLEX_STATS
+  )
 
-  return {
+  const base: PlayerProfile = {
     userId: stored.userId,
     bungieMembershipId: stored.bungieMembershipId,
     bungieDisplayName: stored.bungieDisplayName,
@@ -83,6 +91,11 @@ export function buildPlayerProfileFromStored(
     clanName: stored.clanName,
     clanTag: stored.clanTag,
     emblemUrl: stored.emblemUrl,
+    emblemBackgroundUrl: stored.emblemBackgroundUrl,
+    characterThumbnailUrl: stored.characterThumbnailUrl,
+    emblemColor: stored.emblemColor,
+    activeCharacterId: stored.activeCharacterId,
+    profileFlexStats: flexPreferences,
     guardianRank: stored.guardianRank,
     powerLevel: stored.powerLevel,
     characterClass: stored.characterClass,
@@ -99,5 +112,10 @@ export function buildPlayerProfileFromStored(
     topCompletions,
     prizeEligibility: prizeEligibilityForUser(seasonEntries, verified.length),
     currentLoadout: options?.loadout,
+  }
+
+  return {
+    ...base,
+    flexStats: buildProfileFlexStats(base, flexPreferences, seasonEntries),
   }
 }
