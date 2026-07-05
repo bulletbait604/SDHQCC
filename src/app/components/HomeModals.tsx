@@ -57,23 +57,33 @@ export function PrivacyPolicyModal({
         <div className={`space-y-4 text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
           <section>
             <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>1. Information We Collect</h4>
-            <p>We collect information you provide directly to us when you create an account, including your Kick username, profile picture, and email address.</p>
+            <p>
+              Kick account data, optional Bungie account linking, content you submit to our tools, temporary video uploads
+              for analysis, and payment identifiers from PayPal. Tab navigation is stored in the page URL (not tracking
+              cookies).
+            </p>
           </section>
           <section>
-            <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>2. How We Use Your Information</h4>
-            <p>We use your information to provide AI-powered content analysis services and personalize your experience.</p>
+            <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>2. Cookies</h4>
+            <p>
+              Essential cookies power login and OAuth. Preference cookies store language and theme. Advertising cookies
+              are optional and controlled via the consent banner. See the full{' '}
+              <a href="/privacy" className="text-sdhq-cyan-500 hover:underline">
+                Privacy Policy
+              </a>
+              .
+            </p>
           </section>
           <section>
-            <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>3. Data Security</h4>
-            <p>We implement appropriate measures to protect your personal information.</p>
+            <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>3. Third-Party Services</h4>
+            <p>Kick, Bungie.net, PayPal, Monetag/AdSense, Vercel Analytics, and MongoDB Atlas.</p>
           </section>
           <section>
-            <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>4. Third-Party Services</h4>
-            <p>We use Kick OAuth for authentication. Your use of Kick is subject to Kick&apos;s policies.</p>
-          </section>
-          <section>
-            <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>5. Your Rights</h4>
-            <p>You can access, update, or delete your account information by contacting us.</p>
+            <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>4. Your Rights</h4>
+            <p>
+              You may request access, correction, or deletion of your data, opt out of targeted ads, and disconnect
+              linked accounts. Contact Bulletbait604@gmail.com.
+            </p>
           </section>
         </div>
       </div>
@@ -91,13 +101,14 @@ export function TermsOfServiceModal({
   onClose: () => void
 }) {
   const sections = [
-    ['1. Acceptance of Terms', 'By using Stream Dreams Creator Corner, you agree to these Terms of Service.'],
-    ['2. Description of Service', 'We provide AI-powered content analysis tools for creators.'],
-    ['3. User Accounts', 'You must authenticate through Kick and are responsible for your account security.'],
-    ['4. Subscription and Payments', 'Some features require subscription; free features remain available to all users.'],
-    ['5. Content Analysis', 'You grant us permission to process content data to generate recommendations.'],
-    ['6. Limitation of Liability', 'AI recommendations do not guarantee specific results.'],
-    ['7. Termination', 'We may suspend accounts for terms violations.'],
+    ['1. Acceptance of Terms', 'By using SDHQ you agree to these Terms and our Privacy Policy.'],
+    ['2. Service', 'AI creator tools and experimental R&D features (including DestinyTopNest). Features may change.'],
+    ['3. Accounts', 'Sign in with Kick. Optional Bungie linking subject to Bungie terms. You may disconnect anytime.'],
+    ['4. Payments', 'Subscriptions, coins, and lifetime passes via PayPal. Free tier includes ads.'],
+    ['5. Acceptable Use', 'No abuse, bypassing security, or violating third-party platform terms.'],
+    ['6. AI Disclaimer', 'Recommendations are not guaranteed. Destiny data may include mock content during R&D.'],
+    ['7. Liability', 'Service provided as-is; liability limited to the extent permitted by law.'],
+    ['8. Full Terms', 'See /terms for the complete Terms of Service.'],
   ] as const
 
   return (

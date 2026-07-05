@@ -72,8 +72,14 @@ export default function KickCallbackPage() {
 
         setStatus('success')
 
+        const returnCookie = getCookie('kickAuthReturn')
+        const returnPath =
+          returnCookie && returnCookie.startsWith('/') && !returnCookie.startsWith('//')
+            ? decodeURIComponent(returnCookie)
+            : '/'
+
         setTimeout(() => {
-          window.location.href = '/'
+          window.location.href = returnPath
         }, 400)
       } catch (err: any) {
         setStatus('error')

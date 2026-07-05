@@ -9,21 +9,35 @@ import {
   platformFromMembershipType,
 } from '@/lib/destiny/bungieOAuth'
 import { upsertDestinyUser } from '@/lib/destiny/destinyUserStore'
+import { defaultBungieReturnPath } from '@/lib/home/tabUrl'
 import { sessionCookieSecure } from '@/lib/sessionCookie'
 
 export const dynamic = 'force-dynamic'
 
-function redirectHome(params: Record<string, string>, req: NextRequest): NextResponse {
-  const base = new URL('/', req.url)
+function redirectAfterOAuth(
+  params: Record<string, string>,
+  req: NextRequest,
+  returnPath?: string
+): NextResponse {
+  const safeReturn =
+    returnPath && returnPath.startsWith('/') && !returnPath.startsWith('//')
+      ? returnPath
+      : defaultBungieReturnPath()
+
+  const target = new URL(safeReturn, req.url)
   for (const [k, v] of Object.entries(params)) {
-    base.searchParams.set(k, v)
+    target.searchParams.set(k, v)
   }
-  const res = NextResponse.redirect(base)
+
+  const res = NextResponse.redirect(target)
   res.cookies.set('bungieOAuthState', '', { httpOnly: true, path: '/', maxAge: 0 })
+  res.cookies.set('bungieOAuthReturn', '', { httpOnly: true, path: '/', maxAge: 0 })
   return res
 }
 
 export async function GET(req: NextRequest) {
+  const returnPath = req.cookies.get('bungieOAuthReturn')?.value
+
   try {
     const user = await verifyAuth(req)
     const { searchParams } = new URL(req.url)
@@ -32,16 +46,16 @@ export async function GET(req: NextRequest) {
     const error = searchParams.get('error')
 
     if (error) {
-      return redirectHome({ tab: 'destiny-top-nest', bungie: 'error', message: error }, req)
+      return redirectAfterOAuth({ bungie: 'error', message: error }, req, returnPath)
     }
 
     if (!code || !state) {
-      return redirectHome({ tab: 'destiny-top-nest', bungie: 'error', message: 'missing_code' }, req)
+      return redirectAfterOAuth({ bungie: 'error', message: 'missing_code' }, req, returnPath)
     }
 
     const cookieState = req.cookies.get('bungieOAuthState')?.value
     if (!cookieState || cookieState !== state) {
-      return redirectHome({ tab: 'destiny-top-nest', bungie: 'error', message: 'invalid_state' }, req)
+      return redirectAfterOAuth({ bungie: 'error', message: 'invalid_state' }, req, returnPath)
     }
 
     const tokens = await exchangeBungieAuthorizationCode(code)
@@ -54,7 +68,7 @@ export async function GET(req: NextRequest) {
     )
 
     if (!primary) {
-      return redirectHome({ tab: 'destiny-top-nest', bungie: 'error', message: 'no_destiny_account' }, req)
+      return redirectAfterOAuth({ bungie: 'error', message: 'no_destiny_account' }, req, returnPath)
     }
 
     const summary = await fetchLinkedGuardianSummary(
@@ -78,17 +92,10 @@ export async function GET(req: NextRequest) {
       oauth: tokens,
     })
 
-    const res = redirectHome({ tab: 'destiny-top-nest', bungie: 'linked' }, req)
-    res.cookies.set('bungieOAuthState', '', {
-      httpOnly: true,
-      secure: sessionCookieSecure(),
-      path: '/',
-      maxAge: 0,
-    })
-    return res
+    return redirectAfterOAuth({ bungie: 'linked' }, req, returnPath)
   } catch (error) {
     if (error instanceof AuthError) return createAuthErrorResponse(error)
     console.error('[destiny/auth/bungie/callback]', error)
-    return redirectHome({ tab: 'destiny-top-nest', bungie: 'error', message: 'exchange_failed' }, req)
+    return redirectAfterOAuth({ bungie: 'error', message: 'exchange_failed' }, req, returnPath)
   }
 }

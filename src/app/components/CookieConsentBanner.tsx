@@ -14,12 +14,21 @@ export default function CookieConsentBanner({ onAccept, onDecline, darkMode = tr
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
         <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
           <p className="mb-1">
-            <span className="font-semibold">We use cookies</span> to deliver personalized ads and improve your experience. 
-            By clicking &quot;Accept,&quot; you consent to our use of cookies and the processing of data for advertising purposes. 
-            See our <Link href="/privacy" className="text-sdhq-cyan-500 hover:underline">Privacy Policy</Link> for details.
+            <span className="font-semibold">We use cookies</span> for essential features (sign-in, security) and, if
+            you accept, personalized ads. Tab navigation is saved in your page URL so refresh keeps your place—not via
+            tracking cookies. See our{' '}
+            <Link href="/privacy" className="text-sdhq-cyan-500 hover:underline">
+              Privacy Policy
+            </Link>{' '}
+            and{' '}
+            <Link href="/terms" className="text-sdhq-cyan-500 hover:underline">
+              Terms of Service
+            </Link>
+            .
           </p>
           <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-            Ads help keep this service free for all users. Subscribers can enjoy an ad-free experience.
+            Essential cookies are always used for login. Advertising cookies are optional—Decline to limit ad
+            personalization. Subscribers may enjoy an ad-reduced experience.
           </p>
         </div>
         <div className="flex gap-3 flex-shrink-0">

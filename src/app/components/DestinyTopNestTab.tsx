@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   LayoutDashboard,
   Trophy,
@@ -13,6 +13,11 @@ import {
   ShieldAlert,
 } from 'lucide-react'
 import type { DestinyTopNestTab } from '@/lib/destiny/types'
+import {
+  isDestinyTopNestTab,
+  parseHomeTabFromSearch,
+  syncDestinySubTabToUrl,
+} from '@/lib/home/tabUrl'
 import { getDestinyTheme } from '@/app/components/destiny/destinyTheme'
 import OverviewPanel from '@/app/components/destiny/OverviewPanel'
 import LeaderboardsPanel from '@/app/components/destiny/LeaderboardsPanel'
@@ -46,9 +51,22 @@ interface Props {
 }
 
 export default function DestinyTopNestTab({ darkMode, subtitleClasses, title, tagline }: Props) {
-  const [activeTab, setActiveTab] = useState<DestinyTopNestTab>('overview')
+  const [activeTab, setActiveTab] = useState<DestinyTopNestTab>(() => {
+    if (typeof window === 'undefined') return 'overview'
+    const parsed = parseHomeTabFromSearch(window.location.search)
+    return parsed.destiny && isDestinyTopNestTab(parsed.destiny) ? parsed.destiny : 'overview'
+  })
   const [bungieStatus, setBungieStatus] = useState<string | null>(null)
   const theme = getDestinyTheme(darkMode)
+  const skipDestinyUrlSync = useRef(true)
+
+  useEffect(() => {
+    if (skipDestinyUrlSync.current) {
+      skipDestinyUrlSync.current = false
+      return
+    }
+    syncDestinySubTabToUrl(activeTab)
+  }, [activeTab])
 
   const checkBungie = useCallback(async () => {
     try {

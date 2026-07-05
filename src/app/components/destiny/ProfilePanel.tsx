@@ -13,6 +13,7 @@ import {
   SubclassBadge,
 } from '@/app/components/destiny/DestinyUi'
 import { formatDuration, getDestinyTheme, platformIcon } from '@/app/components/destiny/destinyTheme'
+import { defaultBungieReturnPath, stripUrlParams } from '@/lib/home/tabUrl'
 import { cn } from '@/lib/utils'
 
 interface BungieLinkStatus {
@@ -28,6 +29,9 @@ export default function ProfilePanel({ darkMode }: { darkMode: boolean }) {
   const [loading, setLoading] = useState(true)
   const [disconnecting, setDisconnecting] = useState(false)
   const [linkMessage, setLinkMessage] = useState<string | null>(null)
+  const [connectHref, setConnectHref] = useState(
+    `/api/destiny/auth/bungie/start?return=${encodeURIComponent(defaultBungieReturnPath())}`
+  )
   const t = getDestinyTheme(darkMode)
 
   const load = useCallback(async () => {
@@ -51,12 +55,17 @@ export default function ProfilePanel({ darkMode }: { darkMode: boolean }) {
 
   useEffect(() => {
     load()
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      const bungie = params.get('bungie')
-      if (bungie === 'linked') setLinkMessage('Bungie account linked successfully.')
-      if (bungie === 'error') setLinkMessage('Bungie linking failed. Try again.')
+    const current = window.location.pathname + window.location.search
+    setConnectHref(`/api/destiny/auth/bungie/start?return=${encodeURIComponent(current)}`)
+
+    const params = new URLSearchParams(window.location.search)
+    const bungie = params.get('bungie')
+    if (bungie === 'linked') setLinkMessage('Bungie account linked successfully.')
+    if (bungie === 'error') {
+      const msg = params.get('message')
+      setLinkMessage(msg ? `Bungie linking failed: ${msg}` : 'Bungie linking failed. Try again.')
     }
+    if (bungie) stripUrlParams(['bungie', 'message'])
   }, [load])
 
   async function disconnect() {
@@ -120,7 +129,7 @@ export default function ProfilePanel({ darkMode }: { darkMode: boolean }) {
           </div>
         ) : (
           <a
-            href="/api/destiny/auth/bungie/start"
+            href={connectHref}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-amber-500/20 text-amber-100 border border-amber-500/40 hover:bg-amber-500/30"
           >
             <Link2 className="w-4 h-4" />

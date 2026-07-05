@@ -44,6 +44,9 @@ export default function RootLayout({
                 <a href="/privacy" className="text-sm font-medium text-white/95 hover:text-white underline transition-opacity">
                   Privacy Policy
                 </a>
+                <a href="/terms" className="text-sm font-medium text-white/95 hover:text-white underline transition-opacity">
+                  Terms of Service
+                </a>
                 <span className="text-xs font-medium text-white/90 bg-white/20 px-2 py-1 rounded">
                   This site uses advertising to support free access.
                 </span>

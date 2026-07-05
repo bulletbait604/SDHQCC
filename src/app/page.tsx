@@ -12,7 +12,7 @@ import { useHomeActivityLog } from '@/hooks/useHomeActivityLog'
 import { useHomeAlgorithms } from '@/hooks/useHomeAlgorithms'
 import { useHomeFeedback } from '@/hooks/useHomeFeedback'
 import { useCheckoutPricing } from '@/hooks/useCheckoutPricing'
-import { useLegacyTabRedirect } from '@/hooks/useLegacyTabRedirect'
+import { useHomeTabUrl } from '@/hooks/useHomeTabUrl'
 import { platformsBannerLogos } from '@/lib/home/defaultPlatforms'
 import { getHomeThemeClasses } from '@/lib/home/homeThemeClasses'
 import HomeHeader from '@/app/components/HomeHeader'
@@ -85,7 +85,15 @@ export default function HomePage() {
     handleLogout: sessionLogout,
   } = session
 
-  useLegacyTabRedirect(activeTab, setActiveTab, setCreateSubTab, setRndSubTab)
+  useHomeTabUrl({
+    ready: mounted && !!user,
+    activeTab,
+    createSubTab,
+    rndSubTab,
+    setActiveTab,
+    setCreateSubTab,
+    setRndSubTab,
+  })
 
   const roles = useHomeRoles({
     user,

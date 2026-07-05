@@ -8,7 +8,7 @@ export async function startKickLogin(): Promise<void> {
     const secureFlag = isSecure ? '; Secure' : ''
     const sameSite = isSecure ? 'None' : 'Lax'
     document.cookie = `kickCodeVerifier=${codeVerifier}; path=/; max-age=600; SameSite=${sameSite}${secureFlag}`
-    document.cookie = `kickAuthReturn=${window.location.pathname}; path=/; max-age=600; SameSite=${sameSite}${secureFlag}`
+    document.cookie = `kickAuthReturn=${encodeURIComponent(window.location.pathname + window.location.search)}; path=/; max-age=600; SameSite=${sameSite}${secureFlag}`
     window.location.href = url
   } catch (error) {
     console.error('Failed to create KICK auth URL:', error)

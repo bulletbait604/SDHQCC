@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto'
 import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { buildBungieAuthorizeUrl } from '@/lib/destiny/bungieOAuth'
 import { bungieOAuthConfigured, bungieOAuthRedirectUri } from '@/lib/destiny/env'
+import { defaultBungieReturnPath } from '@/lib/home/tabUrl'
 import { sessionCookieSecure } from '@/lib/sessionCookie'
 
 export const dynamic = 'force-dynamic'
@@ -24,9 +25,21 @@ export async function GET(req: NextRequest) {
     const state = randomBytes(24).toString('hex')
     const url = buildBungieAuthorizeUrl(state)
     const secure = sessionCookieSecure()
+    const returnParam = req.nextUrl.searchParams.get('return')
+    const returnPath =
+      returnParam && returnParam.startsWith('/') && !returnParam.startsWith('//')
+        ? returnParam
+        : defaultBungieReturnPath()
 
     const res = NextResponse.redirect(url)
     res.cookies.set('bungieOAuthState', state, {
+      httpOnly: true,
+      secure,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 600,
+    })
+    res.cookies.set('bungieOAuthReturn', returnPath, {
       httpOnly: true,
       secure,
       sameSite: 'lax',
