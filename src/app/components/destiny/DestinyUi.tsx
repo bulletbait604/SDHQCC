@@ -1,8 +1,121 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import type { LeaderboardEntry } from '@/lib/destiny/types'
+import type { DestinyIconRef, LeaderboardEntry } from '@/lib/destiny/types'
 import { formatDuration, getDestinyTheme, platformIcon } from '@/app/components/destiny/destinyTheme'
+
+export function ItemIcon({
+  item,
+  name,
+  iconUrl,
+  size = 40,
+  className,
+  title,
+}: {
+  item?: DestinyIconRef
+  name?: string
+  iconUrl?: string
+  size?: number
+  className?: string
+  title?: string
+}) {
+  const url = item?.iconUrl ?? iconUrl
+  const label = item?.name ?? name ?? 'Item'
+  const tier = item?.tierLabel
+
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt=""
+        title={title ?? (tier ? `${label} (${tier})` : label)}
+        className={cn('shrink-0 rounded-md border border-amber-500/30 bg-black/40 object-cover', className)}
+        style={{ width: size, height: size }}
+      />
+    )
+  }
+
+  return (
+    <div
+      title={label}
+      className={cn(
+        'shrink-0 rounded-md border border-white/10 bg-purple-900/40 flex items-center justify-center text-[10px] text-purple-200 text-center px-0.5',
+        className
+      )}
+      style={{ width: size, height: size }}
+    >
+      ?
+    </div>
+  )
+}
+
+export function GearStrip({
+  items,
+  darkMode,
+  size = 36,
+}: {
+  items: (DestinyIconRef | undefined)[]
+  darkMode: boolean
+  size?: number
+}) {
+  const t = getDestinyTheme(darkMode)
+  return (
+    <div className="flex flex-wrap gap-2 items-center">
+      {items.filter(Boolean).map((item, i) => (
+        <div key={i} className="flex flex-col items-center gap-0.5 max-w-[72px]">
+          <ItemIcon item={item} size={size} />
+          <span className={cn('text-[10px] text-center line-clamp-2 leading-tight', t.muted)}>
+            {item?.name}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function SubclassBadge({
+  classRef,
+  subclassRef,
+  characterClass,
+  subclass,
+  darkMode,
+}: {
+  classRef?: DestinyIconRef
+  subclassRef?: DestinyIconRef
+  characterClass: string
+  subclass: string
+  darkMode: boolean
+}) {
+  const t = getDestinyTheme(darkMode)
+  return (
+    <div className="flex items-center gap-2">
+      <ItemIcon item={classRef} name={characterClass} size={32} className="rounded-full" />
+      <ItemIcon item={subclassRef} name={subclass} size={28} />
+      <span className={cn('text-sm text-white', t.muted)}>
+        {subclass} {characterClass}
+      </span>
+    </div>
+  )
+}
+
+export function ActivityBadge({
+  activityRef,
+  name,
+  darkMode,
+  size = 44,
+}: {
+  activityRef?: DestinyIconRef
+  name: string
+  darkMode: boolean
+  size?: number
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <ItemIcon item={activityRef} name={name} size={size} className="rounded-lg" />
+      <span className="text-white font-semibold text-sm">{name}</span>
+    </div>
+  )
+}
 
 export function GlassCard({
   children,

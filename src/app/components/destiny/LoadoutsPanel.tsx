@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Copy, AlertCircle } from 'lucide-react'
 import type { BuildSnapshot } from '@/lib/destiny/types'
-import { GlassCard, LoadingBlock, SectionTitle } from '@/app/components/destiny/DestinyUi'
+import {
+  GearStrip,
+  GlassCard,
+  ItemIcon,
+  LoadingBlock,
+  SectionTitle,
+  SubclassBadge,
+} from '@/app/components/destiny/DestinyUi'
 import { getDestinyTheme } from '@/app/components/destiny/destinyTheme'
 import { cn } from '@/lib/utils'
 
@@ -35,15 +42,41 @@ function LoadoutCard({
 
   return (
     <div className="rounded-lg bg-black/30 p-4 border border-white/10">
-      <p className={cn('text-xs font-semibold mb-2', t.gold)}>{title}</p>
-      <p className="text-white font-medium">
-        {build.subclass} {build.characterClass}
-      </p>
-      <p className={cn('text-xs mt-1', t.muted)}>{build.exoticArmor}</p>
-      <p className={cn('text-xs mt-2', t.muted)}>
-        {build.kineticWeapon} · {build.energyWeapon} · {build.powerWeapon}
-      </p>
-      <div className="flex flex-wrap gap-2 mt-3">
+      <p className={cn('text-xs font-semibold mb-3', t.gold)}>{title}</p>
+      <SubclassBadge
+        classRef={build.classRef}
+        subclassRef={build.subclassRef}
+        characterClass={build.characterClass}
+        subclass={build.subclass}
+        darkMode={darkMode}
+      />
+      <div className="mt-3">
+        <p className={cn('text-xs mb-2', t.muted)}>Exotic armor</p>
+        <div className="flex items-center gap-2">
+          <ItemIcon item={build.exoticArmorRef} name={build.exoticArmor} size={44} />
+          <span className="text-sm text-white">{build.exoticArmorRef?.name ?? build.exoticArmor}</span>
+        </div>
+      </div>
+      <div className="mt-3">
+        <p className={cn('text-xs mb-2', t.muted)}>Weapons</p>
+        <GearStrip
+          darkMode={darkMode}
+          items={[
+            build.kineticWeaponRef,
+            build.energyWeaponRef,
+            build.powerWeaponRef,
+            build.exoticWeaponRef,
+          ]}
+        />
+      </div>
+      {build.aspectRefs && build.aspectRefs.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {build.aspectRefs.map((aspect, i) => (
+            <ItemIcon key={i} item={aspect} size={28} title={aspect.name} />
+          ))}
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2 mt-4">
         <button
           type="button"
           className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs bg-purple-500/20 text-purple-200 border border-purple-500/30"
@@ -97,7 +130,7 @@ export default function LoadoutsPanel({ darkMode }: { darkMode: boolean }) {
       <GlassCard darkMode={darkMode}>
         <SectionTitle
           title="Loadouts"
-          subtitle="View · copy · equip where Bungie API supports it"
+          subtitle="Icons from Bungie manifest · view · copy · equip where supported"
           darkMode={darkMode}
         />
         {data ? (

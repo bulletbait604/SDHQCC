@@ -4,10 +4,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { Brain, Copy, ExternalLink } from 'lucide-react'
 import type { BuildIntelligenceCard, ExternalBuildSource } from '@/lib/destiny/types'
 import {
+  ActivityBadge,
+  GearStrip,
   GlassCard,
   LoadingBlock,
   SectionTitle,
   StatusPill,
+  SubclassBadge,
 } from '@/app/components/destiny/DestinyUi'
 import { formatDuration, getDestinyTheme } from '@/app/components/destiny/destinyTheme'
 import { cn } from '@/lib/utils'
@@ -59,15 +62,26 @@ export default function BuildIntelPanel({ darkMode }: { darkMode: boolean }) {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {verifiedBuilds.map((b) => (
             <div key={b.id} className="rounded-xl p-4 bg-black/30 border border-amber-500/20">
-              <div className="flex justify-between gap-2">
+              <div className="flex justify-between gap-2 mb-2">
                 <p className="text-white font-semibold">{b.buildName}</p>
                 <StatusPill label={b.role} tone="gold" />
               </div>
-              <p className={cn('text-xs mt-1', t.muted)}>{b.activityName}</p>
-              <p className="text-sm text-white mt-2">
-                {b.subclass} {b.characterClass} · {b.exoticArmor}
-              </p>
-              <p className={cn('text-xs mt-1', t.muted)}>{b.weapons.join(' · ')}</p>
+              <ActivityBadge activityRef={b.activityRef} name={b.activityName} darkMode={darkMode} size={36} />
+              <div className="mt-3">
+                <SubclassBadge
+                  classRef={b.classRef}
+                  subclassRef={b.subclassRef}
+                  characterClass={b.characterClass}
+                  subclass={b.subclass}
+                  darkMode={darkMode}
+                />
+              </div>
+              <div className="mt-3">
+                <GearStrip
+                  darkMode={darkMode}
+                  items={[b.exoticArmorRef, b.exoticWeaponRef, ...(b.weaponRefs ?? [])]}
+                />
+              </div>
               <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
                 <span className={t.gold}>{b.usageRatePercent}% usage</span>
                 <span className={t.blue}>{b.successRatePercent}% success</span>

@@ -4,11 +4,15 @@ import { useCallback, useEffect, useState } from 'react'
 import { Crown, Swords, Users, Clock, Trophy, Sparkles } from 'lucide-react'
 import type { OverviewPayload } from '@/lib/destiny/types'
 import {
+  ActivityBadge,
+  GearStrip,
   GlassCard,
+  ItemIcon,
   LeaderboardTable,
   LoadingBlock,
   SectionTitle,
   StatusPill,
+  SubclassBadge,
 } from '@/app/components/destiny/DestinyUi'
 import { cn } from '@/lib/utils'
 import { formatDuration, getDestinyTheme } from '@/app/components/destiny/destinyTheme'
@@ -52,7 +56,8 @@ export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
           label={data.bungieApiConfigured ? 'Bungie API configured' : 'Mock data — set DESTINY_API'}
           tone={data.bungieApiConfigured ? 'green' : 'gold'}
         />
-        <StatusPill label={data.seasonCountdown.label} tone="purple" />
+        <StatusPill label={data.weeklyReset.resetsInLabel + ' until reset'} tone="blue" />
+        <StatusPill label={`Week ${data.weeklyReset.weekLabel}`} tone="purple" />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -70,15 +75,58 @@ export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
         </GlassCard>
       </div>
 
+      <GlassCard darkMode={darkMode}>
+        <SectionTitle
+          title="Weekly Reset · Featured Activities"
+          subtitle={data.weeklyReset.resetTimeLabel}
+          darkMode={darkMode}
+        />
+        {data.weeklyReset.pantheon && (
+          <p className={cn('text-xs mb-3', t.purple)}>Pantheon: {data.weeklyReset.pantheon}</p>
+        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p className={cn('text-xs font-semibold mb-2', t.gold)}>Featured Raids</p>
+            <div className="space-y-2">
+              {data.weeklyReset.featuredRaids.map((raid) => (
+                <ActivityBadge
+                  key={raid.name}
+                  activityRef={raid}
+                  name={raid.name}
+                  darkMode={darkMode}
+                />
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className={cn('text-xs font-semibold mb-2', t.gold)}>Featured Dungeons</p>
+            <div className="space-y-2">
+              {data.weeklyReset.featuredDungeons.map((dungeon) => (
+                <ActivityBadge
+                  key={dungeon.name}
+                  activityRef={dungeon}
+                  name={dungeon.name}
+                  darkMode={darkMode}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </GlassCard>
+
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <GlassCard darkMode={darkMode}>
           <div className="flex items-center gap-2 mb-2">
             <Swords className="w-4 h-4 text-amber-400" />
             <span className={t.heading}>Featured Raid</span>
           </div>
-          <p className="text-white font-semibold">{data.featuredRaid.name}</p>
-          <p className={cn('text-xs mt-1', t.muted)}>
-            {data.featuredRaid.difficulty} · resets {data.featuredRaid.resetsIn}
+          <ActivityBadge
+            activityRef={data.featuredRaid}
+            name={data.featuredRaid.name}
+            darkMode={darkMode}
+          />
+          <p className={cn('text-xs mt-2', t.muted)}>
+            Resets in {data.featuredRaid.resetsIn}
           </p>
         </GlassCard>
         <GlassCard darkMode={darkMode}>
@@ -86,9 +134,13 @@ export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
             <Crown className="w-4 h-4 text-purple-400" />
             <span className={t.heading}>Featured Dungeon</span>
           </div>
-          <p className="text-white font-semibold">{data.featuredDungeon.name}</p>
-          <p className={cn('text-xs mt-1', t.muted)}>
-            {data.featuredDungeon.difficulty} · resets {data.featuredDungeon.resetsIn}
+          <ActivityBadge
+            activityRef={data.featuredDungeon}
+            name={data.featuredDungeon.name}
+            darkMode={darkMode}
+          />
+          <p className={cn('text-xs mt-2', t.muted)}>
+            Resets in {data.featuredDungeon.resetsIn}
           </p>
         </GlassCard>
         <GlassCard darkMode={darkMode}>
@@ -118,11 +170,14 @@ export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
                 key={run.id}
                 className="flex flex-wrap items-center justify-between gap-2 py-2 border-b border-white/5 last:border-0"
               >
-                <div>
-                  <p className="text-white text-sm font-medium">{run.activityName}</p>
-                  <p className={cn('text-xs', t.muted)}>
-                    {run.type} · {formatDuration(run.durationSeconds)} · +{run.pointsAwarded} pts
-                  </p>
+                <div className="flex items-center gap-2 min-w-0">
+                  <ItemIcon item={run.activityRef} name={run.activityName} size={32} />
+                  <div>
+                    <p className="text-white text-sm font-medium">{run.activityName}</p>
+                    <p className={cn('text-xs', t.muted)}>
+                      {run.type} · {formatDuration(run.durationSeconds)} · +{run.pointsAwarded} pts
+                    </p>
+                  </div>
                 </div>
                 <StatusPill
                   label={run.verificationStatus}
@@ -172,11 +227,20 @@ export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {data.trendingBuilds.map((b) => (
             <div key={b.id} className="rounded-lg bg-black/30 p-3 border border-purple-500/20">
-              <p className="text-white font-medium text-sm">{b.buildName}</p>
-              <p className={cn('text-xs mt-1', t.muted)}>
-                {b.subclass} {b.characterClass} · {b.usageRatePercent}% of top teams
-              </p>
-              <p className={cn('text-xs mt-1', t.gold)}>
+              <SubclassBadge
+                classRef={b.classRef}
+                subclassRef={b.subclassRef}
+                characterClass={b.characterClass}
+                subclass={b.subclass}
+                darkMode={darkMode}
+              />
+              <p className="text-white font-medium text-sm mt-2">{b.buildName}</p>
+              <GearStrip
+                darkMode={darkMode}
+                size={32}
+                items={[b.exoticArmorRef, b.exoticWeaponRef, ...(b.weaponRefs ?? [])]}
+              />
+              <p className={cn('text-xs mt-2', t.gold)}>
                 Avg {formatDuration(b.averageClearSeconds)} · {b.deathRatePercent}% deaths
               </p>
             </div>

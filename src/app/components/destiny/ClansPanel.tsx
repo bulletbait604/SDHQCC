@@ -2,12 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import type { ClanProfile } from '@/lib/destiny/types'
-import {
-  GlassCard,
-  LoadingBlock,
-  SectionTitle,
-  StatusPill,
-} from '@/app/components/destiny/DestinyUi'
+import { GlassCard, ItemIcon, LoadingBlock, SectionTitle, StatusPill } from '@/app/components/destiny/DestinyUi'
 import { formatDuration, getDestinyTheme } from '@/app/components/destiny/destinyTheme'
 import { cn } from '@/lib/utils'
 
@@ -40,12 +35,17 @@ export default function ClansPanel({ darkMode }: { darkMode: boolean }) {
     <div className="space-y-4">
       <GlassCard darkMode={darkMode}>
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
+          <div className="flex items-center gap-3">
+            {clan.emblemUrl && (
+              <ItemIcon iconUrl={clan.emblemUrl} name={clan.name} size={48} className="rounded-xl" />
+            )}
+            <div>
             <h3 className="text-2xl font-bold text-white">
               {clan.tag} {clan.name}
             </h3>
             <p className={cn('text-sm mt-1', t.muted)}>{clan.memberCount} members · {clan.points} pts</p>
             {clan.recruitmentOpen && <StatusPill label="Recruiting" tone="green" />}
+            </div>
           </div>
           <div className="text-right">
             <p className={cn('text-xs', t.muted)}>Full clan clears</p>
@@ -81,6 +81,7 @@ export default function ClansPanel({ darkMode }: { darkMode: boolean }) {
             <div key={m.displayName} className="flex items-center justify-between py-2 border-b border-white/5">
               <div className="flex items-center gap-2">
                 <span className={cn('text-sm font-bold w-6', t.gold)}>{i + 1}</span>
+                {m.emblemUrl && <ItemIcon iconUrl={m.emblemUrl} name={m.displayName} size={28} className="rounded-full" />}
                 <span className="text-white">{m.displayName}</span>
               </div>
               <span className={cn('text-sm', t.gold)}>{m.points} pts</span>

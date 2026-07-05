@@ -10,17 +10,37 @@ DestinyTopNest uses the Bungie.net API for player profiles, activity history, PG
 
 Alias also supported: `BUNGIE_API_KEY`
 
-## Optional (Phase 2 — Bungie OAuth)
+## Bungie account linking (OAuth)
+
+Users must be logged into SDHQCC (Kick) first, then connect Bungie from **DestinyTopNest → My Profile**.
 
 | Variable | Description |
 |----------|-------------|
-| `BUNGIE_OAUTH_CLIENT_ID` | OAuth client ID from your Bungie application |
+| `BUNGIE_OAUTH_CLIENT_ID` | OAuth client ID from Bungie application (Confidential client type) |
 | `BUNGIE_OAUTH_CLIENT_SECRET` | OAuth client secret |
+| `DESTINY_API` | Same Bungie API key (required for token exchange) |
 
-OAuth is required for:
-- Linking a user's Bungie account to their SDHQ account
-- Reading private profile/loadout data
-- Equipping items where Bungie API allows
+**Redirect URL** (register in Bungie developer portal):
+
+`https://your-production-domain/api/destiny/auth/bungie/callback`
+
+Override with `BUNGIE_OAUTH_REDIRECT_URI` if needed.
+
+### API routes
+
+- `GET /api/destiny/auth/bungie/start` — begins OAuth (requires login)
+- `GET /api/destiny/auth/bungie/callback` — Bungie redirect handler
+- `GET /api/destiny/auth/bungie/status` — link status for current user
+- `POST /api/destiny/auth/bungie/disconnect` — unlink account
+
+Linked accounts are stored in `destiny_users` with encrypted-at-rest OAuth tokens (server-only, never sent to browser).
+
+## Optional (legacy alias env names)
+
+| Variable | Alias |
+|----------|-------|
+| `BUNGIE_CLIENT_ID` | `BUNGIE_OAUTH_CLIENT_ID` |
+| `BUNGIE_CLIENT_SECRET` | `BUNGIE_OAUTH_CLIENT_SECRET` |
 
 ## MongoDB collections
 
@@ -35,11 +55,27 @@ DestinyTopNest uses the `sdhq` database:
 - `destiny_seasons`
 - `destiny_admin_reviews`
 - `destiny_external_build_sources`
+- `destiny_manifest_cache` — cached Bungie icon URLs (7-day TTL)
+
+## Manifest icons
+
+Gear, activity, subclass, and emblem thumbnails are resolved server-side via:
+
+1. `itemsCatalog.ts` fallback hashes
+2. Bungie `GetDestinyEntityDefinition` + Armory search
+3. Mongo cache to avoid repeat manifest calls
+
+Icon URLs use `https://www.bungie.net` + manifest `displayProperties.icon` paths.
+
+## Weekly reset
+
+Featured raid/dungeon rotation updates every **Tuesday 10:00 AM Pacific (17:00 UTC)**.
+Schedule is maintained in `src/lib/destiny/weeklyRotation.ts` (Monument of Triumph era rotator).
 
 ## Phases
 
 1. **Phase 1 (current):** UI dashboard with mock data, Bungie client utilities, Mongo schemas
-2. **Phase 2:** Bungie OAuth, real profiles, PGCR ingestion, scoring
+2. **Phase 2 (in progress):** Bungie OAuth linking, live profile summary, token refresh
 3. **Phase 3:** AI legitimacy checker, admin review queue
 4. **Phase 4:** Build intelligence from verified runs
 5. **Phase 5:** Prizes, reputation, optional Kick/Twitch/Discord

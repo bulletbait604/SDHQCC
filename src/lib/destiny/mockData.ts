@@ -10,14 +10,26 @@ import type {
   PlayerProfile,
   RunRecord,
   Season,
+  WeeklyResetInfo,
 } from '@/lib/destiny/types'
+import { getWeeklyResetState } from '@/lib/destiny/weeklyRotation'
 
-const SEASON_ID = 's26-reclamation'
+const SEASON_ID = 'dtn-nest-s1'
 
-const EMBLEMS = [
-  'https://www.bungie.net/common/destiny2_content/icons/emblem/emblem_default.png',
-  'https://www.bungie.net/common/destiny2_content/icons/emblem/emblem_01.png',
-]
+function weeklyResetStub(): WeeklyResetInfo {
+  const s = getWeeklyResetState()
+  return {
+    resetAt: s.resetAt,
+    nextResetAt: s.nextResetAt,
+    weekLabel: s.weekLabel,
+    resetsInLabel: s.resetsInLabel,
+    resetsInMs: s.resetsInMs,
+    pantheon: s.pantheon,
+    resetTimeLabel: s.resetTimeLabel,
+    featuredRaids: s.featuredRaids.map((r) => ({ ...r })),
+    featuredDungeons: s.featuredDungeons.map((d) => ({ ...d })),
+  }
+}
 
 function lbEntry(
   rank: number,
@@ -29,7 +41,7 @@ function lbEntry(
   return {
     userId: `user-${rank}`,
     bungieDisplayName: name,
-    emblemUrl: EMBLEMS[rank % EMBLEMS.length],
+    emblemUrl: undefined,
     clanTag: overrides.clanTag ?? '[SDHQ]',
     platform: overrides.platform ?? 'steam',
     guardianRank: overrides.guardianRank ?? 12 - Math.floor(rank / 2),
@@ -41,16 +53,16 @@ function lbEntry(
     verifiedClears: overrides.verifiedClears ?? 8 - Math.floor(rank / 3),
     rank,
     fastestClearSeconds: overrides.fastestClearSeconds ?? 3600 + rank * 120,
-    fastestActivityName: overrides.fastestActivityName ?? 'Salvation\'s Edge',
+    fastestActivityName: overrides.fastestActivityName ?? 'Garden of Salvation',
     ...overrides,
   }
 }
 
 export const MOCK_SEASON: Season = {
   id: SEASON_ID,
-  name: 'Reclamation',
-  startDate: '2026-03-10T17:00:00Z',
-  endDate: '2026-06-17T17:00:00Z',
+  name: 'Nest Season 1 — Monument Era',
+  startDate: '2026-06-09T17:00:00Z',
+  endDate: '2026-06-30T17:00:00Z',
   status: 'active',
   prizeRules: {
     raid: {
@@ -84,7 +96,7 @@ export const MOCK_SEASON: Season = {
 }
 
 export const MOCK_RAID_TOP10: LeaderboardEntry[] = [
-  lbEntry(1, 'VoidWalkerPrime', 'raid', 248, { fastestClearSeconds: 2847, fastestActivityName: 'Salvation\'s Edge' }),
+  lbEntry(1, 'VoidWalkerPrime', 'raid', 248, { fastestClearSeconds: 2847, fastestActivityName: "King's Fall" }),
   lbEntry(2, 'SolarSlinger99', 'raid', 231, { platform: 'xbox', clanTag: '[FLAME]' }),
   lbEntry(3, 'ArcMissileMike', 'raid', 219, { platform: 'playstation' }),
   lbEntry(4, 'PrismaticPanda', 'raid', 205),
@@ -97,7 +109,7 @@ export const MOCK_RAID_TOP10: LeaderboardEntry[] = [
 ]
 
 export const MOCK_DUNGEON_TOP10: LeaderboardEntry[] = [
-  lbEntry(1, 'DeepDiver_D', 'dungeon', 186, { fastestActivityName: 'Ghosts of the Deep', fastestClearSeconds: 1124 }),
+  lbEntry(1, 'DeepDiver_D', 'dungeon', 186, { fastestActivityName: 'Spire of the Watcher', fastestClearSeconds: 1124 }),
   lbEntry(2, 'SpireRunner', 'dungeon', 172),
   lbEntry(3, 'VesperVault', 'dungeon', 165, { platform: 'xbox' }),
   lbEntry(4, 'WarlordWave', 'dungeon', 158),
@@ -122,9 +134,9 @@ export const MOCK_RECENT_RUNS: RunRecord[] = [
     id: 'run-1',
     pgcrId: '1234567890123456789',
     activityId: 1234567890,
-    activityName: 'Salvation\'s Edge',
+    activityName: 'Garden of Salvation',
     type: 'raid',
-    difficulty: 'master',
+    difficulty: 'normal',
     completedAt: new Date(Date.now() - 3600000).toISOString(),
     durationSeconds: 3842,
     completed: true,
@@ -142,7 +154,7 @@ export const MOCK_RECENT_RUNS: RunRecord[] = [
     aiReview: {
       legitimacyStatus: 'clean',
       suspiciousScore: 12,
-      reasons: ['Duration within expected range for Master Salvation\'s Edge'],
+      reasons: ['Duration within expected range for Garden of Salvation'],
       recommendation: 'approve',
     },
   },
@@ -150,7 +162,7 @@ export const MOCK_RECENT_RUNS: RunRecord[] = [
     id: 'run-2',
     pgcrId: '9876543210987654321',
     activityId: 9876543210,
-    activityName: 'Ghosts of the Deep',
+    activityName: 'Pit of Heresy',
     type: 'dungeon',
     difficulty: 'normal',
     completedAt: new Date(Date.now() - 7200000).toISOString(),
@@ -171,7 +183,7 @@ export const MOCK_RECENT_RUNS: RunRecord[] = [
     id: 'run-3',
     pgcrId: '5555555555555555555',
     activityId: 5555555555,
-    activityName: 'Vesper\'s Host',
+    activityName: 'Spire of the Watcher',
     type: 'dungeon',
     difficulty: 'master',
     completedAt: new Date(Date.now() - 86400000).toISOString(),
@@ -199,12 +211,12 @@ export const MOCK_LFG: FireteamLobby[] = [
     id: 'lfg-1',
     hostUserId: 'user-1',
     hostDisplayName: 'VoidWalkerPrime',
-    hostEmblemUrl: EMBLEMS[0],
+    hostEmblemUrl: undefined,
     hostClass: 'warlock',
     hostPowerLevel: 2010,
     hostGuardianRank: 12,
     activityType: 'raid',
-    activityName: 'Salvation\'s Edge',
+    activityName: 'Garden of Salvation',
     goal: 'fresh_run',
     tags: ['KWTD', 'Mic Required', 'Meta Loadouts', 'Boss DPS'],
     platform: 'crossplay',
@@ -223,7 +235,7 @@ export const MOCK_LFG: FireteamLobby[] = [
     hostClass: 'hunter',
     hostPowerLevel: 2005,
     activityType: 'dungeon',
-    activityName: 'Ghosts of the Deep',
+    activityName: 'Pit of Heresy',
     goal: 'chill_clear',
     tags: ['New Players Welcome', 'No Mic', 'Crossplay OK', 'Chill'],
     platform: 'steam',
@@ -240,8 +252,8 @@ export const MOCK_LFG: FireteamLobby[] = [
     hostDisplayName: 'WellOfRadiance',
     hostClass: 'warlock',
     hostPowerLevel: 2008,
-    activityType: 'master_raid',
-    activityName: 'Salvation\'s Edge',
+    activityType: 'raid',
+    activityName: "King's Fall",
     goal: 'competitive_scoring',
     tags: ['Serious', 'Fast Run', 'Mechanics Confident', 'Scoring Run'],
     platform: 'xbox',
@@ -260,21 +272,21 @@ export const MOCK_BUILD: BuildSnapshot = {
   runId: 'run-1',
   userId: 'user-1',
   characterClass: 'warlock',
-  subclass: 'Prismatic',
+  subclass: 'Void',
   super: 'Nova Bomb',
   aspects: ['Bleak Watcher', 'Icefall Mantle'],
   fragments: ['Echo of Undermining', 'Echo of Instability'],
   abilities: ['Healing Rift', 'Void Grenade'],
-  exoticArmor: 'Rime-Coat Raiment',
-  exoticWeapon: 'Wish-Keeper',
+  exoticArmor: 'Ophidian Aspect',
+  exoticWeapon: 'Divinity',
   kineticWeapon: 'Supremacy',
-  energyWeapon: 'Calus\'s Selected',
-  powerWeapon: 'Cataclysmic',
+  energyWeapon: 'Explosive Personality',
+  powerWeapon: 'Zephyr Reward',
   armorMods: ['Harmonic Siphon', 'Ashes to Assets', 'Solar Resistance'],
   artifactPerks: ['Anti-Barrier Pulse', 'Overload Scout'],
   stats: { mobility: 45, resilience: 90, recovery: 100, discipline: 85, intellect: 70, strength: 55 },
-  activityId: 1234567890,
-  activityName: 'Salvation\'s Edge',
+  activityId: 2659723068,
+  activityName: 'Garden of Salvation',
   difficulty: 'master',
   completedAt: new Date().toISOString(),
   durationSeconds: 3842,
@@ -290,7 +302,7 @@ export const MOCK_PROFILE: PlayerProfile = {
   clanId: 'nest-clan',
   clanName: 'Top Nest',
   clanTag: '[NEST]',
-  emblemUrl: EMBLEMS[0],
+  emblemUrl: undefined,
   guardianRank: 12,
   powerLevel: 2010,
   characterClass: 'warlock',
@@ -301,13 +313,13 @@ export const MOCK_PROFILE: PlayerProfile = {
   verifiedClears: 22,
   reputationScore: 4.7,
   badges: ['Verified Raider', 'Sherpa', 'Full Clan Clear', 'Speed Runner'],
-  favoriteActivities: ['Salvation\'s Edge', 'Ghosts of the Deep', 'Vesper\'s Host'],
+  favoriteActivities: ['Garden of Salvation', "King's Fall", 'Spire of the Watcher', 'Pit of Heresy'],
   favoriteTeammates: ['BannerLord', 'SolarSlinger99', 'DivinityDriver'],
   recentRuns: MOCK_RECENT_RUNS.slice(0, 2),
   topCompletions: [
-    { activityName: 'Salvation\'s Edge (Master)', durationSeconds: 2847, completedAt: '2026-05-20T22:00:00Z' },
-    { activityName: 'Ghosts of the Deep', durationSeconds: 1124, completedAt: '2026-05-18T19:30:00Z' },
-    { activityName: 'Vesper\'s Host (Master)', durationSeconds: 1456, completedAt: '2026-05-15T21:00:00Z' },
+    { activityName: "King's Fall", durationSeconds: 2847, completedAt: '2026-06-15T22:00:00Z' },
+    { activityName: 'Garden of Salvation', durationSeconds: 3120, completedAt: '2026-06-14T19:30:00Z' },
+    { activityName: 'Spire of the Watcher', durationSeconds: 1124, completedAt: '2026-06-13T21:00:00Z' },
   ],
   prizeEligibility: 'Eligible for Raid Top 10 prizes this season (currently rank #1)',
   currentLoadout: MOCK_BUILD,
@@ -316,13 +328,13 @@ export const MOCK_PROFILE: PlayerProfile = {
 export const MOCK_BUILD_CARDS: BuildIntelligenceCard[] = [
   {
     id: 'bi-1',
-    buildName: 'Prismatic Well Support',
-    activityName: 'Salvation\'s Edge',
+    buildName: 'Void Well Support',
+    activityName: 'Garden of Salvation',
     characterClass: 'warlock',
-    subclass: 'Prismatic',
-    exoticArmor: 'Rime-Coat Raiment',
-    exoticWeapon: 'Wish-Keeper',
-    weapons: ['Supremacy', 'Calus\'s Selected', 'Cataclysmic'],
+    subclass: 'Void',
+    exoticArmor: 'Ophidian Aspect',
+    exoticWeapon: 'Divinity',
+    weapons: ['Supremacy', 'Explosive Personality', 'Zephyr Reward'],
     keyStats: { recovery: 100, resilience: 90 },
     averageClearSeconds: 3120,
     usageRatePercent: 40,
@@ -335,7 +347,7 @@ export const MOCK_BUILD_CARDS: BuildIntelligenceCard[] = [
   {
     id: 'bi-2',
     buildName: 'Banner DPS Titan',
-    activityName: 'Salvation\'s Edge',
+    activityName: "King's Fall",
     characterClass: 'titan',
     subclass: 'Arc',
     exoticArmor: 'Cuirass of the Falling Star',
@@ -352,7 +364,7 @@ export const MOCK_BUILD_CARDS: BuildIntelligenceCard[] = [
   {
     id: 'bi-3',
     buildName: 'Starfire Fusion Hunter',
-    activityName: 'Ghosts of the Deep',
+    activityName: 'Spire of the Watcher',
     characterClass: 'hunter',
     subclass: 'Solar',
     exoticArmor: 'Star-Eater Scales',
@@ -371,11 +383,11 @@ export const MOCK_BUILD_CARDS: BuildIntelligenceCard[] = [
 export const MOCK_EXTERNAL_BUILDS: ExternalBuildSource[] = [
   {
     id: 'ext-1',
-    title: 'Master SE Support Warlock',
+    title: 'GoS Support Warlock',
     source: 'Destiny Top Nest Curated',
     sourceUrl: 'https://www.bungie.net',
     class: 'warlock',
-    subclass: 'Prismatic',
+    subclass: 'Void',
     lastChecked: '2026-06-17T12:00:00Z',
     approved: true,
   },
@@ -392,7 +404,7 @@ export const MOCK_CLAN: ClanProfile = {
   avgRaidClearSeconds: 3420,
   avgDungeonClearSeconds: 1240,
   topMembers: [
-    { displayName: 'VoidWalkerPrime', points: 248, emblemUrl: EMBLEMS[0] },
+    { displayName: 'VoidWalkerPrime', points: 248, emblemUrl: undefined },
     { displayName: 'SolarSlinger99', points: 231 },
     { displayName: 'BannerLord', points: 176 },
   ],
@@ -420,13 +432,26 @@ export function getSeasonCountdown(): { days: number; hours: number; label: stri
 }
 
 export function buildOverviewPayload(bungieApiConfigured: boolean): OverviewPayload {
+  const weekly = weeklyResetStub()
+  const primaryRaid = weekly.featuredRaids[0]
+  const primaryDungeon = weekly.featuredDungeons[0]
+
   return {
     raidTop10: MOCK_RAID_TOP10,
     dungeonTop10: MOCK_DUNGEON_TOP10,
     clanTop5: MOCK_CLAN_TOP5,
     recentRuns: MOCK_RECENT_RUNS,
-    featuredRaid: { name: 'Salvation\'s Edge', difficulty: 'master', resetsIn: '2d 14h' },
-    featuredDungeon: { name: 'Ghosts of the Deep', difficulty: 'normal', resetsIn: '4d 6h' },
+    weeklyReset: weekly,
+    featuredRaid: {
+      name: primaryRaid?.name ?? 'Garden of Salvation',
+      difficulty: primaryRaid?.difficulty ?? 'normal',
+      resetsIn: weekly.resetsInLabel,
+    },
+    featuredDungeon: {
+      name: primaryDungeon?.name ?? 'Spire of the Watcher',
+      difficulty: primaryDungeon?.difficulty ?? 'normal',
+      resetsIn: weekly.resetsInLabel,
+    },
     season: MOCK_SEASON,
     seasonCountdown: getSeasonCountdown(),
     prizeSummary: 'Raid & Dungeon Top 5 win platform cards or 3D prints. Full Clan Team prizes for same-clan clears.',

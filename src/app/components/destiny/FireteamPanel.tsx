@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { Mic, Users, Plus } from 'lucide-react'
 import type { FireteamLobby } from '@/lib/destiny/types'
 import {
+  ActivityBadge,
   GlassCard,
+  ItemIcon,
   LoadingBlock,
   SectionTitle,
   StatusPill,
@@ -63,9 +65,14 @@ export default function FireteamPanel({ darkMode }: { darkMode: boolean }) {
                 className="rounded-xl p-4 bg-black/30 border border-white/10 hover:border-purple-500/30 transition-colors"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-white font-semibold">{lobby.activityName}</p>
-                    <p className={cn('text-xs mt-0.5', t.muted)}>
+                  <div className="min-w-0 flex-1">
+                    <ActivityBadge
+                      activityRef={lobby.activityRef}
+                      name={lobby.activityName}
+                      darkMode={darkMode}
+                      size={36}
+                    />
+                    <p className={cn('text-xs mt-1', t.muted)}>
                       {lobby.activityType.replace(/_/g, ' ')} · {lobby.goal.replace(/_/g, ' ')}
                     </p>
                   </div>
@@ -81,9 +88,11 @@ export default function FireteamPanel({ darkMode }: { darkMode: boolean }) {
                   <div>
                     <p className="text-sm text-white">{lobby.hostDisplayName}</p>
                     <p className={cn('text-xs', t.muted)}>
-                      {lobby.hostClass} · PL {lobby.hostPowerLevel} · GR {lobby.hostGuardianRank}
+                      PL {lobby.hostPowerLevel} · GR {lobby.hostGuardianRank} ·{' '}
+                      {lobby.goal.replace(/_/g, ' ')}
                     </p>
                   </div>
+                  {lobby.hostClassRef && <ItemIcon item={lobby.hostClassRef} size={28} className="rounded-full" />}
                 </div>
 
                 <div className="flex flex-wrap gap-2 mt-3">

@@ -10,4 +10,5 @@ export const DESTINY_COLLECTIONS = {
   seasons: 'destiny_seasons',
   adminReviews: 'destiny_admin_reviews',
   externalBuildSources: 'destiny_external_build_sources',
+  manifestCache: 'destiny_manifest_cache',
 } as const

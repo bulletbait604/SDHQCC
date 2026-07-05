@@ -60,6 +60,49 @@ async function bungieFetch<T>(
   return body.Response
 }
 
+export interface ManifestDisplayProperties {
+  name?: string
+  icon?: string
+  description?: string
+  hasIcon?: boolean
+}
+
+/** Single entity definition from live manifest. */
+export async function getDestinyEntityDefinition(entityType: string, hash: number) {
+  return bungieFetch<unknown>(`/Destiny2/Manifest/${entityType}/${hash}/`)
+}
+
+export interface ArmorySearchResult {
+  hash: number
+  name: string
+  icon?: string
+}
+
+/** Search Bungie armory for manifest entities by name. */
+export async function searchDestinyEntities(
+  entityType: string,
+  searchTerm: string,
+  page = 0
+): Promise<ArmorySearchResult[]> {
+  const encoded = encodeURIComponent(searchTerm)
+  const response = await bungieFetch<{
+    searchResults?: Array<{
+      entityType?: string
+      hash?: number
+      displayProperties?: ManifestDisplayProperties
+    }>
+  }>(`/Destiny2/Armory/Search/${entityType}/${encoded}/?page=${page}`)
+
+  const results = response?.searchResults ?? []
+  return results
+    .filter((r) => r.hash != null)
+    .map((r) => ({
+      hash: r.hash as number,
+      name: r.displayProperties?.name ?? searchTerm,
+      icon: r.displayProperties?.icon,
+    }))
+}
+
 /** Public — no OAuth required. */
 export async function getDestinyManifest() {
   return bungieFetch<{ jsonWorldContentPaths: { en: string } }>('/Destiny2/Manifest/')

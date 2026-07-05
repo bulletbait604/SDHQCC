@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Gift, Clock, Trophy } from 'lucide-react'
-import type { Season, SeasonWinner } from '@/lib/destiny/types'
-import { GlassCard, LoadingBlock, SectionTitle } from '@/app/components/destiny/DestinyUi'
+import type { Season, SeasonWinner, WeeklyResetInfo } from '@/lib/destiny/types'
+import { ActivityBadge, GlassCard, LoadingBlock, SectionTitle } from '@/app/components/destiny/DestinyUi'
 import { getDestinyTheme } from '@/app/components/destiny/destinyTheme'
 import { cn } from '@/lib/utils'
 
@@ -12,6 +12,7 @@ export default function SeasonPanel({ darkMode }: { darkMode: boolean }) {
   const [countdown, setCountdown] = useState<{ days: number; hours: number; label: string } | null>(null)
   const [eligibility, setEligibility] = useState('')
   const [hallOfFame, setHallOfFame] = useState<SeasonWinner[]>([])
+  const [weeklyReset, setWeeklyReset] = useState<WeeklyResetInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const t = getDestinyTheme(darkMode)
 
@@ -25,6 +26,7 @@ export default function SeasonPanel({ darkMode }: { darkMode: boolean }) {
         setCountdown(json.countdown)
         setEligibility(json.eligibility)
         setHallOfFame(json.hallOfFame ?? [])
+        setWeeklyReset(json.weeklyReset ?? null)
       }
     } finally {
       setLoading(false)
@@ -61,6 +63,29 @@ export default function SeasonPanel({ darkMode }: { darkMode: boolean }) {
           )}
         </div>
       </GlassCard>
+
+      {weeklyReset && (
+        <GlassCard darkMode={darkMode}>
+          <SectionTitle
+            title="This Week's Featured Activities"
+            subtitle={`${weeklyReset.weekLabel} · ${weeklyReset.resetTimeLabel}`}
+            darkMode={darkMode}
+          />
+          <p className={cn('text-xs mb-3', t.blue)}>Reset in {weeklyReset.resetsInLabel}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              {weeklyReset.featuredRaids.map((r) => (
+                <ActivityBadge key={r.name} activityRef={r} name={r.name} darkMode={darkMode} />
+              ))}
+            </div>
+            <div className="space-y-2">
+              {weeklyReset.featuredDungeons.map((d) => (
+                <ActivityBadge key={d.name} activityRef={d} name={d.name} darkMode={darkMode} />
+              ))}
+            </div>
+          </div>
+        </GlassCard>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <GlassCard darkMode={darkMode}>

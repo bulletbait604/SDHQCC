@@ -1,29 +1,48 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Shield, Star, Trophy } from 'lucide-react'
+import { Star, Trophy, Link2, Unlink, Loader2 } from 'lucide-react'
 import type { PlayerProfile } from '@/lib/destiny/types'
 import {
+  GearStrip,
   GlassCard,
+  ItemIcon,
   LoadingBlock,
   SectionTitle,
   StatusPill,
+  SubclassBadge,
 } from '@/app/components/destiny/DestinyUi'
 import { formatDuration, getDestinyTheme, platformIcon } from '@/app/components/destiny/destinyTheme'
 import { cn } from '@/lib/utils'
 
+interface BungieLinkStatus {
+  configured: boolean
+  linked: boolean
+  bungieDisplayName?: string
+  connectedAt?: string
+}
+
 export default function ProfilePanel({ darkMode }: { darkMode: boolean }) {
   const [profile, setProfile] = useState<PlayerProfile | null>(null)
+  const [bungieStatus, setBungieStatus] = useState<BungieLinkStatus | null>(null)
   const [loading, setLoading] = useState(true)
+  const [disconnecting, setDisconnecting] = useState(false)
+  const [linkMessage, setLinkMessage] = useState<string | null>(null)
   const t = getDestinyTheme(darkMode)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/destiny/profile', { credentials: 'include' })
-      if (res.ok) {
-        const json = await res.json()
+      const [profileRes, statusRes] = await Promise.all([
+        fetch('/api/destiny/profile', { credentials: 'include' }),
+        fetch('/api/destiny/auth/bungie/status', { credentials: 'include' }),
+      ])
+      if (profileRes.ok) {
+        const json = await profileRes.json()
         setProfile(json.profile)
+      }
+      if (statusRes.ok) {
+        setBungieStatus(await statusRes.json())
       }
     } finally {
       setLoading(false)
@@ -32,32 +51,105 @@ export default function ProfilePanel({ darkMode }: { darkMode: boolean }) {
 
   useEffect(() => {
     load()
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const bungie = params.get('bungie')
+      if (bungie === 'linked') setLinkMessage('Bungie account linked successfully.')
+      if (bungie === 'error') setLinkMessage('Bungie linking failed. Try again.')
+    }
   }, [load])
+
+  async function disconnect() {
+    setDisconnecting(true)
+    try {
+      await fetch('/api/destiny/auth/bungie/disconnect', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      await load()
+      setLinkMessage('Bungie account disconnected.')
+    } finally {
+      setDisconnecting(false)
+    }
+  }
 
   if (loading) return <LoadingBlock darkMode={darkMode} />
   if (!profile) return null
 
+  const linked = bungieStatus?.linked ?? false
+
   return (
     <div className="space-y-4">
+      {linkMessage && (
+        <div className="rounded-xl p-3 bg-emerald-500/10 border border-emerald-500/30 text-sm text-emerald-200">
+          {linkMessage}
+        </div>
+      )}
+
+      <GlassCard darkMode={darkMode}>
+        <SectionTitle
+          title="Bungie Account"
+          subtitle={
+            linked
+              ? 'Connected — profile and loadouts use your linked Guardian'
+              : 'Link your Bungie account to pull your real Guardian data'
+          }
+          darkMode={darkMode}
+        />
+        {!bungieStatus?.configured ? (
+          <p className={cn('text-xs', t.muted)}>
+            OAuth not configured on server. Add BUNGIE_OAUTH_CLIENT_ID, BUNGIE_OAUTH_CLIENT_SECRET, and DESTINY_API.
+          </p>
+        ) : linked ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <StatusPill label={`Linked as ${bungieStatus.bungieDisplayName}`} tone="green" />
+            {bungieStatus.connectedAt && (
+              <span className={cn('text-xs', t.muted)}>
+                Since {new Date(bungieStatus.connectedAt).toLocaleString()}
+              </span>
+            )}
+            <button
+              type="button"
+              disabled={disconnecting}
+              onClick={disconnect}
+              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-red-500/40 text-red-300 bg-red-500/10"
+            >
+              {disconnecting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Unlink className="w-3 h-3" />}
+              Disconnect
+            </button>
+          </div>
+        ) : (
+          <a
+            href="/api/destiny/auth/bungie/start"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-amber-500/20 text-amber-100 border border-amber-500/40 hover:bg-amber-500/30"
+          >
+            <Link2 className="w-4 h-4" />
+            Connect Bungie Account
+          </a>
+        )}
+      </GlassCard>
       <GlassCard darkMode={darkMode}>
         <div className="flex flex-col sm:flex-row gap-4 items-start">
           {profile.emblemUrl ? (
             <img
               src={profile.emblemUrl}
               alt=""
-              className="w-20 h-20 rounded-xl border-2 border-amber-500/40"
+              className="w-20 h-20 rounded-xl border-2 border-amber-500/40 object-cover"
             />
           ) : (
             <div className="w-20 h-20 rounded-xl bg-purple-900/50" />
           )}
           <div className="flex-1 min-w-0">
             <h3 className="text-2xl font-bold text-white">{profile.bungieDisplayName}</h3>
-            <p className={cn('text-sm', t.muted)}>
-              {profile.clanTag} {profile.clanName} · {platformIcon(profile.platform)} · GR{' '}
-              {profile.guardianRank} · PL {profile.powerLevel}
-            </p>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              {profile.classRef && <ItemIcon item={profile.classRef} size={24} className="rounded-full" />}
+              <p className={cn('text-sm', t.muted)}>
+                {profile.clanTag} {profile.clanName} · {platformIcon(profile.platform)} · GR{' '}
+                {profile.guardianRank} · PL {profile.powerLevel}
+              </p>
+            </div>
             <p className={cn('text-xs mt-2', t.purple)}>
-              Bungie OAuth connection coming Phase 2 — showing demo profile
+              {linked ? 'Live Bungie profile data' : 'Connect Bungie above to replace demo stats with your Guardian'}
             </p>
             <div className="flex flex-wrap gap-2 mt-3">
               {profile.badges.map((b) => (
@@ -116,18 +208,26 @@ export default function ProfilePanel({ darkMode }: { darkMode: boolean }) {
 
       {profile.currentLoadout && (
         <GlassCard darkMode={darkMode}>
-          <div className="flex items-center gap-2 mb-2">
-            <Shield className="w-4 h-4 text-purple-400" />
-            <SectionTitle title="Current Loadout" darkMode={darkMode} />
+          <SectionTitle title="Current Loadout" darkMode={darkMode} />
+          <SubclassBadge
+            classRef={profile.currentLoadout.classRef}
+            subclassRef={profile.currentLoadout.subclassRef}
+            characterClass={profile.currentLoadout.characterClass}
+            subclass={profile.currentLoadout.subclass}
+            darkMode={darkMode}
+          />
+          <div className="mt-3">
+            <GearStrip
+              darkMode={darkMode}
+              items={[
+                profile.currentLoadout.exoticArmorRef,
+                profile.currentLoadout.kineticWeaponRef,
+                profile.currentLoadout.energyWeaponRef,
+                profile.currentLoadout.powerWeaponRef,
+                profile.currentLoadout.exoticWeaponRef,
+              ]}
+            />
           </div>
-          <p className="text-white text-sm">
-            {profile.currentLoadout.subclass} {profile.currentLoadout.characterClass} ·{' '}
-            {profile.currentLoadout.exoticArmor}
-          </p>
-          <p className={cn('text-xs mt-1', t.muted)}>
-            {profile.currentLoadout.kineticWeapon} / {profile.currentLoadout.energyWeapon} /{' '}
-            {profile.currentLoadout.powerWeapon}
-          </p>
         </GlassCard>
       )}
 

@@ -29,6 +29,34 @@ export type DestinyTopNestTab =
   | 'season'
   | 'admin'
 
+export interface DestinyIconRef {
+  name: string
+  hash?: number
+  iconUrl?: string
+  tierLabel?: string
+  entityType?: string
+}
+
+export interface FeaturedActivity {
+  name: string
+  difficulty: Difficulty
+  hash?: number
+  iconUrl?: string
+  resetsIn?: string
+}
+
+export interface WeeklyResetInfo {
+  resetAt: string
+  nextResetAt: string
+  weekLabel: string
+  resetsInLabel: string
+  resetsInMs: number
+  featuredRaids: FeaturedActivity[]
+  featuredDungeons: FeaturedActivity[]
+  pantheon?: string
+  resetTimeLabel: string
+}
+
 export interface DestinyUser {
   userId: string
   bungieMembershipId: string
@@ -87,6 +115,7 @@ export interface RunRecord {
   aiReview?: AiReview
   adminNotes?: string
   pointsAwarded: number
+  activityRef?: DestinyIconRef
 }
 
 export interface LeaderboardEntry {
@@ -127,6 +156,8 @@ export interface FireteamLobby {
   status: FireteamStatus
   preferredRole?: string
   createdAt: string
+  activityRef?: DestinyIconRef
+  hostClassRef?: DestinyIconRef
 }
 
 export interface ReputationReview {
@@ -170,6 +201,14 @@ export interface BuildSnapshot {
   durationSeconds: number
   deaths: number
   fireteamComposition: string
+  classRef?: DestinyIconRef
+  subclassRef?: DestinyIconRef
+  exoticArmorRef?: DestinyIconRef
+  exoticWeaponRef?: DestinyIconRef
+  kineticWeaponRef?: DestinyIconRef
+  energyWeaponRef?: DestinyIconRef
+  powerWeaponRef?: DestinyIconRef
+  aspectRefs?: DestinyIconRef[]
 }
 
 export interface SeasonPrizeRules {
@@ -223,6 +262,7 @@ export interface PlayerProfile extends DestinyUser {
   topCompletions: { activityName: string; durationSeconds: number; completedAt: string }[]
   prizeEligibility: string
   currentLoadout?: BuildSnapshot
+  classRef?: DestinyIconRef
 }
 
 export interface BuildIntelligenceCard {
@@ -242,6 +282,12 @@ export interface BuildIntelligenceCard {
   topTeamName: string
   fireteamType: 'solo_friendly' | 'clan' | 'mixed'
   role: 'dps' | 'support' | 'balanced'
+  classRef?: DestinyIconRef
+  subclassRef?: DestinyIconRef
+  exoticArmorRef?: DestinyIconRef
+  exoticWeaponRef?: DestinyIconRef
+  weaponRefs?: DestinyIconRef[]
+  activityRef?: DestinyIconRef
 }
 
 export interface ExternalBuildSource {
@@ -275,8 +321,9 @@ export interface OverviewPayload {
   dungeonTop10: LeaderboardEntry[]
   clanTop5: LeaderboardEntry[]
   recentRuns: RunRecord[]
-  featuredRaid: { name: string; difficulty: Difficulty; resetsIn: string }
-  featuredDungeon: { name: string; difficulty: Difficulty; resetsIn: string }
+  featuredRaid: FeaturedActivity
+  featuredDungeon: FeaturedActivity
+  weeklyReset: WeeklyResetInfo
   season: Season
   seasonCountdown: { days: number; hours: number; label: string }
   prizeSummary: string
