@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { Trophy, Unlink, Loader2 } from 'lucide-react'
 import type { PlayerProfile } from '@/lib/destiny/types'
 import BungieConnectBanner from '@/app/components/destiny/BungieConnectBanner'
-import GuardianHeroCard from '@/app/components/destiny/GuardianHeroCard'
 import StatCardEditor from '@/app/components/destiny/StatCardEditor'
 import FireteamReviewSection from '@/app/components/destiny/FireteamReviewSection'
 import ReputationSummarySection from '@/app/components/destiny/ReputationSummarySection'
@@ -116,8 +115,6 @@ export default function ProfilePanel({
               </div>
             </GlassCard>
           )}
-
-          <GuardianHeroCard profile={profile} darkMode={darkMode} linked={linked} />
 
           {linked && (
             <StatCardEditor

@@ -18,6 +18,7 @@ import ProfilePanel from '@/app/components/destiny/ProfilePanel'
 import ClansPanel from '@/app/components/destiny/ClansPanel'
 import SeasonPanel from '@/app/components/destiny/SeasonPanel'
 import AdminPanel from '@/app/components/destiny/AdminPanel'
+import PlayerCardShell from '@/app/components/destiny/PlayerCardShell'
 import { cn } from '@/lib/utils'
 
 type ProfileView = 'guardian' | 'loadouts'
@@ -119,6 +120,8 @@ export default function DestinyTopNestTab({ darkMode, subtitleClasses, title, ta
         </h2>
         <p className={cn('text-sm mt-3 leading-relaxed', subtitleClasses, theme.muted)}>{tagline}</p>
       </header>
+
+      <PlayerCardShell darkMode={darkMode} />
 
       <DestinyNav activeTab={activeTab} onTabChange={handleTabChange} darkMode={darkMode} showAdmin={isAdmin} />
 

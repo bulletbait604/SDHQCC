@@ -63,6 +63,7 @@ export default function StatCardEditor({ darkMode, initialSelection, onSaved }: 
       const saved = (json.profileFlexStats ?? selection) as ProfileFlexStatId[]
       setSelection(saved)
       onSaved?.(saved)
+      window.dispatchEvent(new Event('topnest-profile-refresh'))
       setOpen(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')

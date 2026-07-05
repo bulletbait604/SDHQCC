@@ -10,6 +10,7 @@ import {
   getReputationReviewsForUser,
   getRunsForUser,
   getSeasonStandingForUser,
+  getTrustReviewsForUser,
 } from '@/lib/destiny/store'
 
 export const dynamic = 'force-dynamic'
@@ -28,16 +29,18 @@ export async function GET(req: NextRequest) {
     }
 
     stored = await refreshGuardianFromBungie(stored)
-    const [runs, loadout, reviews, seasonLeaderboardEntries] = await Promise.all([
+    const [runs, loadout, reviews, trustReviews, seasonLeaderboardEntries] = await Promise.all([
       getRunsForUser(siteUserId),
       fetchLiveLoadout(stored).catch(() => null),
       getReputationReviewsForUser(siteUserId),
+      getTrustReviewsForUser(siteUserId),
       getSeasonStandingForUser(siteUserId),
     ])
 
     const profile = buildPlayerProfileFromStored(stored, runs, {
       loadout: loadout ?? undefined,
       reviews,
+      trustReviews,
       seasonLeaderboardEntries,
     })
     return NextResponse.json({

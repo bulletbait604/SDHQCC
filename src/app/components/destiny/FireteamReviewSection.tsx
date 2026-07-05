@@ -6,7 +6,7 @@ import type { ReviewableRun } from '@/lib/destiny/fireteamReputation'
 import { GlassCard, SectionTitle, StatusPill } from '@/app/components/destiny/DestinyUi'
 import { getDestinyTheme } from '@/app/components/destiny/destinyTheme'
 import { cn } from '@/lib/utils'
-import FireteamReviewModal from '@/app/components/destiny/FireteamReviewModal'
+import TrustReviewModal from '@/app/components/destiny/TrustReviewModal'
 
 interface Props {
   darkMode: boolean
@@ -32,7 +32,7 @@ export default function FireteamReviewSection({ darkMode, linked = true }: Props
     }
     setLoading(true)
     try {
-      const res = await fetch('/api/destiny/reputation?scope=reviewable', { credentials: 'include' })
+      const res = await fetch('/api/destiny/trust?scope=reviewable', { credentials: 'include' })
       if (res.ok) {
         const json = await res.json()
         setRuns(json.reviewableRuns ?? [])
@@ -54,8 +54,8 @@ export default function FireteamReviewSection({ darkMode, linked = true }: Props
         <div className="flex items-center gap-2 mb-2">
           <Users className="w-4 h-4 text-sky-400/80" />
           <SectionTitle
-            title="Rate your fireteam"
-            subtitle="Review Top Nest players you cleared with — builds your reputation score"
+            title="Trust Rank commends"
+            subtitle="Vote Knowledge + Vibes for randos in your fireteam — like D2 commendations"
             darkMode={darkMode}
           />
         </div>
@@ -120,7 +120,7 @@ export default function FireteamReviewSection({ darkMode, linked = true }: Props
       </GlassCard>
 
       {active && (
-        <FireteamReviewModal
+        <TrustReviewModal
           darkMode={darkMode}
           runId={active.run.runId}
           activityName={active.run.activityName}

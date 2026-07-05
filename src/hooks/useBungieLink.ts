@@ -7,6 +7,8 @@ import { bungieOAuthErrorMessage } from '@/lib/destiny/bungieOAuthMessages'
 export interface BungieLinkStatus {
   configured: boolean
   linked: boolean
+  tokenHealthy?: boolean
+  needsReconnect?: boolean
   bungieDisplayName?: string
   connectedAt?: string
   redirectUri?: string
@@ -57,6 +59,12 @@ export function useBungieLink(options?: { returnPath?: string }) {
     }
     if (bungie) stripUrlParams(['bungie', 'message'])
   }, [load])
+
+  useEffect(() => {
+    if (status?.needsReconnect && !linkMessage) {
+      setLinkMessage('Bungie session expired — reconnect once to restore live data.')
+    }
+  }, [status?.needsReconnect, linkMessage])
 
   function connect() {
     window.location.href = connectHref

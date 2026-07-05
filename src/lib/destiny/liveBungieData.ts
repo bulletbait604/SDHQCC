@@ -1,38 +1,18 @@
 import {
-  getCharacterLoadout,
   getClan,
   getClanMembers,
   getGroupsForMember,
-  getPlayerProfile,
 } from '@/lib/destiny/bungieClient'
 import { fetchGuardianPresentation } from '@/lib/destiny/guardianPresentation'
 import { fetchGuardianBungieStats } from '@/lib/destiny/guardianBungieStats'
+import { fetchCharacterBuild } from '@/lib/destiny/guardianBuild'
 import type { StoredDestinyUser } from '@/lib/destiny/destinyUserStore'
 import { getValidAccessToken, upsertDestinyUser } from '@/lib/destiny/destinyUserStore'
-import { resolveInventoryItem } from '@/lib/destiny/manifest'
 import type {
   BuildSnapshot,
   ClanProfile,
-  DestinyCharacterClass,
   PlayerProfile,
 } from '@/lib/destiny/types'
-
-const CLASS_MAP: Record<number, DestinyCharacterClass> = {
-  0: 'titan',
-  1: 'hunter',
-  2: 'warlock',
-}
-
-const WEAPON_BUCKETS: Record<number, 'kinetic' | 'energy' | 'power'> = {
-  1498876634: 'kinetic',
-  2465295065: 'energy',
-  953998645: 'power',
-}
-
-async function resolveItemName(hash: number, fallback: string): Promise<string> {
-  const info = await resolveInventoryItem(hash, fallback)
-  return info.name
-}
 
 export async function refreshGuardianFromBungie(stored: StoredDestinyUser): Promise<StoredDestinyUser> {
   const accessToken = await getValidAccessToken(stored)
@@ -80,65 +60,16 @@ export async function fetchLiveLoadout(stored: StoredDestinyUser): Promise<Build
   const membershipId = stored.bungieMembershipId
   if (!accessToken || !membershipType || !membershipId) return null
 
-  const profile = (await getPlayerProfile(membershipType, membershipId, [200], accessToken)) as {
-    characters?: { data?: Record<string, { classType?: number; light?: number }> }
-  }
-
-  const chars = profile.characters?.data ?? {}
-  const characterId = Object.entries(chars).sort(([, a], [, b]) => (b.light ?? 0) - (a.light ?? 0))[0]?.[0]
-  if (!characterId) return null
-
-  const classType = chars[characterId]?.classType ?? 1
-  const characterClass = CLASS_MAP[classType] ?? 'hunter'
-
-  const loadout = (await getCharacterLoadout(membershipType, membershipId, characterId, accessToken)) as {
-    equipment?: { data?: { items?: Array<{ itemHash?: number; bucketHash?: number }> } }
-  }
-
-  const items = loadout.equipment?.data?.items ?? []
-  const weapons: Record<string, string> = {}
-  let exoticArmor = 'Unknown exotic'
-  let exoticWeapon: string | undefined
-
-  for (const item of items) {
-    if (!item.itemHash || !item.bucketHash) continue
-    const name = await resolveItemName(item.itemHash, `Item ${item.itemHash}`)
-    const slot = WEAPON_BUCKETS[item.bucketHash]
-    if (slot) {
-      weapons[slot] = name
-      if (name.toLowerCase().includes('exotic') || item.bucketHash === 953998645) {
-        exoticWeapon = name
-      }
-    } else if (item.bucketHash === 14239492 || item.bucketHash === 20886954 || item.bucketHash === 1585787867) {
-      exoticArmor = name
-    }
-  }
-
-  return {
-    id: `live-${characterId}`,
-    runId: '',
-    userId: stored.userId,
-    characterClass,
-    subclass: 'Unknown',
-    super: '',
-    aspects: [],
-    fragments: [],
-    abilities: [],
-    exoticArmor,
-    exoticWeapon,
-    kineticWeapon: weapons.kinetic ?? '—',
-    energyWeapon: weapons.energy ?? '—',
-    powerWeapon: weapons.power ?? '—',
-    armorMods: [],
-    artifactPerks: [],
-    stats: {},
-    activityId: 0,
-    activityName: 'Current loadout',
-    difficulty: 'normal',
-    completedAt: new Date().toISOString(),
-    durationSeconds: 0,
-    deaths: 0,
-    fireteamComposition: 'solo',
+  try {
+    return await fetchCharacterBuild(
+      membershipType,
+      membershipId,
+      accessToken,
+      stored.userId,
+      stored.activeCharacterId
+    )
+  } catch {
+    return null
   }
 }
 

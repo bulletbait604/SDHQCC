@@ -30,6 +30,7 @@ import type {
   ReputationReview,
   RunRecord,
   Season,
+  TrustReview,
 } from '@/lib/destiny/types'
 
 async function db() {
@@ -52,6 +53,8 @@ export async function ensureDestinyIndexes(): Promise<void> {
   await database.collection(DESTINY_COLLECTIONS.seasons).createIndex({ status: 1 })
   await database.collection(DESTINY_COLLECTIONS.prizeClaims).createIndex({ userId: 1, seasonId: 1 })
   await database.collection(DESTINY_COLLECTIONS.prizeClaims).createIndex({ status: 1, createdAt: -1 })
+  await database.collection(DESTINY_COLLECTIONS.trustReviews).createIndex({ reviewedUserId: 1, createdAt: -1 })
+  await database.collection(DESTINY_COLLECTIONS.trustReviews).createIndex({ reviewerId: 1, runId: 1 })
 }
 
 async function loadAllRuns(): Promise<RunRecord[]> {
@@ -420,6 +423,63 @@ export async function saveReputationReview(review: ReputationReview): Promise<vo
   await database.collection(DESTINY_COLLECTIONS.reputationReviews).updateOne(
     { id: review.id },
     { $set: { ...review, updatedAt: new Date().toISOString() } },
+    { upsert: true }
+  )
+}
+
+export async function getTrustReviewsForUser(userId: string): Promise<TrustReview[]> {
+  try {
+    const database = await db()
+    const rows = await database
+      .collection(DESTINY_COLLECTIONS.trustReviews)
+      .find({ reviewedUserId: userId })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .toArray()
+    return rows as unknown as TrustReview[]
+  } catch {
+    return []
+  }
+}
+
+export async function getTrustReviewsByReviewer(reviewerId: string): Promise<TrustReview[]> {
+  try {
+    const database = await db()
+    const rows = await database
+      .collection(DESTINY_COLLECTIONS.trustReviews)
+      .find({ reviewerId })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .toArray()
+    return rows as unknown as TrustReview[]
+  } catch {
+    return []
+  }
+}
+
+export async function findTrustReview(
+  reviewerId: string,
+  reviewedUserId: string,
+  runId: string
+): Promise<TrustReview | null> {
+  try {
+    const database = await db()
+    const row = await database.collection(DESTINY_COLLECTIONS.trustReviews).findOne({
+      reviewerId,
+      reviewedUserId,
+      runId,
+    })
+    return row as TrustReview | null
+  } catch {
+    return null
+  }
+}
+
+export async function saveTrustReview(review: TrustReview): Promise<void> {
+  const database = await db()
+  await database.collection(DESTINY_COLLECTIONS.trustReviews).updateOne(
+    { id: review.id },
+    { $set: review },
     { upsert: true }
   )
 }

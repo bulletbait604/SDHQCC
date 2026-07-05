@@ -44,23 +44,33 @@ export async function upsertDestinyUser(
 ): Promise<StoredDestinyUser> {
   const database = await db()
   const now = new Date().toISOString()
-  const doc: StoredDestinyUser = {
-    userId,
-    bungieMembershipId: data.bungieMembershipId ?? '',
-    bungieDisplayName: data.bungieDisplayName ?? '',
-    platform: data.platform ?? 'steam',
-    connectedAt: data.connectedAt ?? now,
-    ...data,
+
+  const { userId: _omit, ...patch } = data
+  const setFields: Record<string, unknown> = {
+    ...patch,
     updatedAt: now,
   }
 
   await database.collection(DESTINY_COLLECTIONS.users).updateOne(
     { userId },
-    { $set: doc },
+    {
+      $set: setFields,
+      $setOnInsert: {
+        userId,
+        bungieMembershipId: data.bungieMembershipId ?? '',
+        bungieDisplayName: data.bungieDisplayName ?? '',
+        platform: data.platform ?? 'steam',
+        connectedAt: data.connectedAt ?? now,
+      },
+    },
     { upsert: true }
   )
 
-  return doc
+  const row = await getDestinyUserBySiteUserId(userId)
+  if (!row) {
+    throw new Error(`Failed to upsert destiny user ${userId}`)
+  }
+  return row
 }
 
 export async function deleteDestinyUser(userId: string): Promise<void> {
@@ -78,8 +88,13 @@ export async function getValidAccessToken(stored: StoredDestinyUser): Promise<st
 
   if (!stored.oauth.refreshToken) return null
 
-  const { refreshBungieAccessToken } = await import('@/lib/destiny/bungieOAuth')
-  const refreshed = await refreshBungieAccessToken(stored.oauth.refreshToken)
-  await upsertDestinyUser(stored.userId, { oauth: refreshed })
-  return refreshed.accessToken
+  try {
+    const { refreshBungieAccessToken } = await import('@/lib/destiny/bungieOAuth')
+    const refreshed = await refreshBungieAccessToken(stored.oauth.refreshToken)
+    await upsertDestinyUser(stored.userId, { oauth: refreshed })
+    return refreshed.accessToken
+  } catch (error) {
+    console.error('[destiny] Bungie token refresh failed for', stored.userId, error)
+    return null
+  }
 }

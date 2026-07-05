@@ -1,4 +1,4 @@
-import type { LeaderboardEntry, PlayerProfile, ReputationReview, RunRecord } from '@/lib/destiny/types'
+import type { LeaderboardEntry, PlayerProfile, ReputationReview, RunRecord, TrustReview } from '@/lib/destiny/types'
 import type { StoredDestinyUser } from '@/lib/destiny/destinyUserStore'
 import {
   buildProfileFlexStats,
@@ -7,6 +7,7 @@ import {
 } from '@/lib/destiny/profileFlex'
 import { prizeEligibilityForUser } from '@/lib/destiny/seasonPrizes'
 import { computeReputationScore, reputationBadges } from '@/lib/destiny/reputation'
+import { computeTrustRank } from '@/lib/destiny/trustRank'
 
 export function emptyPlayerProfile(userId: string): PlayerProfile {
   return {
@@ -34,6 +35,7 @@ export function buildPlayerProfileFromStored(
   options?: {
     loadout?: PlayerProfile['currentLoadout']
     reviews?: ReputationReview[]
+    trustReviews?: TrustReview[]
     seasonLeaderboardEntries?: LeaderboardEntry[]
   }
 ): PlayerProfile {
@@ -118,5 +120,6 @@ export function buildPlayerProfileFromStored(
   return {
     ...base,
     flexStats: buildProfileFlexStats(base, flexPreferences, seasonEntries),
+    trustRank: computeTrustRank(options?.trustReviews ?? []),
   }
 }

@@ -228,6 +228,26 @@ export interface ReputationReview {
   createdAt: string
 }
 
+/** Trust Rank commend — Knowledge + Vibes (1–3 each) for fireteam randos. */
+export interface TrustReview {
+  id: string
+  reviewerId: string
+  reviewedUserId: string
+  runId: string
+  knowledge: 1 | 2 | 3
+  vibes: 1 | 2 | 3
+  createdAt: string
+}
+
+export interface TrustRankSummary {
+  knowledgeAvg: number
+  vibesAvg: number
+  knowledgeTier: 'New Light' | 'Guardian' | 'Top Nest'
+  vibesTier: 'Chill' | 'Excited' | 'Composed'
+  topNestTitle: string
+  reviewCount: number
+}
+
 export interface BuildSnapshot {
   id: string
   runId: string
@@ -336,6 +356,7 @@ export interface PlayerProfile extends DestinyUser {
   classRef?: DestinyIconRef
   flexStats?: ProfileFlexStat[]
   bungieStats?: GuardianBungieStats
+  trustRank?: TrustRankSummary
 }
 
 export interface BuildIntelligenceCard {
