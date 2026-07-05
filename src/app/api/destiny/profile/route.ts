@@ -54,7 +54,7 @@ export async function PATCH(req: NextRequest) {
     const stored = await getDestinyUserBySiteUserId(siteUserId)
 
     if (!stored?.oauth) {
-      return NextResponse.json({ error: 'Link Bungie before customizing profile display' }, { status: 400 })
+      return NextResponse.json({ error: 'Link Bungie before customizing your stat card' }, { status: 400 })
     }
 
     const body = (await req.json().catch(() => null)) as { profileFlexStats?: unknown } | null

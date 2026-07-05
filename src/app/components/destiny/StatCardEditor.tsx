@@ -5,9 +5,9 @@ import { Check, Loader2, SlidersHorizontal } from 'lucide-react'
 import type { ProfileFlexStatId } from '@/lib/destiny/types'
 import {
   DEFAULT_PROFILE_FLEX_STATS,
-  FLEX_STAT_LABELS,
   MAX_PROFILE_FLEX_STATS,
-  PROFILE_FLEX_STAT_IDS,
+  STAT_CARD_GROUPS,
+  STAT_CARD_LABELS,
 } from '@/lib/destiny/profileFlex'
 import { GlassCard, SectionTitle } from '@/app/components/destiny/DestinyUi'
 import { getDestinyTheme } from '@/app/components/destiny/destinyTheme'
@@ -19,7 +19,7 @@ interface Props {
   onSaved?: (selection: ProfileFlexStatId[]) => void
 }
 
-export default function ProfileFlexEditor({ darkMode, initialSelection, onSaved }: Props) {
+export default function StatCardEditor({ darkMode, initialSelection, onSaved }: Props) {
   const t = getDestinyTheme(darkMode)
   const [open, setOpen] = useState(false)
   const [selection, setSelection] = useState<ProfileFlexStatId[]>(initialSelection)
@@ -43,7 +43,7 @@ export default function ProfileFlexEditor({ darkMode, initialSelection, onSaved 
 
   const save = useCallback(async () => {
     if (!selection.length) {
-      setError(`Pick at least one stat to show.`)
+      setError('Pick at least one stat for your card.')
       return
     }
     setSaving(true)
@@ -57,7 +57,7 @@ export default function ProfileFlexEditor({ darkMode, initialSelection, onSaved 
       })
       if (!res.ok) {
         const json = await res.json().catch(() => ({}))
-        throw new Error(json.error ?? 'Could not save flex stats')
+        throw new Error(json.error ?? 'Could not save stat card')
       }
       const json = await res.json()
       const saved = (json.profileFlexStats ?? selection) as ProfileFlexStatId[]
@@ -81,8 +81,8 @@ export default function ProfileFlexEditor({ darkMode, initialSelection, onSaved 
       <div className="flex items-start justify-between gap-3">
         <div>
           <SectionTitle
-            title="Flex stats"
-            subtitle="Choose up to four stats to show under your Guardian name"
+            title="Stat card"
+            subtitle="Choose up to four stats on your Guardian card — Bungie live + Top Nest"
             darkMode={darkMode}
           />
         </div>
@@ -101,35 +101,40 @@ export default function ProfileFlexEditor({ darkMode, initialSelection, onSaved 
       </div>
 
       {open && (
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 space-y-4">
           <p className={cn('text-xs', t.muted)}>
             Selected {selection.length}/{MAX_PROFILE_FLEX_STATS}
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {PROFILE_FLEX_STAT_IDS.map((id) => {
-              const active = selection.includes(id)
-              const disabled = !active && selection.length >= MAX_PROFILE_FLEX_STATS
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => toggle(id)}
-                  className={cn(
-                    'flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-sm transition',
-                    'ring-1',
-                    active
-                      ? 'ring-amber-400/40 bg-amber-400/10 text-amber-100'
-                      : 'ring-white/10 bg-white/[0.03] hover:bg-white/[0.06]',
-                    disabled && 'opacity-40 cursor-not-allowed'
-                  )}
-                >
-                  <span>{FLEX_STAT_LABELS[id]}</span>
-                  {active ? <Check className="w-4 h-4 shrink-0" /> : null}
-                </button>
-              )
-            })}
-          </div>
+          {STAT_CARD_GROUPS.map((group) => (
+            <div key={group.label}>
+              <p className={cn('text-[10px] uppercase tracking-wide mb-2', t.caption)}>{group.label}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {group.ids.map((id) => {
+                  const active = selection.includes(id)
+                  const disabled = !active && selection.length >= MAX_PROFILE_FLEX_STATS
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => toggle(id)}
+                      className={cn(
+                        'flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-sm transition',
+                        'ring-1',
+                        active
+                          ? 'ring-amber-400/40 bg-amber-400/10 text-amber-100'
+                          : 'ring-white/10 bg-white/[0.03] hover:bg-white/[0.06]',
+                        disabled && 'opacity-40 cursor-not-allowed'
+                      )}
+                    >
+                      <span>{STAT_CARD_LABELS[id]}</span>
+                      {active ? <Check className="w-4 h-4 shrink-0" /> : null}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
 
           {error ? <p className="text-xs text-red-300">{error}</p> : null}
 
@@ -144,7 +149,7 @@ export default function ProfileFlexEditor({ darkMode, initialSelection, onSaved 
               )}
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-              Save display
+              Save stat card
             </button>
             <button
               type="button"

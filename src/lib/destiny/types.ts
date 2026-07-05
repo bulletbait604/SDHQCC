@@ -22,6 +22,12 @@ export type FireteamStatus = 'open' | 'full' | 'in_progress' | 'closed'
 export const PROFILE_FLEX_STAT_IDS = [
   'guardian_rank',
   'power_level',
+  'bungie_fastest_raid',
+  'bungie_fastest_dungeon',
+  'bungie_raid_clears',
+  'bungie_dungeon_clears',
+  'bungie_kills',
+  'bungie_time_played',
   'raid_points',
   'dungeon_points',
   'verified_clears',
@@ -96,8 +102,22 @@ export interface DestinyUser {
   characterClass?: DestinyCharacterClass
   connectedAt?: string
   profileFlexStats?: ProfileFlexStatId[]
+  bungieStats?: GuardianBungieStats
   /** Bungie membership type enum (1=xbox, 2=ps, 3=steam, 6=epic) for API calls */
   destinyMembershipType?: number
+}
+
+export interface GuardianBungieStats {
+  fastestRaidSeconds?: number
+  fastestRaidName?: string
+  fastestDungeonSeconds?: number
+  fastestDungeonName?: string
+  raidClears?: number
+  dungeonClears?: number
+  totalKills?: number
+  totalDeaths?: number
+  timePlayedMinutes?: number
+  updatedAt?: string
 }
 
 export interface RunTeamMember {
@@ -315,6 +335,7 @@ export interface PlayerProfile extends DestinyUser {
   currentLoadout?: BuildSnapshot
   classRef?: DestinyIconRef
   flexStats?: ProfileFlexStat[]
+  bungieStats?: GuardianBungieStats
 }
 
 export interface BuildIntelligenceCard {

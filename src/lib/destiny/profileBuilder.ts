@@ -96,6 +96,7 @@ export function buildPlayerProfileFromStored(
     emblemColor: stored.emblemColor,
     activeCharacterId: stored.activeCharacterId,
     profileFlexStats: flexPreferences,
+    bungieStats: stored.bungieStats,
     guardianRank: stored.guardianRank,
     powerLevel: stored.powerLevel,
     characterClass: stored.characterClass,

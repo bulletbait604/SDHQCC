@@ -5,7 +5,7 @@ import { Trophy, Unlink, Loader2 } from 'lucide-react'
 import type { PlayerProfile } from '@/lib/destiny/types'
 import BungieConnectBanner from '@/app/components/destiny/BungieConnectBanner'
 import GuardianHeroCard from '@/app/components/destiny/GuardianHeroCard'
-import ProfileFlexEditor from '@/app/components/destiny/ProfileFlexEditor'
+import StatCardEditor from '@/app/components/destiny/StatCardEditor'
 import FireteamReviewSection from '@/app/components/destiny/FireteamReviewSection'
 import ReputationSummarySection from '@/app/components/destiny/ReputationSummarySection'
 import ProfileLoadoutsSection from '@/app/components/destiny/ProfileLoadoutsSection'
@@ -120,7 +120,7 @@ export default function ProfilePanel({
           <GuardianHeroCard profile={profile} darkMode={darkMode} linked={linked} />
 
           {linked && (
-            <ProfileFlexEditor
+            <StatCardEditor
               darkMode={darkMode}
               initialSelection={profile.profileFlexStats ?? DEFAULT_PROFILE_FLEX_STATS}
               onSaved={() => void load()}

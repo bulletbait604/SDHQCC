@@ -6,6 +6,7 @@ import {
   getPlayerProfile,
 } from '@/lib/destiny/bungieClient'
 import { fetchGuardianPresentation } from '@/lib/destiny/guardianPresentation'
+import { fetchGuardianBungieStats } from '@/lib/destiny/guardianBungieStats'
 import type { StoredDestinyUser } from '@/lib/destiny/destinyUserStore'
 import { getValidAccessToken, upsertDestinyUser } from '@/lib/destiny/destinyUserStore'
 import { resolveInventoryItem } from '@/lib/destiny/manifest'
@@ -48,6 +49,13 @@ export async function refreshGuardianFromBungie(stored: StoredDestinyUser): Prom
     )
     if (!presentation) return stored
 
+    const bungieStats = await fetchGuardianBungieStats(
+      membershipType,
+      membershipId,
+      accessToken,
+      presentation.characterId
+    ).catch(() => stored.bungieStats ?? null)
+
     const updated = await upsertDestinyUser(stored.userId, {
       emblemUrl: presentation.emblemUrl,
       emblemBackgroundUrl: presentation.emblemBackgroundUrl,
@@ -58,6 +66,7 @@ export async function refreshGuardianFromBungie(stored: StoredDestinyUser): Prom
       powerLevel: presentation.powerLevel,
       characterClass: presentation.characterClass,
       bungieDisplayName: stored.bungieDisplayName || presentation.displayName,
+      bungieStats: bungieStats ?? undefined,
     })
     return updated
   } catch {
