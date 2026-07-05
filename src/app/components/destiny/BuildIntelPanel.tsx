@@ -60,8 +60,13 @@ export default function BuildIntelPanel({ darkMode }: { darkMode: boolean }) {
           </div>
         )}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {verifiedBuilds.map((b) => (
-            <div key={b.id} className="rounded-xl p-4 bg-black/30 border border-amber-500/20">
+          {verifiedBuilds.length === 0 ? (
+            <p className={cn('text-sm col-span-full', t.muted)}>
+              No verified builds yet. Sync runs from Overview after linking Bungie.
+            </p>
+          ) : (
+            verifiedBuilds.map((b) => (
+              <div key={b.id} className="rounded-xl p-4 bg-black/30 border border-amber-500/20">
               <div className="flex justify-between gap-2 mb-2">
                 <p className="text-white font-semibold">{b.buildName}</p>
                 <StatusPill label={b.role} tone="gold" />
@@ -101,7 +106,8 @@ export default function BuildIntelPanel({ darkMode }: { darkMode: boolean }) {
                 <Copy className="w-3 h-3" /> Copy / share
               </button>
             </div>
-          ))}
+            ))
+          )}
         </div>
       </GlassCard>
 
@@ -112,28 +118,32 @@ export default function BuildIntelPanel({ darkMode }: { darkMode: boolean }) {
           darkMode={darkMode}
         />
         <div className="space-y-2">
-          {externalBuilds.map((ext) => (
-            <div
-              key={ext.id}
-              className="flex flex-wrap items-center justify-between gap-2 py-2 border-b border-white/5"
-            >
-              <div>
-                <p className="text-white text-sm">{ext.title}</p>
-                <p className={cn('text-xs', t.muted)}>
-                  {ext.source} · {ext.class} {ext.subclass} · checked{' '}
-                  {new Date(ext.lastChecked).toLocaleDateString()}
-                </p>
-              </div>
-              <a
-                href={ext.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300"
+          {externalBuilds.length === 0 ? (
+            <p className={cn('text-sm', t.muted)}>No curated external builds in the database yet.</p>
+          ) : (
+            externalBuilds.map((ext) => (
+              <div
+                key={ext.id}
+                className="flex flex-wrap items-center justify-between gap-2 py-2 border-b border-white/5"
               >
-                Source <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
-          ))}
+                <div>
+                  <p className="text-white text-sm">{ext.title}</p>
+                  <p className={cn('text-xs', t.muted)}>
+                    {ext.source} · {ext.class} {ext.subclass} · checked{' '}
+                    {new Date(ext.lastChecked).toLocaleDateString()}
+                  </p>
+                </div>
+                <a
+                  href={ext.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300"
+                >
+                  Source <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            ))
+          )}
         </div>
       </GlassCard>
     </div>

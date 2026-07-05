@@ -112,6 +112,7 @@ export async function GET(req: NextRequest) {
     await upsertDestinyUser(siteUserId, {
       bungieMembershipId: primary.membershipId,
       bungieNetMembershipId: tokens.membershipId,
+      destinyMembershipType: primary.membershipType,
       bungieDisplayName: displayName,
       platform: platformFromMembershipType(primary.membershipType) as 'steam' | 'xbox' | 'playstation' | 'epic',
       emblemUrl: summary?.emblemUrl,
@@ -132,10 +133,11 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error('[destiny/auth/bungie/callback]', error)
     const detail = error instanceof Error ? error.message : 'exchange_failed'
-    return redirectAfterOAuth(
-      { bungie: 'error', message: detail.slice(0, 180) },
-      req,
-      returnPath
-    )
+    const lower = detail.toLowerCase()
+    const message =
+      lower.includes('redirect_uri') || lower.includes('redirect uri')
+        ? 'redirect_uri_mismatch'
+        : detail.slice(0, 180)
+    return redirectAfterOAuth({ bungie: 'error', message }, req, returnPath)
   }
 }

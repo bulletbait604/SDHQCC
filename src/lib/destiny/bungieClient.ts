@@ -1,6 +1,7 @@
 /**
  * Server-side Bungie / Destiny 2 API client.
  * All requests use DESTINY_API (X-API-Key). Never expose the key to the browser.
+ * Endpoint catalog: https://bungie-net.github.io/  Root: https://www.bungie.net/Platform
  */
 
 import { BUNGIE_API_BASE, destinyApiKey } from '@/lib/destiny/env'
@@ -124,11 +125,13 @@ export async function searchPlayer(displayName: string, displayNameCode: number)
 export async function getPlayerProfile(
   membershipType: number,
   membershipId: string,
-  components: number[] = [100, 200]
+  components: number[] = [100, 200],
+  accessToken?: string
 ) {
   const componentQuery = components.join(',')
   return bungieFetch(
-    `/Destiny2/${membershipType}/Profile/${membershipId}/?components=${componentQuery}`
+    `/Destiny2/${membershipType}/Profile/${membershipId}/?components=${componentQuery}`,
+    { accessToken }
   )
 }
 
@@ -136,10 +139,12 @@ export async function getPlayerProfile(
 export async function getCharacterLoadout(
   membershipType: number,
   membershipId: string,
-  characterId: string
+  characterId: string,
+  accessToken?: string
 ) {
   return bungieFetch(
-    `/Destiny2/${membershipType}/Profile/${membershipId}/Character/${characterId}/?components=205,201,202,204`
+    `/Destiny2/${membershipType}/Profile/${membershipId}/Character/${characterId}/?components=205,201,202,204`,
+    { accessToken }
   )
 }
 
@@ -169,6 +174,19 @@ export async function getClan(clanId: string) {
 /** Clan members. */
 export async function getClanMembers(clanId: string) {
   return bungieFetch(`/GroupV2/${clanId}/Members/`)
+}
+
+/** Groups/clans a member belongs to. filter=0 all, groupType=1 clan. */
+export async function getGroupsForMember(membershipType: number, membershipId: string) {
+  return bungieFetch<{
+    results?: Array<{
+      group?: {
+        groupId?: string
+        name?: string
+        clanInfo?: { clanCallsign?: string }
+      }
+    }>
+  }>(`/GroupV2/User/${membershipType}/${membershipId}/0/1/`)
 }
 
 /** Fireteam / group roster for an activity instance (when available). */

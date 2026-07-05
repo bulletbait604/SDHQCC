@@ -1,11 +1,11 @@
 import clientPromise from '@/lib/mongodb'
 import { DESTINY_COLLECTIONS } from '@/lib/destiny/collections'
 import type { BungieOAuthTokens } from '@/lib/destiny/bungieOAuth'
-import type { DestinyPlatform, DestinyUser, PlayerProfile } from '@/lib/destiny/types'
-import { MOCK_PROFILE } from '@/lib/destiny/mockData'
+import type { DestinyPlatform, DestinyUser } from '@/lib/destiny/types'
 
 export interface StoredDestinyUser extends DestinyUser {
   bungieNetMembershipId?: string
+  destinyMembershipType?: number
   oauth?: BungieOAuthTokens
   updatedAt?: string
 }
@@ -51,25 +51,6 @@ export async function upsertDestinyUser(
 
 export async function deleteDestinyUser(userId: string): Promise<void> {
   await (await db()).collection(DESTINY_COLLECTIONS.users).deleteOne({ userId })
-}
-
-export function storedUserToPlayerProfile(stored: StoredDestinyUser): PlayerProfile {
-  return {
-    ...MOCK_PROFILE,
-    userId: stored.userId,
-    bungieMembershipId: stored.bungieMembershipId,
-    bungieDisplayName: stored.bungieDisplayName,
-    platform: stored.platform as DestinyPlatform,
-    clanId: stored.clanId,
-    clanName: stored.clanName,
-    clanTag: stored.clanTag,
-    emblemUrl: stored.emblemUrl,
-    guardianRank: stored.guardianRank,
-    powerLevel: stored.powerLevel,
-    characterClass: stored.characterClass,
-    connectedAt: stored.connectedAt,
-    prizeEligibility: 'Linked Bungie account — eligible for verified run scoring when Phase 2 ingestion is live.',
-  }
 }
 
 export async function getValidAccessToken(stored: StoredDestinyUser): Promise<string | null> {

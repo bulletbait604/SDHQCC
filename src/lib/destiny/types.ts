@@ -71,6 +71,8 @@ export interface DestinyUser {
   powerLevel?: number
   characterClass?: DestinyCharacterClass
   connectedAt?: string
+  /** Bungie membership type enum (1=xbox, 2=ps, 3=steam, 6=epic) for API calls */
+  destinyMembershipType?: number
 }
 
 export interface RunTeamMember {
@@ -116,6 +118,8 @@ export interface RunRecord {
   adminNotes?: string
   pointsAwarded: number
   activityRef?: DestinyIconRef
+  ownerUserId?: string
+  ownerDisplayName?: string
 }
 
 export interface LeaderboardEntry {

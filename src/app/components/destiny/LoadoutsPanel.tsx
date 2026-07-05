@@ -15,11 +15,12 @@ import { getDestinyTheme } from '@/app/components/destiny/destinyTheme'
 import { cn } from '@/lib/utils'
 
 interface LoadoutsResponse {
-  current: BuildSnapshot
+  current: BuildSnapshot | null
   saved: BuildSnapshot[]
   favorites: BuildSnapshot[]
   equipSupported: boolean
   equipMessage: string
+  linked?: boolean
 }
 
 function LoadoutCard({
@@ -133,7 +134,7 @@ export default function LoadoutsPanel({ darkMode }: { darkMode: boolean }) {
           subtitle="Icons from Bungie manifest · view · copy · equip where supported"
           darkMode={darkMode}
         />
-        {data ? (
+        {data?.current ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <LoadoutCard build={data.current} darkMode={darkMode} title="Currently equipped" />
             {data.saved.map((b, i) => (
@@ -144,7 +145,7 @@ export default function LoadoutsPanel({ darkMode }: { darkMode: boolean }) {
             ))}
           </div>
         ) : (
-          <p className={t.muted}>No loadout data.</p>
+          <p className={t.muted}>{data?.equipMessage ?? 'Connect Bungie on Overview to view your loadout.'}</p>
         )}
       </GlassCard>
     </div>

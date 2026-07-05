@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Crown, Swords, Users, Clock, Trophy, Sparkles } from 'lucide-react'
 import type { OverviewPayload } from '@/lib/destiny/types'
+import BungieConnectBanner from '@/app/components/destiny/BungieConnectBanner'
 import {
   ActivityBadge,
   GearStrip,
@@ -16,12 +17,14 @@ import {
 } from '@/app/components/destiny/DestinyUi'
 import { cn } from '@/lib/utils'
 import { formatDuration, getDestinyTheme } from '@/app/components/destiny/destinyTheme'
+import { useBungieLink } from '@/hooks/useBungieLink'
 
 export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
   const [data, setData] = useState<OverviewPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const t = getDestinyTheme(darkMode)
+  const bungie = useBungieLink()
 
   const load = useCallback(async () => {
     setError(null)
@@ -51,9 +54,11 @@ export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
 
   return (
     <div className="space-y-6">
+      <BungieConnectBanner darkMode={darkMode} bungie={bungie} variant="overview" />
+
       <div className="flex flex-wrap items-center gap-2">
         <StatusPill
-          label={data.bungieApiConfigured ? 'Bungie API configured' : 'Mock data — set DESTINY_API'}
+          label={data.bungieApiConfigured ? 'Bungie API configured' : 'Set DESTINY_API for live data'}
           tone={data.bungieApiConfigured ? 'green' : 'gold'}
         />
         <StatusPill label={data.weeklyReset.resetsInLabel + ' until reset'} tone="blue" />

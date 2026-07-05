@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 
 export default function ClansPanel({ darkMode }: { darkMode: boolean }) {
   const [clan, setClan] = useState<ClanProfile | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const t = getDestinyTheme(darkMode)
 
@@ -17,7 +18,8 @@ export default function ClansPanel({ darkMode }: { darkMode: boolean }) {
       const res = await fetch('/api/destiny/clans', { credentials: 'include' })
       if (res.ok) {
         const json = await res.json()
-        setClan(json.clan)
+        setClan(json.clan ?? null)
+        setMessage(json.message ?? null)
       }
     } finally {
       setLoading(false)
@@ -29,7 +31,13 @@ export default function ClansPanel({ darkMode }: { darkMode: boolean }) {
   }, [load])
 
   if (loading) return <LoadingBlock darkMode={darkMode} />
-  if (!clan) return null
+  if (!clan) {
+    return (
+      <GlassCard darkMode={darkMode}>
+        <p className={t.muted}>{message ?? 'No clan data. Connect Bungie on Overview.'}</p>
+      </GlassCard>
+    )
+  }
 
   return (
     <div className="space-y-4">

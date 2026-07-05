@@ -79,18 +79,14 @@ async function enrichBuildCard(card: BuildIntelligenceCard): Promise<BuildIntell
   }
 }
 
-async function enrichLeaderboardEntry(entry: LeaderboardEntry, index: number): Promise<LeaderboardEntry> {
-  const emblemUrl = entry.emblemUrl ?? (await resolveEmblem(index))
-  return { ...entry, emblemUrl }
+async function enrichLeaderboardEntry(entry: LeaderboardEntry): Promise<LeaderboardEntry> {
+  return { ...entry, emblemUrl: entry.emblemUrl }
 }
 
-async function enrichLobby(lobby: FireteamLobby, index: number): Promise<FireteamLobby> {
-  const [hostEmblemUrl, activityRef] = await Promise.all([
-    lobby.hostEmblemUrl ?? resolveEmblem(index),
-    resolveActivity(lobby.activityName),
-  ])
+async function enrichLobby(lobby: FireteamLobby): Promise<FireteamLobby> {
+  const activityRef = await resolveActivity(lobby.activityName)
   const classRef = lobby.hostClass ? await resolveClassIcon(lobby.hostClass) : undefined
-  return { ...lobby, hostEmblemUrl, activityRef, hostClassRef: classRef }
+  return { ...lobby, activityRef, hostClassRef: classRef }
 }
 
 export async function buildWeeklyResetInfo(): Promise<WeeklyResetInfo> {
@@ -128,16 +124,16 @@ export async function enrichOverview(payload: OverviewPayload): Promise<Overview
 
   const [raidTop10, dungeonTop10, clanTop5, recentRuns, lookingForGroup, trendingBuilds] =
     await Promise.all([
-      Promise.all(payload.raidTop10.map((e, i) => enrichLeaderboardEntry(e, i))),
-      Promise.all(payload.dungeonTop10.map((e, i) => enrichLeaderboardEntry(e, i + 10))),
-      Promise.all(payload.clanTop5.map((e, i) => enrichLeaderboardEntry(e, i + 20))),
+      Promise.all(payload.raidTop10.map(enrichLeaderboardEntry)),
+      Promise.all(payload.dungeonTop10.map(enrichLeaderboardEntry)),
+      Promise.all(payload.clanTop5.map(enrichLeaderboardEntry)),
       Promise.all(
         payload.recentRuns.map(async (run) => {
           const activityRef = await resolveActivity(run.activityName)
           return { ...run, activityRef }
         })
       ),
-      Promise.all(payload.lookingForGroup.map((l, i) => enrichLobby(l, i))),
+      Promise.all(payload.lookingForGroup.map(enrichLobby)),
       Promise.all(payload.trendingBuilds.map(enrichBuildCard)),
     ])
 
@@ -168,7 +164,6 @@ export async function enrichOverview(payload: OverviewPayload): Promise<Overview
 }
 
 export async function enrichProfile(profile: PlayerProfile): Promise<PlayerProfile> {
-  const emblemUrl = profile.emblemUrl ?? (await resolveEmblem(0))
   const currentLoadout = profile.currentLoadout
     ? await enrichBuildSnapshot(profile.currentLoadout)
     : undefined
@@ -178,30 +173,25 @@ export async function enrichProfile(profile: PlayerProfile): Promise<PlayerProfi
 
   return {
     ...profile,
-    emblemUrl,
     classRef,
     currentLoadout,
   }
 }
 
 export async function enrichClan(clan: ClanProfile): Promise<ClanProfile> {
-  const emblemUrl = clan.emblemUrl ?? (await resolveEmblem(2))
-  const topMembers = await Promise.all(
-    clan.topMembers.map(async (m, i) => ({
-      ...m,
-      emblemUrl: m.emblemUrl ?? (await resolveEmblem(i + 3)),
-    }))
-  )
-  return { ...clan, emblemUrl, topMembers }
+  return { ...clan }
 }
 
 export async function enrichLoadoutsResponse(data: {
-  current: BuildSnapshot
+  current: BuildSnapshot | null
   saved: BuildSnapshot[]
   favorites: BuildSnapshot[]
   equipSupported: boolean
   equipMessage: string
 }) {
+  if (!data.current) {
+    return { ...data, current: null, saved: [], favorites: [] }
+  }
   const [current, saved, favorites] = await Promise.all([
     enrichBuildSnapshot(data.current),
     Promise.all(data.saved.map(enrichBuildSnapshot)),
@@ -221,7 +211,7 @@ export async function enrichBuildsResponse(data: {
 }
 
 export async function enrichLobbies(lobbies: FireteamLobby[]): Promise<FireteamLobby[]> {
-  return Promise.all(lobbies.map((l, i) => enrichLobby(l, i)))
+  return Promise.all(lobbies.map(enrichLobby))
 }
 
 export type { DestinyIconRef }

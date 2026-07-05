@@ -21,6 +21,8 @@ export function bungieOAuthErrorMessage(code: string): string {
       return 'No Destiny account is linked to this Bungie.net login.'
     case 'exchange_failed':
       return 'Token exchange failed. Confirm your Bungie app redirect URI matches this site exactly.'
+    case 'redirect_uri_mismatch':
+      return 'Redirect URI mismatch. Copy the redirect URL from Profile (below) into Bungie OAuth settings exactly.'
     case 'auth_required':
       return 'Your SDHQCC session expired during Bungie login. Log in with Kick and try again.'
     default:

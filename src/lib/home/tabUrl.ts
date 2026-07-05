@@ -54,7 +54,7 @@ export function parseHomeTabFromSearch(search: string): HomeTabState {
         legacy.rnd === 'destiny-top-nest' && destinyParam && isDestinyTopNestTab(destinyParam)
           ? destinyParam
           : legacy.rnd === 'destiny-top-nest' && params.get('bungie')
-            ? 'profile'
+            ? 'overview'
             : legacy.destiny,
     }
   }
@@ -72,7 +72,7 @@ export function parseHomeTabFromSearch(search: string): HomeTabState {
     destinyParam && isDestinyTopNestTab(destinyParam) ? destinyParam : undefined
 
   if (!destiny && rnd === 'destiny-top-nest' && params.get('bungie')) {
-    destiny = 'profile'
+    destiny = 'overview'
   }
 
   return { tab, create, rnd, destiny }
@@ -176,5 +176,5 @@ export function stripUrlParams(keys: string[]) {
 }
 
 export function defaultBungieReturnPath(): string {
-  return '/?tab=rnd&rnd=destiny-top-nest&destiny=profile'
+  return '/?tab=rnd&rnd=destiny-top-nest'
 }

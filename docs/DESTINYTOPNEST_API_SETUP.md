@@ -2,6 +2,29 @@
 
 DestinyTopNest uses the Bungie.net API for player profiles, activity history, PGCR verification, and loadouts.
 
+## Official Bungie API reference
+
+- **Interactive docs (all endpoints):** [https://bungie-net.github.io/](https://bungie-net.github.io/)
+- **API root path:** `https://www.bungie.net/Platform`
+- **OAuth wiki:** [https://github.com/Bungie-net/api/wiki/OAuth-Documentation](https://github.com/Bungie-net/api/wiki/OAuth-Documentation)
+- **Register app / API key:** [https://www.bungie.net/en/Application](https://www.bungie.net/en/Application)
+
+Every request needs header `X-API-Key: <your key>`. OAuth routes need `Authorization: Bearer <access_token>`.
+
+### Endpoints we use today
+
+| Purpose | Bungie path (under `/Platform`) | Our wrapper |
+|---------|----------------------------------|-------------|
+| OAuth authorize | `https://www.bungie.net/en/OAuth/Authorize` | `bungieOAuth.ts` |
+| OAuth token / refresh | `/App/OAuth/token/` | `bungieOAuth.ts` |
+| Linked memberships | `/User/GetMembershipsForCurrentUser/` | `bungieOAuth.ts` |
+| Profile + characters | `/Destiny2/{type}/Profile/{id}/?components=…` | `bungieClient.ts` |
+| Activity history | `/Destiny2/{type}/Account/{id}/Character/{charId}/Stats/Activities/` | `bungieClient.ts` |
+| PGCR (run verification) | `/Destiny2/Stats/PostGameCarnageReport/{activityId}/` | `bungieClient.ts` |
+| Manifest / icons | `/Destiny2/Manifest/…` | `manifest.ts` |
+
+Constants live in `src/lib/destiny/env.ts` (`BUNGIE_API_BASE`, OAuth URLs).
+
 ## Required (Phase 1+)
 
 | Variable | Description |
@@ -12,7 +35,7 @@ Alias also supported: `BUNGIE_API_KEY`
 
 ## Bungie account linking (OAuth)
 
-Users must be logged into SDHQCC (Kick) first, then connect Bungie from **DestinyTopNest → My Profile**.
+Users must be logged into SDHQCC (Kick) first, then connect Bungie from **DestinyTopNest → Overview**.
 
 | Variable | Description |
 |----------|-------------|
@@ -20,13 +43,16 @@ Users must be logged into SDHQCC (Kick) first, then connect Bungie from **Destin
 | `BUNGIE_OAUTH_CLIENT_SECRET` | OAuth client secret |
 | `DESTINY_API` | Same Bungie API key (required for token exchange) |
 
-**Redirect URL** (register in Bungie developer portal — must match exactly):
+**Redirect URL** — set **both** on Vercel and in the Bungie developer portal (must match exactly):
 
-`https://sdhqcc.vercel.app/api/destiny/auth/bungie/callback`
+```
+BUNGIE_OAUTH_REDIRECT_URI=https://sdhqcc.vercel.app/api/destiny/auth/bungie/callback
+NEXT_PUBLIC_BASE_URL=https://sdhqcc.vercel.app
+```
 
-The app derives the redirect URI from your live domain automatically. Override only if needed:
+In Bungie portal → your app → OAuth → Redirect URL, paste the same callback URL. No trailing slash. Must be `https://`.
 
-`BUNGIE_OAUTH_REDIRECT_URI=https://sdhqcc.vercel.app/api/destiny/auth/bungie/callback`
+The Profile panel shows the live redirect URL with a copy button — use that if unsure.
 
 **Bungie app settings:** Client type must be **Confidential** (not Public) to receive refresh tokens.
 
@@ -78,11 +104,19 @@ Schedule is maintained in `src/lib/destiny/weeklyRotation.ts` (Monument of Trium
 
 ## Phases
 
-1. **Phase 1 (current):** UI dashboard with mock data, Bungie client utilities, Mongo schemas
-2. **Phase 2 (in progress):** Bungie OAuth linking, live profile summary, token refresh
-3. **Phase 3:** AI legitimacy checker, admin review queue
+1. **Phase 1:** UI dashboard with mock data, Bungie client utilities, Mongo schemas
+2. **Phase 2:** Bungie OAuth linking, live profile summary, token refresh
+3. **Phase 3 (current):** Run sync from Bungie PGCRs, heuristic legitimacy checker, admin review queue in Mongo
 4. **Phase 4:** Build intelligence from verified runs
 5. **Phase 5:** Prizes, reputation, optional Kick/Twitch/Discord
+
+### Phase 3 — sync runs
+
+After linking Bungie on **Overview**, click **Sync verified runs** or call:
+
+`POST /api/destiny/runs/sync` (requires login + linked Bungie account)
+
+Flagged runs appear in **Admin Review** for manual approve/reject.
 
 ## Scoring rules
 

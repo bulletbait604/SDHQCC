@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { destinyStaffHandler } from '@/lib/destiny/apiHandler'
-import { getSeasonCountdown } from '@/lib/destiny/mockData'
+import { getSeasonCountdown } from '@/lib/destiny/seasonConfig'
 import { getSeasonData } from '@/lib/destiny/store'
 import { buildWeeklyResetInfo } from '@/lib/destiny/enrich'
 
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     const weeklyReset = await buildWeeklyResetInfo()
     return NextResponse.json({
       season,
-      countdown: getSeasonCountdown(),
+      countdown: getSeasonCountdown(season),
       weeklyReset,
       eligibility:
         'Top 5 in Raid, Dungeon, or Full Clan Team categories at season end win prizes. Verified full clears only.',
