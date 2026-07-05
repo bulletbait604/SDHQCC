@@ -22,6 +22,7 @@ interface BungieLinkStatus {
   linked: boolean
   bungieDisplayName?: string
   connectedAt?: string
+  redirectUri?: string
 }
 
 export default function ProfilePanel({ darkMode }: { darkMode: boolean }) {
@@ -86,6 +87,10 @@ export default function ProfilePanel({ darkMode }: { darkMode: boolean }) {
     if (bungie) stripUrlParams(['bungie', 'message'])
   }, [load])
 
+  function handleConnect() {
+    window.location.href = connectHref
+  }
+
   async function disconnect() {
     setDisconnecting(true)
     try {
@@ -108,7 +113,14 @@ export default function ProfilePanel({ darkMode }: { darkMode: boolean }) {
   return (
     <div className="space-y-4">
       {linkMessage && (
-        <div className="rounded-xl p-3 bg-emerald-500/10 border border-emerald-500/30 text-sm text-emerald-200">
+        <div
+          className={cn(
+            'rounded-xl p-3 text-sm border',
+            linkMessage.includes('failed') || linkMessage.includes('expired')
+              ? 'bg-red-500/10 border-red-500/30 text-red-200'
+              : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
+          )}
+        >
           {linkMessage}
         </div>
       )}
@@ -146,13 +158,22 @@ export default function ProfilePanel({ darkMode }: { darkMode: boolean }) {
             </button>
           </div>
         ) : (
-          <a
-            href={connectHref}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-amber-500/20 text-amber-100 border border-amber-500/40 hover:bg-amber-500/30"
-          >
-            <Link2 className="w-4 h-4" />
-            Connect Bungie Account
-          </a>
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={handleConnect}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-amber-500/20 text-amber-100 border border-amber-500/40 hover:bg-amber-500/30"
+            >
+              <Link2 className="w-4 h-4" />
+              Connect Bungie Account
+            </button>
+            {bungieStatus.redirectUri && (
+              <p className={cn('text-xs break-all', t.muted)}>
+                Bungie redirect URL (must match your Bungie app exactly):{' '}
+                <span className="text-amber-200/90">{bungieStatus.redirectUri}</span>
+              </p>
+            )}
+          </div>
         )}
       </GlassCard>
       <GlassCard darkMode={darkMode}>

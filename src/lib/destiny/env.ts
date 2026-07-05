@@ -63,7 +63,7 @@ export function bungieOAuthRedirectUriFromRequest(req?: { url: string }): string
 }
 
 export const BUNGIE_API_BASE = 'https://www.bungie.net/Platform'
-export const BUNGIE_OAUTH_AUTHORIZE_URL = 'https://www.bungie.net/en/OAuth/Authorize'
+export const BUNGIE_OAUTH_AUTHORIZE_URL = 'https://www.bungie.net/en/oauth/authorize'
 export const BUNGIE_OAUTH_TOKEN_URL = 'https://www.bungie.net/Platform/App/OAuth/token/'
 
 /** Scoring rules (verified full completions only). */

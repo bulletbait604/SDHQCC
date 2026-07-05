@@ -97,13 +97,44 @@ export function buildBungieAuthorizeUrl(state: string, redirectUri?: string): st
 }
 
 interface BungieTokenResponse {
-  access_token: string
+  access_token?: string
   refresh_token?: string
-  expires_in: number
+  expires_in?: number
   refresh_expires_in?: number
-  membership_id: string | number
+  membership_id?: string | number
   error?: string
   error_description?: string
+}
+
+function parseTokenResponse(res: Response, rawText: string): BungieTokenResponse {
+  if (!rawText.trim()) {
+    throw new Error('Empty token response from Bungie')
+  }
+
+  const parsed = parseBungieJson.parse(rawText) as Record<string, unknown>
+
+  if (typeof parsed.ErrorCode === 'number' && parsed.ErrorCode !== 1) {
+    throw new Error(String(parsed.Message || `Bungie error ${parsed.ErrorCode}`))
+  }
+
+  const payload =
+    parsed.Response && typeof parsed.Response === 'object'
+      ? (parsed.Response as BungieTokenResponse)
+      : (parsed as BungieTokenResponse)
+
+  if (!res.ok || payload.error) {
+    throw new Error(
+      payload.error_description ||
+        payload.error ||
+        `Bungie token request failed: HTTP ${res.status}`
+    )
+  }
+
+  if (!payload.access_token) {
+    throw new Error('Bungie token exchange returned no access token')
+  }
+
+  return payload
 }
 
 export async function exchangeBungieAuthorizationCode(
@@ -136,22 +167,12 @@ export async function exchangeBungieAuthorizationCode(
     cache: 'no-store',
   })
 
-  const response = await readBungieJson<BungieTokenResponse>(res)
-
-  if (!res.ok || response.error) {
-    throw new Error(
-      response.error_description || response.error || `Bungie token exchange failed: ${res.status}`
-    )
-  }
-
-  if (!response.access_token) {
-    throw new Error('Bungie token exchange returned no access token')
-  }
+  const response = parseTokenResponse(res, await res.text())
 
   return {
-    accessToken: response.access_token,
+    accessToken: response.access_token!,
     refreshToken: response.refresh_token,
-    expiresIn: response.expires_in,
+    expiresIn: response.expires_in ?? 3600,
     refreshExpiresIn: response.refresh_expires_in,
     membershipId: normalizeBungieMembershipId(response.membership_id),
     obtainedAt: new Date().toISOString(),
@@ -183,18 +204,12 @@ export async function refreshBungieAccessToken(refreshToken: string): Promise<Bu
     cache: 'no-store',
   })
 
-  const response = await readBungieJson<BungieTokenResponse>(res)
-
-  if (!res.ok || response.error) {
-    throw new Error(
-      response.error_description || response.error || `Bungie token refresh failed: ${res.status}`
-    )
-  }
+  const response = parseTokenResponse(res, await res.text())
 
   return {
-    accessToken: response.access_token,
+    accessToken: response.access_token!,
     refreshToken: response.refresh_token ?? refreshToken,
-    expiresIn: response.expires_in,
+    expiresIn: response.expires_in ?? 3600,
     refreshExpiresIn: response.refresh_expires_in,
     membershipId: normalizeBungieMembershipId(response.membership_id),
     obtainedAt: new Date().toISOString(),

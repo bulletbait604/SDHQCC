@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       configured: bungieOAuthConfigured(),
       redirectUri: bungieOAuthRedirectUriFromRequest(req),
-      linked: Boolean(stored?.bungieMembershipId),
+      linked: Boolean(stored?.bungieMembershipId && String(stored.bungieMembershipId).length > 0),
       bungieDisplayName: stored?.bungieDisplayName,
       platform: stored?.platform,
       connectedAt: stored?.connectedAt,

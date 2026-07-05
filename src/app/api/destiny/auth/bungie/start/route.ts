@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { randomBytes } from 'crypto'
 import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { buildBungieAuthorizeUrl } from '@/lib/destiny/bungieOAuth'
+import { createBungieOAuthState } from '@/lib/destiny/bungieOAuthStateStore'
 import { bungieOAuthConfigured, bungieOAuthRedirectUriFromRequest } from '@/lib/destiny/env'
 import { defaultBungieReturnPath } from '@/lib/home/tabUrl'
 import { sessionCookieSecure } from '@/lib/sessionCookie'
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
   try {
-    await verifyAuth(req)
+    const user = await verifyAuth(req)
 
     if (!bungieOAuthConfigured()) {
       return NextResponse.json(
@@ -22,35 +22,28 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    const state = randomBytes(24).toString('hex')
     const redirectUri = bungieOAuthRedirectUriFromRequest(req)
-    const url = buildBungieAuthorizeUrl(state, redirectUri)
-    const secure = sessionCookieSecure(req)
     const returnParam = req.nextUrl.searchParams.get('return')
     const returnPath =
       returnParam && returnParam.startsWith('/') && !returnParam.startsWith('//')
         ? returnParam
         : defaultBungieReturnPath()
 
+    const state = await createBungieOAuthState({
+      userId: user.username,
+      redirectUri,
+      returnPath,
+    })
+
+    const url = buildBungieAuthorizeUrl(state, redirectUri)
+    const secure = sessionCookieSecure(req)
+
     const res = NextResponse.redirect(url)
+    // Cookie backup only — primary validation is MongoDB state record.
     res.cookies.set('bungieOAuthState', state, {
       httpOnly: true,
       secure,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 600,
-    })
-    res.cookies.set('bungieOAuthRedirect', redirectUri, {
-      httpOnly: true,
-      secure,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 600,
-    })
-    res.cookies.set('bungieOAuthReturn', returnPath, {
-      httpOnly: true,
-      secure,
-      sameSite: 'lax',
+      sameSite: secure ? 'none' : 'lax',
       path: '/',
       maxAge: 600,
     })
