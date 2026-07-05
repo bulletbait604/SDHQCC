@@ -71,17 +71,20 @@ export async function fetchLiveLoadout(stored: StoredDestinyUser): Promise<Build
       stored.activeCharacterId
     )
 
-    if (build && !stored.emblemUrl) {
-      const profile = (await getCharacterLoadout(
+    if (build) {
+      const profilePayload = (await getCharacterLoadout(
         membershipType,
         membershipId,
-        stored.activeCharacterId ?? '',
+        build.id.replace('live-', ''),
         accessToken
       )) as Parameters<typeof emblemUrlsFromProfile>[0]
       const characterId = build.id.replace('live-', '')
-      const emblems = emblemUrlsFromProfile(profile, characterId)
+      const emblems = emblemUrlsFromProfile(profilePayload, characterId)
       if (emblems.emblemUrl || emblems.emblemBackgroundUrl) {
-        await upsertDestinyUser(stored.userId, emblems)
+        await upsertDestinyUser(stored.userId, {
+          ...emblems,
+          activeCharacterId: characterId,
+        })
       }
     }
 

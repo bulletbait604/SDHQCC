@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import type { PlayerProfile } from '@/lib/destiny/types'
-import PlayerCard from '@/app/components/destiny/PlayerCard'
+import PlayerCardCompact from '@/app/components/destiny/PlayerCardCompact'
 import { useBungieLink } from '@/hooks/useBungieLink'
 
 interface Props {
@@ -10,7 +10,7 @@ interface Props {
   onProfileLoaded?: (profile: PlayerProfile | null) => void
 }
 
-/** Persistent player card — fetches profile once for Top Nest shell. */
+/** Compact player banner — summary only (no loadout fetch). */
 export default function PlayerCardShell({ darkMode, onProfileLoaded }: Props) {
   const [profile, setProfile] = useState<PlayerProfile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -19,7 +19,7 @@ export default function PlayerCardShell({ darkMode, onProfileLoaded }: Props) {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/destiny/profile', { credentials: 'include' })
+      const res = await fetch('/api/destiny/profile?scope=summary', { credentials: 'include' })
       if (res.ok) {
         const json = await res.json()
         const p = (json.profile ?? null) as PlayerProfile | null
@@ -45,8 +45,8 @@ export default function PlayerCardShell({ darkMode, onProfileLoaded }: Props) {
   }, [load])
 
   return (
-    <div className="mb-4 flex justify-start">
-      <PlayerCard
+    <div className="mb-4 flex justify-start w-full max-w-3xl">
+      <PlayerCardCompact
         profile={profile}
         darkMode={darkMode}
         linked={bungie.linked}

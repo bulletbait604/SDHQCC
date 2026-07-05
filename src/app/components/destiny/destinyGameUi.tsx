@@ -39,7 +39,7 @@ export function GlowIcon({
   return (
     <div
       className={cn('d2-icon-slot shrink-0', glowMap[resolvedGlow], className)}
-      style={{ width: size, height: size }}
+      style={className?.includes('w-full') ? undefined : { width: size, height: size }}
       title={title ?? label}
     >
       {url ? (
@@ -76,27 +76,137 @@ export function StatOrb({
   )
 }
 
-/** Ability / grenade / super slot — icon only, tooltip on hover. */
+/** Ability / grenade / super slot — icon with hover tooltip. */
 export function AbilityChip({
   item,
   fallback,
   size = 56,
   glow = 'gold',
+  slotLabel,
 }: {
   item?: DestinyIconRef
   fallback?: string
   size?: number
   glow?: 'gold' | 'arc' | 'void' | 'solar' | 'strand' | 'stasis' | 'neutral' | 'auto'
+  slotLabel?: string
+}) {
+  const name = item?.name ?? fallback
+  return (
+    <IconTooltip slotLabel={slotLabel} name={name} tier={item?.tierLabel}>
+      <GlowIcon
+        item={item}
+        name={fallback}
+        size={size}
+        glow={glow}
+        className="rounded-xl hover:scale-105 transition-transform duration-200 w-full max-w-[52px] aspect-square mx-auto"
+      />
+    </IconTooltip>
+  )
+}
+
+/** Hover tooltip for icons — slot + name + tier. */
+export function IconTooltip({
+  slotLabel,
+  name,
+  tier,
+  children,
+}: {
+  slotLabel?: string
+  name?: string
+  tier?: string
+  children: React.ReactNode
+}) {
+  const displayName = name?.trim()
+  if (!displayName && !slotLabel) return <>{children}</>
+
+  return (
+    <div className="d2-tooltip-wrap w-full">
+      {children}
+      <div className="d2-tooltip" role="tooltip">
+        {slotLabel ? <p className="d2-tooltip-slot">{slotLabel}</p> : null}
+        {displayName ? <p className="d2-tooltip-name">{displayName}</p> : null}
+        {tier ? <p className="d2-tooltip-tier">{tier}</p> : null}
+      </div>
+    </div>
+  )
+}
+
+/** In-game style character emblem — background banner + centered icon for active character. */
+export function CharacterEmblem({
+  backgroundUrl,
+  iconUrl,
+  accentColor,
+  characterClass,
+  classIconUrl,
+  title,
+  compact = false,
+}: {
+  backgroundUrl?: string
+  iconUrl?: string
+  accentColor?: string
+  characterClass?: string
+  classIconUrl?: string
+  title?: string
+  compact?: boolean
+}) {
+  const classFallback: Record<string, string> = {
+    titan: 'linear-gradient(160deg, #4a1515 0%, #1a0a0a 100%)',
+    hunter: 'linear-gradient(160deg, #1a3d1a 0%, #0a140a 100%)',
+    warlock: 'linear-gradient(160deg, #2a1a4a 0%, #0f0a1a 100%)',
+  }
+  const bgStyle =
+    !backgroundUrl && characterClass
+      ? { background: classFallback[characterClass] ?? classFallback.warlock }
+      : undefined
+
+  return (
+    <div
+      className={cn('d2-character-emblem shrink-0', compact && 'd2-character-emblem-compact')}
+      title={title ?? 'Character emblem'}
+    >
+      {backgroundUrl ? (
+        <img src={backgroundUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <div className="absolute inset-0" style={bgStyle} />
+      )}
+      {accentColor ? (
+        <div
+          className="absolute inset-0 opacity-50"
+          style={{ background: `linear-gradient(180deg, transparent 30%, ${accentColor} 100%)` }}
+        />
+      ) : null}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
+      {iconUrl ? (
+        <img
+          src={iconUrl}
+          alt=""
+          className="absolute left-1/2 top-[52%] h-[52px] w-[52px] -translate-x-1/2 -translate-y-1/2 object-cover drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]"
+        />
+      ) : classIconUrl ? (
+        <img
+          src={classIconUrl}
+          alt=""
+          className="absolute left-1/2 top-[52%] h-12 w-12 -translate-x-1/2 -translate-y-1/2 object-cover opacity-80"
+        />
+      ) : null}
+    </div>
+  )
+}
+
+export function BuildSection({
+  label,
+  children,
+  className,
+}: {
+  label: string
+  children: React.ReactNode
+  className?: string
 }) {
   return (
-    <GlowIcon
-      item={item}
-      name={fallback}
-      size={size}
-      glow={glow}
-      title={item?.name ?? fallback}
-      className="rounded-xl hover:scale-105 transition-transform duration-200"
-    />
+    <div className={cn('d2-build-section', className)}>
+      <p className="d2-build-section-label">{label}</p>
+      {children}
+    </div>
   )
 }
 
@@ -104,9 +214,6 @@ export function AbilityChip({
 export function GameCard({
   children,
   className,
-  bannerUrl,
-  bannerOverlay,
-  accentColor,
 }: {
   children: React.ReactNode
   className?: string
@@ -116,17 +223,6 @@ export function GameCard({
 }) {
   return (
     <div className={cn('d2-game-card relative overflow-hidden', className)}>
-      {bannerUrl ? (
-        <>
-          <img src={bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-40" />
-          <div
-            className="absolute inset-0"
-            style={{
-              background: bannerOverlay ?? `linear-gradient(135deg, ${accentColor ?? 'rgba(40,30,80,0.7)'} 0%, rgba(8,10,18,0.95) 60%)`,
-            }}
-          />
-        </>
-      ) : null}
       <div className="d2-card-accent" />
       <div className="relative">{children}</div>
     </div>

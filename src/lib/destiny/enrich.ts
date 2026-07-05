@@ -200,12 +200,20 @@ export async function enrichOverview(payload: OverviewPayload): Promise<Overview
   }
 }
 
-export async function enrichProfile(profile: PlayerProfile): Promise<PlayerProfile> {
-  const currentLoadout = profile.currentLoadout
-    ? await enrichBuildSnapshot(profile.currentLoadout)
-    : undefined
+export async function enrichProfile(
+  profile: PlayerProfile,
+  scope: 'summary' | 'full' = 'full'
+): Promise<PlayerProfile> {
   const classRef = profile.characterClass
     ? await resolveClassIcon(profile.characterClass)
+    : undefined
+
+  if (scope === 'summary') {
+    return { ...profile, classRef }
+  }
+
+  const currentLoadout = profile.currentLoadout
+    ? await enrichBuildSnapshot(profile.currentLoadout)
     : undefined
   const recentRuns = await Promise.all(
     profile.recentRuns.map(async (run) => ({

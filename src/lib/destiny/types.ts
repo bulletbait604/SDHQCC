@@ -83,6 +83,18 @@ export interface WeeklyResetInfo {
   resetTimeLabel: string
 }
 
+export interface ResolvedEmblem {
+  itemHash?: number
+  name: string
+  iconUrl?: string
+  backgroundUrl?: string
+  color?: string
+  source: 'equipped' | 'collection'
+  characterId?: string
+}
+
+export type EmblemOption = ResolvedEmblem
+
 export interface DestinyUser {
   userId: string
   bungieMembershipId: string
@@ -105,6 +117,9 @@ export interface DestinyUser {
   bungieStats?: GuardianBungieStats
   /** Bungie membership type enum (1=xbox, 2=ps, 3=steam, 6=epic) for API calls */
   destinyMembershipType?: number
+  /** equipped = live character emblem; collection = displayEmblemHash from inventory */
+  displayEmblemSource?: 'equipped' | 'collection'
+  displayEmblemHash?: number
 }
 
 export interface GuardianBungieStats {
@@ -363,6 +378,8 @@ export interface PlayerProfile extends DestinyUser {
   flexStats?: ProfileFlexStat[]
   bungieStats?: GuardianBungieStats
   trustRank?: TrustRankSummary
+  displayEmblem?: ResolvedEmblem
+  displayEmblemSource?: 'equipped' | 'collection'
 }
 
 export interface BuildIntelligenceCard {

@@ -1,4 +1,4 @@
-import type { LeaderboardEntry, PlayerProfile, ReputationReview, RunRecord, TrustReview } from '@/lib/destiny/types'
+import type { LeaderboardEntry, PlayerProfile, ReputationReview, ResolvedEmblem, RunRecord, TrustReview } from '@/lib/destiny/types'
 import type { StoredDestinyUser } from '@/lib/destiny/destinyUserStore'
 import {
   buildProfileFlexStats,
@@ -37,6 +37,7 @@ export function buildPlayerProfileFromStored(
     reviews?: ReputationReview[]
     trustReviews?: TrustReview[]
     seasonLeaderboardEntries?: LeaderboardEntry[]
+    displayEmblem?: ResolvedEmblem | null
   }
 ): PlayerProfile {
   const userRuns = runs.filter((r) => r.ownerUserId === stored.userId)
@@ -84,6 +85,11 @@ export function buildPlayerProfileFromStored(
     stored.profileFlexStats ?? DEFAULT_PROFILE_FLEX_STATS
   )
 
+  const displayEmblem = options?.displayEmblem ?? undefined
+  const emblemIcon = displayEmblem?.iconUrl ?? stored.emblemUrl
+  const emblemBg = displayEmblem?.backgroundUrl ?? stored.emblemBackgroundUrl
+  const emblemColor = displayEmblem?.color ?? stored.emblemColor
+
   const base: PlayerProfile = {
     userId: stored.userId,
     bungieMembershipId: stored.bungieMembershipId,
@@ -92,10 +98,10 @@ export function buildPlayerProfileFromStored(
     clanId: stored.clanId,
     clanName: stored.clanName,
     clanTag: stored.clanTag,
-    emblemUrl: stored.emblemUrl,
-    emblemBackgroundUrl: stored.emblemBackgroundUrl,
+    emblemUrl: emblemIcon,
+    emblemBackgroundUrl: emblemBg,
     characterThumbnailUrl: stored.characterThumbnailUrl,
-    emblemColor: stored.emblemColor,
+    emblemColor,
     activeCharacterId: stored.activeCharacterId,
     profileFlexStats: flexPreferences,
     bungieStats: stored.bungieStats,
@@ -103,6 +109,8 @@ export function buildPlayerProfileFromStored(
     powerLevel: stored.powerLevel,
     characterClass: stored.characterClass,
     connectedAt: stored.connectedAt,
+    displayEmblemSource: stored.displayEmblemSource ?? 'equipped',
+    displayEmblemHash: stored.displayEmblemHash,
     raidPoints,
     dungeonPoints,
     fullClanPoints,
@@ -115,6 +123,7 @@ export function buildPlayerProfileFromStored(
     topCompletions,
     prizeEligibility: prizeEligibilityForUser(seasonEntries, verified.length),
     currentLoadout: options?.loadout,
+    displayEmblem: displayEmblem ?? undefined,
   }
 
   return {

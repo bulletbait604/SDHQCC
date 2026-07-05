@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { Trophy, Unlink, Loader2 } from 'lucide-react'
 import type { PlayerProfile } from '@/lib/destiny/types'
 import BungieConnectBanner from '@/app/components/destiny/BungieConnectBanner'
+import EmblemPicker from '@/app/components/destiny/EmblemPicker'
+import PlayerCardDetail from '@/app/components/destiny/PlayerCardDetail'
 import StatCardEditor from '@/app/components/destiny/StatCardEditor'
 import FireteamReviewSection from '@/app/components/destiny/FireteamReviewSection'
 import ReputationSummarySection from '@/app/components/destiny/ReputationSummarySection'
@@ -48,7 +50,7 @@ export default function ProfilePanel({
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const profileRes = await fetch('/api/destiny/profile', { credentials: 'include' })
+      const profileRes = await fetch('/api/destiny/profile?scope=full', { credentials: 'include' })
       if (profileRes.ok) {
         const profileJson = await profileRes.json()
         setProfile(profileJson?.profile ?? null)
@@ -117,11 +119,22 @@ export default function ProfilePanel({
           )}
 
           {linked && (
-            <StatCardEditor
-              darkMode={darkMode}
-              initialSelection={profile.profileFlexStats ?? DEFAULT_PROFILE_FLEX_STATS}
-              onSaved={() => void load()}
-            />
+            <>
+              <PlayerCardDetail profile={profile} darkMode={darkMode} />
+
+              <EmblemPicker
+                darkMode={darkMode}
+                selectedSource={profile.displayEmblemSource}
+                selectedHash={profile.displayEmblemHash}
+                onSaved={() => void load()}
+              />
+
+              <StatCardEditor
+                darkMode={darkMode}
+                initialSelection={profile.profileFlexStats ?? DEFAULT_PROFILE_FLEX_STATS}
+                onSaved={() => void load()}
+              />
+            </>
           )}
 
           <FireteamReviewSection darkMode={darkMode} linked={linked} />
@@ -180,11 +193,7 @@ export default function ProfilePanel({
 
           {profile.currentLoadout && (
             <GlassCard darkMode={darkMode}>
-              <SectionTitle
-                title="Quick loadout preview"
-                subtitle="See full loadouts under Profile → Loadouts"
-                darkMode={darkMode}
-              />
+              <SectionTitle title="Gear strip" darkMode={darkMode} />
               <GearStrip
                 darkMode={darkMode}
                 items={[

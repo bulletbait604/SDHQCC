@@ -182,4 +182,95 @@ a {
   .d2-section-icon {
     @apply w-12 h-12 rounded-2xl object-cover ring-2 ring-white/15 shadow-lg;
   }
+
+  .d2-tooltip-wrap {
+    @apply relative inline-flex flex-col items-center;
+  }
+
+  .d2-tooltip-wrap .d2-tooltip {
+    @apply pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-50 min-w-[120px] max-w-[180px] -translate-x-1/2 rounded-lg px-2.5 py-1.5 text-center opacity-0 invisible transition-all duration-150;
+    background: rgba(8, 10, 18, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+  }
+
+  .d2-tooltip-wrap:hover .d2-tooltip,
+  .d2-tooltip-wrap:focus-within .d2-tooltip {
+    @apply opacity-100 visible;
+  }
+
+  .d2-tooltip-slot {
+    @apply text-[9px] font-bold uppercase tracking-wider text-amber-400/90;
+  }
+
+  .d2-tooltip-name {
+    @apply text-[11px] font-semibold text-white leading-snug mt-0.5;
+  }
+
+  .d2-tooltip-tier {
+    @apply text-[9px] text-white/45 mt-0.5;
+  }
+
+  .d2-character-emblem {
+    @apply relative overflow-hidden rounded-xl ring-2 ring-white/15 shadow-[0_8px_28px_rgba(0,0,0,0.45)];
+    width: 92px;
+    height: 128px;
+  }
+
+  .d2-character-emblem-compact {
+    width: 108px;
+    height: 64px;
+  }
+
+  .d2-character-emblem-compact img:last-of-type {
+    height: 36px !important;
+    width: 36px !important;
+    top: 50% !important;
+  }
+
+  .d2-player-compact {
+    min-height: 76px;
+  }
+
+  .d2-compact-stat {
+    @apply flex flex-col items-center rounded-lg px-2 py-1 bg-black/35 ring-1 ring-white/10 min-w-[44px];
+  }
+
+  .d2-compact-stat-gold {
+    @apply ring-amber-400/25;
+    box-shadow: 0 0 12px rgba(251, 191, 36, 0.1);
+  }
+
+  .d2-compact-stat-label {
+    @apply text-[8px] font-bold uppercase text-white/40;
+  }
+
+  .d2-compact-stat-value {
+    @apply text-base font-black text-white tabular-nums leading-none;
+  }
+
+  .d2-compact-stat-gold .d2-compact-stat-value {
+    @apply text-amber-300;
+  }
+
+  .d2-trust-badge-compact {
+    @apply flex items-center justify-center rounded-lg px-2 py-1.5 bg-amber-400/10 ring-1 ring-amber-400/25 min-w-[40px];
+  }
+
+  .d2-build-section {
+    @apply rounded-xl bg-black/25 ring-1 ring-white/[0.07] p-2.5;
+  }
+
+  .d2-build-section-label {
+    @apply text-[9px] font-bold uppercase tracking-[0.15em] text-white/35 mb-2;
+  }
+
+  .d2-ability-grid {
+    @apply grid gap-2;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .d2-slot-label {
+    @apply text-[8px] font-bold uppercase tracking-wide text-white/40 text-center mt-1;
+  }
 }
