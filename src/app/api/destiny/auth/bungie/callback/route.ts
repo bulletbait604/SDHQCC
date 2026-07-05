@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
+import { verifyAuth, AuthError } from '@/lib/auth/verifyAuth'
 import {
   exchangeBungieAuthorizationCode,
   fetchLinkedGuardianSummary,
@@ -9,10 +9,18 @@ import {
   platformFromMembershipType,
 } from '@/lib/destiny/bungieOAuth'
 import { upsertDestinyUser } from '@/lib/destiny/destinyUserStore'
+import { bungieOAuthRedirectUriFromRequest } from '@/lib/destiny/env'
 import { defaultBungieReturnPath } from '@/lib/home/tabUrl'
 import { sessionCookieSecure } from '@/lib/sessionCookie'
 
 export const dynamic = 'force-dynamic'
+
+function clearOAuthCookies(res: NextResponse) {
+  const secure = sessionCookieSecure()
+  for (const name of ['bungieOAuthState', 'bungieOAuthReturn', 'bungieOAuthRedirect']) {
+    res.cookies.set(name, '', { httpOnly: true, secure, path: '/', maxAge: 0 })
+  }
+}
 
 function redirectAfterOAuth(
   params: Record<string, string>,
@@ -30,13 +38,14 @@ function redirectAfterOAuth(
   }
 
   const res = NextResponse.redirect(target)
-  res.cookies.set('bungieOAuthState', '', { httpOnly: true, path: '/', maxAge: 0 })
-  res.cookies.set('bungieOAuthReturn', '', { httpOnly: true, path: '/', maxAge: 0 })
+  clearOAuthCookies(res)
   return res
 }
 
 export async function GET(req: NextRequest) {
   const returnPath = req.cookies.get('bungieOAuthReturn')?.value
+  const redirectUri =
+    req.cookies.get('bungieOAuthRedirect')?.value || bungieOAuthRedirectUriFromRequest(req)
 
   try {
     const user = await verifyAuth(req)
@@ -58,24 +67,27 @@ export async function GET(req: NextRequest) {
       return redirectAfterOAuth({ bungie: 'error', message: 'invalid_state' }, req, returnPath)
     }
 
-    const tokens = await exchangeBungieAuthorizationCode(code)
+    const tokens = await exchangeBungieAuthorizationCode(code, redirectUri)
     const memberships = await getDestinyMembershipsForCurrentUser(tokens.accessToken)
     const primary = pickPrimaryDestinyMembership(
       memberships.destinyMemberships ?? [],
       memberships.primaryMembershipId
-        ? Number(memberships.primaryMembershipId)
-        : undefined
     )
 
     if (!primary) {
       return redirectAfterOAuth({ bungie: 'error', message: 'no_destiny_account' }, req, returnPath)
     }
 
-    const summary = await fetchLinkedGuardianSummary(
-      primary.membershipType,
-      primary.membershipId,
-      tokens.accessToken
-    )
+    let summary: Awaited<ReturnType<typeof fetchLinkedGuardianSummary>> | undefined
+    try {
+      summary = await fetchLinkedGuardianSummary(
+        primary.membershipType,
+        primary.membershipId,
+        tokens.accessToken
+      )
+    } catch (summaryError) {
+      console.warn('[destiny/auth/bungie/callback] Guardian summary fetch failed:', summaryError)
+    }
 
     const displayName = formatBungieDisplayName(primary)
 
@@ -84,9 +96,9 @@ export async function GET(req: NextRequest) {
       bungieNetMembershipId: tokens.membershipId,
       bungieDisplayName: displayName,
       platform: platformFromMembershipType(primary.membershipType) as 'steam' | 'xbox' | 'playstation' | 'epic',
-      emblemUrl: summary.emblemUrl,
-      powerLevel: summary.powerLevel,
-      characterClass: summary.characterClass,
+      emblemUrl: summary?.emblemUrl,
+      powerLevel: summary?.powerLevel,
+      characterClass: summary?.characterClass,
       guardianRank: undefined,
       connectedAt: new Date().toISOString(),
       oauth: tokens,
@@ -94,8 +106,15 @@ export async function GET(req: NextRequest) {
 
     return redirectAfterOAuth({ bungie: 'linked' }, req, returnPath)
   } catch (error) {
-    if (error instanceof AuthError) return createAuthErrorResponse(error)
+    if (error instanceof AuthError) {
+      return redirectAfterOAuth({ bungie: 'error', message: 'auth_required' }, req, returnPath)
+    }
     console.error('[destiny/auth/bungie/callback]', error)
-    return redirectAfterOAuth({ bungie: 'error', message: 'exchange_failed' }, req, returnPath)
+    const detail = error instanceof Error ? error.message : 'exchange_failed'
+    return redirectAfterOAuth(
+      { bungie: 'error', message: detail.slice(0, 180) },
+      req,
+      returnPath
+    )
   }
 }

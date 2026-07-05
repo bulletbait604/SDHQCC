@@ -45,6 +45,23 @@ export function bungieOAuthRedirectUri(): string {
   return 'http://localhost:3000/api/destiny/auth/bungie/callback'
 }
 
+/** Prefer explicit env override, otherwise derive from the incoming request origin. */
+export function bungieOAuthRedirectUriFromRequest(req?: { url: string }): string {
+  const explicit =
+    process.env.BUNGIE_OAUTH_REDIRECT_URI || process.env.NEXT_PUBLIC_BUNGIE_REDIRECT_URI
+  if (explicit?.trim()) return explicit.trim()
+
+  if (req?.url) {
+    try {
+      return `${new URL(req.url).origin}/api/destiny/auth/bungie/callback`
+    } catch {
+      /* fall through */
+    }
+  }
+
+  return bungieOAuthRedirectUri()
+}
+
 export const BUNGIE_API_BASE = 'https://www.bungie.net/Platform'
 export const BUNGIE_OAUTH_AUTHORIZE_URL = 'https://www.bungie.net/en/OAuth/Authorize'
 export const BUNGIE_OAUTH_TOKEN_URL = 'https://www.bungie.net/Platform/App/OAuth/token/'

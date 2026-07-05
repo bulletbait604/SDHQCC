@@ -14,6 +14,7 @@ import {
 } from '@/app/components/destiny/DestinyUi'
 import { formatDuration, getDestinyTheme, platformIcon } from '@/app/components/destiny/destinyTheme'
 import { defaultBungieReturnPath, stripUrlParams } from '@/lib/home/tabUrl'
+import { bungieOAuthErrorMessage } from '@/lib/destiny/bungieOAuth'
 import { cn } from '@/lib/utils'
 
 interface BungieLinkStatus {
@@ -78,7 +79,9 @@ export default function ProfilePanel({ darkMode }: { darkMode: boolean }) {
     if (bungie === 'linked') setLinkMessage('Bungie account linked successfully.')
     if (bungie === 'error') {
       const msg = params.get('message')
-      setLinkMessage(msg ? `Bungie linking failed: ${msg}` : 'Bungie linking failed. Try again.')
+      setLinkMessage(
+        msg ? `Bungie linking failed: ${bungieOAuthErrorMessage(msg)}` : 'Bungie linking failed. Try again.'
+      )
     }
     if (bungie) stripUrlParams(['bungie', 'message'])
   }, [load])

@@ -20,11 +20,15 @@ Users must be logged into SDHQCC (Kick) first, then connect Bungie from **Destin
 | `BUNGIE_OAUTH_CLIENT_SECRET` | OAuth client secret |
 | `DESTINY_API` | Same Bungie API key (required for token exchange) |
 
-**Redirect URL** (register in Bungie developer portal):
+**Redirect URL** (register in Bungie developer portal — must match exactly):
 
-`https://your-production-domain/api/destiny/auth/bungie/callback`
+`https://sdhqcc.vercel.app/api/destiny/auth/bungie/callback`
 
-Override with `BUNGIE_OAUTH_REDIRECT_URI` if needed.
+The app derives the redirect URI from your live domain automatically. Override only if needed:
+
+`BUNGIE_OAUTH_REDIRECT_URI=https://sdhqcc.vercel.app/api/destiny/auth/bungie/callback`
+
+**Bungie app settings:** Client type must be **Confidential** (not Public) to receive refresh tokens.
 
 ### API routes
 

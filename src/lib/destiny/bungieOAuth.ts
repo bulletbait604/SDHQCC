@@ -2,6 +2,7 @@
  * Bungie OAuth — authorization code flow (confidential client).
  */
 
+import JSONbig from 'json-bigint'
 import {
   BUNGIE_OAUTH_AUTHORIZE_URL,
   BUNGIE_OAUTH_TOKEN_URL,
@@ -13,6 +14,8 @@ import {
 } from '@/lib/destiny/env'
 import { buildBungieIconUrl } from '@/lib/destiny/manifest'
 import { bungieMembershipTypeLabel } from '@/lib/destiny/bungieClient'
+
+const parseBungieJson = JSONbig({ storeAsString: true })
 
 export interface BungieOAuthTokens {
   accessToken: string
@@ -39,6 +42,19 @@ interface BungieEnvelope<T> {
   Response: T
 }
 
+export function normalizeBungieMembershipId(value: unknown): string {
+  if (value == null || value === '') return ''
+  return String(value)
+}
+
+async function readBungieJson<T>(res: Response): Promise<T> {
+  const text = await res.text()
+  if (!text.trim()) {
+    throw new Error('Empty response from Bungie')
+  }
+  return parseBungieJson.parse(text) as T
+}
+
 async function bungieOAuthFetch<T>(url: string, init: RequestInit): Promise<T> {
   const apiKey = destinyApiKey()
   if (!apiKey) throw new Error('DESTINY_API is not configured')
@@ -57,7 +73,7 @@ async function bungieOAuthFetch<T>(url: string, init: RequestInit): Promise<T> {
     throw new Error(`Bungie OAuth HTTP ${res.status}: ${text}`)
   }
 
-  const body = (await res.json()) as BungieEnvelope<T>
+  const body = await readBungieJson<BungieEnvelope<T>>(res)
   if (body.ErrorCode !== 1) {
     throw new Error(body.Message || `Bungie error ${body.ErrorCode}`)
   }
@@ -65,25 +81,39 @@ async function bungieOAuthFetch<T>(url: string, init: RequestInit): Promise<T> {
   return body.Response
 }
 
-export function buildBungieAuthorizeUrl(state: string): string {
+export function buildBungieAuthorizeUrl(state: string, redirectUri?: string): string {
   const clientId = bungieOAuthClientId()
-  const redirectUri = bungieOAuthRedirectUri()
+  const resolvedRedirect = redirectUri || bungieOAuthRedirectUri()
   if (!clientId) throw new Error('BUNGIE_OAUTH_CLIENT_ID is not configured')
 
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: 'code',
-    redirect_uri: redirectUri,
+    redirect_uri: resolvedRedirect,
     state,
   })
 
   return `${BUNGIE_OAUTH_AUTHORIZE_URL}?${params.toString()}`
 }
 
-export async function exchangeBungieAuthorizationCode(code: string): Promise<BungieOAuthTokens> {
+interface BungieTokenResponse {
+  access_token: string
+  refresh_token?: string
+  expires_in: number
+  refresh_expires_in?: number
+  membership_id: string | number
+  error?: string
+  error_description?: string
+}
+
+export async function exchangeBungieAuthorizationCode(
+  code: string,
+  redirectUri?: string
+): Promise<BungieOAuthTokens> {
   const clientId = bungieOAuthClientId()
   const clientSecret = bungieOAuthClientSecret()
   const apiKey = destinyApiKey()
+  const resolvedRedirect = redirectUri || bungieOAuthRedirectUri()
   if (!clientId || !clientSecret || !apiKey) {
     throw new Error('Bungie OAuth client credentials are not configured')
   }
@@ -101,20 +131,21 @@ export async function exchangeBungieAuthorizationCode(code: string): Promise<Bun
       grant_type: 'authorization_code',
       code,
       client_id: clientId,
+      redirect_uri: resolvedRedirect,
     }).toString(),
     cache: 'no-store',
   })
 
-  if (!res.ok) {
-    throw new Error(`Bungie token exchange failed: ${res.status} ${await res.text()}`)
+  const response = await readBungieJson<BungieTokenResponse>(res)
+
+  if (!res.ok || response.error) {
+    throw new Error(
+      response.error_description || response.error || `Bungie token exchange failed: ${res.status}`
+    )
   }
 
-  const response = (await res.json()) as {
-    access_token: string
-    refresh_token?: string
-    expires_in: number
-    refresh_expires_in?: number
-    membership_id: string
+  if (!response.access_token) {
+    throw new Error('Bungie token exchange returned no access token')
   }
 
   return {
@@ -122,7 +153,7 @@ export async function exchangeBungieAuthorizationCode(code: string): Promise<Bun
     refreshToken: response.refresh_token,
     expiresIn: response.expires_in,
     refreshExpiresIn: response.refresh_expires_in,
-    membershipId: String(response.membership_id),
+    membershipId: normalizeBungieMembershipId(response.membership_id),
     obtainedAt: new Date().toISOString(),
   }
 }
@@ -152,16 +183,12 @@ export async function refreshBungieAccessToken(refreshToken: string): Promise<Bu
     cache: 'no-store',
   })
 
-  if (!res.ok) {
-    throw new Error(`Bungie token refresh failed: ${res.status} ${await res.text()}`)
-  }
+  const response = await readBungieJson<BungieTokenResponse>(res)
 
-  const response = (await res.json()) as {
-    access_token: string
-    refresh_token?: string
-    expires_in: number
-    refresh_expires_in?: number
-    membership_id: string
+  if (!res.ok || response.error) {
+    throw new Error(
+      response.error_description || response.error || `Bungie token refresh failed: ${res.status}`
+    )
   }
 
   return {
@@ -169,9 +196,26 @@ export async function refreshBungieAccessToken(refreshToken: string): Promise<Bu
     refreshToken: response.refresh_token ?? refreshToken,
     expiresIn: response.expires_in,
     refreshExpiresIn: response.refresh_expires_in,
-    membershipId: String(response.membership_id),
+    membershipId: normalizeBungieMembershipId(response.membership_id),
     obtainedAt: new Date().toISOString(),
   }
+}
+
+function normalizeMemberships(
+  memberships: Array<Record<string, unknown>>
+): BungieDestinyMembership[] {
+  return memberships.map((row) => ({
+    membershipId: normalizeBungieMembershipId(row.membershipId),
+    membershipType: Number(row.membershipType ?? 0),
+    displayName: String(row.displayName ?? ''),
+    bungieGlobalDisplayName:
+      typeof row.bungieGlobalDisplayName === 'string' ? row.bungieGlobalDisplayName : undefined,
+    bungieGlobalDisplayNameCode:
+      row.bungieGlobalDisplayNameCode != null ? Number(row.bungieGlobalDisplayNameCode) : undefined,
+    crossSaveOverride:
+      row.crossSaveOverride != null ? Number(row.crossSaveOverride) : undefined,
+    isPublic: row.isPublic === true,
+  }))
 }
 
 export async function getDestinyMembershipsForCurrentUser(
@@ -181,24 +225,43 @@ export async function getDestinyMembershipsForCurrentUser(
   destinyMemberships: BungieDestinyMembership[]
   primaryMembershipId?: string
 }> {
-  return bungieOAuthFetch(`${BUNGIE_API_BASE}/User/GetMembershipsForCurrentUser/`, {
+  const response = await bungieOAuthFetch<{
+    destinyMemberships?: Array<Record<string, unknown>>
+    primaryMembershipId?: string | number
+    bungieNetUser?: { membershipId?: string | number; displayName?: string }
+  }>(`${BUNGIE_API_BASE}/User/GetMembershipsForCurrentUser/`, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
   })
+
+  return {
+    bungieNetUser: response.bungieNetUser
+      ? {
+          membershipId: normalizeBungieMembershipId(response.bungieNetUser.membershipId),
+          displayName: response.bungieNetUser.displayName,
+        }
+      : undefined,
+    destinyMemberships: normalizeMemberships(response.destinyMemberships ?? []),
+    primaryMembershipId: response.primaryMembershipId
+      ? normalizeBungieMembershipId(response.primaryMembershipId)
+      : undefined,
+  }
 }
 
 /** Pick primary Destiny membership (cross-save primary when present). */
 export function pickPrimaryDestinyMembership(
   memberships: BungieDestinyMembership[],
-  crossSaveOverride?: number
+  primaryMembershipId?: string
 ): BungieDestinyMembership | undefined {
   if (!memberships.length) return undefined
-  if (crossSaveOverride) {
-    const primary = memberships.find((m) => m.membershipId === String(crossSaveOverride))
+
+  if (primaryMembershipId) {
+    const primary = memberships.find((m) => m.membershipId === primaryMembershipId)
     if (primary) return primary
   }
+
   return memberships[0]
 }
 
@@ -213,7 +276,7 @@ export async function fetchLinkedGuardianSummary(
   characterClass?: 'titan' | 'hunter' | 'warlock'
 }> {
   const profile = await bungieOAuthFetch<{
-    profiles?: {
+    profile?: {
       data?: {
         displayName?: string
         currentGuardianRank?: number
@@ -229,10 +292,13 @@ export async function fetchLinkedGuardianSummary(
         }
       >
     }
-  }>(`${BUNGIE_API_BASE}/Destiny2/${membershipType}/Profile/${membershipId}/?components=100,200`, {
-    method: 'GET',
-    headers: { Authorization: `Bearer ${accessToken}` },
-  })
+  }>(
+    `${BUNGIE_API_BASE}/Destiny2/${membershipType}/Profile/${membershipId}/?components=100,200`,
+    {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  )
 
   const characters = profile.characters?.data ?? {}
   const characterEntries = Object.values(characters)
@@ -243,7 +309,7 @@ export async function fetchLinkedGuardianSummary(
     2: 'warlock',
   }
 
-  const profileData = profile.profiles?.data
+  const profileData = profile.profile?.data
 
   return {
     displayName: profileData?.displayName ?? 'Guardian',
@@ -266,4 +332,21 @@ export function formatBungieDisplayName(m: BungieDestinyMembership): string {
     return `${m.bungieGlobalDisplayName}#${String(m.bungieGlobalDisplayNameCode).padStart(4, '0')}`
   }
   return m.displayName
+}
+
+export function bungieOAuthErrorMessage(code: string): string {
+  switch (code) {
+    case 'invalid_state':
+      return 'OAuth session expired or was interrupted. Click Connect again without refreshing during Bungie login.'
+    case 'missing_code':
+      return 'Bungie did not return an authorization code.'
+    case 'no_destiny_account':
+      return 'No Destiny account is linked to this Bungie.net login.'
+    case 'exchange_failed':
+      return 'Token exchange failed. Confirm your Bungie app redirect URI matches this site exactly.'
+    case 'auth_required':
+      return 'Your SDHQCC session expired during Bungie login. Log in with Kick and try again.'
+    default:
+      return code
+  }
 }

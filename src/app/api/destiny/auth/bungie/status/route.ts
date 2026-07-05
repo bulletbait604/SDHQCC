@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { getDestinyUserBySiteUserId } from '@/lib/destiny/destinyUserStore'
-import { bungieOAuthConfigured, bungieOAuthRedirectUri } from '@/lib/destiny/env'
+import { bungieOAuthConfigured, bungieOAuthRedirectUriFromRequest } from '@/lib/destiny/env'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       configured: bungieOAuthConfigured(),
-      redirectUri: bungieOAuthRedirectUri(),
+      redirectUri: bungieOAuthRedirectUriFromRequest(req),
       linked: Boolean(stored?.bungieMembershipId),
       bungieDisplayName: stored?.bungieDisplayName,
       platform: stored?.platform,
