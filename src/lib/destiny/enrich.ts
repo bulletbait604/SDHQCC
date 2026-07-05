@@ -35,15 +35,35 @@ async function enrichBuildSnapshot(build: BuildSnapshot): Promise<BuildSnapshot>
     energyRef,
     powerRef,
     aspectRefs,
+    fragmentRefs,
+    superRef,
+    classAbilityRef,
+    jumpRef,
+    meleeRef,
+    grenadeRef,
   ] = await Promise.all([
-    resolveClassIcon(build.characterClass),
-    resolveSubclass(build.subclass),
+    build.classRef ?? resolveClassIcon(build.characterClass),
+    build.subclassRef ?? resolveSubclass(build.subclass),
     resolveByName(build.exoticArmor),
     build.exoticWeapon ? resolveByName(build.exoticWeapon) : Promise.resolve(undefined),
     resolveByName(build.kineticWeapon),
     resolveByName(build.energyWeapon),
     resolveByName(build.powerWeapon),
-    Promise.all(build.aspects.map((a) => resolveByName(a, 'DestinySandboxPerkDefinition'))),
+    build.aspectRefs?.length
+      ? Promise.resolve(build.aspectRefs)
+      : Promise.all(build.aspects.map((a) => resolveByName(a, 'DestinySandboxPerkDefinition'))),
+    build.fragmentRefs?.length
+      ? Promise.resolve(build.fragmentRefs)
+      : Promise.all(build.fragments.map((f) => resolveByName(f, 'DestinySandboxPerkDefinition'))),
+    build.superRef ?? (build.super !== '—' ? resolveByName(build.super) : Promise.resolve(undefined)),
+    build.classAbilityRef ??
+      (build.abilities[1] ? resolveByName(build.abilities[1]) : Promise.resolve(undefined)),
+    build.jumpRef ??
+      (build.abilities[2] ? resolveByName(build.abilities[2]) : Promise.resolve(undefined)),
+    build.meleeRef ??
+      (build.abilities[3] ? resolveByName(build.abilities[3]) : Promise.resolve(undefined)),
+    build.grenadeRef ??
+      (build.abilities[4] ? resolveByName(build.abilities[4]) : Promise.resolve(undefined)),
   ])
 
   return {
@@ -56,6 +76,12 @@ async function enrichBuildSnapshot(build: BuildSnapshot): Promise<BuildSnapshot>
     energyWeaponRef: energyRef,
     powerWeaponRef: powerRef,
     aspectRefs,
+    fragmentRefs,
+    superRef,
+    classAbilityRef,
+    jumpRef,
+    meleeRef,
+    grenadeRef,
   }
 }
 

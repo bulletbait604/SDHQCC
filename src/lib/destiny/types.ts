@@ -281,6 +281,12 @@ export interface BuildSnapshot {
   energyWeaponRef?: DestinyIconRef
   powerWeaponRef?: DestinyIconRef
   aspectRefs?: DestinyIconRef[]
+  fragmentRefs?: DestinyIconRef[]
+  superRef?: DestinyIconRef
+  classAbilityRef?: DestinyIconRef
+  jumpRef?: DestinyIconRef
+  meleeRef?: DestinyIconRef
+  grenadeRef?: DestinyIconRef
   /** Internal aggregation key (Phase 4). */
   buildSignature?: string
   verificationStatus?: VerificationStatus

@@ -16,12 +16,12 @@ import { cn } from '@/lib/utils'
 
 const PRIMARY: { id: DestinyTopNestTab; label: string; icon: LucideIcon }[] = [
   { id: 'overview', label: 'Home', icon: LayoutDashboard },
-  { id: 'leaderboards', label: 'Leaderboards', icon: Trophy },
+  { id: 'leaderboards', label: 'Boards', icon: Trophy },
   { id: 'profile', label: 'Profile', icon: User },
 ]
 
 const EXPLORE: { id: DestinyTopNestTab; label: string; icon: LucideIcon; adminOnly?: boolean }[] = [
-  { id: 'fireteam', label: 'Fireteam', icon: Users },
+  { id: 'fireteam', label: 'Team', icon: Users },
   { id: 'clans', label: 'Clan', icon: Building2 },
   { id: 'season', label: 'Season', icon: Gift },
   { id: 'admin', label: 'Admin', icon: ShieldAlert, adminOnly: true },
@@ -40,14 +40,13 @@ export default function DestinyNav({ activeTab, onTabChange, darkMode, showAdmin
   const t = getDestinyTheme(darkMode)
   const exploreTabs = EXPLORE.filter((tab) => !tab.adminOnly || showAdmin)
   const navActiveTab = LEGACY_PROFILE_TABS.includes(activeTab) ? 'profile' : activeTab
-  const isPrimary = PRIMARY.some((p) => p.id === navActiveTab)
 
   return (
-    <div className="space-y-4 mb-8">
+    <div className="space-y-3 mb-6">
       <nav
         className={cn(
-          'grid grid-cols-3 gap-2 p-1.5 rounded-[1.25rem]',
-          darkMode ? 'bg-white/[0.04] ring-1 ring-white/[0.06]' : 'bg-black/[0.04] ring-1 ring-black/[0.05]'
+          'grid grid-cols-3 gap-2 p-2 rounded-2xl',
+          darkMode ? 'bg-black/30 ring-1 ring-white/10 shadow-xl' : 'bg-white/60 ring-1 ring-black/5 shadow-lg'
         )}
         aria-label="Main sections"
       >
@@ -61,42 +60,33 @@ export default function DestinyNav({ activeTab, onTabChange, darkMode, showAdmin
               onClick={() => onTabChange(tab.id)}
               className={destinyNavPrimary(active, darkMode)}
             >
-              <Icon className="w-4 h-4 shrink-0 opacity-80" />
-              <span>{tab.label}</span>
+              <Icon className={cn('w-6 h-6 shrink-0', active && 'text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]')} />
+              <span className="uppercase tracking-wide text-[10px] sm:text-xs">{tab.label}</span>
             </button>
           )
         })}
       </nav>
 
-      <div>
-        <p className={cn('text-[11px] font-medium uppercase tracking-wider mb-2 px-1', t.caption)}>Explore</p>
-        <nav
-          className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin"
-          aria-label="More sections"
-        >
-          {exploreTabs.map((tab) => {
-            const Icon = tab.icon
-            const active = activeTab === tab.id
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => onTabChange(tab.id)}
-                className={destinyNavSecondary(active, darkMode)}
-              >
-                <Icon className="w-3.5 h-3.5 shrink-0" />
-                {tab.label}
-              </button>
-            )
-          })}
-        </nav>
-      </div>
-
-      {!isPrimary && (
-        <p className={cn('text-xs px-1', t.muted)}>
-          Tip: use Home for Bungie sign-in and run sync.
-        </p>
-      )}
+      <nav
+        className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin"
+        aria-label="More sections"
+      >
+        {exploreTabs.map((tab) => {
+          const Icon = tab.icon
+          const active = activeTab === tab.id
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => onTabChange(tab.id)}
+              className={destinyNavSecondary(active, darkMode)}
+            >
+              <Icon className={cn('w-5 h-5 shrink-0', active && 'text-amber-300')} />
+              {tab.label}
+            </button>
+          )
+        })}
+      </nav>
     </div>
   )
 }

@@ -2,9 +2,10 @@
  * Parse live character build from Bungie (subclass, aspects, fragments, abilities, armor stats).
  */
 
-import { getCharacterLoadout, getPlayerProfile } from '@/lib/destiny/bungieClient'
-import { resolveInventoryItem } from '@/lib/destiny/manifest'
-import type { BuildSnapshot, DestinyCharacterClass } from '@/lib/destiny/types'
+import { getCharacterLoadout } from '@/lib/destiny/bungieClient'
+import { buildBungieIconUrl } from '@/lib/destiny/bungieUrls'
+import { resolveInventoryItem, type ManifestDefinitionInfo } from '@/lib/destiny/manifest'
+import type { BuildSnapshot, DestinyCharacterClass, DestinyIconRef } from '@/lib/destiny/types'
 
 const CLASS_MAP: Record<number, DestinyCharacterClass> = {
   0: 'titan',
@@ -19,9 +20,7 @@ const WEAPON_BUCKETS: Record<number, 'kinetic' | 'energy' | 'power'> = {
 }
 
 const SUBCLASS_BUCKET = 3284755031
-const ASPECT_BUCKET = 2395679864
-const FRAGMENT_BUCKET = 227512782
-const ARMOR_BUCKETS = new Set([14239492, 20886954, 1585787867, 3551918588, 14239492])
+const ARMOR_BUCKETS = new Set([14239492, 20886954, 1585787867, 3551918588])
 
 const STAT_HASH_LABEL: Record<number, string> = {
   2996146975: 'Mobility',
@@ -32,9 +31,53 @@ const STAT_HASH_LABEL: Record<number, string> = {
   4244567218: 'Strength',
 }
 
-async function resolveItemName(hash: number, fallback: string): Promise<string> {
-  const info = await resolveInventoryItem(hash, fallback)
-  return info.name
+type PlugCategory = 'super' | 'class' | 'jump' | 'melee' | 'grenade' | 'aspect' | 'fragment' | 'other'
+
+function iconRefFromInfo(info: ManifestDefinitionInfo): DestinyIconRef {
+  return {
+    name: info.name,
+    hash: info.hash,
+    iconUrl: info.iconUrl,
+    tierLabel: info.tierLabel,
+    entityType: 'DestinyInventoryItemDefinition',
+  }
+}
+
+function categorizePlug(info: ManifestDefinitionInfo): PlugCategory {
+  const type = (info.itemTypeDisplayName ?? '').toLowerCase()
+  const name = info.name.toLowerCase()
+  if (type.includes('super') || /\bsuper\b/.test(name)) return 'super'
+  if (type.includes('aspect') || name.includes('aspect')) return 'aspect'
+  if (type.includes('fragment') || name.includes('fragment')) return 'fragment'
+  if (type.includes('melee') || type.includes('melee ability')) return 'melee'
+  if (type.includes('grenade') || type.includes('grenade ability')) return 'grenade'
+  if (
+    type.includes('class ability') ||
+    type.includes('barricade') ||
+    type.includes('rift') ||
+    type.includes('dodge')
+  ) {
+    return 'class'
+  }
+  if (
+    type.includes('movement') ||
+    type.includes('jump') ||
+    type.includes('lift') ||
+    type.includes('glide') ||
+    type.includes('stride')
+  ) {
+    return 'jump'
+  }
+  if (/barricade|rift|dodge|sentinel shield|healing rift/i.test(name)) return 'class'
+  if (/hammer|knife|palm|staff|axe|glaive|throwing knife/i.test(name)) return 'melee'
+  if (/grenade|flashbang|tripmine|incendiary|vortex|void wall|duskfield|storm/i.test(name)) return 'grenade'
+  if (/high lift|strafe|triple|burst|balanced|strafe glide|controlled/i.test(name)) return 'jump'
+  return 'other'
+}
+
+async function resolvePlug(plugHash: number): Promise<{ ref: DestinyIconRef; category: PlugCategory }> {
+  const info = await resolveInventoryItem(plugHash, 'Ability')
+  return { ref: iconRefFromInfo(info), category: categorizePlug(info) }
 }
 
 export async function fetchCharacterBuild(
@@ -44,28 +87,16 @@ export async function fetchCharacterBuild(
   userId: string,
   preferredCharacterId?: string
 ): Promise<BuildSnapshot | null> {
-  const profile = (await getPlayerProfile(membershipType, membershipId, [200], accessToken)) as {
-    characters?: { data?: Record<string, { classType?: number; light?: number }> }
-  }
-
-  const chars = profile.characters?.data ?? {}
-  const characterId =
-    preferredCharacterId && chars[preferredCharacterId]
-      ? preferredCharacterId
-      : Object.entries(chars).sort(([, a], [, b]) => (b.light ?? 0) - (a.light ?? 0))[0]?.[0]
-
-  if (!characterId) return null
-
-  const classType = chars[characterId]?.classType ?? 1
-  const characterClass = CLASS_MAP[classType] ?? 'hunter'
-
-  const loadout = (await getCharacterLoadout(
+  const profile = (await getCharacterLoadout(
     membershipType,
     membershipId,
-    characterId,
+    preferredCharacterId ?? '',
     accessToken
   )) as {
-    equipment?: { data?: { items?: Array<{ itemHash?: number; bucketHash?: number; itemInstanceId?: string }> } }
+    characters?: { data?: Record<string, { classType?: number; light?: number }> }
+    characterEquipment?: {
+      data?: Record<string, { items?: Array<{ itemHash?: number; bucketHash?: number; itemInstanceId?: string }> }>
+    }
     itemComponents?: {
       stats?: {
         data?: Record<string, { stats?: Record<string, { value?: number }> }>
@@ -79,55 +110,63 @@ export async function fetchCharacterBuild(
     }
   }
 
-  const items = loadout.equipment?.data?.items ?? []
+  const chars = profile.characters?.data ?? {}
+  const characterId =
+    preferredCharacterId && chars[preferredCharacterId]
+      ? preferredCharacterId
+      : Object.entries(chars).sort(([, a], [, b]) => (b.light ?? 0) - (a.light ?? 0))[0]?.[0]
+
+  if (!characterId) return null
+
+  const classType = chars[characterId]?.classType ?? 1
+  const characterClass = CLASS_MAP[classType] ?? 'hunter'
+
+  const items = profile.characterEquipment?.data?.[characterId]?.items ?? []
   const weapons: Record<string, string> = {}
   let exoticArmor = '—'
   let exoticWeapon: string | undefined
   let subclass = 'Subclass'
+  let subclassRef: DestinyIconRef | undefined
   const aspects: string[] = []
+  const aspectRefs: DestinyIconRef[] = []
   const fragments: string[] = []
-  const abilities: string[] = []
+  const fragmentRefs: DestinyIconRef[] = []
+  const plugsByCategory: Partial<Record<PlugCategory, DestinyIconRef>> = {}
   const stats: Record<string, number> = {}
 
   for (const item of items) {
     if (!item.itemHash || !item.bucketHash) continue
-    const name = await resolveItemName(item.itemHash, `Item ${item.itemHash}`)
+    const itemInfo = await resolveInventoryItem(item.itemHash, `Item ${item.itemHash}`)
+    const name = itemInfo.name
     const bucket = item.bucketHash
 
     if (bucket === SUBCLASS_BUCKET) {
       subclass = name
-      const socketRow = loadout.itemComponents?.sockets?.data?.[item.itemInstanceId ?? '']
+      subclassRef = iconRefFromInfo(itemInfo)
+
+      const socketRow = profile.itemComponents?.sockets?.data?.[item.itemInstanceId ?? '']
       const sockets = socketRow?.sockets ?? []
-      if (sockets.length) {
-        for (const socket of sockets) {
-          if (!socket.isEnabled || !socket.plugHash) continue
-          const plugName = await resolveItemName(socket.plugHash, 'Ability')
-          if (plugName.toLowerCase().includes('aspect')) {
-            aspects.push(plugName.replace(/ aspect$/i, ''))
-          } else if (plugName.toLowerCase().includes('fragment')) {
-            fragments.push(plugName.replace(/ fragment$/i, ''))
-          } else if (
-            plugName.toLowerCase().includes('super') ||
-            abilities.length === 0
-          ) {
-            if (plugName.toLowerCase().includes('super')) {
-              abilities[0] = plugName
-            } else if (!abilities.includes(plugName)) {
-              abilities.push(plugName)
-            }
-          }
+      for (const socket of sockets) {
+        if (!socket.plugHash) continue
+        const { ref, category } = await resolvePlug(socket.plugHash)
+        if (category === 'aspect') {
+          const clean = ref.name.replace(/ aspect$/i, '')
+          aspects.push(clean)
+          aspectRefs.push({ ...ref, name: clean })
+        } else if (category === 'fragment') {
+          const clean = ref.name.replace(/ fragment$/i, '')
+          fragments.push(clean)
+          fragmentRefs.push({ ...ref, name: clean })
+        } else if (category !== 'other' && !plugsByCategory[category]) {
+          plugsByCategory[category] = ref
         }
       }
-    } else if (bucket === ASPECT_BUCKET) {
-      aspects.push(name.replace(/ aspect$/i, ''))
-    } else if (bucket === FRAGMENT_BUCKET) {
-      fragments.push(name.replace(/ fragment$/i, ''))
     } else if (WEAPON_BUCKETS[bucket]) {
       weapons[WEAPON_BUCKETS[bucket]] = name
       if (bucket === 953998645) exoticWeapon = name
-    } else if (ARMOR_BUCKETS.has(bucket) || [3551918588].includes(bucket)) {
+    } else if (ARMOR_BUCKETS.has(bucket)) {
       if (name.toLowerCase().includes('exotic') || exoticArmor === '—') exoticArmor = name
-      const statRow = loadout.itemComponents?.stats?.data?.[item.itemInstanceId ?? '']
+      const statRow = profile.itemComponents?.stats?.data?.[item.itemInstanceId ?? '']
       if (statRow?.stats) {
         for (const [hash, val] of Object.entries(statRow.stats)) {
           const label = STAT_HASH_LABEL[Number(hash)] ?? hash
@@ -137,11 +176,17 @@ export async function fetchCharacterBuild(
     }
   }
 
-  const superAbility = abilities.find((a) => a.toLowerCase().includes('super')) ?? abilities[0] ?? '—'
-  const classAbility = abilities.find((a) => /class|barricade|rift|dodge/i.test(a)) ?? '—'
-  const melee = abilities.find((a) => /melee|hammer|knife|palm/i.test(a)) ?? '—'
-  const grenade = abilities.find((a) => /grenade|nade|bolt|wall/i.test(a)) ?? '—'
-  const jump = abilities.find((a) => /jump|lift|glide/i.test(a)) ?? '—'
+  const superRef = plugsByCategory.super
+  const classAbilityRef = plugsByCategory.class
+  const jumpRef = plugsByCategory.jump
+  const meleeRef = plugsByCategory.melee
+  const grenadeRef = plugsByCategory.grenade
+
+  const superAbility = superRef?.name ?? '—'
+  const classAbility = classAbilityRef?.name ?? '—'
+  const jump = jumpRef?.name ?? '—'
+  const melee = meleeRef?.name ?? '—'
+  const grenade = grenadeRef?.name ?? '—'
 
   return {
     id: `live-${characterId}`,
@@ -168,5 +213,42 @@ export async function fetchCharacterBuild(
     durationSeconds: 0,
     deaths: 0,
     fireteamComposition: 'solo',
+    subclassRef,
+    aspectRefs,
+    fragmentRefs,
+    superRef,
+    classAbilityRef,
+    jumpRef,
+    meleeRef,
+    grenadeRef,
+  }
+}
+
+/** Resolve emblem URLs for the active character from a profile payload. */
+export function emblemUrlsFromProfile(
+  profile: {
+    characters?: {
+      data?: Record<
+        string,
+        {
+          light?: number
+          emblemPath?: string
+          emblemBackgroundPath?: string
+          emblemColor?: { red?: number; green?: number; blue?: number; alpha?: number }
+        }
+      >
+    }
+  },
+  characterId: string
+): { emblemUrl?: string; emblemBackgroundUrl?: string; emblemColor?: string } {
+  const character = profile.characters?.data?.[characterId]
+  if (!character) return {}
+  const emblemColor = character.emblemColor
+    ? `rgba(${character.emblemColor.red ?? 0}, ${character.emblemColor.green ?? 0}, ${character.emblemColor.blue ?? 0}, ${(character.emblemColor.alpha ?? 255) / 255})`
+    : undefined
+  return {
+    emblemUrl: buildBungieIconUrl(character.emblemPath),
+    emblemBackgroundUrl: buildBungieIconUrl(character.emblemBackgroundPath),
+    emblemColor,
   }
 }

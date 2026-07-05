@@ -108,18 +108,24 @@ export function ActivityBadge({
   activityRef,
   name,
   darkMode,
-  size = 44,
+  size = 52,
 }: {
   activityRef?: DestinyIconRef
   name: string
   darkMode: boolean
   size?: number
 }) {
-  const t = getDestinyTheme(darkMode)
   return (
     <div className="flex items-center gap-3">
-      <ItemIcon item={activityRef} name={name} size={size} className="rounded-2xl" />
-      <span className={cn('font-semibold text-sm tracking-tight', t.heading)}>{name}</span>
+      <img
+        src={activityRef?.iconUrl}
+        alt=""
+        className="d2-section-icon shrink-0"
+        style={{ width: size, height: size }}
+      />
+      <span className={cn('font-black text-sm tracking-tight uppercase', getDestinyTheme(darkMode).heading)}>
+        {name}
+      </span>
     </div>
   )
 }
@@ -145,17 +151,24 @@ export function GlassCard({
 export function SectionTitle({
   title,
   subtitle,
+  iconUrl,
   darkMode,
 }: {
   title: string
   subtitle?: string
+  iconUrl?: string
   darkMode: boolean
 }) {
   const t = getDestinyTheme(darkMode)
   return (
-    <div className="mb-4">
-      <h4 className={cn('text-lg font-semibold tracking-tight', t.heading)}>{title}</h4>
-      {subtitle && <p className={cn('text-sm mt-1 leading-relaxed', t.muted)}>{subtitle}</p>}
+    <div className="mb-4 flex items-center gap-3">
+      {iconUrl ? (
+        <img src={iconUrl} alt="" className="d2-section-icon shrink-0" />
+      ) : null}
+      <div>
+        <h4 className={cn('text-base font-black tracking-tight uppercase', t.heading)}>{title}</h4>
+        {subtitle && <p className={cn('text-xs mt-0.5', t.caption)}>{subtitle}</p>}
+      </div>
     </div>
   )
 }
@@ -266,9 +279,9 @@ function LeaderboardRow({
         {medal}
       </span>
       {entry.emblemUrl ? (
-        <img src={entry.emblemUrl} alt="" className="w-10 h-10 rounded-full ring-1 ring-white/10 shrink-0" />
+        <img src={entry.emblemUrl} alt="" className="w-12 h-12 rounded-xl ring-2 ring-white/15 shrink-0 shadow-lg object-cover" />
       ) : (
-        <div className="w-10 h-10 rounded-full bg-white/[0.06] shrink-0" />
+        <div className="w-12 h-12 rounded-xl bg-white/[0.06] shrink-0 ring-1 ring-white/10" />
       )}
       <div className="flex-1 min-w-0">
         <p className={cn('font-medium text-sm truncate', t.heading)}>{entry.bungieDisplayName}</p>

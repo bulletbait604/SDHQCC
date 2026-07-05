@@ -12,6 +12,8 @@ export interface BungieLinkStatus {
   bungieDisplayName?: string
   connectedAt?: string
   redirectUri?: string
+  emblemUrl?: string
+  powerLevel?: number
 }
 
 export function useBungieLink(options?: { returnPath?: string }) {

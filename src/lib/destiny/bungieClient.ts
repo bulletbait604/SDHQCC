@@ -148,7 +148,7 @@ export async function getPlayerProfile(
   )
 }
 
-/** Character equipment / loadout — components 205, 201, 202, 204, 305 (sockets). */
+/** Character equipment + item sockets/stats for live build parsing. */
 export async function getCharacterLoadout(
   membershipType: number,
   membershipId: string,
@@ -156,7 +156,7 @@ export async function getCharacterLoadout(
   accessToken?: string
 ) {
   return bungieFetch(
-    `/Destiny2/${membershipType}/Profile/${membershipId}/Character/${characterId}/?components=205,201,202,204,305`,
+    `/Destiny2/${membershipType}/Profile/${membershipId}/?components=200,205,304,305`,
     { accessToken }
   )
 }

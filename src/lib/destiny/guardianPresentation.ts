@@ -41,7 +41,8 @@ export async function fetchGuardianPresentation(
   membershipType: number,
   membershipId: string,
   accessToken: string,
-  fallbackDisplayName?: string
+  fallbackDisplayName?: string,
+  preferredCharacterId?: string
 ): Promise<GuardianPresentation | null> {
   const profile = (await getPlayerProfile(
     membershipType,
@@ -68,9 +69,10 @@ export async function fetchGuardianPresentation(
   }
 
   const chars = profile.characters?.data ?? {}
-  const bestEntry = Object.entries(chars).sort(
-    ([, a], [, b]) => (b.light ?? 0) - (a.light ?? 0)
-  )[0]
+  const bestEntry =
+    preferredCharacterId && chars[preferredCharacterId]
+      ? ([preferredCharacterId, chars[preferredCharacterId]] as const)
+      : Object.entries(chars).sort(([, a], [, b]) => (b.light ?? 0) - (a.light ?? 0))[0]
   if (!bestEntry) return null
 
   const [characterId, character] = bestEntry

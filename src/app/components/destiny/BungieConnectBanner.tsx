@@ -1,7 +1,8 @@
 'use client'
 
-import { Link2, Loader2, RefreshCw, Sparkles, Unlink } from 'lucide-react'
-import { GlassCard, StatusPill } from '@/app/components/destiny/DestinyUi'
+import { Link2, Loader2, RefreshCw, Unlink } from 'lucide-react'
+import { GlassCard } from '@/app/components/destiny/DestinyUi'
+import { GlowIcon } from '@/app/components/destiny/destinyGameUi'
 import { destinyPrimaryBtn, destinySecondaryBtn, getDestinyTheme } from '@/app/components/destiny/destinyTheme'
 import type { useBungieLink } from '@/hooks/useBungieLink'
 import { cn } from '@/lib/utils'
@@ -68,16 +69,11 @@ export default function BungieConnectBanner({
             Bungie sign-in is not configured on the server yet.
           </p>
         ) : linked ? (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusPill label={`Welcome, ${status?.bungieDisplayName}`} tone="green" />
-              {status?.connectedAt && variant === 'overview' && (
-                <span className={cn('text-xs', t.caption)}>
-                  Connected {new Date(status.connectedAt).toLocaleDateString()}
-                </span>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-4">
+            {status?.emblemUrl ? (
+              <GlowIcon item={{ name: status.bungieDisplayName ?? 'Guardian', iconUrl: status.emblemUrl }} size={56} glow="gold" className="rounded-2xl" />
+            ) : null}
+            <div className="flex flex-wrap gap-2 flex-1">
               {showSync && (
                 <button
                   type="button"
@@ -97,26 +93,19 @@ export default function BungieConnectBanner({
                   className={cn(destinySecondaryBtn(darkMode), 'text-red-200/90')}
                 >
                   {disconnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlink className="w-4 h-4" />}
-                  Disconnect
                 </button>
               )}
             </div>
           </div>
         ) : variant === 'overview' ? (
-          <div className="flex flex-col sm:flex-row gap-6 sm:items-center">
-            <div className="flex gap-4 flex-1 min-w-0">
-              <div className="w-12 h-12 rounded-2xl bg-white/[0.08] flex items-center justify-center shrink-0">
-                <Sparkles className="w-6 h-6 text-white/70" />
-              </div>
-              <div>
-                <p className={cn('text-base font-semibold tracking-tight', t.heading)}>Connect your Guardian</p>
-                <p className={cn('text-sm mt-1.5 leading-relaxed', t.muted)}>
-                  Sign in with Bungie to sync raids, dungeons, and your profile. One tap — we handle the rest.
-                </p>
-              </div>
-            </div>
-            <button type="button" onClick={connect} className={cn(destinyPrimaryBtn(darkMode), 'shrink-0 w-full sm:w-auto')}>
-              <Link2 className="w-4 h-4" />
+          <div className="flex flex-col sm:flex-row gap-5 sm:items-center">
+            <GlowIcon size={64} glow="gold" className="rounded-2xl shrink-0 mx-auto sm:mx-0" />
+            <button
+              type="button"
+              onClick={connect}
+              className={cn(destinyPrimaryBtn(darkMode), 'flex-1 w-full sm:w-auto text-base py-4')}
+            >
+              <Link2 className="w-5 h-5" />
               Sign in with Bungie
             </button>
           </div>

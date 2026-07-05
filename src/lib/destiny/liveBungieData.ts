@@ -5,7 +5,8 @@ import {
 } from '@/lib/destiny/bungieClient'
 import { fetchGuardianPresentation } from '@/lib/destiny/guardianPresentation'
 import { fetchGuardianBungieStats } from '@/lib/destiny/guardianBungieStats'
-import { fetchCharacterBuild } from '@/lib/destiny/guardianBuild'
+import { fetchCharacterBuild, emblemUrlsFromProfile } from '@/lib/destiny/guardianBuild'
+import { getCharacterLoadout } from '@/lib/destiny/bungieClient'
 import type { StoredDestinyUser } from '@/lib/destiny/destinyUserStore'
 import { getValidAccessToken, upsertDestinyUser } from '@/lib/destiny/destinyUserStore'
 import type {
@@ -25,7 +26,8 @@ export async function refreshGuardianFromBungie(stored: StoredDestinyUser): Prom
       membershipType,
       membershipId,
       accessToken,
-      stored.bungieDisplayName
+      stored.bungieDisplayName,
+      stored.activeCharacterId
     )
     if (!presentation) return stored
 
@@ -61,13 +63,29 @@ export async function fetchLiveLoadout(stored: StoredDestinyUser): Promise<Build
   if (!accessToken || !membershipType || !membershipId) return null
 
   try {
-    return await fetchCharacterBuild(
+    const build = await fetchCharacterBuild(
       membershipType,
       membershipId,
       accessToken,
       stored.userId,
       stored.activeCharacterId
     )
+
+    if (build && !stored.emblemUrl) {
+      const profile = (await getCharacterLoadout(
+        membershipType,
+        membershipId,
+        stored.activeCharacterId ?? '',
+        accessToken
+      )) as Parameters<typeof emblemUrlsFromProfile>[0]
+      const characterId = build.id.replace('live-', '')
+      const emblems = emblemUrlsFromProfile(profile, characterId)
+      if (emblems.emblemUrl || emblems.emblemBackgroundUrl) {
+        await upsertDestinyUser(stored.userId, emblems)
+      }
+    }
+
+    return build
   } catch {
     return null
   }

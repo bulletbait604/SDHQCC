@@ -64,27 +64,23 @@ export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
         <StatusPill label={data.weeklyReset.weekLabel} tone="neutral" />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <GlassCard darkMode={darkMode}>
-          <SectionTitle title="Raid Top 10" subtitle="Verified full clears · season" darkMode={darkMode} />
+          <SectionTitle title="Raids" iconUrl={data.featuredRaid.iconUrl} darkMode={darkMode} />
           <LeaderboardTable entries={data.raidTop10} darkMode={darkMode} compact />
         </GlassCard>
         <GlassCard darkMode={darkMode}>
-          <SectionTitle title="Dungeon Top 10" subtitle="Verified full clears · season" darkMode={darkMode} />
+          <SectionTitle title="Dungeons" iconUrl={data.featuredDungeon.iconUrl} darkMode={darkMode} />
           <LeaderboardTable entries={data.dungeonTop10} darkMode={darkMode} compact />
         </GlassCard>
         <GlassCard darkMode={darkMode}>
-          <SectionTitle title="Full Clan Teams Top 5" subtitle="Same-clan fireteams only" darkMode={darkMode} />
+          <SectionTitle title="Clan Teams" darkMode={darkMode} />
           <LeaderboardTable entries={data.clanTop5} darkMode={darkMode} compact />
         </GlassCard>
       </div>
 
       <GlassCard darkMode={darkMode}>
-        <SectionTitle
-          title="Weekly Reset · Featured Activities"
-          subtitle={data.weeklyReset.resetTimeLabel}
-          darkMode={darkMode}
-        />
+        <SectionTitle title="Weekly Reset" subtitle={data.weeklyReset.weekLabel} darkMode={darkMode} />
         {data.weeklyReset.pantheon && (
           <p className={cn('text-xs mb-3', t.purple)}>Pantheon: {data.weeklyReset.pantheon}</p>
         )}
@@ -98,6 +94,7 @@ export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
                   activityRef={raid}
                   name={raid.name}
                   darkMode={darkMode}
+                  size={56}
                 />
               ))}
             </div>
@@ -111,6 +108,7 @@ export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
                   activityRef={dungeon}
                   name={dungeon.name}
                   darkMode={darkMode}
+                  size={56}
                 />
               ))}
             </div>
@@ -128,6 +126,7 @@ export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
             activityRef={data.featuredRaid}
             name={data.featuredRaid.name}
             darkMode={darkMode}
+            size={56}
           />
           <p className={cn('text-xs mt-2', t.muted)}>
             Resets in {data.featuredRaid.resetsIn}
@@ -142,6 +141,7 @@ export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
             activityRef={data.featuredDungeon}
             name={data.featuredDungeon.name}
             darkMode={darkMode}
+            size={56}
           />
           <p className={cn('text-xs mt-2', t.muted)}>
             Resets in {data.featuredDungeon.resetsIn}

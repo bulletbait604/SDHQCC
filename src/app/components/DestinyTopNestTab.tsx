@@ -113,17 +113,19 @@ export default function DestinyTopNestTab({ darkMode, subtitleClasses, title, ta
 
   return (
     <div className={cn('rounded-[1.75rem] p-5 sm:p-8 -m-2 sm:-m-4', theme.shell)}>
-      <header className="mb-8 max-w-2xl">
-        <p className={cn('text-xs font-medium uppercase tracking-widest mb-2', theme.caption)}>{BRAND_FULL}</p>
-        <h2 className={cn('text-2xl sm:text-[1.75rem] font-semibold tracking-tight leading-tight', theme.heading)}>
+      <header className="mb-5 max-w-xl">
+        <p className={cn('text-[10px] font-bold uppercase tracking-[0.2em] mb-1', theme.gold)}>{BRAND_FULL}</p>
+        <h2 className={cn('text-xl sm:text-2xl font-black tracking-tight leading-tight', theme.heading)}>
           {title}
         </h2>
-        <p className={cn('text-sm mt-3 leading-relaxed', subtitleClasses, theme.muted)}>{tagline}</p>
       </header>
 
-      <PlayerCardShell darkMode={darkMode} />
-
-      <DestinyNav activeTab={activeTab} onTabChange={handleTabChange} darkMode={darkMode} showAdmin={isAdmin} />
+      <div className="flex flex-col xl:flex-row xl:items-start xl:gap-6 gap-4 mb-2">
+        <PlayerCardShell darkMode={darkMode} />
+        <div className="flex-1 min-w-0 xl:pt-2">
+          <DestinyNav activeTab={activeTab} onTabChange={handleTabChange} darkMode={darkMode} showAdmin={isAdmin} />
+        </div>
+      </div>
 
       <div className="animate-in fade-in duration-300">{renderPanel()}</div>
     </div>
