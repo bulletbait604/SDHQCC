@@ -381,6 +381,7 @@ export interface OverviewPayload {
   trendingBuilds: BuildIntelligenceCard[]
   topLoadoutsByClass: Record<'titan' | 'hunter' | 'warlock', BuildIntelligenceCard[]>
   bungieApiConfigured: boolean
+  hallOfFamePreview: SeasonWinner[]
 }
 
 export interface LeaderboardFilters {

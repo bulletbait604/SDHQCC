@@ -6,6 +6,7 @@
 import clientPromise from '@/lib/mongodb'
 import { DESTINY_COLLECTIONS } from '@/lib/destiny/collections'
 import { buildOverviewPayload } from '@/lib/destiny/overviewBuilder'
+import { computeSeasonStandings } from '@/lib/destiny/seasonPrizes'
 import { aggregateClanLeaderboard, aggregateLeaderboard } from '@/lib/destiny/leaderboards'
 import {
   getResearchedMetaBuilds,
@@ -43,6 +44,7 @@ export async function ensureDestinyIndexes(): Promise<void> {
   await database.collection(DESTINY_COLLECTIONS.fireteamLobbies).createIndex({ status: 1, createdAt: -1 })
   await database.collection(DESTINY_COLLECTIONS.buildSnapshots).createIndex({ runId: 1, userId: 1 }, { unique: true })
   await database.collection(DESTINY_COLLECTIONS.reputationReviews).createIndex({ reviewedUserId: 1, createdAt: -1 })
+  await database.collection(DESTINY_COLLECTIONS.reputationReviews).createIndex({ reviewerId: 1, runId: 1 })
   await database.collection(DESTINY_COLLECTIONS.users).createIndex({ bungieMembershipId: 1 }, { unique: true, sparse: true })
 }
 
@@ -56,7 +58,7 @@ async function loadAllRuns(): Promise<RunRecord[]> {
     .toArray()) as unknown as RunRecord[]
 }
 
-async function loadUsersMap(): Promise<Map<string, StoredDestinyUser>> {
+export async function loadUsersMap(): Promise<Map<string, StoredDestinyUser>> {
   const database = await db()
   const rows = (await database.collection(DESTINY_COLLECTIONS.users).find({}).toArray()) as unknown as StoredDestinyUser[]
   return new Map(rows.map((u) => [u.userId, u]))
@@ -114,6 +116,7 @@ export async function getOverviewData(): Promise<OverviewPayload> {
     const dungeonTop10 = aggregateLeaderboard(runs, usersById, 'dungeon', 'season')
     const clanTop5 = aggregateClanLeaderboard(runs, usersById, 'season')
     const topLoadoutsByClass = rankTopLoadoutsByClass(buildCards, 2)
+    const { hallOfFame } = computeSeasonStandings(runs, usersById, ACTIVE_SEASON)
 
     return buildOverviewPayload({
       raidTop10,
@@ -123,6 +126,7 @@ export async function getOverviewData(): Promise<OverviewPayload> {
       lookingForGroup: lobbies,
       trendingBuilds: buildCards.slice(0, 3),
       topLoadoutsByClass,
+      hallOfFamePreview: hallOfFame.slice(0, 9),
     })
   } catch {
     const emptyLoadouts = rankTopLoadoutsByClass([], 2)
@@ -134,6 +138,7 @@ export async function getOverviewData(): Promise<OverviewPayload> {
       lookingForGroup: [],
       trendingBuilds: [],
       topLoadoutsByClass: emptyLoadouts,
+      hallOfFamePreview: [],
     })
   }
 }
@@ -236,6 +241,37 @@ export async function getReputationReviewsForUser(userId: string): Promise<Reput
     return rows as unknown as ReputationReview[]
   } catch {
     return []
+  }
+}
+
+export async function getReputationReviewsByReviewer(reviewerId: string): Promise<ReputationReview[]> {
+  try {
+    const database = await db()
+    const rows = await database
+      .collection(DESTINY_COLLECTIONS.reputationReviews)
+      .find({ reviewerId })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .toArray()
+    return rows as unknown as ReputationReview[]
+  } catch {
+    return []
+  }
+}
+
+export async function findReputationReview(
+  reviewerId: string,
+  reviewedUserId: string,
+  runId?: string
+): Promise<ReputationReview | null> {
+  try {
+    const database = await db()
+    const query: Record<string, string> = { reviewerId, reviewedUserId }
+    if (runId) query.runId = runId
+    const row = await database.collection(DESTINY_COLLECTIONS.reputationReviews).findOne(query)
+    return row as ReputationReview | null
+  } catch {
+    return null
   }
 }
 

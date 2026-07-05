@@ -5,7 +5,7 @@ import {
   getSeasonCountdown,
   PRIZE_SUMMARY,
 } from '@/lib/destiny/seasonConfig'
-import type { OverviewPayload } from '@/lib/destiny/types'
+import type { OverviewPayload, SeasonWinner } from '@/lib/destiny/types'
 import type { TopLoadoutsByClass } from '@/lib/destiny/loadoutRankings'
 
 export function buildOverviewPayload(input: {
@@ -16,6 +16,7 @@ export function buildOverviewPayload(input: {
   lookingForGroup: OverviewPayload['lookingForGroup']
   trendingBuilds: OverviewPayload['trendingBuilds']
   topLoadoutsByClass: TopLoadoutsByClass
+  hallOfFamePreview?: SeasonWinner[]
 }): OverviewPayload {
   const weekly = getWeeklyResetState()
   const primaryRaid = weekly.featuredRaids[0]
@@ -54,5 +55,6 @@ export function buildOverviewPayload(input: {
     trendingBuilds: input.trendingBuilds,
     topLoadoutsByClass: input.topLoadoutsByClass,
     bungieApiConfigured: destinyApiConfigured(),
+    hallOfFamePreview: input.hallOfFamePreview ?? [],
   }
 }

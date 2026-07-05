@@ -165,6 +165,31 @@ export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
         </GlassCard>
       </div>
 
+      {data.hallOfFamePreview.length > 0 && (
+        <GlassCard darkMode={darkMode}>
+          <SectionTitle
+            title="Season Hall of Fame preview"
+            subtitle="Current leaders — see Season tab for prizes and your track"
+            darkMode={darkMode}
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
+            {data.hallOfFamePreview.slice(0, 6).map((winner, i) => (
+              <div
+                key={`${winner.category}-${winner.rank}-${i}`}
+                className="rounded-xl ring-1 ring-white/10 bg-white/[0.03] px-3 py-2 flex justify-between gap-2"
+              >
+                <span className={cn('text-sm', t.body)}>
+                  #{winner.rank} {winner.displayName} {winner.clanTag}
+                </span>
+                <span className={cn('text-[10px] uppercase shrink-0', t.caption)}>
+                  {winner.category.replace(/_/g, ' ')}
+                </span>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <GlassCard darkMode={darkMode}>
           <SectionTitle title="Recent Verified Runs" darkMode={darkMode} />

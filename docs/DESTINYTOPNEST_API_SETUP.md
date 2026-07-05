@@ -135,7 +135,15 @@ Schedule is maintained in `src/lib/destiny/weeklyRotation.ts` (Monument of Trium
 2. **Phase 2:** Bungie OAuth linking, live profile summary, token refresh
 3. **Phase 3:** Run sync from Bungie PGCRs, heuristic legitimacy checker, admin review queue — **complete**
 4. **Phase 4:** Build intelligence from verified runs (PGCR weapon extraction + aggregation) — **live**
-5. **Phase 5:** Season prizes, fireteam reputation reviews, hall-of-fame standings — **started**
+5. **Phase 5:** Season prizes, fireteam reputation reviews, hall-of-fame standings — **in progress**
+
+### Phase 5 — reputation & prizes
+
+- **Rate fireteam:** Profile → Guardian → **Rate your fireteam** (linked Top Nest teammates only)
+- `POST /api/destiny/reputation` — submit 1–5 scores after verified clears
+- `GET /api/destiny/reputation?scope=reviewable` — pending teammate reviews
+- **Season tab:** personal prize track, grouped hall of fame, prize rules
+- `GET /api/destiny/season` — includes `prizeTrack`, `myStandings`, `hallOfFame`
 
 ### Phase 3 — sync runs
 

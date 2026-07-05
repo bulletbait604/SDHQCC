@@ -460,6 +460,7 @@ export function buildOverviewPayload(bungieApiConfigured: boolean): OverviewPayl
     trendingBuilds: MOCK_BUILD_CARDS,
     topLoadoutsByClass: rankTopLoadoutsByClass(MOCK_BUILD_CARDS, 2),
     bungieApiConfigured,
+    hallOfFamePreview: [],
   }
 }
 

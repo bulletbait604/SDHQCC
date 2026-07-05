@@ -1,5 +1,5 @@
 import { aggregateClanLeaderboard, aggregateLeaderboard } from '@/lib/destiny/leaderboards'
-import type { LeaderboardEntry, RunRecord, Season, SeasonWinner } from '@/lib/destiny/types'
+import type { LeaderboardCategory, LeaderboardEntry, RunRecord, Season, SeasonWinner } from '@/lib/destiny/types'
 import type { StoredDestinyUser } from '@/lib/destiny/destinyUserStore'
 
 function prizeForRank(
@@ -78,4 +78,40 @@ export function prizeEligibilityForUser(
   }
 
   return `Season rank #${best.rank} in ${best.category.replace(/_/g, ' ')} — ${best.points} pts. Top 5 at season end win prizes.`
+}
+
+export interface UserPrizeTrackEntry {
+  category: LeaderboardCategory
+  rank: number
+  points: number
+  verifiedClears: number
+  prizeIfHeld: string
+  fastestActivityName?: string
+  fastestClearSeconds?: number
+}
+
+/** Personal prize ladder for the signed-in player (Phase 5). */
+export function buildUserPrizeTrack(
+  entries: LeaderboardEntry[],
+  season: Season
+): UserPrizeTrackEntry[] {
+  const byCategory = new Map<LeaderboardCategory, LeaderboardEntry>()
+  for (const entry of entries) {
+    const existing = byCategory.get(entry.category)
+    if (!existing || entry.rank < existing.rank) {
+      byCategory.set(entry.category, entry)
+    }
+  }
+
+  return Array.from(byCategory.values())
+    .sort((a, b) => a.rank - b.rank)
+    .map((entry) => ({
+      category: entry.category,
+      rank: entry.rank,
+      points: entry.points,
+      verifiedClears: entry.verifiedClears,
+      prizeIfHeld: prizeForRank(entry.category, entry.rank, season.prizeRules),
+      fastestActivityName: entry.fastestActivityName,
+      fastestClearSeconds: entry.fastestClearSeconds,
+    }))
 }

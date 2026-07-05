@@ -24,6 +24,20 @@ export async function getDestinyUserBySiteUserId(userId: string): Promise<Stored
   }
 }
 
+export async function getDestinyUserByBungieMembershipId(
+  membershipId: string
+): Promise<StoredDestinyUser | null> {
+  if (!membershipId) return null
+  try {
+    const row = await (await db()).collection(DESTINY_COLLECTIONS.users).findOne({
+      bungieMembershipId: membershipId,
+    })
+    return row as StoredDestinyUser | null
+  } catch {
+    return null
+  }
+}
+
 export async function upsertDestinyUser(
   userId: string,
   data: Partial<StoredDestinyUser>
