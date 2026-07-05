@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth, AuthError } from '@/lib/auth/verifyAuth'
+import { attachSessionCookieForUsername } from '@/lib/auth/issueSession'
 import {
   exchangeBungieAuthorizationCode,
   fetchLinkedGuardianSummary,
@@ -41,7 +42,6 @@ export async function GET(req: NextRequest) {
   let returnPath: string | undefined
 
   try {
-    const user = await verifyAuth(req)
     const { searchParams } = new URL(req.url)
     const code = searchParams.get('code')
     const state = searchParams.get('state')
@@ -63,12 +63,25 @@ export async function GET(req: NextRequest) {
       if (!cookieState || cookieState !== state) {
         return redirectAfterOAuth({ bungie: 'error', message: 'invalid_state' }, req, returnPath)
       }
-    } else if (stateRecord.userId !== user.username.toLowerCase()) {
       return redirectAfterOAuth({ bungie: 'error', message: 'invalid_state' }, req, returnPath)
     }
 
+    const siteUserId = stateRecord.userId
+    let sessionMatches = false
+
+    try {
+      const sessionUser = await verifyAuth(req)
+      sessionMatches = sessionUser.username.toLowerCase() === siteUserId
+      if (!sessionMatches) {
+        return redirectAfterOAuth({ bungie: 'error', message: 'invalid_state' }, req, returnPath)
+      }
+    } catch (authError) {
+      if (!(authError instanceof AuthError)) throw authError
+      // Session cookie often drops during the Bungie redirect — use stored OAuth state userId.
+    }
+
     const redirectUri =
-      stateRecord?.redirectUri ||
+      stateRecord.redirectUri ||
       req.cookies.get('bungieOAuthRedirect')?.value ||
       bungieOAuthRedirectUriFromRequest(req)
 
@@ -96,7 +109,7 @@ export async function GET(req: NextRequest) {
 
     const displayName = formatBungieDisplayName(primary)
 
-    await upsertDestinyUser(user.username.toLowerCase(), {
+    await upsertDestinyUser(siteUserId, {
       bungieMembershipId: primary.membershipId,
       bungieNetMembershipId: tokens.membershipId,
       bungieDisplayName: displayName,
@@ -109,11 +122,14 @@ export async function GET(req: NextRequest) {
       oauth: tokens,
     })
 
-    return redirectAfterOAuth({ bungie: 'linked' }, req, returnPath)
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return redirectAfterOAuth({ bungie: 'error', message: 'auth_required' }, req, returnPath)
+    const res = redirectAfterOAuth({ bungie: 'linked' }, req, returnPath)
+
+    if (!sessionMatches) {
+      await attachSessionCookieForUsername(siteUserId, req, res)
     }
+
+    return res
+  } catch (error) {
     console.error('[destiny/auth/bungie/callback]', error)
     const detail = error instanceof Error ? error.message : 'exchange_failed'
     return redirectAfterOAuth(
