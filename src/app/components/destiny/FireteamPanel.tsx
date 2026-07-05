@@ -5,13 +5,14 @@ import { Mic, Users, Plus } from 'lucide-react'
 import type { FireteamLobby } from '@/lib/destiny/types'
 import {
   ActivityBadge,
+  EmptyBlock,
   GlassCard,
   ItemIcon,
   LoadingBlock,
-  SectionTitle,
+  PageIntro,
   StatusPill,
 } from '@/app/components/destiny/DestinyUi'
-import { getDestinyTheme, platformIcon } from '@/app/components/destiny/destinyTheme'
+import { getDestinyTheme, destinySecondaryBtn, platformIcon } from '@/app/components/destiny/destinyTheme'
 import { cn } from '@/lib/utils'
 
 export default function FireteamPanel({ darkMode }: { darkMode: boolean }) {
@@ -37,18 +38,20 @@ export default function FireteamPanel({ darkMode }: { darkMode: boolean }) {
   }, [load])
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      <PageIntro
+        darkMode={darkMode}
+        title="Find a fireteam"
+        description="Browse open raid and dungeon lobbies. Connect Bungie on Home to create your own."
+      />
+
       <GlassCard darkMode={darkMode}>
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <SectionTitle
-            title="Fireteam Finder"
-            subtitle="Raids & dungeons only · connect Bungie account in Phase 2 to create lobbies"
-            darkMode={darkMode}
-          />
+        <div className="flex flex-wrap items-center justify-end gap-3 mb-6">
           <button
             type="button"
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500/20 text-amber-200 border border-amber-500/40 text-sm font-medium opacity-60 cursor-not-allowed"
-            title="Requires Bungie OAuth (Phase 2)"
+            disabled
+            className={cn(destinySecondaryBtn(darkMode), 'opacity-50 cursor-not-allowed')}
+            title="Connect Bungie first"
           >
             <Plus className="w-4 h-4" />
             Create lobby
@@ -57,12 +60,18 @@ export default function FireteamPanel({ darkMode }: { darkMode: boolean }) {
 
         {loading ? (
           <LoadingBlock darkMode={darkMode} />
+        ) : lobbies.length === 0 ? (
+          <EmptyBlock
+            darkMode={darkMode}
+            message="No open lobbies right now"
+            hint="Check back after reset, or create one when Bungie is connected."
+          />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {lobbies.map((lobby) => (
               <div
                 key={lobby.id}
-                className="rounded-xl p-4 bg-black/30 border border-white/10 hover:border-purple-500/30 transition-colors"
+                className={cn('rounded-2xl p-5 transition-colors', t.glassInset, 'hover:bg-white/[0.04]')}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -117,8 +126,9 @@ export default function FireteamPanel({ darkMode }: { darkMode: boolean }) {
 
                 <button
                   type="button"
-                  className="mt-4 w-full py-2 rounded-lg text-sm font-medium bg-purple-500/20 text-purple-200 border border-purple-500/30 opacity-60 cursor-not-allowed"
-                  title="Join requires Bungie OAuth (Phase 2)"
+                  disabled
+                  className={cn(destinySecondaryBtn(darkMode), 'mt-4 w-full opacity-50 cursor-not-allowed')}
+                  title="Connect Bungie first"
                 >
                   Request invite
                 </button>

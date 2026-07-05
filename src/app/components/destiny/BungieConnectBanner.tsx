@@ -1,8 +1,8 @@
 'use client'
 
-import { Link2, Loader2, RefreshCw, Unlink } from 'lucide-react'
+import { Link2, Loader2, RefreshCw, Sparkles, Unlink } from 'lucide-react'
 import { GlassCard, StatusPill } from '@/app/components/destiny/DestinyUi'
-import { getDestinyTheme } from '@/app/components/destiny/destinyTheme'
+import { destinyPrimaryBtn, destinySecondaryBtn, getDestinyTheme } from '@/app/components/destiny/destinyTheme'
 import type { useBungieLink } from '@/hooks/useBungieLink'
 import { cn } from '@/lib/utils'
 
@@ -52,40 +52,41 @@ export default function BungieConnectBanner({
       {linkMessage && (
         <div
           className={cn(
-            'rounded-xl p-3 text-sm border',
+            'rounded-2xl px-4 py-3 text-sm leading-relaxed',
             messageTone === 'error'
-              ? 'bg-red-500/10 border-red-500/30 text-red-200'
-              : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
+              ? 'bg-red-500/10 text-red-100 ring-1 ring-red-500/20'
+              : 'bg-emerald-500/10 text-emerald-100 ring-1 ring-emerald-500/20'
           )}
         >
           {linkMessage}
         </div>
       )}
 
-      <GlassCard darkMode={darkMode}>
+      <GlassCard darkMode={darkMode} padding="lg">
         {!configured ? (
-          <p className={cn('text-xs', t.muted)}>
-            Bungie OAuth not configured on server. Add BUNGIE_OAUTH_CLIENT_ID, BUNGIE_OAUTH_CLIENT_SECRET, and
-            DESTINY_API.
+          <p className={cn('text-sm leading-relaxed', t.muted)}>
+            Bungie sign-in is not configured on the server yet.
           </p>
         ) : linked ? (
-          <div className="flex flex-wrap items-center gap-3">
-            <StatusPill label={`Signed in as ${status?.bungieDisplayName}`} tone="green" />
-            {status?.connectedAt && variant === 'overview' && (
-              <span className={cn('text-xs', t.muted)}>
-                Linked {new Date(status.connectedAt).toLocaleDateString()}
-              </span>
-            )}
-            <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusPill label={`Welcome, ${status?.bungieDisplayName}`} tone="green" />
+              {status?.connectedAt && variant === 'overview' && (
+                <span className={cn('text-xs', t.caption)}>
+                  Connected {new Date(status.connectedAt).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
               {showSync && (
                 <button
                   type="button"
                   disabled={syncing}
                   onClick={() => void syncRuns()}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-sky-500/40 text-sky-200 bg-sky-500/10 hover:bg-sky-500/20"
+                  className={destinySecondaryBtn(darkMode)}
                 >
-                  {syncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                  Sync verified runs
+                  {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  Sync runs
                 </button>
               )}
               {variant === 'compact' && (
@@ -93,57 +94,53 @@ export default function BungieConnectBanner({
                   type="button"
                   disabled={disconnecting}
                   onClick={() => void disconnect()}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-red-500/40 text-red-300 bg-red-500/10"
+                  className={cn(destinySecondaryBtn(darkMode), 'text-red-200/90')}
                 >
-                  {disconnecting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Unlink className="w-3 h-3" />}
+                  {disconnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlink className="w-4 h-4" />}
                   Disconnect
                 </button>
               )}
             </div>
           </div>
         ) : variant === 'overview' ? (
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="flex-1 min-w-0">
-              <p className={cn('text-sm font-semibold', t.heading)}>Connect your Bungie account</p>
-              <p className={cn('text-xs mt-1', t.muted)}>
-                Sign in with Bungie to pull your Guardian name, sync raid & dungeon clears, and qualify for verified
-                scoring.
-              </p>
+          <div className="flex flex-col sm:flex-row gap-6 sm:items-center">
+            <div className="flex gap-4 flex-1 min-w-0">
+              <div className="w-12 h-12 rounded-2xl bg-white/[0.08] flex items-center justify-center shrink-0">
+                <Sparkles className="w-6 h-6 text-white/70" />
+              </div>
+              <div>
+                <p className={cn('text-base font-semibold tracking-tight', t.heading)}>Connect your Guardian</p>
+                <p className={cn('text-sm mt-1.5 leading-relaxed', t.muted)}>
+                  Sign in with Bungie to sync raids, dungeons, and your profile. One tap — we handle the rest.
+                </p>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={connect}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-amber-500/25 text-amber-100 border border-amber-500/50 hover:bg-amber-500/35 shrink-0"
-            >
+            <button type="button" onClick={connect} className={cn(destinyPrimaryBtn(darkMode), 'shrink-0 w-full sm:w-auto')}>
               <Link2 className="w-4 h-4" />
               Sign in with Bungie
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={connect}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-amber-500/20 text-amber-100 border border-amber-500/40 hover:bg-amber-500/30"
-          >
+          <button type="button" onClick={connect} className={destinyPrimaryBtn(darkMode)}>
             <Link2 className="w-4 h-4" />
-            Connect Bungie Account
+            Connect Bungie
           </button>
         )}
 
         {!linked && configured && status?.redirectUri && variant === 'overview' && (
-          <div className={cn('mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 space-y-1')}>
-            <p className={cn('text-xs', t.muted)}>
-              First time? Register this redirect URL in your Bungie app OAuth settings:
-            </p>
-            <code className="block text-xs break-all text-amber-100/80">{status.redirectUri}</code>
+          <details className={cn('mt-5 rounded-2xl p-4', t.glassInset)}>
+            <summary className={cn('text-xs font-medium cursor-pointer select-none', t.muted)}>
+              Developer setup (redirect URL)
+            </summary>
+            <code className="block text-xs break-all mt-3 text-white/60">{status.redirectUri}</code>
             <button
               type="button"
               onClick={() => void copyRedirectUri()}
-              className="text-xs px-2 py-0.5 rounded border border-amber-500/30 text-amber-200 hover:bg-amber-500/10"
+              className={cn(destinySecondaryBtn(darkMode), 'mt-3 text-xs py-1.5 px-3')}
             >
-              Copy redirect URL
+              Copy URL
             </button>
-          </div>
+          </details>
         )}
       </GlassCard>
     </div>

@@ -46,7 +46,7 @@ export default function ProfilePanel({ darkMode }: { darkMode: boolean }) {
   const linked = bungie.linked
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
       {!linked && <BungieConnectBanner darkMode={darkMode} bungie={bungie} variant="compact" showSync={false} />}
 
       {linked && (

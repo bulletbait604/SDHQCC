@@ -4,7 +4,7 @@
  * Endpoint catalog: https://bungie-net.github.io/  Root: https://www.bungie.net/Platform
  */
 
-import { BUNGIE_API_BASE, destinyApiKey } from '@/lib/destiny/env'
+import { BUNGIE_API_BASE, DESTINY_MANIFEST_PATH, destinyApiKey } from '@/lib/destiny/env'
 
 export class BungieApiError extends Error {
   constructor(
@@ -68,9 +68,22 @@ export interface ManifestDisplayProperties {
   hasIcon?: boolean
 }
 
-/** Single entity definition from live manifest. */
+/** Single entity definition from live manifest table (item, activity, perk, etc.). */
 export async function getDestinyEntityDefinition(entityType: string, hash: number) {
-  return bungieFetch<unknown>(`/Destiny2/Manifest/${entityType}/${hash}/`)
+  return bungieFetch<unknown>(`${DESTINY_MANIFEST_PATH}${entityType}/${hash}/`)
+}
+
+export interface DestinyManifestInfo {
+  version?: string
+  mobileAssetContentPath?: string
+  mobileGearAssetContentPaths?: Record<string, string>
+  jsonWorldContentPaths?: Record<string, string>
+  jsonWorldComponentContentPaths?: Record<string, Record<string, string>>
+}
+
+/** Manifest index at https://www.bungie.net/Platform/Destiny2/Manifest/ */
+export async function getDestinyManifest(): Promise<DestinyManifestInfo> {
+  return bungieFetch<DestinyManifestInfo>(DESTINY_MANIFEST_PATH)
 }
 
 export interface ArmorySearchResult {
@@ -104,21 +117,21 @@ export async function searchDestinyEntities(
     }))
 }
 
-/** Public — no OAuth required. */
-export async function getDestinyManifest() {
-  return bungieFetch<{ jsonWorldContentPaths: { en: string } }>('/Destiny2/Manifest/')
+/** Public — no OAuth required. Health check + manifest version probe. */
+export async function getDestinyManifestHealth(): Promise<DestinyManifestInfo> {
+  return getDestinyManifest()
 }
 
-/** Resolve a player by Bungie global display name + code (Phase 2). */
+/** Resolve a player by Bungie global display name + code. */
 export async function searchPlayer(displayName: string, displayNameCode: number) {
   const encoded = encodeURIComponent(displayName)
-  return bungieFetch<{
-    Response?: Array<{
+  return bungieFetch<
+    Array<{
       membershipId: string
       membershipType: number
       displayName: string
     }>
-  }>(`/User/Search/GlobalName/${encoded}/${displayNameCode}/`)
+  >(`/User/Search/GlobalName/${encoded}/${displayNameCode}/`)
 }
 
 /** Profile + characters — requires membershipType + membershipId. */
@@ -250,7 +263,7 @@ export async function checkBungieApiHealth(): Promise<{
     }
   }
   try {
-    await getDestinyManifest()
+    await getDestinyManifestHealth()
     return {
       configured: true,
       reachable: true,

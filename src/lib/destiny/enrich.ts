@@ -17,7 +17,6 @@ import {
   resolveActivity,
   resolveByName,
   resolveClassIcon,
-  resolveEmblem,
   resolveSubclass,
   type DestinyIconRef,
 } from '@/lib/destiny/manifest'

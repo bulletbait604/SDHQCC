@@ -53,19 +53,19 @@ export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <BungieConnectBanner darkMode={darkMode} bungie={bungie} variant="overview" />
 
       <div className="flex flex-wrap items-center gap-2">
         <StatusPill
-          label={data.bungieApiConfigured ? 'Bungie API configured' : 'Set DESTINY_API for live data'}
-          tone={data.bungieApiConfigured ? 'green' : 'gold'}
+          label={data.bungieApiConfigured ? 'Live data' : 'API key needed'}
+          tone={data.bungieApiConfigured ? 'green' : 'neutral'}
         />
-        <StatusPill label={data.weeklyReset.resetsInLabel + ' until reset'} tone="blue" />
-        <StatusPill label={`Week ${data.weeklyReset.weekLabel}`} tone="purple" />
+        <StatusPill label={`Reset ${data.weeklyReset.resetsInLabel}`} tone="neutral" />
+        <StatusPill label={data.weeklyReset.weekLabel} tone="neutral" />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
         <GlassCard darkMode={darkMode}>
           <SectionTitle title="Raid Top 10" subtitle="Verified full clears · season" darkMode={darkMode} />
           <LeaderboardTable entries={data.raidTop10} darkMode={darkMode} compact />

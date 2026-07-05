@@ -8,7 +8,7 @@ import {
 import { fetchLinkedGuardianSummary } from '@/lib/destiny/bungieOAuth'
 import type { StoredDestinyUser } from '@/lib/destiny/destinyUserStore'
 import { getValidAccessToken, upsertDestinyUser } from '@/lib/destiny/destinyUserStore'
-import { resolveManifestHash } from '@/lib/destiny/manifest'
+import { resolveInventoryItem } from '@/lib/destiny/manifest'
 import type {
   BuildSnapshot,
   ClanProfile,
@@ -29,8 +29,8 @@ const WEAPON_BUCKETS: Record<number, 'kinetic' | 'energy' | 'power'> = {
 }
 
 async function resolveItemName(hash: number, fallback: string): Promise<string> {
-  const ref = await resolveManifestHash('DestinyInventoryItemDefinition', hash, fallback)
-  return ref.name
+  const info = await resolveInventoryItem(hash, fallback)
+  return info.name
 }
 
 export async function refreshGuardianFromBungie(stored: StoredDestinyUser): Promise<StoredDestinyUser> {

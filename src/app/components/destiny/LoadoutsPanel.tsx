@@ -1,14 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Copy, AlertCircle } from 'lucide-react'
+import { Copy } from 'lucide-react'
 import type { BuildSnapshot } from '@/lib/destiny/types'
 import {
   GearStrip,
   GlassCard,
   ItemIcon,
   LoadingBlock,
-  SectionTitle,
+  PageIntro,
   SubclassBadge,
 } from '@/app/components/destiny/DestinyUi'
 import { getDestinyTheme } from '@/app/components/destiny/destinyTheme'
@@ -42,7 +42,7 @@ function LoadoutCard({
   ].join('\n')
 
   return (
-    <div className="rounded-lg bg-black/30 p-4 border border-white/10">
+    <div className={cn('rounded-2xl p-5', getDestinyTheme(darkMode).glassInset)}>
       <p className={cn('text-xs font-semibold mb-3', t.gold)}>{title}</p>
       <SubclassBadge
         classRef={build.classRef}
@@ -120,20 +120,14 @@ export default function LoadoutsPanel({ darkMode }: { darkMode: boolean }) {
   if (loading) return <LoadingBlock darkMode={darkMode} />
 
   return (
-    <div className="space-y-4">
-      {data && !data.equipSupported && (
-        <div className="flex items-start gap-2 rounded-xl p-3 bg-amber-500/10 border border-amber-500/30">
-          <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-          <p className={cn('text-xs', t.muted)}>{data.equipMessage}</p>
-        </div>
-      )}
+    <div className="space-y-6">
+      <PageIntro
+        darkMode={darkMode}
+        title="Loadouts"
+        description="Your live gear from Bungie. Copy builds to share — equip support coming soon."
+      />
 
       <GlassCard darkMode={darkMode}>
-        <SectionTitle
-          title="Loadouts"
-          subtitle="Icons from Bungie manifest · view · copy · equip where supported"
-          darkMode={darkMode}
-        />
         {data?.current ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <LoadoutCard build={data.current} darkMode={darkMode} title="Currently equipped" />

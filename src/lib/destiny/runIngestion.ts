@@ -1,9 +1,9 @@
 import { getActivityHistory, getPlayerProfile, getPostGameCarnageReport } from '@/lib/destiny/bungieClient'
-import { platformFromMembershipType } from '@/lib/destiny/bungieOAuth'
 import {
   evaluateRunLegitimacy,
   verificationStatusFromReview,
 } from '@/lib/destiny/legitimacyChecker'
+import { resolveActivityByHash } from '@/lib/destiny/manifest'
 import { calculateRunPoints } from '@/lib/destiny/scoring'
 import { ensureDestinyIndexes, queueAdminReview, saveRunRecord } from '@/lib/destiny/store'
 import type { StoredDestinyUser } from '@/lib/destiny/destinyUserStore'
@@ -175,15 +175,23 @@ async function pgcrToRunRecord(
     suspiciousScore: aiReview.suspiciousScore,
   })
 
-  const activityName =
-    activityType === 'raid'
-      ? `Raid #${details.referenceId ?? instanceId}`
-      : `Dungeon #${details.referenceId ?? instanceId}`
+  const activityHash = Number(details.referenceId ?? details.directorActivityHash ?? 0)
+  let activityName =
+    activityType === 'raid' ? `Raid ${activityHash || instanceId}` : `Dungeon ${activityHash || instanceId}`
+
+  if (activityHash > 0) {
+    try {
+      const activityDef = await resolveActivityByHash(activityHash)
+      activityName = activityDef.name
+    } catch {
+      /* keep fallback name */
+    }
+  }
 
   return {
     id: `run-${instanceId}`,
     pgcrId: instanceId,
-    activityId: Number(details.referenceId ?? details.directorActivityHash ?? 0),
+    activityId: activityHash,
     activityName,
     type: activityType,
     difficulty: 'normal',

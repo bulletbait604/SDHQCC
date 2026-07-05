@@ -6,9 +6,14 @@
 export type ManifestEntityType =
   | 'DestinyInventoryItemDefinition'
   | 'DestinyActivityDefinition'
+  | 'DestinyActivityModeDefinition'
   | 'DestinySandboxPerkDefinition'
   | 'DestinyClassDefinition'
   | 'DestinyDamageTypeDefinition'
+  | 'DestinyStatDefinition'
+  | 'DestinyEquipableItemSetDefinition'
+  | 'DestinyPlugSetDefinition'
+  | 'DestinyPresentationNodeDefinition'
 
 export interface CatalogEntry {
   hash: number

@@ -1,15 +1,18 @@
 /**
- * Bungie manifest icon resolution with Mongo cache.
+ * Bungie Destiny 2 manifest resolution.
+ * Index: https://www.bungie.net/Platform/Destiny2/Manifest/
+ * Per-entity: /Destiny2/Manifest/{EntityType}/{hash}/
  */
 
 import clientPromise from '@/lib/mongodb'
 import {
   getDestinyEntityDefinition,
+  getDestinyManifest,
   searchDestinyEntities,
   type ManifestDisplayProperties,
 } from '@/lib/destiny/bungieClient'
-import { catalogLookup, MOCK_EMBLEM_HASHES, type ManifestEntityType } from '@/lib/destiny/itemsCatalog'
-import { destinyApiConfigured } from '@/lib/destiny/env'
+import { catalogLookup, type ManifestEntityType } from '@/lib/destiny/itemsCatalog'
+import { DESTINY_MANIFEST_URL, destinyApiConfigured } from '@/lib/destiny/env'
 
 const CACHE_COLLECTION = 'destiny_manifest_cache'
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000
@@ -22,6 +25,17 @@ export interface DestinyIconRef {
   entityType?: ManifestEntityType
 }
 
+/** Full definition metadata resolved from the live manifest. */
+export interface ManifestDefinitionInfo {
+  hash: number
+  entityType: ManifestEntityType
+  name: string
+  iconUrl?: string
+  tierLabel?: string
+  description?: string
+  itemTypeDisplayName?: string
+}
+
 interface CacheDoc {
   _id: string
   hash: number
@@ -30,12 +44,14 @@ interface CacheDoc {
   iconPath?: string
   iconUrl?: string
   tierLabel?: string
+  description?: string
+  itemTypeDisplayName?: string
   cachedAt: string
 }
 
 import { buildBungieIconUrl } from '@/lib/destiny/bungieUrls'
 
-export { buildBungieIconUrl }
+export { buildBungieIconUrl, DESTINY_MANIFEST_URL }
 
 function cacheId(entityType: ManifestEntityType, hash: number): string {
   return `${entityType}:${hash}`
@@ -77,24 +93,55 @@ function tierFromDefinition(def: unknown): string | undefined {
   return (def as { inventory?: { tierTypeName?: string } }).inventory?.tierTypeName
 }
 
-export async function resolveManifestHash(
+function itemTypeFromDefinition(def: unknown): string | undefined {
+  if (!def || typeof def !== 'object') return undefined
+  return (def as { itemTypeDisplayName?: string }).itemTypeDisplayName
+}
+
+function cacheToInfo(doc: CacheDoc): ManifestDefinitionInfo {
+  return {
+    hash: doc.hash,
+    entityType: doc.entityType,
+    name: doc.name,
+    iconUrl: doc.iconUrl,
+    tierLabel: doc.tierLabel,
+    description: doc.description,
+    itemTypeDisplayName: doc.itemTypeDisplayName,
+  }
+}
+
+function iconRefFromInfo(info: ManifestDefinitionInfo): DestinyIconRef {
+  return {
+    name: info.name,
+    hash: info.hash,
+    iconUrl: info.iconUrl,
+    tierLabel: info.tierLabel,
+    entityType: info.entityType,
+  }
+}
+
+/** Current manifest version string from Bungie (updates each content patch). */
+export async function getLiveManifestVersion(): Promise<string | undefined> {
+  if (!destinyApiConfigured()) return undefined
+  try {
+    const manifest = await getDestinyManifest()
+    return manifest.version
+  } catch {
+    return undefined
+  }
+}
+
+/** Resolve any manifest definition hash → name, icon, tier, description. */
+export async function resolveDefinition(
   entityType: ManifestEntityType,
   hash: number,
-  fallbackName: string
-): Promise<DestinyIconRef> {
+  fallbackName = `Hash ${hash}`
+): Promise<ManifestDefinitionInfo> {
   const cached = await readCache(entityType, hash)
-  if (cached?.iconUrl) {
-    return {
-      name: cached.name || fallbackName,
-      hash,
-      iconUrl: cached.iconUrl,
-      tierLabel: cached.tierLabel,
-      entityType,
-    }
-  }
+  if (cached?.name) return cacheToInfo(cached)
 
   if (!destinyApiConfigured()) {
-    return { name: fallbackName, hash, entityType }
+    return { hash, entityType, name: fallbackName }
   }
 
   try {
@@ -103,24 +150,43 @@ export async function resolveManifestHash(
     const iconUrl = buildBungieIconUrl(props?.icon)
     const name = props?.name || fallbackName
     const tierLabel = tierFromDefinition(def)
+    const description = props?.description
+    const itemTypeDisplayName = itemTypeFromDefinition(def)
 
-    if (iconUrl) {
-      await writeCache({
-        _id: cacheId(entityType, hash),
-        hash,
-        entityType,
-        name,
-        iconPath: props?.icon,
-        iconUrl,
-        tierLabel,
-        cachedAt: new Date().toISOString(),
-      })
-    }
+    await writeCache({
+      _id: cacheId(entityType, hash),
+      hash,
+      entityType,
+      name,
+      iconPath: props?.icon,
+      iconUrl,
+      tierLabel,
+      description,
+      itemTypeDisplayName,
+      cachedAt: new Date().toISOString(),
+    })
 
-    return { name, hash, iconUrl, tierLabel, entityType }
+    return { hash, entityType, name, iconUrl, tierLabel, description, itemTypeDisplayName }
   } catch {
-    return { name: fallbackName, hash, entityType }
+    return { hash, entityType, name: fallbackName }
   }
+}
+
+export async function resolveInventoryItem(hash: number, fallbackName?: string): Promise<ManifestDefinitionInfo> {
+  return resolveDefinition('DestinyInventoryItemDefinition', hash, fallbackName ?? `Item ${hash}`)
+}
+
+export async function resolveActivityByHash(hash: number, fallbackName?: string): Promise<ManifestDefinitionInfo> {
+  return resolveDefinition('DestinyActivityDefinition', hash, fallbackName ?? `Activity ${hash}`)
+}
+
+export async function resolveManifestHash(
+  entityType: ManifestEntityType,
+  hash: number,
+  fallbackName: string
+): Promise<DestinyIconRef> {
+  const info = await resolveDefinition(entityType, hash, fallbackName)
+  return iconRefFromInfo(info)
 }
 
 export async function resolveByName(
@@ -167,12 +233,6 @@ export async function resolveClassIcon(characterClass: string): Promise<DestinyI
   const catalog = catalogLookup(characterClass)
   if (catalog) return resolveManifestHash(catalog.entity, catalog.hash, characterClass)
   return { name: characterClass }
-}
-
-export async function resolveEmblem(index: number): Promise<string | undefined> {
-  const hash = MOCK_EMBLEM_HASHES[index % MOCK_EMBLEM_HASHES.length]
-  const ref = await resolveManifestHash('DestinyInventoryItemDefinition', hash, 'Emblem')
-  return ref.iconUrl
 }
 
 export async function resolveMany(names: string[], entity?: ManifestEntityType): Promise<DestinyIconRef[]> {

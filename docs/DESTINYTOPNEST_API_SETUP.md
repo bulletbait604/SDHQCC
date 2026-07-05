@@ -21,9 +21,34 @@ Every request needs header `X-API-Key: <your key>`. OAuth routes need `Authoriza
 | Profile + characters | `/Destiny2/{type}/Profile/{id}/?components=…` | `bungieClient.ts` |
 | Activity history | `/Destiny2/{type}/Account/{id}/Character/{charId}/Stats/Activities/` | `bungieClient.ts` |
 | PGCR (run verification) | `/Destiny2/Stats/PostGameCarnageReport/{activityId}/` | `bungieClient.ts` |
-| Manifest / icons | `/Destiny2/Manifest/…` | `manifest.ts` |
+| Manifest index | [https://www.bungie.net/Platform/Destiny2/Manifest/](https://www.bungie.net/Platform/Destiny2/Manifest/) | `getDestinyManifest()` |
+| Single definition | `/Destiny2/Manifest/{EntityType}/{hash}/` | `resolveDefinition()` in `manifest.ts` |
+| Armory search (by name) | `/Destiny2/Armory/Search/{EntityType}/{term}/` | `searchDestinyEntities()` |
 
-Constants live in `src/lib/destiny/env.ts` (`BUNGIE_API_BASE`, OAuth URLs).
+Constants live in `src/lib/destiny/env.ts` (`BUNGIE_API_BASE`, `DESTINY_MANIFEST_URL`, OAuth URLs).
+
+## Destiny 2 manifest (items, activities, perks)
+
+Bungie publishes a **live manifest** that lists every Destiny definition table and version:
+
+**https://www.bungie.net/Platform/Destiny2/Manifest/**
+
+Each entity is fetched by type + hash, for example:
+
+- Item: `/Destiny2/Manifest/DestinyInventoryItemDefinition/{itemHash}/`
+- Activity: `/Destiny2/Manifest/DestinyActivityDefinition/{activityHash}/`
+- Perk: `/Destiny2/Manifest/DestinySandboxPerkDefinition/{perkHash}/`
+
+DestinyTopNest resolves hashes server-side via `src/lib/destiny/manifest.ts`:
+
+| Function | Use |
+|----------|-----|
+| `resolveInventoryItem(hash)` | Weapon/armor name, icon, tier from PGCR or loadout |
+| `resolveActivityByHash(hash)` | Raid/dungeon name from activity referenceId |
+| `resolveDefinition(type, hash)` | Any manifest table |
+| `getLiveManifestVersion()` | Current Bungie manifest version (patch indicator) |
+
+Results are cached in Mongo `destiny_manifest_cache` for 7 days to limit API calls. Requires `DESTINY_API` on the server.
 
 ## Required (Phase 1+)
 
