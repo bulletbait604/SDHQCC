@@ -26,7 +26,6 @@ const LEGACY_TAB_MAP: Record<string, HomeTabState> = {
   post4me: { tab: 'create', create: 'post4me' },
   'clip-analyzer': { tab: 'analyze' },
   'clip-editor': { tab: 'rnd', rnd: 'clip-editor' },
-  'destiny-top-nest': { tab: 'rnd', rnd: 'clip-editor' },
   'new-tool': { tab: DEFAULT_HOME_TAB },
 }
 
