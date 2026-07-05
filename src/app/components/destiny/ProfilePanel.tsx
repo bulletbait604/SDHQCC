@@ -14,7 +14,7 @@ import {
 } from '@/app/components/destiny/DestinyUi'
 import { formatDuration, getDestinyTheme, platformIcon } from '@/app/components/destiny/destinyTheme'
 import { defaultBungieReturnPath, stripUrlParams } from '@/lib/home/tabUrl'
-import { bungieOAuthErrorMessage } from '@/lib/destiny/bungieOAuth'
+import { bungieOAuthErrorMessage } from '@/lib/destiny/bungieOAuthMessages'
 import { cn } from '@/lib/utils'
 
 interface BungieLinkStatus {

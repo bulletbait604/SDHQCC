@@ -33,11 +33,9 @@ interface CacheDoc {
   cachedAt: string
 }
 
-export function buildBungieIconUrl(iconPath: string | undefined | null): string | undefined {
-  if (!iconPath) return undefined
-  if (iconPath.startsWith('http')) return iconPath
-  return `https://www.bungie.net${iconPath.startsWith('/') ? '' : '/'}${iconPath}`
-}
+import { buildBungieIconUrl } from '@/lib/destiny/bungieUrls'
+
+export { buildBungieIconUrl }
 
 function cacheId(entityType: ManifestEntityType, hash: number): string {
   return `${entityType}:${hash}`
