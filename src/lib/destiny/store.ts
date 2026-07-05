@@ -10,6 +10,7 @@ import {
   aggregateClanLeaderboard,
   aggregateLeaderboard,
 } from '@/lib/destiny/leaderboards'
+import { rankTopLoadoutsByClass } from '@/lib/destiny/loadoutRankings'
 import { ACTIVE_SEASON } from '@/lib/destiny/seasonConfig'
 import type { StoredDestinyUser } from '@/lib/destiny/destinyUserStore'
 import type {
@@ -83,6 +84,7 @@ export async function getOverviewData(): Promise<OverviewPayload> {
     const raidTop10 = aggregateLeaderboard(runs, usersById, 'raid', 'season')
     const dungeonTop10 = aggregateLeaderboard(runs, usersById, 'dungeon', 'season')
     const clanTop5 = aggregateClanLeaderboard(runs, usersById, 'season')
+    const topLoadoutsByClass = rankTopLoadoutsByClass(buildCards, 2)
 
     return buildOverviewPayload({
       raidTop10,
@@ -91,8 +93,10 @@ export async function getOverviewData(): Promise<OverviewPayload> {
       recentRuns,
       lookingForGroup: lobbies,
       trendingBuilds: buildCards.slice(0, 3),
+      topLoadoutsByClass,
     })
   } catch {
+    const emptyLoadouts = rankTopLoadoutsByClass([], 2)
     return buildOverviewPayload({
       raidTop10: [],
       dungeonTop10: [],
@@ -100,6 +104,7 @@ export async function getOverviewData(): Promise<OverviewPayload> {
       recentRuns: [],
       lookingForGroup: [],
       trendingBuilds: [],
+      topLoadoutsByClass: emptyLoadouts,
     })
   }
 }

@@ -12,6 +12,7 @@ import type {
   Season,
   WeeklyResetInfo,
 } from '@/lib/destiny/types'
+import { rankTopLoadoutsByClass } from '@/lib/destiny/loadoutRankings'
 import { getWeeklyResetState } from '@/lib/destiny/weeklyRotation'
 
 const SEASON_ID = 'dtn-nest-s1'
@@ -457,6 +458,7 @@ export function buildOverviewPayload(bungieApiConfigured: boolean): OverviewPayl
     prizeSummary: 'Raid & Dungeon Top 5 win platform cards or 3D prints. Full Clan Team prizes for same-clan clears.',
     lookingForGroup: MOCK_LFG,
     trendingBuilds: MOCK_BUILD_CARDS,
+    topLoadoutsByClass: rankTopLoadoutsByClass(MOCK_BUILD_CARDS, 2),
     bungieApiConfigured,
   }
 }

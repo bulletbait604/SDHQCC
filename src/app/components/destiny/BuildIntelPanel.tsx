@@ -50,7 +50,7 @@ export default function BuildIntelPanel({ darkMode }: { darkMode: boolean }) {
           <Brain className="w-5 h-5 text-purple-400" />
           <SectionTitle
             title="Build Intelligence"
-            subtitle="Top builds from verified DestinyTopNest runs — not random scrapes"
+            subtitle="Top builds from verified Top Nest runs — not random scrapes"
             darkMode={darkMode}
           />
         </div>

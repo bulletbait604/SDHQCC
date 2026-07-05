@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
     const aiSummary =
       filtered.length > 0
-        ? `Showing ${filtered.length} build(s) from verified DestinyTopNest run data.`
+        ? `Showing ${filtered.length} build(s) from verified Top Nest run data.`
         : 'No build intelligence yet. Sync verified runs from Overview — builds are derived from PGCR data as Phase 4 rolls out.'
 
     return NextResponse.json(

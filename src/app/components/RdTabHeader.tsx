@@ -9,7 +9,7 @@ export type RdSubTab = 'clip-editor' | 'tradebot' | 'destiny-top-nest'
 const SUB_TAB_META: Record<RdSubTab, { icon: typeof Film; shortLabel: string }> = {
   'clip-editor': { icon: Film, shortLabel: 'Clip Editor' },
   tradebot: { icon: Bot, shortLabel: 'Tradebot' },
-  'destiny-top-nest': { icon: Sparkles, shortLabel: 'DTN' },
+  'destiny-top-nest': { icon: Sparkles, shortLabel: 'Top Nest' },
 }
 
 export function rdTabTitle(

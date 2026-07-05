@@ -1,22 +1,21 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Crown, Swords, Users, Clock, Trophy, Sparkles } from 'lucide-react'
+import { Crown, Swords, Clock, Trophy } from 'lucide-react'
 import type { OverviewPayload } from '@/lib/destiny/types'
 import BungieConnectBanner from '@/app/components/destiny/BungieConnectBanner'
 import {
   ActivityBadge,
-  GearStrip,
   GlassCard,
   ItemIcon,
   LeaderboardTable,
   LoadingBlock,
   SectionTitle,
   StatusPill,
-  SubclassBadge,
 } from '@/app/components/destiny/DestinyUi'
 import { cn } from '@/lib/utils'
 import { formatDuration, getDestinyTheme } from '@/app/components/destiny/destinyTheme'
+import TopLoadoutsByClass from '@/app/components/destiny/TopLoadoutsByClass'
 import { useBungieLink } from '@/hooks/useBungieLink'
 
 export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
@@ -224,34 +223,13 @@ export default function OverviewPanel({ darkMode }: { darkMode: boolean }) {
         </GlassCard>
       </div>
 
-      <GlassCard darkMode={darkMode}>
-        <div className="flex items-center gap-2 mb-3">
-          <Sparkles className="w-4 h-4 text-purple-400" />
-          <SectionTitle title="Trending Builds from Verified Clears" darkMode={darkMode} />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {data.trendingBuilds.map((b) => (
-            <div key={b.id} className="rounded-lg bg-black/30 p-3 border border-purple-500/20">
-              <SubclassBadge
-                classRef={b.classRef}
-                subclassRef={b.subclassRef}
-                characterClass={b.characterClass}
-                subclass={b.subclass}
-                darkMode={darkMode}
-              />
-              <p className="text-white font-medium text-sm mt-2">{b.buildName}</p>
-              <GearStrip
-                darkMode={darkMode}
-                size={32}
-                items={[b.exoticArmorRef, b.exoticWeaponRef, ...(b.weaponRefs ?? [])]}
-              />
-              <p className={cn('text-xs mt-2', t.gold)}>
-                Avg {formatDuration(b.averageClearSeconds)} · {b.deathRatePercent}% deaths
-              </p>
-            </div>
-          ))}
-        </div>
-      </GlassCard>
+      <TopLoadoutsByClass
+        darkMode={darkMode}
+        topByClass={data.topLoadoutsByClass}
+        compact
+        title="Top loadouts this season"
+        subtitle="Two most-used builds per class from verified clears"
+      />
     </div>
   )
 }

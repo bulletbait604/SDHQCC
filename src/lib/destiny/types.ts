@@ -333,6 +333,7 @@ export interface OverviewPayload {
   prizeSummary: string
   lookingForGroup: FireteamLobby[]
   trendingBuilds: BuildIntelligenceCard[]
+  topLoadoutsByClass: Record<'titan' | 'hunter' | 'warlock', BuildIntelligenceCard[]>
   bungieApiConfigured: boolean
 }
 

@@ -33,7 +33,7 @@ export default function PrivacyPolicy() {
             </li>
             <li>
               <strong>Linked gaming accounts:</strong> Bungie display name, membership IDs, guardian profile summary,
-              and OAuth tokens (stored server-side) when you connect DestinyTopNest to Bungie.net
+              and OAuth tokens (stored server-side) when you connect Top Nest to Bungie.net
             </li>
             <li>
               <strong>Content you submit:</strong> tags, descriptions, thumbnails, and other tool inputs
@@ -124,7 +124,7 @@ export default function PrivacyPolicy() {
         <section className="mb-8">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">5. How We Use Your Information</h2>
           <ul className="list-disc list-inside text-gray-600 space-y-2">
-            <li>Provide creator tools, AI analysis, and DestinyTopNest features</li>
+            <li>Provide creator tools, AI analysis, and Top Nest features</li>
             <li>Authenticate you and maintain your session</li>
             <li>Process payments and manage subscriptions or coin balances</li>
             <li>Display personalized ads to non-subscribers (with consent where required)</li>

@@ -102,7 +102,7 @@ export function TermsOfServiceModal({
 }) {
   const sections = [
     ['1. Acceptance of Terms', 'By using SDHQ you agree to these Terms and our Privacy Policy.'],
-    ['2. Service', 'AI creator tools and experimental R&D features (including DestinyTopNest). Features may change.'],
+    ['2. Service', 'AI creator tools and experimental R&D features (including Destiny\'s Top Nest). Features may change.'],
     ['3. Accounts', 'Sign in with Kick. Optional Bungie linking subject to Bungie terms. You may disconnect anytime.'],
     ['4. Payments', 'Subscriptions, coins, and lifetime passes via PayPal. Free tier includes ads.'],
     ['5. Acceptable Use', 'No abuse, bypassing security, or violating third-party platform terms.'],

@@ -6,6 +6,7 @@ import {
   PRIZE_SUMMARY,
 } from '@/lib/destiny/seasonConfig'
 import type { OverviewPayload } from '@/lib/destiny/types'
+import type { TopLoadoutsByClass } from '@/lib/destiny/loadoutRankings'
 
 export function buildOverviewPayload(input: {
   raidTop10: OverviewPayload['raidTop10']
@@ -14,6 +15,7 @@ export function buildOverviewPayload(input: {
   recentRuns: OverviewPayload['recentRuns']
   lookingForGroup: OverviewPayload['lookingForGroup']
   trendingBuilds: OverviewPayload['trendingBuilds']
+  topLoadoutsByClass: TopLoadoutsByClass
 }): OverviewPayload {
   const weekly = getWeeklyResetState()
   const primaryRaid = weekly.featuredRaids[0]
@@ -50,6 +52,7 @@ export function buildOverviewPayload(input: {
     prizeSummary: PRIZE_SUMMARY,
     lookingForGroup: input.lookingForGroup,
     trendingBuilds: input.trendingBuilds,
+    topLoadoutsByClass: input.topLoadoutsByClass,
     bungieApiConfigured: destinyApiConfigured(),
   }
 }

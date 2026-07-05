@@ -30,7 +30,7 @@ export default function TermsOfService() {
           <p className="text-gray-600 leading-relaxed">
             SDHQ provides AI-powered content creation tools for streamers and creators, including tag generation,
             thumbnail tools, clip analysis, Post4Me copy generation, and experimental R&amp;D features such as
-            DestinyTopNest. Features may change, move, or be removed without notice as part of ongoing development.
+            Destiny&apos;s Top Nest (Top Nest). Features may change, move, or be removed without notice as part of ongoing development.
           </p>
         </section>
 
@@ -41,9 +41,9 @@ export default function TermsOfService() {
             <li>You are responsible for activity under your account and for keeping your Kick credentials secure.</li>
             <li>
               Optional Bungie.net linking is subject to Bungie&apos;s terms. You authorize us to access Bungie API data
-              needed to provide DestinyTopNest features.
+              needed to provide Top Nest features.
             </li>
-            <li>You may disconnect Bungie at any time from the DestinyTopNest profile panel.</li>
+            <li>You may disconnect Bungie at any time from the Top Nest profile panel.</li>
           </ul>
         </section>
 
@@ -81,7 +81,7 @@ export default function TermsOfService() {
           <h2 className="text-xl font-semibold text-gray-800 mb-4">7. AI and Game Data Disclaimer</h2>
           <p className="text-gray-600 leading-relaxed">
             AI-generated recommendations, tags, and analysis are provided &quot;as is&quot; without guarantee of accuracy,
-            virality, or in-game results. DestinyTopNest leaderboard and build data may include mock or incomplete
+            virality, or in-game results. Top Nest leaderboard and build data may include mock or incomplete
             information during R&amp;D phases. Bungie.net data is provided by Bungie and may be delayed or unavailable.
           </p>
         </section>

@@ -6,8 +6,6 @@ import {
   Trophy,
   Users,
   User,
-  Shield,
-  Brain,
   Building2,
   Gift,
   ShieldAlert,
@@ -24,12 +22,12 @@ const PRIMARY: { id: DestinyTopNestTab; label: string; icon: LucideIcon }[] = [
 
 const EXPLORE: { id: DestinyTopNestTab; label: string; icon: LucideIcon; adminOnly?: boolean }[] = [
   { id: 'fireteam', label: 'Fireteam', icon: Users },
-  { id: 'loadouts', label: 'Loadouts', icon: Shield },
-  { id: 'builds', label: 'Builds', icon: Brain },
   { id: 'clans', label: 'Clan', icon: Building2 },
   { id: 'season', label: 'Season', icon: Gift },
   { id: 'admin', label: 'Admin', icon: ShieldAlert, adminOnly: true },
 ]
+
+const LEGACY_PROFILE_TABS: DestinyTopNestTab[] = ['loadouts', 'builds']
 
 interface Props {
   activeTab: DestinyTopNestTab
@@ -41,7 +39,8 @@ interface Props {
 export default function DestinyNav({ activeTab, onTabChange, darkMode, showAdmin = true }: Props) {
   const t = getDestinyTheme(darkMode)
   const exploreTabs = EXPLORE.filter((tab) => !tab.adminOnly || showAdmin)
-  const isPrimary = PRIMARY.some((p) => p.id === activeTab)
+  const navActiveTab = LEGACY_PROFILE_TABS.includes(activeTab) ? 'profile' : activeTab
+  const isPrimary = PRIMARY.some((p) => p.id === navActiveTab)
 
   return (
     <div className="space-y-4 mb-8">
@@ -54,7 +53,7 @@ export default function DestinyNav({ activeTab, onTabChange, darkMode, showAdmin
       >
         {PRIMARY.map((tab) => {
           const Icon = tab.icon
-          const active = activeTab === tab.id
+          const active = navActiveTab === tab.id
           return (
             <button
               key={tab.id}
