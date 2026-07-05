@@ -138,6 +138,7 @@ export interface LeaderboardEntry {
   rank: number
   fastestClearSeconds?: number
   fastestActivityName?: string
+  fastestActivityRef?: DestinyIconRef
 }
 
 export interface FireteamLobby {
@@ -213,6 +214,9 @@ export interface BuildSnapshot {
   energyWeaponRef?: DestinyIconRef
   powerWeaponRef?: DestinyIconRef
   aspectRefs?: DestinyIconRef[]
+  /** Internal aggregation key (Phase 4). */
+  buildSignature?: string
+  verificationStatus?: VerificationStatus
 }
 
 export interface SeasonPrizeRules {
@@ -273,6 +277,7 @@ export interface BuildIntelligenceCard {
   id: string
   buildName: string
   activityName: string
+  activityId?: number
   characterClass: DestinyCharacterClass
   subclass: string
   exoticArmor: string
@@ -298,11 +303,26 @@ export interface ExternalBuildSource {
   id: string
   title: string
   source: string
+  /** Canonical site id for attribution */
+  sourceSite?: 'blueberries.gg' | 'light.gg' | 'togame.io' | 'builders.gg' | 'd2foundry' | 'top-nest'
   sourceUrl: string
   class: DestinyCharacterClass
   subclass: string
+  exoticArmor?: string
+  exoticWeapon?: string
+  weapons?: string[]
+  activityFocus?: string
+  excelsIn?: string
+  summary?: string
+  publishedAt?: string
   lastChecked: string
   approved: boolean
+  classRef?: DestinyIconRef
+  subclassRef?: DestinyIconRef
+  exoticArmorRef?: DestinyIconRef
+  exoticWeaponRef?: DestinyIconRef
+  weaponRefs?: DestinyIconRef[]
+  activityRef?: DestinyIconRef
 }
 
 export interface ClanProfile {

@@ -11,6 +11,7 @@ import {
   searchDestinyEntities,
   type ManifestDisplayProperties,
 } from '@/lib/destiny/bungieClient'
+import { activityCatalogLookup } from '@/lib/destiny/activityCatalog'
 import { catalogLookup, type ManifestEntityType } from '@/lib/destiny/itemsCatalog'
 import { DESTINY_MANIFEST_URL, destinyApiConfigured } from '@/lib/destiny/env'
 
@@ -216,7 +217,20 @@ export async function resolveByName(
 }
 
 export async function resolveActivity(name: string): Promise<DestinyIconRef> {
+  const catalog = activityCatalogLookup(name) ?? catalogLookup(name)
+  if (catalog?.entity === 'DestinyActivityDefinition') {
+    return resolveManifestHash(catalog.entity, catalog.hash, name)
+  }
   return resolveByName(name, 'DestinyActivityDefinition')
+}
+
+/** Prefer activity hash when available (PGCR / run records), fall back to name lookup. */
+export async function resolveActivityRef(name: string, hash?: number): Promise<DestinyIconRef> {
+  if (hash && hash > 0) {
+    const info = await resolveActivityByHash(hash, name)
+    return iconRefFromInfo(info)
+  }
+  return resolveActivity(name)
 }
 
 export async function resolveSubclass(name: string): Promise<DestinyIconRef> {

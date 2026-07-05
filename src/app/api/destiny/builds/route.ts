@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { destinyStaffHandler } from '@/lib/destiny/apiHandler'
+import { destinyAuthHandler } from '@/lib/destiny/apiHandler'
+import { metaResearchSummary } from '@/lib/destiny/externalMetaResearch'
 import { enrichBuildsResponse } from '@/lib/destiny/enrich'
-import { getBuildIntelligenceCards, getExternalBuildSources } from '@/lib/destiny/store'
+import { getBuildIntelligenceCards, getExternalBuildSources, getMetaResearchMeta } from '@/lib/destiny/store'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
-  return destinyStaffHandler(req, async () => {
+  return destinyAuthHandler(req, async () => {
     const { searchParams } = new URL(req.url)
     const activity = searchParams.get('activity') ?? ''
 
@@ -15,22 +16,34 @@ export async function GET(req: NextRequest) {
       getExternalBuildSources(),
     ])
 
-    const filtered = activity
+    const filteredVerified = activity
       ? verifiedBuilds.filter((b) => b.activityName.toLowerCase().includes(activity.toLowerCase()))
       : verifiedBuilds
 
-    const aiSummary =
-      filtered.length > 0
-        ? `Showing ${filtered.length} build(s) from verified Top Nest run data.`
-        : 'No build intelligence yet. Sync verified runs from Overview — builds are derived from PGCR data as Phase 4 rolls out.'
+    const filteredExternal = activity
+      ? externalBuilds.filter(
+          (b) =>
+            b.activityFocus?.toLowerCase().includes(activity.toLowerCase()) ||
+            b.title.toLowerCase().includes(activity.toLowerCase())
+        )
+      : externalBuilds
 
-    return NextResponse.json(
-      await enrichBuildsResponse({
-        verifiedBuilds: filtered,
-        externalBuilds,
+    const aiSummary =
+      filteredVerified.length > 0
+        ? `Showing ${filteredVerified.length} verified build(s) from Top Nest PGCR data.`
+        : 'No verified PGCR builds yet — sync runs from Home after linking Bungie.'
+
+    const researchSummary = metaResearchSummary(filteredExternal)
+
+    return NextResponse.json({
+      ...(await enrichBuildsResponse({
+        verifiedBuilds: filteredVerified,
+        externalBuilds: filteredExternal,
         aiSummary,
+        metaResearchSummary: researchSummary,
         activity: activity || 'all',
-      })
-    )
+      })),
+      metaResearch: getMetaResearchMeta(),
+    })
   })
 }

@@ -1,5 +1,7 @@
-import type { RunRecord, PlayerProfile } from '@/lib/destiny/types'
+import type { LeaderboardEntry, PlayerProfile, ReputationReview, RunRecord } from '@/lib/destiny/types'
 import type { StoredDestinyUser } from '@/lib/destiny/destinyUserStore'
+import { prizeEligibilityForUser } from '@/lib/destiny/seasonPrizes'
+import { computeReputationScore, reputationBadges } from '@/lib/destiny/reputation'
 
 export function emptyPlayerProfile(userId: string): PlayerProfile {
   return {
@@ -17,14 +19,18 @@ export function emptyPlayerProfile(userId: string): PlayerProfile {
     favoriteTeammates: [],
     recentRuns: [],
     topCompletions: [],
-    prizeEligibility: 'Connect Bungie on Overview to sync your Guardian and verified runs.',
+    prizeEligibility: 'Connect Bungie on Home to sync your Guardian and verified runs.',
   }
 }
 
 export function buildPlayerProfileFromStored(
   stored: StoredDestinyUser,
   runs: RunRecord[],
-  loadout?: PlayerProfile['currentLoadout']
+  options?: {
+    loadout?: PlayerProfile['currentLoadout']
+    reviews?: ReputationReview[]
+    seasonLeaderboardEntries?: LeaderboardEntry[]
+  }
 ): PlayerProfile {
   const userRuns = runs.filter((r) => r.ownerUserId === stored.userId)
   const verified = userRuns.filter((r) => r.verificationStatus === 'verified')
@@ -59,10 +65,14 @@ export function buildPlayerProfileFromStored(
     .slice(0, 5)
     .map(([name]) => name)
 
-  const badges: string[] = []
-  if (verified.length >= 1) badges.push('Verified raider')
-  if (verified.length >= 10) badges.push('10+ verified clears')
-  if (fullClanPoints > 0) badges.push('Clan team scorer')
+  const reviews = options?.reviews ?? []
+  const reputationScore = computeReputationScore(reviews) || Math.min(5, 3 + verified.length * 0.05)
+  const badges = reputationBadges(reviews, verified.length)
+  if (fullClanPoints > 0 && !badges.includes('Clan team scorer')) {
+    badges.push('Clan team scorer')
+  }
+
+  const seasonEntries = options?.seasonLeaderboardEntries ?? []
 
   return {
     userId: stored.userId,
@@ -81,16 +91,13 @@ export function buildPlayerProfileFromStored(
     dungeonPoints,
     fullClanPoints,
     verifiedClears: verified.length,
-    reputationScore: Math.min(5, 3 + verified.length * 0.05),
+    reputationScore,
     badges,
     favoriteActivities: Array.from(new Set(verified.map((r) => r.activityName))).slice(0, 5),
     favoriteTeammates,
     recentRuns: userRuns.slice(0, 10),
     topCompletions,
-    prizeEligibility:
-      verified.length > 0
-        ? 'Eligible for verified run scoring this season.'
-        : 'Sync verified runs from Overview to start scoring.',
-    currentLoadout: loadout,
+    prizeEligibility: prizeEligibilityForUser(seasonEntries, verified.length),
+    currentLoadout: options?.loadout,
   }
 }

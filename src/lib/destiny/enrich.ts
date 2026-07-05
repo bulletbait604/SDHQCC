@@ -6,6 +6,7 @@ import type {
   BuildIntelligenceCard,
   BuildSnapshot,
   ClanProfile,
+  ExternalBuildSource,
   FireteamLobby,
   LeaderboardEntry,
   OverviewPayload,
@@ -15,11 +16,13 @@ import type {
 } from '@/lib/destiny/types'
 import {
   resolveActivity,
+  resolveActivityRef,
   resolveByName,
   resolveClassIcon,
   resolveSubclass,
   type DestinyIconRef,
 } from '@/lib/destiny/manifest'
+import { activityCatalogLookup } from '@/lib/destiny/activityCatalog'
 import { getWeeklyResetState } from '@/lib/destiny/weeklyRotation'
 
 async function enrichBuildSnapshot(build: BuildSnapshot): Promise<BuildSnapshot> {
@@ -65,7 +68,7 @@ async function enrichBuildCard(card: BuildIntelligenceCard): Promise<BuildIntell
     Promise.all(card.weapons.map((w) => resolveByName(w))),
   ])
 
-  const activityRef = await resolveActivity(card.activityName)
+  const activityRef = await resolveActivityRef(card.activityName, card.activityId)
 
   return {
     ...card,
@@ -79,7 +82,10 @@ async function enrichBuildCard(card: BuildIntelligenceCard): Promise<BuildIntell
 }
 
 async function enrichLeaderboardEntry(entry: LeaderboardEntry): Promise<LeaderboardEntry> {
-  return { ...entry, emblemUrl: entry.emblemUrl }
+  const fastestActivityRef = entry.fastestActivityName
+    ? await resolveActivity(entry.fastestActivityName)
+    : undefined
+  return { ...entry, emblemUrl: entry.emblemUrl, fastestActivityRef }
 }
 
 async function enrichLobby(lobby: FireteamLobby): Promise<FireteamLobby> {
@@ -105,12 +111,12 @@ export async function buildWeeklyResetInfo(): Promise<WeeklyResetInfo> {
     resetTimeLabel: state.resetTimeLabel,
     featuredRaids: state.featuredRaids.map((r, i) => ({
       ...r,
-      hash: raidIcons[i]?.hash,
+      hash: raidIcons[i]?.hash ?? activityCatalogLookup(r.name)?.hash,
       iconUrl: raidIcons[i]?.iconUrl,
     })),
     featuredDungeons: state.featuredDungeons.map((d, i) => ({
       ...d,
-      hash: dungeonIcons[i]?.hash,
+      hash: dungeonIcons[i]?.hash ?? activityCatalogLookup(d.name)?.hash,
       iconUrl: dungeonIcons[i]?.iconUrl,
     })),
   }
@@ -128,7 +134,7 @@ export async function enrichOverview(payload: OverviewPayload): Promise<Overview
       Promise.all(payload.clanTop5.map(enrichLeaderboardEntry)),
       Promise.all(
         payload.recentRuns.map(async (run) => {
-          const activityRef = await resolveActivity(run.activityName)
+          const activityRef = await resolveActivityRef(run.activityName, run.activityId)
           return { ...run, activityRef }
         })
       ),
@@ -175,11 +181,18 @@ export async function enrichProfile(profile: PlayerProfile): Promise<PlayerProfi
   const classRef = profile.characterClass
     ? await resolveClassIcon(profile.characterClass)
     : undefined
+  const recentRuns = await Promise.all(
+    profile.recentRuns.map(async (run) => ({
+      ...run,
+      activityRef: await resolveActivityRef(run.activityName, run.activityId),
+    }))
+  )
 
   return {
     ...profile,
     classRef,
     currentLoadout,
+    recentRuns,
   }
 }
 
@@ -205,14 +218,40 @@ export async function enrichLoadoutsResponse(data: {
   return { ...data, current, saved, favorites }
 }
 
+async function enrichExternalBuild(build: ExternalBuildSource): Promise<ExternalBuildSource> {
+  const [classRef, subclassRef, exoticArmorRef, exoticWeaponRef, weaponRefs, activityRef] =
+    await Promise.all([
+      resolveClassIcon(build.class),
+      resolveSubclass(build.subclass),
+      build.exoticArmor ? resolveByName(build.exoticArmor) : Promise.resolve(undefined),
+      build.exoticWeapon ? resolveByName(build.exoticWeapon) : Promise.resolve(undefined),
+      Promise.all((build.weapons ?? []).map((w) => resolveByName(w))),
+      build.activityFocus ? resolveActivity(build.activityFocus) : Promise.resolve(undefined),
+    ])
+
+  return {
+    ...build,
+    classRef,
+    subclassRef,
+    exoticArmorRef,
+    exoticWeaponRef,
+    weaponRefs,
+    activityRef,
+  }
+}
+
 export async function enrichBuildsResponse(data: {
   verifiedBuilds: BuildIntelligenceCard[]
-  externalBuilds: unknown[]
+  externalBuilds: ExternalBuildSource[]
   aiSummary: string
+  metaResearchSummary?: string
   activity: string
 }) {
-  const verifiedBuilds = await Promise.all(data.verifiedBuilds.map(enrichBuildCard))
-  return { ...data, verifiedBuilds }
+  const [verifiedBuilds, externalBuilds] = await Promise.all([
+    Promise.all(data.verifiedBuilds.map(enrichBuildCard)),
+    Promise.all(data.externalBuilds.map(enrichExternalBuild)),
+  ])
+  return { ...data, verifiedBuilds, externalBuilds }
 }
 
 export async function enrichLobbies(lobbies: FireteamLobby[]): Promise<FireteamLobby[]> {

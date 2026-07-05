@@ -1,22 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { destinyStaffHandler } from '@/lib/destiny/apiHandler'
+import { destinyAuthHandler } from '@/lib/destiny/apiHandler'
 import { getSeasonCountdown } from '@/lib/destiny/seasonConfig'
-import { getSeasonData } from '@/lib/destiny/store'
+import { computeSeasonStandings } from '@/lib/destiny/seasonPrizes'
 import { buildWeeklyResetInfo } from '@/lib/destiny/enrich'
+import { getSeasonData, getSeasonStandingsInput } from '@/lib/destiny/store'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
-  return destinyStaffHandler(req, async () => {
+  return destinyAuthHandler(req, async () => {
     const season = await getSeasonData()
     const weeklyReset = await buildWeeklyResetInfo()
+    const { runs, usersById } = await getSeasonStandingsInput()
+    const { hallOfFame, eligibility } = computeSeasonStandings(runs, usersById, season)
+
     return NextResponse.json({
       season,
       countdown: getSeasonCountdown(season),
       weeklyReset,
-      eligibility:
-        'Top 5 in Raid, Dungeon, or Full Clan Team categories at season end win prizes. Verified full clears only.',
-      hallOfFame: season.winners ?? [],
+      eligibility,
+      hallOfFame,
     })
   })
 }

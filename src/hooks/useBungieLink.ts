@@ -86,6 +86,7 @@ export function useBungieLink(options?: { returnPath?: string }) {
       const json = (await res.json().catch(() => ({}))) as {
         synced?: number
         flagged?: number
+        builds?: number
         error?: string
         message?: string
       }
@@ -94,7 +95,7 @@ export function useBungieLink(options?: { returnPath?: string }) {
         setLinkMessage(text)
         return { error: text }
       }
-      const text = `Synced ${json.synced ?? 0} run(s)${json.flagged ? ` · ${json.flagged} flagged for review` : ''}.`
+      const text = `Synced ${json.synced ?? 0} run(s)${json.builds ? ` · ${json.builds} build(s)` : ''}${json.flagged ? ` · ${json.flagged} flagged for review` : ''}.`
       setLinkMessage(text)
       return { synced: json.synced, flagged: json.flagged }
     } finally {

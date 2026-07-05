@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Hammer, ExternalLink } from 'lucide-react'
+import { Hammer } from 'lucide-react'
 import type { BuildIntelligenceCard, BuildSnapshot, ExternalBuildSource } from '@/lib/destiny/types'
 import {
   EmptyBlock,
@@ -12,6 +12,7 @@ import {
 } from '@/app/components/destiny/DestinyUi'
 import LoadoutCard from '@/app/components/destiny/LoadoutCard'
 import CommunityBuildCard from '@/app/components/destiny/CommunityBuildCard'
+import ExternalMetaBuildCard from '@/app/components/destiny/ExternalMetaBuildCard'
 import TopLoadoutsByClass from '@/app/components/destiny/TopLoadoutsByClass'
 import { rankTopLoadoutsByClass } from '@/lib/destiny/loadoutRankings'
 import { destinySecondaryBtn, getDestinyTheme } from '@/app/components/destiny/destinyTheme'
@@ -37,6 +38,7 @@ export default function ProfileLoadoutsSection({ darkMode, initialSection = 'min
   const [loadouts, setLoadouts] = useState<LoadoutsResponse | null>(null)
   const [verifiedBuilds, setVerifiedBuilds] = useState<BuildIntelligenceCard[]>([])
   const [externalBuilds, setExternalBuilds] = useState<ExternalBuildSource[]>([])
+  const [metaResearchSummary, setMetaResearchSummary] = useState('')
   const [loading, setLoading] = useState(true)
   const t = getDestinyTheme(darkMode)
 
@@ -52,6 +54,7 @@ export default function ProfileLoadoutsSection({ darkMode, initialSection = 'min
         const json = await buildsRes.json()
         setVerifiedBuilds(json.verifiedBuilds ?? [])
         setExternalBuilds(json.externalBuilds ?? [])
+        setMetaResearchSummary(json.metaResearchSummary ?? '')
       }
     } finally {
       setLoading(false)
@@ -149,6 +152,30 @@ export default function ProfileLoadoutsSection({ darkMode, initialSection = 'min
         </>
       ) : section === 'community' ? (
         <>
+          <GlassCard darkMode={darkMode}>
+            <SectionTitle
+              title="Meta builds (last 4 weeks)"
+              subtitle="Researched from Blueberries.gg, light.gg, togame.io, builders.gg"
+              darkMode={darkMode}
+            />
+            {metaResearchSummary && (
+              <p className={cn('text-sm mb-4 leading-relaxed', t.muted)}>{metaResearchSummary}</p>
+            )}
+            {externalBuilds.length ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {externalBuilds.map((b) => (
+                  <ExternalMetaBuildCard key={b.id} build={b} darkMode={darkMode} />
+                ))}
+              </div>
+            ) : (
+              <EmptyBlock
+                darkMode={darkMode}
+                message="No meta builds in the research window"
+                hint="External meta is refreshed on a rolling 4-week schedule."
+              />
+            )}
+          </GlassCard>
+
           <TopLoadoutsByClass
             darkMode={darkMode}
             topByClass={topByClass}
@@ -158,8 +185,8 @@ export default function ProfileLoadoutsSection({ darkMode, initialSection = 'min
 
           <GlassCard darkMode={darkMode}>
             <SectionTitle
-              title="All verified builds"
-              subtitle="From synced PGCR data across Top Nest"
+              title="Verified PGCR builds"
+              subtitle="From synced Top Nest run data — separate from external meta research"
               darkMode={darkMode}
             />
             {verifiedBuilds.length ? (
@@ -176,35 +203,6 @@ export default function ProfileLoadoutsSection({ darkMode, initialSection = 'min
               />
             )}
           </GlassCard>
-
-          {externalBuilds.length > 0 && (
-            <GlassCard darkMode={darkMode}>
-              <SectionTitle title="Curated external builds" darkMode={darkMode} />
-              <div className="space-y-2">
-                {externalBuilds.map((ext) => (
-                  <div
-                    key={ext.id}
-                    className="flex flex-wrap items-center justify-between gap-2 py-3 border-b border-white/5 last:border-0"
-                  >
-                    <div>
-                      <p className={cn('text-sm font-medium', t.heading)}>{ext.title}</p>
-                      <p className={cn('text-xs mt-0.5', t.muted)}>
-                        {ext.source} · {ext.class} {ext.subclass}
-                      </p>
-                    </div>
-                    <a
-                      href={ext.sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300"
-                    >
-                      Source <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                ))}
-              </div>
-            </GlassCard>
-          )}
         </>
       ) : (
         <GlassCard darkMode={darkMode} padding="lg">

@@ -60,7 +60,9 @@ Alias also supported: `BUNGIE_API_KEY`
 
 ## Bungie account linking (OAuth)
 
-Users must be logged into SDHQCC (Kick) first, then connect Bungie from **DestinyTopNest → Overview**.
+Users must be logged into SDHQCC (Kick) first, then connect Bungie from **Top Nest → Home**.
+
+All logged-in users can access Top Nest data APIs. Admin review remains staff-only.
 
 | Variable | Description |
 |----------|-------------|
@@ -131,9 +133,9 @@ Schedule is maintained in `src/lib/destiny/weeklyRotation.ts` (Monument of Trium
 
 1. **Phase 1:** UI dashboard with mock data, Bungie client utilities, Mongo schemas
 2. **Phase 2:** Bungie OAuth linking, live profile summary, token refresh
-3. **Phase 3 (current):** Run sync from Bungie PGCRs, heuristic legitimacy checker, admin review queue in Mongo
-4. **Phase 4:** Build intelligence from verified runs
-5. **Phase 5:** Prizes, reputation, optional Kick/Twitch/Discord
+3. **Phase 3:** Run sync from Bungie PGCRs, heuristic legitimacy checker, admin review queue — **complete**
+4. **Phase 4:** Build intelligence from verified runs (PGCR weapon extraction + aggregation) — **live**
+5. **Phase 5:** Season prizes, fireteam reputation reviews, hall-of-fame standings — **started**
 
 ### Phase 3 — sync runs
 
@@ -142,6 +144,22 @@ After linking Bungie on **Overview**, click **Sync verified runs** or call:
 `POST /api/destiny/runs/sync` (requires login + linked Bungie account)
 
 Flagged runs appear in **Admin Review** for manual approve/reject.
+
+### Phase 4 — build intelligence
+
+- PGCR weapon extraction on sync → `destiny_build_snapshots`
+- Aggregated community cards on Home and Profile → Loadouts → Top builds
+
+### External meta research (4-week window)
+
+Curated meta builds are researched from:
+
+- [Blueberries.gg](https://www.blueberries.gg/armor/best-destiny-2-builds/)
+- [light.gg loadouts](https://www.light.gg/loadouts/db/)
+- [togame.io PvE meta](https://togame.io/a/destiny2-pve-loadout-meta/)
+- [builders.gg](https://builders.gg/destiny/dim-builds/)
+
+Catalog lives in `src/lib/destiny/externalMetaResearch.ts` and syncs to Mongo on `/api/destiny/builds`. Profile → Loadouts → **Top builds** shows **Meta builds (last 4 weeks)** above verified PGCR data.
 
 ## Scoring rules
 

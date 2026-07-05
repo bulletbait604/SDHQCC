@@ -6,20 +6,25 @@
 import clientPromise from '@/lib/mongodb'
 import { DESTINY_COLLECTIONS } from '@/lib/destiny/collections'
 import { buildOverviewPayload } from '@/lib/destiny/overviewBuilder'
+import { aggregateClanLeaderboard, aggregateLeaderboard } from '@/lib/destiny/leaderboards'
 import {
-  aggregateClanLeaderboard,
-  aggregateLeaderboard,
-} from '@/lib/destiny/leaderboards'
+  getResearchedMetaBuilds,
+  META_BUILD_RESEARCH_DATE,
+  META_RESEARCH_SOURCES,
+} from '@/lib/destiny/externalMetaResearch'
+import { aggregateBuildIntelligence, verifiedRunIdSet } from '@/lib/destiny/buildIntelligence'
 import { rankTopLoadoutsByClass } from '@/lib/destiny/loadoutRankings'
 import { ACTIVE_SEASON } from '@/lib/destiny/seasonConfig'
 import type { StoredDestinyUser } from '@/lib/destiny/destinyUserStore'
 import type {
   AdminReviewRecord,
   BuildIntelligenceCard,
+  BuildSnapshot,
   ExternalBuildSource,
   FireteamLobby,
   LeaderboardEntry,
   OverviewPayload,
+  ReputationReview,
   RunRecord,
   Season,
 } from '@/lib/destiny/types'
@@ -36,6 +41,8 @@ export async function ensureDestinyIndexes(): Promise<void> {
   await database.collection(DESTINY_COLLECTIONS.runRecords).createIndex({ ownerUserId: 1, completedAt: -1 })
   await database.collection(DESTINY_COLLECTIONS.leaderboardEntries).createIndex({ category: 1, seasonId: 1, period: 1, rank: 1 })
   await database.collection(DESTINY_COLLECTIONS.fireteamLobbies).createIndex({ status: 1, createdAt: -1 })
+  await database.collection(DESTINY_COLLECTIONS.buildSnapshots).createIndex({ runId: 1, userId: 1 }, { unique: true })
+  await database.collection(DESTINY_COLLECTIONS.reputationReviews).createIndex({ reviewedUserId: 1, createdAt: -1 })
   await database.collection(DESTINY_COLLECTIONS.users).createIndex({ bungieMembershipId: 1 }, { unique: true, sparse: true })
 }
 
@@ -53,6 +60,28 @@ async function loadUsersMap(): Promise<Map<string, StoredDestinyUser>> {
   const database = await db()
   const rows = (await database.collection(DESTINY_COLLECTIONS.users).find({}).toArray()) as unknown as StoredDestinyUser[]
   return new Map(rows.map((u) => [u.userId, u]))
+}
+
+export async function getSeasonStandingsInput(): Promise<{
+  runs: RunRecord[]
+  usersById: Map<string, StoredDestinyUser>
+}> {
+  await ensureDestinyIndexes()
+  const [runs, usersById] = await Promise.all([loadAllRuns(), loadUsersMap()])
+  return { runs, usersById }
+}
+
+export async function getSeasonStandingForUser(userId: string): Promise<LeaderboardEntry[]> {
+  try {
+    const [runs, usersById] = await Promise.all([loadAllRuns(), loadUsersMap()])
+    return [
+      ...aggregateLeaderboard(runs, usersById, 'raid', 'season'),
+      ...aggregateLeaderboard(runs, usersById, 'dungeon', 'season'),
+      ...aggregateLeaderboard(runs, usersById, 'full_clan_team', 'season'),
+    ].filter((entry) => entry.userId === userId)
+  } catch {
+    return []
+  }
 }
 
 export async function getRunsForUser(userId: string, limit = 25): Promise<RunRecord[]> {
@@ -168,31 +197,97 @@ export async function getAdminReviewQueue(): Promise<AdminReviewRecord[]> {
 
 export async function getBuildIntelligenceCards(): Promise<BuildIntelligenceCard[]> {
   try {
+    await ensureDestinyIndexes()
     const database = await db()
-    const rows = await database
-      .collection(DESTINY_COLLECTIONS.buildSnapshots)
-      .find({})
-      .sort({ updatedAt: -1 })
-      .limit(20)
-      .toArray()
-    return rows as unknown as BuildIntelligenceCard[]
+    const [rows, runs] = await Promise.all([
+      database
+        .collection(DESTINY_COLLECTIONS.buildSnapshots)
+        .find({})
+        .sort({ completedAt: -1 })
+        .limit(500)
+        .toArray(),
+      loadAllRuns(),
+    ])
+    const snapshots = rows as unknown as BuildSnapshot[]
+    return aggregateBuildIntelligence(snapshots, verifiedRunIdSet(runs))
   } catch {
     return []
   }
 }
 
-export async function getExternalBuildSources(): Promise<ExternalBuildSource[]> {
+export async function saveBuildSnapshot(snapshot: BuildSnapshot): Promise<void> {
+  const database = await db()
+  await database.collection(DESTINY_COLLECTIONS.buildSnapshots).updateOne(
+    { runId: snapshot.runId, userId: snapshot.userId },
+    { $set: { ...snapshot, updatedAt: new Date().toISOString() } },
+    { upsert: true }
+  )
+}
+
+export async function getReputationReviewsForUser(userId: string): Promise<ReputationReview[]> {
   try {
     const database = await db()
+    const rows = await database
+      .collection(DESTINY_COLLECTIONS.reputationReviews)
+      .find({ reviewedUserId: userId })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .toArray()
+    return rows as unknown as ReputationReview[]
+  } catch {
+    return []
+  }
+}
+
+export async function saveReputationReview(review: ReputationReview): Promise<void> {
+  const database = await db()
+  await database.collection(DESTINY_COLLECTIONS.reputationReviews).updateOne(
+    { id: review.id },
+    { $set: { ...review, updatedAt: new Date().toISOString() } },
+    { upsert: true }
+  )
+}
+
+export async function getExternalBuildSources(): Promise<ExternalBuildSource[]> {
+  const researched = getResearchedMetaBuilds()
+  try {
+    await ensureDestinyIndexes()
+    const database = await db()
+
+    for (const build of researched) {
+      await database.collection(DESTINY_COLLECTIONS.externalBuildSources).updateOne(
+        { id: build.id },
+        { $set: { ...build, updatedAt: new Date().toISOString() } },
+        { upsert: true }
+      )
+    }
+
     const rows = await database
       .collection(DESTINY_COLLECTIONS.externalBuildSources)
       .find({ approved: true })
       .sort({ lastChecked: -1 })
-      .limit(20)
+      .limit(40)
       .toArray()
-    return rows as unknown as ExternalBuildSource[]
+
+    const byId = new Map<string, ExternalBuildSource>()
+    for (const build of researched) byId.set(build.id, build)
+    for (const row of rows as unknown as ExternalBuildSource[]) {
+      if (!byId.has(row.id)) byId.set(row.id, row)
+    }
+
+    return Array.from(byId.values()).sort(
+      (a, b) => Date.parse(b.lastChecked) - Date.parse(a.lastChecked)
+    )
   } catch {
-    return []
+    return researched
+  }
+}
+
+export function getMetaResearchMeta() {
+  return {
+    researchedAt: META_BUILD_RESEARCH_DATE,
+    sources: META_RESEARCH_SOURCES,
+    windowWeeks: 4,
   }
 }
 
@@ -270,6 +365,11 @@ export async function resolveAdminReview(
           updatedAt: now,
         },
       }
+    )
+
+    await database.collection(DESTINY_COLLECTIONS.buildSnapshots).updateMany(
+      { runId: review.runId },
+      { $set: { verificationStatus, updatedAt: now } }
     )
   }
 

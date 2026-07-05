@@ -4,8 +4,13 @@ import {
   verificationStatusFromReview,
 } from '@/lib/destiny/legitimacyChecker'
 import { resolveActivityByHash } from '@/lib/destiny/manifest'
+import {
+  extractBuildFromPgcr,
+  parsePgcrDurationSeconds,
+  type PgcrPayload,
+} from '@/lib/destiny/pgcrBuildExtractor'
 import { calculateRunPoints } from '@/lib/destiny/scoring'
-import { ensureDestinyIndexes, queueAdminReview, saveRunRecord } from '@/lib/destiny/store'
+import { ensureDestinyIndexes, queueAdminReview, saveBuildSnapshot, saveRunRecord } from '@/lib/destiny/store'
 import type { StoredDestinyUser } from '@/lib/destiny/destinyUserStore'
 import { getValidAccessToken } from '@/lib/destiny/destinyUserStore'
 import type {
@@ -48,7 +53,7 @@ interface PgcrEntry {
   }
 }
 
-interface PgcrResponse {
+interface PgcrResponse extends PgcrPayload {
   activityDetails?: {
     instanceId?: string
     mode?: number
@@ -59,13 +64,6 @@ interface PgcrResponse {
   period?: string
   activityWasStartedFromBeginning?: boolean
   entries?: PgcrEntry[]
-}
-
-function parseDurationSeconds(period?: string): number {
-  if (!period) return 0
-  const start = Date.parse(period)
-  if (Number.isNaN(start)) return 0
-  return Math.max(0, Math.floor((Date.now() - start) / 1000))
 }
 
 function parseTeamMembers(entries: PgcrEntry[] = []): RunTeamMember[] {
@@ -137,14 +135,14 @@ async function pgcrToRunRecord(
   userId: string,
   displayName: string,
   userClanId?: string
-): Promise<RunRecord | null> {
+): Promise<{ record: RunRecord; pgcr: PgcrResponse } | null> {
   const pgcr = (await getPostGameCarnageReport(instanceId)) as PgcrResponse
   const details = pgcr.activityDetails
   if (!details) return null
 
   const completed = (details.completionReason ?? 1) === 0
   const checkpointLikely = pgcr.activityWasStartedFromBeginning === false
-  const durationSeconds = parseDurationSeconds(pgcr.period)
+  const durationSeconds = parsePgcrDurationSeconds(pgcr)
   const teamMembers = parseTeamMembers(pgcr.entries)
   const kills = teamMembers.map((m) => m.kills)
   const deaths = teamMembers.map((m) => m.deaths)
@@ -188,7 +186,7 @@ async function pgcrToRunRecord(
     }
   }
 
-  return {
+  const record: RunRecord = {
     id: `run-${instanceId}`,
     pgcrId: instanceId,
     activityId: activityHash,
@@ -210,12 +208,15 @@ async function pgcrToRunRecord(
     ownerUserId: userId,
     ownerDisplayName: displayName,
   }
+
+  return { record, pgcr }
 }
 
 export async function syncRunsForUser(stored: StoredDestinyUser): Promise<{
   synced: number
   flagged: number
   skipped: number
+  builds: number
 }> {
   await ensureDestinyIndexes()
 
@@ -243,6 +244,7 @@ export async function syncRunsForUser(stored: StoredDestinyUser): Promise<{
   let synced = 0
   let flagged = 0
   let skipped = 0
+  let builds = 0
 
   for (const characterId of characterIds) {
     for (const [mode, activityType] of [
@@ -263,19 +265,26 @@ export async function syncRunsForUser(stored: StoredDestinyUser): Promise<{
         seen.add(instanceId)
 
         try {
-          const record = await pgcrToRunRecord(
+          const result = await pgcrToRunRecord(
             instanceId,
             activityType,
             stored.userId,
             stored.bungieDisplayName,
             stored.clanId
           )
-          if (!record) {
+          if (!result) {
             skipped++
             continue
           }
 
+          const { record, pgcr } = result
           await saveRunRecord(record)
+
+          const build = await extractBuildFromPgcr(pgcr, record, membershipId)
+          if (build) {
+            await saveBuildSnapshot(build)
+            builds++
+          }
 
           if (record.verificationStatus === 'flagged') {
             flagged++
@@ -298,5 +307,5 @@ export async function syncRunsForUser(stored: StoredDestinyUser): Promise<{
     }
   }
 
-  return { synced, flagged, skipped }
+  return { synced, flagged, skipped, builds }
 }

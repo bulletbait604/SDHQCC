@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth } from '@/lib/auth/verifyAuth'
-import { destinyStaffHandler } from '@/lib/destiny/apiHandler'
+import { destinyAuthHandler } from '@/lib/destiny/apiHandler'
 import { getDestinyUserBySiteUserId } from '@/lib/destiny/destinyUserStore'
 import { enrichLoadoutsResponse } from '@/lib/destiny/enrich'
 import { fetchLiveLoadout } from '@/lib/destiny/liveBungieData'
@@ -8,7 +8,7 @@ import { fetchLiveLoadout } from '@/lib/destiny/liveBungieData'
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
-  return destinyStaffHandler(req, async () => {
+  return destinyAuthHandler(req, async () => {
     const authUser = await verifyAuth(req)
     const stored = await getDestinyUserBySiteUserId(authUser.username.toLowerCase())
 
