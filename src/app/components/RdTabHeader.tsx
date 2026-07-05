@@ -1,31 +1,34 @@
 'use client'
 
-import { Bot, Film } from 'lucide-react'
+import { Bot, Film, Sparkles } from 'lucide-react'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
-export type RdSubTab = 'clip-editor' | 'tradebot'
+export type RdSubTab = 'clip-editor' | 'tradebot' | 'destiny-top-nest'
 
 const SUB_TAB_META: Record<RdSubTab, { icon: typeof Film; shortLabel: string }> = {
   'clip-editor': { icon: Film, shortLabel: 'Clip Editor' },
   tradebot: { icon: Bot, shortLabel: 'Tradebot' },
+  'destiny-top-nest': { icon: Sparkles, shortLabel: 'DTN' },
 }
 
 export function rdTabTitle(
   subTab: RdSubTab,
-  labels: { clipEditor: string; tradebot: string }
+  labels: { clipEditor: string; tradebot: string; destinyTopNest: string }
 ): string {
   switch (subTab) {
     case 'clip-editor':
       return labels.clipEditor
     case 'tradebot':
       return labels.tradebot
+    case 'destiny-top-nest':
+      return labels.destinyTopNest
   }
 }
 
 interface Props {
   activeSubTab: RdSubTab
-  labels: { clipEditor: string; tradebot: string }
+  labels: { clipEditor: string; tradebot: string; destinyTopNest: string }
   pickToolLabel: string
   darkMode: boolean
   tabListClasses: string
@@ -42,6 +45,17 @@ export default function RdTabHeader({
 }: Props) {
   const title = rdTabTitle(activeSubTab, labels)
 
+  const labelFor = (id: RdSubTab) => {
+    switch (id) {
+      case 'clip-editor':
+        return labels.clipEditor
+      case 'tradebot':
+        return labels.tradebot
+      case 'destiny-top-nest':
+        return labels.destinyTopNest
+    }
+  }
+
   return (
     <>
       <div className="flex flex-col items-center mb-4 text-center">
@@ -51,12 +65,11 @@ export default function RdTabHeader({
         </p>
       </div>
       <TabsList
-        className={cn('grid w-full max-w-xl mx-auto grid-cols-2 mb-6 rounded-xl p-1', tabListClasses)}
+        className={cn('grid w-full max-w-2xl mx-auto grid-cols-3 mb-6 rounded-xl p-1', tabListClasses)}
       >
         {(Object.keys(SUB_TAB_META) as RdSubTab[]).map((id) => {
           const meta = SUB_TAB_META[id]
           const Icon = meta.icon
-          const label = id === 'clip-editor' ? labels.clipEditor : labels.tradebot
           return (
             <TabsTrigger
               key={id}
@@ -67,7 +80,7 @@ export default function RdTabHeader({
               )}
             >
               <Icon className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline truncate">{label}</span>
+              <span className="hidden sm:inline truncate">{labelFor(id)}</span>
               <span className="sm:hidden">{meta.shortLabel}</span>
             </TabsTrigger>
           )
