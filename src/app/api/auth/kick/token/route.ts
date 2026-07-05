@@ -14,17 +14,42 @@ import {
 } from '@/lib/internalApi'
 import { BANNED_USER_MESSAGE, isUserBanned } from '@/lib/bannedUsers'
 
+import { consumeKickOAuthState } from '@/lib/kick/kickOAuthStateStore'
+
 export async function POST(request: NextRequest) {
   try {
-    const { code, codeVerifier } = await request.json()
+    const { code, state, codeVerifier: legacyVerifier } = await request.json()
 
-    if (!code || !codeVerifier) {
-      return NextResponse.json({ error: 'Authorization code and code verifier are required' }, { status: 400 })
+    if (!code) {
+      return NextResponse.json({ error: 'Authorization code is required' }, { status: 400 })
+    }
+
+    let codeVerifier = typeof legacyVerifier === 'string' ? legacyVerifier : undefined
+    let returnPath = '/'
+    let redirectUri = process.env.NEXT_PUBLIC_KICK_REDIRECT_URI
+
+    if (state) {
+      const stateRecord = await consumeKickOAuthState(state)
+      if (!stateRecord) {
+        return NextResponse.json(
+          { error: 'OAuth session expired or invalid. Please log in again.' },
+          { status: 400 }
+        )
+      }
+      codeVerifier = stateRecord.codeVerifier
+      returnPath = stateRecord.returnPath
+      redirectUri = stateRecord.redirectUri
+    }
+
+    if (!codeVerifier) {
+      return NextResponse.json(
+        { error: 'Missing code verifier. Please try logging in again.' },
+        { status: 400 }
+      )
     }
 
     const clientId = process.env.NEXT_PUBLIC_KICK_CLIENT_ID
     const clientSecret = process.env.KICK_CLIENT_SECRET
-    const redirectUri = process.env.NEXT_PUBLIC_KICK_REDIRECT_URI
 
     if (!clientId || !clientSecret || !redirectUri) {
       return NextResponse.json({ error: 'Missing KICK OAuth configuration' }, { status: 500 })
@@ -187,6 +212,7 @@ export async function POST(request: NextRequest) {
       accessToken,
       refreshToken: tokenData.refresh_token,
       user,
+      returnPath,
     })
 
     res.cookies.set('session', jwt, {

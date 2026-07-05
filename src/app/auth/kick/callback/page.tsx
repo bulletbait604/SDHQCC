@@ -1,10 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 
 export default function KickCallbackPage() {
-  const router = useRouter()
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [errorMessage, setErrorMessage] = useState<string>('')
 
@@ -12,6 +10,7 @@ export default function KickCallbackPage() {
     const handleCallback = async () => {
       const urlParams = new URLSearchParams(window.location.search)
       const code = urlParams.get('code')
+      const state = urlParams.get('state')
       const error = urlParams.get('error')
 
       if (error) {
@@ -20,25 +19,9 @@ export default function KickCallbackPage() {
         return
       }
 
-      if (!code) {
+      if (!code || !state) {
         setStatus('error')
         setErrorMessage('No authorization code received from KICK')
-        return
-      }
-
-      // Get the code verifier from cookie
-      const getCookie = (name: string) => {
-        const value = `; ${document.cookie}`
-        const parts = value.split(`; ${name}=`)
-        if (parts.length === 2) return parts.pop()?.split(';').shift()
-        return null
-      }
-      
-      const codeVerifier = getCookie('kickCodeVerifier')
-
-      if (!codeVerifier) {
-        setStatus('error')
-        setErrorMessage('Missing code verifier. Please try logging in again.')
         return
       }
 
@@ -47,7 +30,7 @@ export default function KickCallbackPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ code, codeVerifier }),
+          body: JSON.stringify({ code, state }),
         })
 
         if (!response.ok) {
@@ -56,39 +39,26 @@ export default function KickCallbackPage() {
         }
 
         const data = await response.json()
-        console.log('Kick login API response:', data)
-
-        if (!data.user) {
-          console.error('No user data in response')
-        }
-
-        // Session JWT is httpOnly — profile loads via GET /api/me on the home page.
-
-        // Clean up cookies - use SameSite=None to match how they were set
-        const isSecure = window.location.protocol === 'https:'
-        const secureFlag = isSecure ? '; Secure' : ''
-        document.cookie = `kickCodeVerifier=; path=/; max-age=0; SameSite=None${secureFlag}`
-        document.cookie = `kickAuthReturn=; path=/; max-age=0; SameSite=None${secureFlag}`
-
         setStatus('success')
 
-        const returnCookie = getCookie('kickAuthReturn')
         const returnPath =
-          returnCookie && returnCookie.startsWith('/') && !returnCookie.startsWith('//')
-            ? decodeURIComponent(returnCookie)
+          typeof data.returnPath === 'string' &&
+          data.returnPath.startsWith('/') &&
+          !data.returnPath.startsWith('//')
+            ? data.returnPath
             : '/'
 
         setTimeout(() => {
           window.location.href = returnPath
         }, 400)
-      } catch (err: any) {
+      } catch (err: unknown) {
         setStatus('error')
-        setErrorMessage(err.message || 'Authentication failed')
+        setErrorMessage(err instanceof Error ? err.message : 'Authentication failed')
       }
     }
 
-    handleCallback()
-  }, [router])
+    void handleCallback()
+  }, [])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-sdhq-dark-900 px-4">

@@ -42,18 +42,24 @@ export async function generateCodeChallenge(codeVerifier: string): Promise<strin
   }
 }
 
-export async function createKickAuthURL() {
+export async function createKickAuthURL(redirectUri?: string) {
   const state = generateRandomString();
   const codeVerifier = await generateCodeVerifier();
   const codeChallenge = await generateCodeChallenge(codeVerifier);
   const scopes = ["user:read"];
   const clientId = process.env.NEXT_PUBLIC_KICK_CLIENT_ID;
-  const redirectUri = process.env.NEXT_PUBLIC_KICK_REDIRECT_URI || window.location.origin + '/auth/kick/callback';
+  const resolvedRedirect =
+    redirectUri ||
+    process.env.NEXT_PUBLIC_KICK_REDIRECT_URI ||
+    (typeof window !== 'undefined' ? `${window.location.origin}/auth/kick/callback` : '');
 
-  // Correct KICK OAuth endpoint: https://id.kick.com/oauth/authorize
-  const url = `https://id.kick.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scopes.join('+')}&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
+  if (!clientId || !resolvedRedirect) {
+    throw new Error('Kick OAuth is not configured')
+  }
 
-  return { url, state, codeVerifier };
+  const url = `https://id.kick.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(resolvedRedirect)}&response_type=code&scope=${scopes.join('+')}&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
+
+  return { url, state, codeVerifier, redirectUri: resolvedRedirect };
 }
 
 export async function validateKickAuthorizationCode(code: string, codeVerifier: string) {
