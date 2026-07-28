@@ -89,7 +89,7 @@ export const CLIP_EDITOR_REAP_STATE_LABELS: Partial<Record<ClipEditorJobState, s
   UPLOADED: 'Queued for Reap',
   TRANSCRIBING: 'Preparing Reap viral edit…',
   VIDEO_ANALYSIS: 'Uploading to Reap…',
-  RENDERING_CUT_PREVIEW: 'Reap AI editing (clips, captions, reframe)…',
+  RENDERING_CUT_PREVIEW: 'Reap AI editing (clips + captions)…',
   CUT_PHASE_DONE: 'Reap viral preview ready',
   PACING: 'Finalizing Reap export…',
   RENDERING: 'Saving viral clip…',

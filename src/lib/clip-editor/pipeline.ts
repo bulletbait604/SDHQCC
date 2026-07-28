@@ -79,7 +79,7 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
     return { done: false, rescheduled: false, state: job.state, phasePaused: true }
   }
 
-  // Reap Automation API backend — viral clips / captions / reframe
+  // Reap Automation API backend — Creator-safe clips + captions
   if (clipEditorRenderBackend() === 'reap') {
     try {
       return await advanceReapClipEditorStep(jobId)

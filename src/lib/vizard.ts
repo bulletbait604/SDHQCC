@@ -46,7 +46,7 @@ export type ClipEditorRenderBackendMode =
  * - `shotstack` (default): Gemini plan → Shotstack render.
  * - `vizard`: send source straight to Vizard (no Shotstack edit).
  * - `shotstack-then-vizard`: Shotstack, then Vizard refine pass.
- * - `reap`: Reap Video Automation API (viral clips, captions, reframe).
+ * - `reap`: Reap Video Automation API (Creator: clips + captions at 1080p).
  *   Auto-selected when `REAP_API` is set and `CLIP_EDITOR_RENDER_BACKEND` is unset.
  */
 export function clipEditorRenderBackend(): ClipEditorRenderBackendMode {

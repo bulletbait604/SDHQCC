@@ -68,8 +68,9 @@ export type ClipEditorJobDocument = {
   /** Reap Automation API project currently being polled. */
   reapProjectId?: string
   reapUploadId?: string
-  reapMode?: 'clipping' | 'captions' | 'reframe'
-  reapStage?: 'primary' | 'awaiting_captions'
+  reapMode?: 'clipping' | 'captions'
+  reapStage?: 'primary'
+  /** @deprecated Reframe removed — Creator plan does not include /create-reframe. */
   reapReframeProjectId?: string
   reapGenre?: 'talking' | 'screenshare' | 'gaming'
   reapCaptionsPreset?: string

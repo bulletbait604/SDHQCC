@@ -241,9 +241,11 @@ export async function uploadSourceUrlToReap(params: {
 
 export async function createReapClips(body: {
   uploadId: string
+  /** Always false on Creator — AI reframe / create-reframe is Studio-only. */
   reframeClips?: boolean
   exportOrientation?: ReapOrientation
-  exportResolution?: 720 | 1080 | 1440 | 2160
+  /** Creator plan max is 1080. */
+  exportResolution?: 720 | 1080
   captionsPreset?: string | null
   enableEmojis?: boolean
   enableHighlights?: boolean
@@ -257,7 +259,11 @@ export async function createReapClips(body: {
 }): Promise<ReapProject> {
   return reapJson<ReapProject>('/create-clips', {
     method: 'POST',
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      ...body,
+      reframeClips: false,
+      exportResolution: body.exportResolution === 720 ? 720 : 1080,
+    }),
   })
 }
 
@@ -268,24 +274,16 @@ export async function createReapCaptions(body: {
   language?: string | null
   enableEmojis?: boolean
   enableHighlights?: boolean
-  resolution?: 720 | 1080 | 1440 | 2160
+  /** Creator plan max is 1080. */
+  resolution?: 720 | 1080
   transcriptionScript?: 'native' | 'roman'
 }): Promise<ReapProject> {
   return reapJson<ReapProject>('/create-captions', {
     method: 'POST',
-    body: JSON.stringify(body),
-  })
-}
-
-export async function createReapReframe(body: {
-  uploadId: string
-  genre?: ReapGenre
-  orientation?: 'portrait' | 'square'
-  disableAutoSplit?: boolean
-}): Promise<ReapProject> {
-  return reapJson<ReapProject>('/create-reframe', {
-    method: 'POST',
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      ...body,
+      resolution: body.resolution === 720 ? 720 : 1080,
+    }),
   })
 }
 
@@ -334,9 +332,10 @@ export function isReapSuccessStatus(status: string | undefined): boolean {
 }
 
 /**
- * Start a viral Reap project for the uploaded clip.
- * ≥2 min → create-clips (AI cuts + reframe + captions).
- * <2 min → create-reframe (when vertical) then create-captions, or captions-only.
+ * Start a Creator-plan-safe Reap project.
+ * - ≥2 min → create-clips (AI viral cuts + captions; no reframe — Studio-only)
+ * - <2 min → create-captions (3s–15m; emojis + highlights)
+ * Creator limits: 1080p max, 3 concurrent projects, no /create-reframe.
  */
 export async function startReapViralProject(
   sourceUrl: string,
@@ -344,9 +343,7 @@ export async function startReapViralProject(
 ): Promise<{
   projectId: string
   uploadId: string
-  mode: 'clipping' | 'captions' | 'reframe'
-  stage: 'primary' | 'awaiting_captions'
-  reframeProjectId?: string
+  mode: 'clipping' | 'captions'
 }> {
   const genre = layoutToReapGenre(options.layoutTemplate, options.genre)
   const orientation = platformToReapOrientation(options.platform, options.landscapeMode)
@@ -361,11 +358,11 @@ export async function startReapViralProject(
     mimeType: options.mimeType,
   })
 
-  // Long-form: full viral clipping pipeline (min 2 minutes per Reap docs)
+  // Long-form clipping (Reap requires ≥2 minutes)
   if (duration >= 120) {
     const project = await createReapClips({
       uploadId,
-      reframeClips: orientation !== 'landscape',
+      reframeClips: false,
       exportOrientation: orientation,
       exportResolution: 1080,
       captionsPreset,
@@ -385,27 +382,10 @@ export async function startReapViralProject(
       }),
     })
     if (!project.id) throw new Error('Reap create-clips returned no project id')
-    return { projectId: project.id, uploadId, mode: 'clipping', stage: 'primary' }
+    return { projectId: project.id, uploadId, mode: 'clipping' }
   }
 
-  // Short clips: reframe to vertical first (API supports 3s–15m), then caption
-  if (orientation !== 'landscape') {
-    const reframe = await createReapReframe({
-      uploadId,
-      genre,
-      orientation: orientation === 'square' ? 'square' : 'portrait',
-      disableAutoSplit: true,
-    })
-    if (!reframe.id) throw new Error('Reap create-reframe returned no project id')
-    return {
-      projectId: reframe.id,
-      uploadId,
-      mode: 'reframe',
-      stage: 'awaiting_captions',
-      reframeProjectId: reframe.id,
-    }
-  }
-
+  // Short clips: captions only (Creator-safe; no Studio reframe)
   const captions = await createReapCaptions({
     uploadId,
     captionsPreset,
@@ -415,40 +395,7 @@ export async function startReapViralProject(
     resolution: 1080,
   })
   if (!captions.id) throw new Error('Reap create-captions returned no project id')
-  return { projectId: captions.id, uploadId, mode: 'captions', stage: 'primary' }
-}
-
-/**
- * After a reframe project completes, start captions on the reframed output for viral polish.
- */
-export async function continueReapCaptionsAfterReframe(params: {
-  reframeProjectId: string
-  options: Pick<
-    ReapViralEditOptions,
-    'captionsPreset' | 'enableEmojis' | 'enableHighlights' | 'language' | 'fileName' | 'mimeType'
-  >
-}): Promise<{ projectId: string; mode: 'captions'; previewUrl: string }> {
-  const clipsRes = await getReapProjectClips(params.reframeProjectId)
-  const best = pickBestReapClip(clipsRes.clips)
-  const previewUrl = reapClipPlaybackUrl(best)
-  if (!previewUrl) throw new Error('Reap reframe completed but no clip URL was returned')
-
-  const { uploadId } = await uploadSourceUrlToReap({
-    sourceUrl: previewUrl,
-    fileName: `${(params.options.fileName || 'clip').replace(/\.[^.]+$/, '')}-reframed.mp4`,
-    mimeType: params.options.mimeType || 'video/mp4',
-  })
-
-  const captions = await createReapCaptions({
-    uploadId,
-    captionsPreset: params.options.captionsPreset?.trim() || 'system_beasty',
-    language: params.options.language || undefined,
-    enableEmojis: params.options.enableEmojis !== false,
-    enableHighlights: params.options.enableHighlights !== false,
-    resolution: 1080,
-  })
-  if (!captions.id) throw new Error('Reap create-captions returned no project id')
-  return { projectId: captions.id, mode: 'captions', previewUrl }
+  return { projectId: captions.id, uploadId, mode: 'captions' }
 }
 
 export function reapClipsToViralSegments(clips: ReapClip[]): Array<{

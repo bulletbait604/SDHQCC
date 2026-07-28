@@ -526,7 +526,7 @@ export default function ClipEditorTab({
         )}
         <p className={`max-w-lg text-sm mt-2 ${subtitleClasses}`}>
           {reapBackend
-            ? 'Reap AI: auto cuts, captions, reframe, emojis & highlights — viral-ready for your platform.'
+            ? 'Reap AI: viral cuts, captions, emojis & highlights — ready for your platform.'
             : 'Two passes for your platform — cut preview (when tier allows), then effects + captions in one final render.'}
         </p>
       </div>
@@ -584,8 +584,8 @@ export default function ClipEditorTab({
                   Reap viral editing
                 </p>
                 <p className={`text-xs ${subtitleClasses}`}>
-                  Captions, emojis, keyword highlights, AI reframe, and virality-ranked cuts. Videos ≥2 min get
-                  full AI clipping; shorter clips get reframe + caption polish.
+                  Creator plan: AI clipping (≥2 min), captions, emojis, and keyword highlights at 1080p.
+                  Shorter clips get caption polish. Reframe is Studio-only and is not used.
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="block space-y-1">

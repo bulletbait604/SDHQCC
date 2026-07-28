@@ -8,7 +8,6 @@ import {
 import { scheduleClipEditorStep } from '@/lib/clip-editor/dispatch'
 import type { ClipEditorJobDocument } from '@/lib/clip-editor/types'
 import {
-  continueReapCaptionsAfterReframe,
   getReapProjectClips,
   getReapProjectStatus,
   isReapSuccessStatus,
@@ -97,7 +96,7 @@ async function applyCompletedClips(
     strengths: [
       'AI virality scoring',
       'Animated captions with highlights',
-      'Auto reframe / speaker tracking',
+      'AI clip selection & pacing',
       ...(best.enableEmojis ? ['Emoji-enhanced captions'] : []),
     ].slice(0, 8),
     risks: clips.length === 0 ? ['No clips returned'] : [],
@@ -193,8 +192,7 @@ export async function advanceReapClipEditorStep(jobId: string): Promise<AdvanceS
           reapProjectId: started.projectId,
           reapUploadId: started.uploadId,
           reapMode: started.mode,
-          reapStage: started.stage,
-          reapReframeProjectId: started.reframeProjectId,
+          reapStage: 'primary',
         })
         await scheduleClipEditorStep(jobId, 8)
         return { done: false, rescheduled: true, state: 'RENDERING_CUT_PREVIEW' }
@@ -207,23 +205,6 @@ export async function advanceReapClipEditorStep(jobId: string): Promise<AdvanceS
       }
       if (!isReapSuccessStatus(status.status)) {
         throw new Error(`Reap project ${status.status}: ${job.reapProjectId}`)
-      }
-
-      // Short-clip path: reframe finished → start captions on reframed output
-      if (job.reapStage === 'awaiting_captions' && job.reapMode === 'reframe') {
-        const continued = await continueReapCaptionsAfterReframe({
-          reframeProjectId: job.reapProjectId,
-          options: reapOptionsFromJob(job),
-        })
-        await updateClipEditorJobState(jobId, 'RENDERING_CUT_PREVIEW', {
-          cutPreviewUrl: continued.previewUrl,
-          reapProjectId: continued.projectId,
-          reapMode: 'captions',
-          reapStage: 'primary',
-          reapReframeProjectId: job.reapProjectId,
-        })
-        await scheduleClipEditorStep(jobId, 8)
-        return { done: false, rescheduled: true, state: 'RENDERING_CUT_PREVIEW' }
       }
 
       await applyCompletedClips(jobId, job, job.reapProjectId, true)
@@ -263,7 +244,7 @@ export async function advanceReapClipEditorStep(jobId: string): Promise<AdvanceS
         viralityScore: job.passes.viralityCut?.viralityScore ?? 80,
         platformFitScore: job.passes.viralityCut?.platformFitScore ?? 80,
         summary:
-          'Finalized Reap viral edit with captions, reframing, keyword highlights, and platform-ready export.',
+          'Finalized Reap viral edit with captions, keyword highlights, and platform-ready export.',
         strengths: job.passes.viralityCut?.strengths || ['Reap viral pipeline'],
         risks: [],
         promptHints: '',
@@ -275,8 +256,8 @@ export async function advanceReapClipEditorStep(jobId: string): Promise<AdvanceS
           phase: 'effects',
           viralityScore: job.passes.viralityCut?.viralityScore ?? 80,
           platformFitScore: job.passes.viralityCut?.platformFitScore ?? 80,
-          summary: 'Reap applied AI reframing, pacing cuts, and caption styling for viral retention.',
-          strengths: ['Auto reframe', 'Caption presets', 'Virality ranking'],
+          summary: 'Reap applied AI clip selection, pacing cuts, and caption styling for viral retention.',
+          strengths: ['AI clipping', 'Caption presets', 'Virality ranking'],
           risks: [],
           promptHints: '',
           recommendedAdjustments: [],
