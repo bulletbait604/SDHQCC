@@ -345,14 +345,23 @@ export const startClipEditorPhaseSchema = z.object({
   phase: z.enum(['cut', 'finish']),
 })
 
+export const reapGenreSchema = z.enum(['talking', 'screenshare', 'gaming'])
+
 export const createClipEditorJobBodySchema = z.object({
   r2FileKey: z.string().min(1).max(500),
   platform: clipEditorPlatformSchema,
   layoutTemplate: layoutTemplateSchema.default('auto'),
   landscapeMode: z.enum(['crop', 'letterbox']).default('crop'),
-  sourceDurationSeconds: z.number().finite().positive().max(120).optional(),
+  /** Up to 3 hours when using Reap long-form clipping; local Shotstack path stays short. */
+  sourceDurationSeconds: z.number().finite().positive().max(10800).optional(),
   mimeType: z.string().optional(),
   fileName: z.string().optional(),
   /** When true, schedules the cut phase worker immediately after job creation. */
   autoStart: z.boolean().optional(),
+  /** Reap viral edit options (used when CLIP_EDITOR_RENDER_BACKEND=reap / REAP_API set). */
+  reapGenre: reapGenreSchema.optional(),
+  reapCaptionsPreset: z.string().max(80).optional(),
+  reapEnableEmojis: z.boolean().optional(),
+  reapEnableHighlights: z.boolean().optional(),
+  reapPrompt: z.string().max(1000).optional(),
 })

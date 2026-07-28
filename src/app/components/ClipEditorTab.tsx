@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import type { ToolType } from '@/hooks/useCoins'
 import PlatformSelector from '@/app/components/PlatformSelector'
+import ClipLayoutPicker from '@/app/components/ClipLayoutPicker'
 import type { TargetPlatform } from '@/lib/platformEditing'
 import { normalizeHttpMediaUrl } from '@/lib/normalizeMediaUrl'
 
@@ -30,8 +31,9 @@ export interface ClipEditorTabProps {
   refreshBalance: () => void
 }
 
-const MAX_CLIP_SECONDS = 90
+const DEFAULT_MAX_CLIP_SECONDS = 90
 type ClipLayoutTemplate = 'auto' | 'fullFrame' | 'stackedFacecam' | 'pictureInPicture' | 'splitScreen' | 'focusCrop'
+type ReapGenre = 'talking' | 'screenshare' | 'gaming'
 
 type UserPhase =
   | 'ready'
@@ -47,6 +49,9 @@ type QualityTierInfo = {
   description: string
   targetMaxUsd: number
   envVar: string
+  renderBackend?: string
+  reapConfigured?: boolean
+  maxClipSeconds?: number
 }
 
 const TIER_BADGE_CLASS: Record<QualityTierInfo['tier'], string> = {
@@ -65,12 +70,19 @@ type ViralityReview = {
 }
 
 const CLIP_LAYOUT_OPTIONS: Array<{ value: ClipLayoutTemplate; label: string; help: string }> = [
-  { value: 'auto', label: 'Auto layout', help: 'Detect gameplay, facecam, speaker, or action and choose the best vertical format.' },
-  { value: 'stackedFacecam', label: 'Stacked facecam + gameplay', help: 'Reaction on top with gameplay below.' },
-  { value: 'pictureInPicture', label: 'Gameplay with facecam PiP', help: 'Full gameplay with the creator pinned in the corner.' },
-  { value: 'focusCrop', label: 'AI focus crop', help: 'Track the speaker or action in a vertical crop.' },
-  { value: 'splitScreen', label: 'Split screen', help: 'Two equal vertical panels when facecam and content both matter.' },
-  { value: 'fullFrame', label: 'Full frame', help: 'Letterbox or full-frame crop behavior.' },
+  { value: 'auto', label: 'Auto layout', help: 'Best vertical format for the content.' },
+  { value: 'stackedFacecam', label: 'Stacked facecam', help: 'Reaction on top, gameplay below.' },
+  { value: 'pictureInPicture', label: 'Facecam PiP', help: 'Gameplay with creator in the corner.' },
+  { value: 'focusCrop', label: 'AI focus crop', help: 'Track speaker or action vertically.' },
+  { value: 'splitScreen', label: 'Split screen', help: 'Equal panels for facecam + content.' },
+  { value: 'fullFrame', label: 'Full frame', help: 'Letterbox or full-frame crop.' },
+]
+
+const REAP_CAPTION_PRESETS = [
+  { value: 'system_beasty', label: 'Beasty (viral)' },
+  { value: 'system_minimal', label: 'Minimal' },
+  { value: 'system_hormozi', label: 'Hormozi' },
+  { value: 'system_karaoke', label: 'Karaoke' },
 ]
 
 const PHASE_COIN_TOOLS: Record<'cut' | 'finish', ToolType> = {
@@ -159,13 +171,25 @@ export default function ClipEditorTab({
   const [progressPercent, setProgressPercent] = useState<number | null>(null)
   const [busy, setBusy] = useState<'upload' | 'cut' | 'finish' | null>(null)
   const [qualityTier, setQualityTier] = useState<QualityTierInfo | null>(null)
+  const [maxClipSeconds, setMaxClipSeconds] = useState(DEFAULT_MAX_CLIP_SECONDS)
+  const [reapBackend, setReapBackend] = useState(false)
+  const [reapGenre, setReapGenre] = useState<ReapGenre>('talking')
+  const [reapCaptionsPreset, setReapCaptionsPreset] = useState('system_beasty')
+  const [reapEnableEmojis, setReapEnableEmojis] = useState(true)
+  const [reapEnableHighlights, setReapEnableHighlights] = useState(true)
+  const [reapPrompt, setReapPrompt] = useState('')
 
   useEffect(() => {
     let cancelled = false
     fetch('/api/clip-editor/config')
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (!cancelled && data?.tier) setQualityTier(data as QualityTierInfo)
+        if (cancelled || !data?.tier) return
+        setQualityTier(data as QualityTierInfo)
+        if (typeof data.maxClipSeconds === 'number' && data.maxClipSeconds > 0) {
+          setMaxClipSeconds(data.maxClipSeconds)
+        }
+        setReapBackend(data.renderBackend === 'reap' || Boolean(data.reapConfigured))
       })
       .catch(() => {})
     return () => {
@@ -220,8 +244,12 @@ export default function ClipEditorTab({
     }
     try {
       const dur = await inspectVideoDuration(f)
-      if (dur > MAX_CLIP_SECONDS + 0.25) {
-        setError(`Clip Editor accepts videos up to ${MAX_CLIP_SECONDS} seconds.`)
+      if (dur > maxClipSeconds + 0.25) {
+        setError(
+          reapBackend
+            ? `Clip Editor (Reap) accepts videos up to ${Math.round(maxClipSeconds / 60)} minutes.`
+            : `Clip Editor accepts videos up to ${maxClipSeconds} seconds.`
+        )
         return
       }
       setClipDurationSeconds(dur)
@@ -386,6 +414,15 @@ export default function ClipEditorTab({
         ...(typeof clipDurationSeconds === 'number' && Number.isFinite(clipDurationSeconds)
           ? { sourceDurationSeconds: clipDurationSeconds }
           : {}),
+        ...(reapBackend
+          ? {
+              reapGenre,
+              reapCaptionsPreset,
+              reapEnableEmojis,
+              reapEnableHighlights,
+              ...(reapPrompt.trim() ? { reapPrompt: reapPrompt.trim() } : {}),
+            }
+          : {}),
       }),
     })
     const jobData = (await jobRes.json().catch(() => ({}))) as Record<string, unknown>
@@ -455,6 +492,10 @@ export default function ClipEditorTab({
     userPhase === 'cut_ready' || userPhase === 'finish_running' || userPhase === 'complete'
   const canCut = Boolean(clipFile) && (userPhase === 'ready' || userPhase === 'failed')
   const canFinish = userPhase === 'cut_ready'
+  const maxLabel =
+    maxClipSeconds >= 120
+      ? `≤ ${Math.round(maxClipSeconds / 60)} min`
+      : `≤ ${maxClipSeconds}s`
 
   return (
     <div className={`py-8 ${cardClasses}`}>
@@ -471,6 +512,11 @@ export default function ClipEditorTab({
             >
               Quality: {qualityTier.label}
             </span>
+            {reapBackend && (
+              <span className="ml-2 inline-flex items-center rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                Reap viral edit
+              </span>
+            )}
             <p className={`text-xs ${subtitleClasses}`}>{qualityTier.description}</p>
             <p className={`text-xs ${subtitleClasses}`}>
               ~${qualityTier.targetMaxUsd.toFixed(2)} / clip · set{' '}
@@ -479,7 +525,9 @@ export default function ClipEditorTab({
           </div>
         )}
         <p className={`max-w-lg text-sm mt-2 ${subtitleClasses}`}>
-          Two passes for your platform — cut preview (when tier allows), then effects + captions in one final render.
+          {reapBackend
+            ? 'Reap AI: auto cuts, captions, reframe, emojis & highlights — viral-ready for your platform.'
+            : 'Two passes for your platform — cut preview (when tier allows), then effects + captions in one final render.'}
         </p>
       </div>
 
@@ -497,27 +545,14 @@ export default function ClipEditorTab({
               />
             </div>
 
-            <div className="space-y-2 max-w-xl mx-auto text-left">
-              <label className={`block text-sm font-semibold ${subtitleClasses}`} htmlFor="clip-editor-layout">
-                Clip layout (horizontal → vertical)
-              </label>
-              <select
-                id="clip-editor-layout"
-                value={layoutTemplate}
-                onChange={(e) => setLayoutTemplate(e.target.value as ClipLayoutTemplate)}
-                disabled={busy !== null || Boolean(jobId)}
-                className={`w-full rounded-lg border px-3 py-2 text-sm ${inputShell}`}
-              >
-                {CLIP_LAYOUT_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <p className={`text-xs ${subtitleClasses}`}>
-                {CLIP_LAYOUT_OPTIONS.find((o) => o.value === layoutTemplate)?.help}
-              </p>
-            </div>
+            <ClipLayoutPicker
+              options={CLIP_LAYOUT_OPTIONS}
+              value={layoutTemplate}
+              onChange={setLayoutTemplate}
+              disabled={busy !== null || Boolean(jobId)}
+              darkMode={darkMode}
+              subtitleClasses={subtitleClasses}
+            />
 
             <div className="space-y-2 max-w-xl mx-auto">
               <label className={`flex items-start gap-3 cursor-pointer text-left ${subtitleClasses}`}>
@@ -539,9 +574,90 @@ export default function ClipEditorTab({
               </label>
             </div>
 
+            {reapBackend && (
+              <div
+                className={`rounded-xl border p-4 space-y-4 text-left ${
+                  darkMode ? 'bg-sdhq-dark-800/80 border-emerald-500/25' : 'bg-emerald-50/50 border-emerald-200'
+                }`}
+              >
+                <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  Reap viral editing
+                </p>
+                <p className={`text-xs ${subtitleClasses}`}>
+                  Captions, emojis, keyword highlights, AI reframe, and virality-ranked cuts. Videos ≥2 min get
+                  full AI clipping; shorter clips get reframe + caption polish.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block space-y-1">
+                    <span className={`text-xs font-semibold ${subtitleClasses}`}>Genre</span>
+                    <select
+                      value={reapGenre}
+                      onChange={(e) => setReapGenre(e.target.value as ReapGenre)}
+                      disabled={busy !== null || Boolean(jobId)}
+                      className={`w-full rounded-lg border px-3 py-2 text-sm ${inputShell}`}
+                    >
+                      <option value="talking">Talking head</option>
+                      <option value="screenshare">Screenshare / facecam</option>
+                      <option value="gaming">Gaming</option>
+                    </select>
+                  </label>
+                  <label className="block space-y-1">
+                    <span className={`text-xs font-semibold ${subtitleClasses}`}>Caption style</span>
+                    <select
+                      value={reapCaptionsPreset}
+                      onChange={(e) => setReapCaptionsPreset(e.target.value)}
+                      disabled={busy !== null || Boolean(jobId)}
+                      className={`w-full rounded-lg border px-3 py-2 text-sm ${inputShell}`}
+                    >
+                      {REAP_CAPTION_PRESETS.map((p) => (
+                        <option key={p.value} value={p.value}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="flex flex-wrap gap-4">
+                  <label className={`flex items-center gap-2 text-sm ${subtitleClasses}`}>
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-sdhq-cyan-500"
+                      checked={reapEnableEmojis}
+                      onChange={(e) => setReapEnableEmojis(e.target.checked)}
+                      disabled={busy !== null || Boolean(jobId)}
+                    />
+                    Emojis in captions
+                  </label>
+                  <label className={`flex items-center gap-2 text-sm ${subtitleClasses}`}>
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-sdhq-cyan-500"
+                      checked={reapEnableHighlights}
+                      onChange={(e) => setReapEnableHighlights(e.target.checked)}
+                      disabled={busy !== null || Boolean(jobId)}
+                    />
+                    Keyword highlights
+                  </label>
+                </div>
+                <label className="block space-y-1">
+                  <span className={`text-xs font-semibold ${subtitleClasses}`}>
+                    Clip prompt (optional)
+                  </span>
+                  <textarea
+                    value={reapPrompt}
+                    onChange={(e) => setReapPrompt(e.target.value.slice(0, 1000))}
+                    disabled={busy !== null || Boolean(jobId)}
+                    rows={2}
+                    placeholder="e.g. Highlight reel of the funniest moments — keep clips under 45 seconds."
+                    className={`w-full rounded-lg border px-3 py-2 text-sm resize-y ${inputShell}`}
+                  />
+                </label>
+              </div>
+            )}
+
             <div className="space-y-3">
               <label className={`block text-sm font-semibold ${subtitleClasses}`}>
-                Raw clip (≤ {MAX_CLIP_SECONDS}s)
+                Raw clip ({maxLabel})
               </label>
               <div className="flex flex-wrap items-center gap-3">
                 <Button
@@ -584,7 +700,13 @@ export default function ClipEditorTab({
                 ) : (
                   <Scissors className="w-4 h-4 mr-2 inline" />
                 )}
-                {hasUnlimitedAccess ? 'Cut it' : 'Cut it (1 coin)'}
+                {hasUnlimitedAccess
+                  ? reapBackend
+                    ? 'Make viral'
+                    : 'Cut it'
+                  : reapBackend
+                    ? 'Make viral (1 coin)'
+                    : 'Cut it (1 coin)'}
               </Button>
 
               <Button
@@ -609,12 +731,16 @@ export default function ClipEditorTab({
             </div>
 
             <p className={`text-xs text-center ${subtitleClasses}`}>
-              {hasUnlimitedAccess
-                ? 'Owner / subscriber — unlimited passes · Pass 1: cut preview · Pass 2: effects, captions, final render'
-                : '1 coin per pass (2 total) · Pass 1: cut preview · Pass 2: effects, captions, and final render'}
+              {reapBackend
+                ? hasUnlimitedAccess
+                  ? 'Owner / subscriber — unlimited · Pass 1: Reap viral edit · Pass 2: save final export'
+                  : '1 coin per pass (2 total) · Pass 1: Reap viral edit · Pass 2: save final export'
+                : hasUnlimitedAccess
+                  ? 'Owner / subscriber — unlimited passes · Pass 1: cut preview · Pass 2: effects, captions, final render'
+                  : '1 coin per pass (2 total) · Pass 1: cut preview · Pass 2: effects, captions, and final render'}
             </p>
 
-            {cutDone && !cutPreviewUrl && qualityTier?.tier === 'fast' && (
+            {cutDone && !cutPreviewUrl && qualityTier?.tier === 'fast' && !reapBackend && (
               <p className={`text-sm text-center ${subtitleClasses}`}>
                 Cut plan ready — fast tier skips the preview render. Run Finish for the full edited clip.
               </p>
@@ -625,7 +751,7 @@ export default function ClipEditorTab({
                 className={`rounded-xl border p-4 ${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-gray-50 border-sdhq-cyan-200'}`}
               >
                 <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  Cut preview
+                  {reapBackend ? 'Viral preview' : 'Cut preview'}
                 </p>
                 <video
                   src={cutPreviewUrl}
@@ -636,7 +762,7 @@ export default function ClipEditorTab({
                 <Button asChild variant="outline" size="sm" className="mt-3 w-full">
                   <a href={cutPreviewUrl} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="w-4 h-4 mr-2" />
-                    Open cut preview
+                    Open {reapBackend ? 'viral' : 'cut'} preview
                   </a>
                 </Button>
               </div>

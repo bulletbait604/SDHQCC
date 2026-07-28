@@ -25,6 +25,12 @@ export function resolveVizardApiKey(): string | undefined {
   return key
 }
 
+/** Reap Video Automation API key (`REAP_API` preferred; also accepts `REAP_API_KEY`). */
+export function resolveReapApiKey(): string | undefined {
+  const key = (process.env.REAP_API || process.env.REAP_API_KEY || '').trim() || undefined
+  return key
+}
+
 const SHOTSTACK_SECRET_ENV_NAMES = ['SHOTSTACK_API_KEY', 'SHOTSTACK_API', 'SHOTSTACK_KEY'] as const
 
 function readEnvTrim(name: string): string | undefined {

@@ -84,6 +84,29 @@ export const CLIP_EDITOR_STATE_LABELS: Record<ClipEditorJobState, string> = {
   FAILED: 'Failed',
 }
 
+/** Labels when CLIP_EDITOR_RENDER_BACKEND=reap (or REAP_API auto). */
+export const CLIP_EDITOR_REAP_STATE_LABELS: Partial<Record<ClipEditorJobState, string>> = {
+  UPLOADED: 'Queued for Reap',
+  TRANSCRIBING: 'Preparing Reap viral edit…',
+  VIDEO_ANALYSIS: 'Uploading to Reap…',
+  RENDERING_CUT_PREVIEW: 'Reap AI editing (clips, captions, reframe)…',
+  CUT_PHASE_DONE: 'Reap viral preview ready',
+  PACING: 'Finalizing Reap export…',
+  RENDERING: 'Saving viral clip…',
+  COMPLETE: 'Complete — Reap viral clip ready',
+  FAILED: 'Failed',
+}
+
+export function clipEditorStateLabel(
+  state: ClipEditorJobState,
+  backend?: 'shotstack' | 'vizard' | 'shotstack-then-vizard' | 'reap'
+): string {
+  if (backend === 'reap') {
+    return CLIP_EDITOR_REAP_STATE_LABELS[state] || CLIP_EDITOR_STATE_LABELS[state]
+  }
+  return CLIP_EDITOR_STATE_LABELS[state]
+}
+
 export function userPhaseFromJobState(state: ClipEditorJobState): ClipEditorUserPhase {
   if (state === 'FAILED') return 'failed'
   if (state === 'COMPLETE') return 'complete'

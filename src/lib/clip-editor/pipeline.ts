@@ -45,6 +45,8 @@ import {
   upsertVideoForJob,
   markSelectedClipComplete,
 } from '@/lib/clip-editor/clipStore'
+import { clipEditorRenderBackend } from '@/lib/vizard'
+import { advanceReapClipEditorStep } from '@/lib/clip-editor/reapPipeline'
 
 async function refreshSourceUrl(r2FileKey: string): Promise<string> {
   const url = await generatePresignedReadUrl(r2FileKey, 86400)
@@ -75,6 +77,19 @@ export async function advanceClipEditorStep(jobId: string): Promise<AdvanceStepR
   }
   if (PHASE_PAUSE_STATES.includes(job.state)) {
     return { done: false, rescheduled: false, state: job.state, phasePaused: true }
+  }
+
+  // Reap Automation API backend — viral clips / captions / reframe
+  if (clipEditorRenderBackend() === 'reap') {
+    try {
+      return await advanceReapClipEditorStep(jobId)
+    } catch (error) {
+      const detail = formatUnknownError(error)
+      const message = `[reap:${job.state}] ${detail}`
+      await markClipEditorJobFailed(jobId, message)
+      await updateVideoStatusForJob(jobId, 'FAILED').catch(() => undefined)
+      throw new Error(message)
+    }
   }
 
   try {

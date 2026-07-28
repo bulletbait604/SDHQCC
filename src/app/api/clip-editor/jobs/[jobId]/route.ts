@@ -6,9 +6,10 @@ import {
   createAuthErrorResponse,
 } from '@/lib/auth/verifyAuth'
 import { getClipEditorJobForUser } from '@/lib/clip-editor/jobs'
-import { CLIP_EDITOR_STATE_LABELS } from '@/lib/clip-editor/jobStates'
+import { clipEditorStateLabel } from '@/lib/clip-editor/jobStates'
 import { clipEditorTierPublicSummary } from '@/lib/clip-editor/tier'
 import { listClipsForJob } from '@/lib/clip-editor/clipStore'
+import { clipEditorRenderBackend } from '@/lib/vizard'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,12 +34,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const phasePaused = job.state === 'CUT_PHASE_DONE'
     const clipCandidates = await listClipsForJob(job._id)
+    const renderBackend = clipEditorRenderBackend()
 
     return NextResponse.json({
       jobId: job._id,
       state: job.state,
       userPhase: job.userPhase ?? 'ready',
-      stateLabel: CLIP_EDITOR_STATE_LABELS[job.state],
+      stateLabel: clipEditorStateLabel(job.state, renderBackend),
       progress: job.progress,
       phasePaused,
       error: job.error,
@@ -47,6 +49,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       outputUrl: job.outputUrl,
       outputR2Key: job.outputR2Key,
       shotstackRenderId: job.shotstackRenderId,
+      reapProjectId: job.reapProjectId,
+      renderBackend,
       platform: job.platform,
       layoutTemplate: job.layoutTemplate,
       metadata: job.passes.metadata,

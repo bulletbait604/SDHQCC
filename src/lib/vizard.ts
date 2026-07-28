@@ -1,4 +1,4 @@
-import { resolveVizardApiKey } from '@/lib/clipEditorServerKeys'
+import { resolveReapApiKey, resolveVizardApiKey } from '@/lib/clipEditorServerKeys'
 import { normalizeHttpMediaUrl } from '@/lib/normalizeMediaUrl'
 
 const VIZARD_PROJECT_ROOT = 'https://elb-api.vizard.ai/hvizard-server-front/open-api/v1/project'
@@ -35,20 +35,30 @@ export type VizardQueryResponse = {
   errMsg?: string
 }
 
-export type ClipEditorRenderBackendMode = 'shotstack' | 'vizard' | 'shotstack-then-vizard'
+export type ClipEditorRenderBackendMode =
+  | 'shotstack'
+  | 'vizard'
+  | 'shotstack-then-vizard'
+  | 'reap'
 
 /**
  * Clip Editor pipeline:
- * - `shotstack` (default): Gemini plan → client submits Shotstack render.
+ * - `shotstack` (default): Gemini plan → Shotstack render.
  * - `vizard`: send source straight to Vizard (no Shotstack edit).
- * - `shotstack-then-vizard`: same as shotstack, then client sends Shotstack output URL to Vizard for a second pass.
+ * - `shotstack-then-vizard`: Shotstack, then Vizard refine pass.
+ * - `reap`: Reap Video Automation API (viral clips, captions, reframe).
+ *   Auto-selected when `REAP_API` is set and `CLIP_EDITOR_RENDER_BACKEND` is unset.
  */
 export function clipEditorRenderBackend(): ClipEditorRenderBackendMode {
   const raw = process.env.CLIP_EDITOR_RENDER_BACKEND?.trim().toLowerCase().replace(/_/g, '-')
+  if (raw === 'reap') return 'reap'
   if (raw === 'vizard') return 'vizard'
   if (raw === 'shotstack-then-vizard' || raw === 'shotstack-then-vizard-refine') {
     return 'shotstack-then-vizard'
   }
+  if (raw === 'shotstack') return 'shotstack'
+  // Prefer Reap when the key is present and no explicit backend was chosen.
+  if (resolveReapApiKey()) return 'reap'
   return 'shotstack'
 }
 

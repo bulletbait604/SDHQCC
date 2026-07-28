@@ -12,9 +12,10 @@ import {
   isQStashFullyConfigured,
   clipEditorAppBaseUrl,
 } from '@/lib/clip-editor/dispatch'
-import { CLIP_EDITOR_STATE_LABELS } from '@/lib/clip-editor/jobStates'
+import { clipEditorStateLabel } from '@/lib/clip-editor/jobStates'
 import { ZodError } from 'zod'
 import { deductCoinsForUser } from '@/lib/coins/deductCoinsServer'
+import { clipEditorRenderBackend } from '@/lib/vizard'
 
 export const dynamic = 'force-dynamic'
 
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       jobId,
       phase: body.phase,
       state,
-      stateLabel: CLIP_EDITOR_STATE_LABELS[state],
+      stateLabel: clipEditorStateLabel(state, clipEditorRenderBackend()),
     })
   } catch (error) {
     if (error instanceof AuthError) return createAuthErrorResponse(error)

@@ -65,6 +65,17 @@ export type ClipEditorJobDocument = {
   effectsPreviewR2Key?: string
   outputR2Key?: string
   outputUrl?: string
+  /** Reap Automation API project currently being polled. */
+  reapProjectId?: string
+  reapUploadId?: string
+  reapMode?: 'clipping' | 'captions' | 'reframe'
+  reapStage?: 'primary' | 'awaiting_captions'
+  reapReframeProjectId?: string
+  reapGenre?: 'talking' | 'screenshare' | 'gaming'
+  reapCaptionsPreset?: string
+  reapEnableEmojis?: boolean
+  reapEnableHighlights?: boolean
+  reapPrompt?: string
   createdAt: string
   updatedAt: string
 }

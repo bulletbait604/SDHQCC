@@ -10,8 +10,9 @@ import { ZodError } from 'zod'
 import { createClipEditorJobBodySchema } from '@/lib/clip-editor/schemas'
 import { createClipEditorJob } from '@/lib/clip-editor/jobs'
 import { isQStashFullyConfigured, clipEditorAppBaseUrl } from '@/lib/clip-editor/dispatch'
-import { CLIP_EDITOR_STATE_LABELS } from '@/lib/clip-editor/jobStates'
+import { clipEditorStateLabel } from '@/lib/clip-editor/jobStates'
 import { upsertVideoForJob } from '@/lib/clip-editor/clipStore'
+import { clipEditorRenderBackend } from '@/lib/vizard'
 
 export const dynamic = 'force-dynamic'
 
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
       jobId: job._id,
       state: job.state,
       userPhase: job.userPhase,
-      stateLabel: CLIP_EDITOR_STATE_LABELS[job.state],
+      stateLabel: clipEditorStateLabel(job.state, clipEditorRenderBackend()),
       progress: job.progress,
     })
   } catch (error) {

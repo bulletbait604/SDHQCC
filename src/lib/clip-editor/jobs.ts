@@ -32,6 +32,11 @@ export async function createClipEditorJob(params: {
     userPhase: 'ready',
     progress: CLIP_EDITOR_STATE_PROGRESS.UPLOADED,
     passes: {},
+    reapGenre: params.body.reapGenre,
+    reapCaptionsPreset: params.body.reapCaptionsPreset,
+    reapEnableEmojis: params.body.reapEnableEmojis,
+    reapEnableHighlights: params.body.reapEnableHighlights,
+    reapPrompt: params.body.reapPrompt,
     createdAt: now,
     updatedAt: now,
   }
@@ -74,6 +79,16 @@ export async function updateClipEditorJobState(
       | 'effectsPreviewR2Key'
       | 'outputR2Key'
       | 'outputUrl'
+      | 'reapProjectId'
+      | 'reapUploadId'
+      | 'reapMode'
+      | 'reapStage'
+      | 'reapReframeProjectId'
+      | 'reapGenre'
+      | 'reapCaptionsPreset'
+      | 'reapEnableEmojis'
+      | 'reapEnableHighlights'
+      | 'reapPrompt'
     >
   >
 ): Promise<void> {
