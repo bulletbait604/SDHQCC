@@ -33,7 +33,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const phasePaused = job.state === 'CUT_PHASE_DONE'
-    const clipCandidates = await listClipsForJob(job._id)
+    const light = request.nextUrl.searchParams.get('light') === '1'
+    // Skip clip-candidate Mongo scan on frequent client polls while Reap is still working.
+    const clipCandidates = light ? [] : await listClipsForJob(job._id)
     const renderBackend = clipEditorRenderBackend()
 
     return NextResponse.json({

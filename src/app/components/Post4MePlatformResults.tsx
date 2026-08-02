@@ -36,7 +36,9 @@ function ViralityBadge({
       }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold uppercase text-sdhq-cyan-400">Virality score</span>
+        <span className="text-xs font-semibold uppercase text-sdhq-cyan-400">
+          Platform virality score
+        </span>
         <span
           className={`text-lg font-bold ${score >= 80 ? 'text-green-400' : 'text-amber-400'}`}
         >

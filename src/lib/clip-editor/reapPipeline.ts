@@ -1,4 +1,4 @@
-import { putBufferToR2 } from '@/lib/r2'
+import { putBufferToR2, generatePresignedReadUrl } from '@/lib/r2'
 import {
   getClipEditorJob,
   updateClipEditorJobPasses,
@@ -18,9 +18,15 @@ import {
   startReapViralProject,
   type ReapGenre,
 } from '@/lib/clip-editor/services/reap'
-import { generatePresignedReadUrl } from '@/lib/r2'
 import { viralityReviewSchema } from '@/lib/clip-editor/schemas'
 import { updateVideoStatusForJob, markSelectedClipComplete } from '@/lib/clip-editor/clipStore'
+
+/**
+ * Reap jobs take minutes. Prefer webhooks; use sparse QStash polls as fallback
+ * so we do not burn Vercel invocations / QStash messages every few seconds.
+ */
+export const REAP_SUBMIT_SETTLE_DELAY_SEC = 60
+export const REAP_STATUS_POLL_DELAY_SEC = 90
 
 export type AdvanceStepResult = {
   done: boolean
@@ -161,8 +167,8 @@ async function applyCompletedClips(
 
 /**
  * Reap-backed cut/finish pipeline using existing job states.
- * Cut: upload → Reap viral project → poll → cut preview
- * Finish: re-host best clip as final output
+ * Cut: upload → Reap viral project → sparse poll / webhook → cut preview
+ * Finish: re-host best clip as final output (cheap; no long wait)
  */
 export async function advanceReapClipEditorStep(jobId: string): Promise<AdvanceStepResult> {
   const job = await getClipEditorJob(jobId)
@@ -172,8 +178,6 @@ export async function advanceReapClipEditorStep(jobId: string): Promise<AdvanceS
   if (job.state === 'CUT_PHASE_DONE') {
     return { done: false, rescheduled: false, state: 'CUT_PHASE_DONE', phasePaused: true }
   }
-
-  const sourceReadUrl = await refreshSourceUrl(job.r2FileKey)
 
   switch (job.state) {
     case 'UPLOADED':
@@ -186,21 +190,24 @@ export async function advanceReapClipEditorStep(jobId: string): Promise<AdvanceS
     case 'VIRALITY_CUT':
     case 'RENDERING_CUT_PREVIEW': {
       if (!job.reapProjectId) {
+        // Only touch R2 when we actually need to upload into Reap.
+        const sourceReadUrl = await refreshSourceUrl(job.r2FileKey)
         await updateClipEditorJobState(jobId, 'RENDERING_CUT_PREVIEW')
         const started = await startReapViralProject(sourceReadUrl, reapOptionsFromJob(job))
         await updateClipEditorJobState(jobId, 'RENDERING_CUT_PREVIEW', {
           reapProjectId: started.projectId,
           reapUploadId: started.uploadId,
           reapMode: started.mode,
-          reapStage: 'primary',
         })
-        await scheduleClipEditorStep(jobId, 8)
+        // Long settle — Reap needs minutes; webhook will wake us earlier if configured.
+        await scheduleClipEditorStep(jobId, REAP_SUBMIT_SETTLE_DELAY_SEC)
         return { done: false, rescheduled: true, state: 'RENDERING_CUT_PREVIEW' }
       }
 
+      // Cheap status check only (no R2, no download).
       const status = await getReapProjectStatus(job.reapProjectId)
       if (!isReapTerminalStatus(status.status)) {
-        await scheduleClipEditorStep(jobId, 8)
+        await scheduleClipEditorStep(jobId, REAP_STATUS_POLL_DELAY_SEC)
         return { done: false, rescheduled: true, state: 'RENDERING_CUT_PREVIEW' }
       }
       if (!isReapSuccessStatus(status.status)) {
@@ -306,7 +313,7 @@ export async function handleReapProjectWebhook(payload: {
   if (!row) return { ok: true, matched: false }
 
   const jobId = String(row._id)
-  // Kick the step runner — it will poll status / finalize
-  await scheduleClipEditorStep(jobId, 1)
+  // Wake the step runner soon after Reap finishes (avoids waiting for the sparse poll).
+  await scheduleClipEditorStep(jobId, 2)
   return { ok: true, matched: true, jobId }
 }

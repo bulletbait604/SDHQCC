@@ -6,9 +6,10 @@ import {
   pollGeminiFileUntilActive,
   uploadBufferToGeminiFilesApi,
 } from '@/lib/geminiFiles'
-import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
+import { formatAlgorithmContextForPlatform } from '@/lib/algorithmContext'
 import {
   post4meMultiPlatformRulesBlock,
+  post4meRecommendedTagCount,
   post4meTagViralityRules,
   post4meTitleHooksBlock,
 } from '@/lib/post4meViralityPrompt'
@@ -17,7 +18,6 @@ import {
   normalizeClipAnalysisMetadata,
   type NormalizedClipMetadata,
 } from '@/lib/clipAnalyzerMetadata'
-import { getRecommendedTagCount } from '@/lib/home/tagUtils'
 import type { Platform } from '@/lib/home/types'
 
 const MODEL_NAME = 'gemini-2.5-flash'
@@ -91,42 +91,18 @@ function normalizeMimeType(mimeType: string): string {
 }
 
 async function algorithmContextForPlatform(platformId: string): Promise<string> {
-  const snapshot = await readAlgorithmSnapshotFromMongo()
-  const data = snapshot?.data
-  if (!data || typeof data !== 'object') return ''
-
-  const entry = data[platformId]
-  if (!entry || typeof entry !== 'object') return ''
-  const rec = entry as Record<string, unknown>
-  const label = PLATFORM_LABELS[platformId] || platformId
-  const summaries = Array.isArray(rec.summaries)
-    ? rec.summaries.filter((s): s is string => typeof s === 'string').slice(0, 6)
-    : []
-  const titleTips = typeof rec.titleTips === 'string' ? rec.titleTips.slice(0, 600) : ''
-  const descriptionTips =
-    typeof rec.descriptionTips === 'string' ? rec.descriptionTips.slice(0, 500) : ''
-  const keyChanges =
-    typeof rec.keyChanges === 'string' ? rec.keyChanges.slice(0, 500) : ''
-
-  return [
-    `**${label} algorithm snapshot:**`,
-    summaries.length ? `Insights: ${summaries.join(' | ')}` : '',
-    titleTips ? `Title/hook guidance: ${titleTips}` : '',
-    descriptionTips ? `Description/caption guidance: ${descriptionTips}` : '',
-    keyChanges ? `Algorithm ranking signals: ${keyChanges}` : '',
-  ]
-    .filter(Boolean)
-    .join('\n')
+  const { block } = await formatAlgorithmContextForPlatform(platformId)
+  return block
 }
 
-function tagGuidance(platformId: string, platforms: Platform[]): string {
-  const count = getRecommendedTagCount(platformId, platforms)
+function tagGuidance(platformId: string, _platforms: Platform[]): string {
+  const count = post4meRecommendedTagCount(platformId)
   const viralRules = post4meTagViralityRules(platformId)
   const isYouTube = isYouTubeClipPlatform(platformId)
   if (isYouTube) {
-    return `${viralRules} Minimum ${Math.min(8, count)} tags; aim for ${count}. Plain keywords WITHOUT #.`
+    return `${viralRules} Aim for about ${count} plain keywords WITHOUT #.`
   }
-  return `${viralRules} Provide ${count} hashtags WITH # prefix.`
+  return `${viralRules} Provide about ${count} hashtags WITH # prefix.`
 }
 
 export async function generatePost4MeFromClip(params: {
@@ -179,7 +155,7 @@ export async function generatePost4MeFromClip(params: {
     )
     .join('\n')
 
-  const prompt = `You are an elite viral growth strategist. Watch this clip once and write publish-ready metadata for EACH target platform below — engineered for maximum algorithmic reach, not generic filler.
+  const prompt = `You are an elite multi-platform viral growth strategist. Watch this clip once, then write DISTINCT publish-ready metadata for EACH platform — Facebook winning with a file does NOT mean the same caption works on TikTok, Instagram, or YouTube Shorts.
 
 Target platforms: ${platformLabels}
 Platform IDs (use exactly in response): ${platformIds.join(', ')}
@@ -190,24 +166,25 @@ ${multiRules}
 ${userDirection}
 
 GLOBAL REQUIREMENTS:
-- Analyze what happens in the clip (topic, hook, emotion, niche, share trigger) once; tailor copy per platform.
-- TITLES/Hooks are the most important output. Every platform MUST have exactly 3 distinct, clip-specific hook lines — punchy, native, scroll-stopping. Reject bland generic phrasing (see title hooks rules per platform).
-- Each platform entry must follow THAT platform's metadata rules (YouTube = separate title/description/tags; TikTok/Instagram/Reels = separate fields internally, user will combine caption + hashtags later).
+- Analyze the clip once (topic, hook, emotion, niche, share trigger), then REWRITE per platform. Identical hooks/captions across platforms = failure.
+- Real-world pattern: Facebook Reels often gets far more views than TikTok/IG/Shorts on the same video+thumbnail. Score each platform honestly; boost non-FB platforms with native hooks/tags, not by copying FB copy.
+- TITLES/Hooks are the most important output. Every platform MUST have exactly 3 distinct, clip-specific hook lines.
+- Each platform entry must follow THAT platform's metadata + playbook rules.
 - Tag guidance per platform:
 ${perPlatformTagRules}
 
-${post4meTitleHooksBlock('tiktok')}
+${post4meTitleHooksBlock(platformIds[0] || 'tiktok')}
 
 Return valid JSON only (no markdown):
 {
   "results": [
     {
       "platformId": "tiktok",
-      "viralityScore": 85,
-      "viralitySummary": "Why this will perform on TikTok + one caveat",
-      "titles": ["specific curiosity-gap hook about the clip", "bold claim hook with clip detail", "question or POV hook with clip detail"],
+      "viralityScore": 72,
+      "viralitySummary": "Why this fits TikTok + one risk + one tweak (do not assume Facebook scores)",
+      "titles": ["tiktok-native hook 1", "tiktok-native hook 2", "tiktok-native hook 3"],
       "title": "same as titles[0]",
-      "description": "caption body without hashtags — adds context/CTA, does not repeat the hook",
+      "description": "platform-native body without hashtags",
       "tags": ["#tag1", "#tag2"]
     }
   ]

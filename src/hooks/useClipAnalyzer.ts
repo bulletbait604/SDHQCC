@@ -5,6 +5,20 @@ import type { ActivityLogEntry, KickUser, Platform } from '@/lib/home/types'
 import { getEditSuggestionsTagSlice } from '@/lib/home/tagUtils'
 import { postActivityLog } from '@/lib/home/activityLogUtils'
 
+export interface ClipAnalysisInsight {
+  icon?: string
+  label: string
+  value?: string
+  description?: string
+  score?: number
+}
+
+export interface ClipAnalysisRecommendation {
+  priority?: 'high' | 'med' | 'low' | string
+  category?: string
+  text: string
+}
+
 export interface ClipAnalysisResult {
   score: number
   scoreTitle?: string
@@ -19,6 +33,40 @@ export interface ClipAnalysisResult {
   description?: string
   tags?: string[]
   overlays?: Array<{ type: string; timing: string; description?: string }>
+  insights?: ClipAnalysisInsight[]
+  recommendations?: ClipAnalysisRecommendation[]
+  hookAnalysis?: {
+    timestampSeconds?: number
+    type?: string
+    summary?: string
+    platformFit?: string
+    improvement?: string
+  }
+  trendingAudioAdvice?: {
+    recommendation?: string
+    rationale?: string
+    searchKeywords?: string
+    mixTip?: string
+  }
+  watermarkCheck?: {
+    detected?: boolean
+    details?: string
+    action?: string
+  }
+  postingPlan?: {
+    timezone?: string
+    areaLabel?: string
+    bestWindowsLocal?: string[]
+    frequencyTip?: string
+    crossPostNote?: string
+  }
+  algorithmUsed?: string
+  algorithmUpdatedAt?: string | null
+  geo?: {
+    areaLabel?: string
+    timezone?: string
+    countryCode?: string | null
+  }
   extractedData?: unknown
   estimatedCostUsd?: number
   estimatedCostNote?: string

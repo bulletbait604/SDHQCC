@@ -244,6 +244,12 @@ export default function ClipEditorTab({
     }
     try {
       const dur = await inspectVideoDuration(f)
+      if (reapBackend && dur + 0.25 < 120) {
+        setError(
+          `Reap AI clipping needs at least 2 minutes of source (yours is ${Math.round(dur)}s). Upload a longer VOD/stream segment — a 90s file can only get captions, not dead-air cuts.`
+        )
+        return
+      }
       if (dur > maxClipSeconds + 0.25) {
         setError(
           reapBackend
@@ -351,10 +357,13 @@ export default function ClipEditorTab({
   }
 
   const pollClipEditorJob = async (id: string, untilPhase?: UserPhase): Promise<void> => {
-    const maxAttempts = 300
+    // Reap takes minutes — sparse client polls to avoid burning Vercel function invocations.
+    const pollMs = reapBackend ? 20_000 : 3_000
+    const maxAttempts = reapBackend ? 90 : 300 // ~30 min Reap / ~15 min local
     for (let i = 0; i < maxAttempts; i++) {
-      await sleep(3000)
-      const res = await fetch(`/api/clip-editor/jobs/${encodeURIComponent(id)}`, {
+      await sleep(pollMs)
+      const light = reapBackend && untilPhase === 'cut_ready' ? '?light=1' : ''
+      const res = await fetch(`/api/clip-editor/jobs/${encodeURIComponent(id)}${light}`, {
         credentials: 'include',
       })
       const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
@@ -364,6 +373,10 @@ export default function ClipEditorTab({
         )
       }
       applyJobPoll(data)
+
+      if (reapBackend && untilPhase === 'cut_ready' && data.userPhase === 'cut_running') {
+        setStatusText('Reap is editing your clip (usually a few minutes — waiting, not burning compute)…')
+      }
 
       if (data.state === 'FAILED') {
         setUserPhase('failed')
@@ -388,7 +401,11 @@ export default function ClipEditorTab({
         return
       }
     }
-    throw new Error('Job timed out — check back in a few minutes or retry with a shorter clip.')
+    throw new Error(
+      reapBackend
+        ? 'Reap is still processing — keep this tab open a bit longer, or refresh and check the job again.'
+        : 'Job timed out — check back in a few minutes or retry with a shorter clip.'
+    )
   }
 
   const ensureJobCreated = async (): Promise<string> => {
@@ -494,7 +511,9 @@ export default function ClipEditorTab({
   const canFinish = userPhase === 'cut_ready'
   const maxLabel =
     maxClipSeconds >= 120
-      ? `≤ ${Math.round(maxClipSeconds / 60)} min`
+      ? reapBackend
+        ? `2–${Math.round(maxClipSeconds / 60)} min (Reap AI clip)`
+        : `≤ ${Math.round(maxClipSeconds / 60)} min`
       : `≤ ${maxClipSeconds}s`
 
   return (
@@ -526,7 +545,7 @@ export default function ClipEditorTab({
         )}
         <p className={`max-w-lg text-sm mt-2 ${subtitleClasses}`}>
           {reapBackend
-            ? 'Reap AI: viral cuts, captions, emojis & highlights — ready for your platform.'
+            ? 'Reap AI clipping only — upload ≥2 min of source so Reap can cut viral moments (not captions-only).'
             : 'Two passes for your platform — cut preview (when tier allows), then effects + captions in one final render.'}
         </p>
       </div>
@@ -584,8 +603,9 @@ export default function ClipEditorTab({
                   Reap viral editing
                 </p>
                 <p className={`text-xs ${subtitleClasses}`}>
-                  Creator plan: AI clipping (≥2 min), captions, emojis, and keyword highlights at 1080p.
-                  Shorter clips get caption polish. Reframe is Studio-only and is not used.
+                  Reap&apos;s create-clips API needs ≥2 minutes of source (best results 10+ min). It finds hooks and
+                  cuts dead sections into 15–60s clips. Silence &quot;remove gap&quot; exists only in Reap&apos;s
+                  editor UI — not via API. Studio unlocks reframe/4K, not short-clip AI cutting.
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="block space-y-1">

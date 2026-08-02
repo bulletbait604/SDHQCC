@@ -66,6 +66,8 @@ export async function runGeminiVideoAnalysisPass(params: {
 Target platform: ${params.platform}
 Platform directive: ${platformClipEditorDirective(params.platform)}
 Excerpt length target: ${excerptBounds.min}–${excerptBounds.max}s (ideal ${excerptBounds.ideal}s)
+Hard rule: never return nearly the full source. Cut silence, pauses, filler, and low-energy stretches.
+The output short must feel tightly edited — prefer the densest ${excerptBounds.ideal}s of action/speech.
 Safe zone: ${JSON.stringify(safeZone)}
 Requested layout: ${params.layoutTemplate}
 Source duration (seconds): ${params.durationSeconds.toFixed(1)}

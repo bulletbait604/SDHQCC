@@ -17,7 +17,8 @@ export async function GET() {
     useGeminiVideoAnalysis: config.useGeminiVideoAnalysis,
     renderBackend,
     reapConfigured: isReapConfigured(),
-    /** Max upload seconds: Reap long-form clipping allows up to 3h; local path stays short. */
+    /** Max upload seconds: Reap create-clips needs ≥2 min and allows long sources. */
     maxClipSeconds: renderBackend === 'reap' ? 1800 : 90,
+    reapMinClipSeconds: renderBackend === 'reap' ? 120 : null,
   })
 }

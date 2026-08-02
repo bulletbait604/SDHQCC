@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/api/algorithms/update",
+      "schedule": "0 8 1 * *"
+    }
+  ],
   "functions": {
     "src/app/api/thumbnail-generator/route.ts": {
       "maxDuration": 300
@@ -10,6 +16,15 @@
       "maxDuration": 300
     },
     "src/app/api/clip-editor/steps/run/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/algorithms/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/algorithms/update/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/clip-analyze/route.ts": {
       "maxDuration": 300
     }
   }

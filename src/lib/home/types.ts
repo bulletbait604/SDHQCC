@@ -56,6 +56,7 @@ export type ActivityLogAction =
   | 'verification_attempt'
   | 'access_expired'
   | 'algorithm_refresh'
+  | 'algorithm_refresh_failed'
   | 'tag_generation'
   | 'clip_analysis'
   | 'clip_reanalysis'

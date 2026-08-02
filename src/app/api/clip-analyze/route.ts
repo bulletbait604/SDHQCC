@@ -22,6 +22,8 @@ import {
   normalizeClipAnalysisMetadata,
   youtubeShortsMetadataPromptBlock,
 } from '@/lib/clipAnalyzerMetadata'
+import { formatAlgorithmContextForPlatform } from '@/lib/algorithmContext'
+import { geoPromptBlock, resolveRequestGeo } from '@/lib/requestGeo'
 
 // Force dynamic rendering to prevent static optimization
 export const dynamic = 'force-dynamic'
@@ -314,6 +316,10 @@ export async function POST(request: NextRequest) {
     let analysisResult = null
     let analysisSource = 'none'
 
+    const algoCtx = await formatAlgorithmContextForPlatform(platform || 'tiktok')
+    const geo = resolveRequestGeo(request.headers)
+    const locationBlock = geoPromptBlock(geo)
+
       const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
 
       for (;;) {
@@ -347,6 +353,11 @@ export async function POST(request: NextRequest) {
 PLATFORM EDITING DIRECTIVE:
 ${platformEditingDirective(targetPlatform)}
 
+LIVE ALGORITHM DATA (must drive recommendations — do not ignore):
+${algoCtx.block}
+
+${locationBlock}
+
 CRITICAL ANALYSIS REQUIREMENTS:
 1. **SUBJECT MATTER IDENTIFICATION**: 
    - What is the video about? Identify main topic, theme, niche, and target audience
@@ -359,82 +370,102 @@ CRITICAL ANALYSIS REQUIREMENTS:
    - Visual effects, transitions, text overlays
    - Motion, energy, pacing throughout
    - Thumbnail-worthy moments
-   - Game-specific visual elements (UI, HUD, gameplay mechanics)
+   - Cross-platform watermarks (TikTok/IG/YT logos, burn-ins) — flag if present
 3. **AUDIO ANALYSIS**:
-   - Speech/dialogue content (what is being said)
-   - Background music genre, mood, energy level
-   - Sound effects and their purpose
-   - Audio quality (clarity, mixing, volume levels)
-   - Voice tone and delivery style
-   - Game audio (sound effects, music, voice lines)
-4. **HOOK ANALYSIS**:
-   - What grabs attention in first 1-3 seconds?
+   - Speech/dialogue content
+   - Background music genre, mood, energy
+   - Whether audio sounds original vs trending-sound friendly
+   - Sound effects, mix quality, game audio
+4. **HOOK ANALYSIS** (mandatory):
+   - Exact timestamp of the strongest hook (seconds)
+   - What grabs attention in first 1–3 seconds?
    - Is the hook visual, audio, or conceptual?
-   - How effective is it for ${platform}?
-5. **ENGAGEMENT MECHANICS**:
+   - How well does it fit ${platform} vs Facebook-style sharebait?
+5. **TRENDING AUDIO / SOUND STRATEGY**:
+   - Recommend whether to keep original audio, layer a trending sound, or replace
+   - Give a concrete search phrase to find sounds on ${platform} (genre/mood/keywords) — not a fake specific song title unless clearly audible
+6. **WATERMARK / CROSS-POST RISK**:
+   - Detect visible platform watermarks or UI chrome from another app
+   - Advise whether to re-export clean / crop / reframe before posting
+7. **ENGAGEMENT + POSTING FIT**:
    - What keeps viewers watching?
-   - Call-to-action opportunities
-   - Shareable moments
-   - Comment-worthy elements
-6. **PLATFORM-SPECIFIC ALGORITHM PRIORITIES (2026):
-- TikTok: Hook in first 1-2 seconds, completion rate, shares, saves, comments, trending audio, caption keywords, niche authority
-- Instagram Reels: First 3 seconds engagement, watch time, saves, shares, carousel swipe-through, music trending, hashtags, Reels tab exploration
-- YouTube Shorts: First 1 second hook, watch time, click-through rate, retention, comments, likes, shares, title optimization, posting schedule
-- YouTube Long: First 5 seconds hook, retention, click-through rate, comments, likes, shares, title optimization, posting schedule, description keywords
-- Twitch Clips: Highlight moments, community engagement, game/category relevance, editing pace, audio clarity, discoverability through recommendations
-- Kick Clips: Early engagement, community interaction, category relevance, trending topics, audio quality, visual appeal, shareability
-7. **SCORING CRITERIA (0-100):
-- Hook strength (first 1-3 seconds): 25 points
-- Content engagement potential: 20 points
-- Visual/audio quality: 15 points
-- Platform-specific optimization: 20 points
-- Metadata quality (title/description/tags): 20 points
-8. **TAG REQUIREMENTS (minimum 8 entries in "tags"; aim for 15-20 when relevant):
+   - Best local posting windows for this creator's timezone (${geo.timezone}) using the LIVE algorithm posting tips
+8. **PLATFORM ALGORITHM PRIORITIES** — combine LIVE snapshot above with:
+- TikTok: early hook, completion, rewatches, comments, trending audio, niche tags
+- Instagram Reels: saves/shares, first-line caption, clean visuals, avoid watermarked cross-posts
+- YouTube Shorts: title CTR, retention, search keywords, loop potential
+9. **SCORING (0-100)**: Hook 25 + Engagement 20 + Visual/Audio 15 + Platform fit 20 + Metadata 20
+10. **TAG REQUIREMENTS**:
 ${
   isYouTubeMetadata
     ? youtubeShortsMetadataPromptBlock()
-    : `Include a comprehensive mix of:
-1. Platform-specific trending tags (e.g., #fyp, #foryou, #reels, #shorts)
-2. Content-specific tags (what the video is actually about)
-3. Game tags (if gaming content - include the game name and related tags)
-4. Context tags (niche, theme, style, format)
-5. Streaming platform tags (if from a stream - e.g., #twitchclip, #youtubelive)
-6. Broad category tags for discoverability
-7. Niche-specific tags for targeted audience
-Use # prefix in each tag string for TikTok/Instagram.`
+    : `Mix platform + niche + content tags. Prefer 5–12 high-signal tags for Reels/TikTok (not 30 spam tags). Use # prefix.`
 }
 
 Return this exact JSON structure:
 {
   "score": <integer 0-100>,
-  "scoreTitle": "<short title: Excellent/Good/Fair/Needs Improvement>",
-  "scoreSummary": "<2 sentences: main strength + 1 key improvement needed>",
+  "scoreTitle": "<Excellent/Good/Fair/Needs Improvement>",
+  "scoreSummary": "<2 sentences: main strength + key improvement>",
+  "hookStrength": <integer 0-100>,
+  "engagementPotential": <integer 0-100>,
+  "visualQuality": <integer 0-100>,
+  "audioQuality": <integer 0-100>,
   "insights": [
-    { "icon": "<emoji>", "label": "Hook Strength", "value": "<rating: Strong/Moderate/Weak>", "description": "<why this rating + specific improvement - NO abbreviations>" },
-    { "icon": "<emoji>", "label": "Engagement Potential", "value": "<rating: High/Medium/Low>", "description": "<factors affecting engagement + specific boost - NO abbreviations>" },
-    { "icon": "<emoji>", "label": "Visual Quality", "value": "<rating: Professional/Good/Fair>", "description": "<production assessment + specific fix - NO abbreviations>" },
-    { "icon": "<emoji>", "label": "Audio Quality", "value": "<rating: Clear/Muffled/Unbalanced>", "description": "<sound assessment + specific fix - NO abbreviations>" }
+    { "icon": "🎯", "label": "Hook Strength", "value": "<Strong/Moderate/Weak>", "description": "<why + specific fix>", "score": <0-100> },
+    { "icon": "⚡", "label": "Engagement Potential", "value": "<High/Medium/Low>", "description": "<why + boost>", "score": <0-100> },
+    { "icon": "🎬", "label": "Visual Quality", "value": "<Professional/Good/Fair>", "description": "<why + fix>", "score": <0-100> },
+    { "icon": "🔊", "label": "Audio Quality", "value": "<Clear/Muffled/Unbalanced>", "description": "<why + fix>", "score": <0-100> }
   ],
+  "hookAnalysis": {
+    "timestampSeconds": <number>,
+    "type": "<visual|audio|conceptual|mixed>",
+    "summary": "<what the hook is>",
+    "platformFit": "<how well it fits ${platform}>",
+    "improvement": "<specific edit to strengthen the first 1-3s>"
+  },
+  "trendingAudioAdvice": {
+    "recommendation": "<keep_original|layer_trending|replace_with_trending>",
+    "rationale": "<why>",
+    "searchKeywords": "<concrete sound-search phrase for ${platform}>",
+    "mixTip": "<e.g. keep VO loud; layer trend at ~15-25% if useful>"
+  },
+  "watermarkCheck": {
+    "detected": <true|false>,
+    "details": "<what was seen or 'none detected'>",
+    "action": "<re-export clean / crop edges / safe to post>"
+  },
+  "postingPlan": {
+    "timezone": "${geo.timezone}",
+    "areaLabel": "${geo.areaLabel}",
+    "bestWindowsLocal": ["<local window 1>", "<local window 2>", "<local window 3>"],
+    "frequencyTip": "<how often to post this style on ${platform}>",
+    "crossPostNote": "<how this clip may perform vs Facebook Reels if identical cross-post>"
+  },
   "recommendations": [
-    { "priority": "high", "category": "Hook", "text": "<specific, actionable hook improvement - NO abbreviations>" },
-    { "priority": "med", "category": "Pacing", "text": "<specific pacing adjustment - NO abbreviations>" },
-    { "priority": "med", "category": "Visual", "text": "<specific visual enhancement - NO abbreviations>" },
-    { "priority": "med", "category": "Audio", "text": "<specific audio improvement - NO abbreviations>" },
-    { "priority": "low", "category": "Metadata", "text": "<specific metadata optimization - NO abbreviations>" }
+    { "priority": "high", "category": "Hook", "text": "<actionable>" },
+    { "priority": "high", "category": "Trending Audio", "text": "<actionable>" },
+    { "priority": "high", "category": "Watermark", "text": "<actionable>" },
+    { "priority": "med", "category": "Pacing", "text": "<actionable>" },
+    { "priority": "med", "category": "Visual", "text": "<actionable>" },
+    { "priority": "med", "category": "Posting Time", "text": "<local-time actionable using ${geo.timezone}>" },
+    { "priority": "low", "category": "Metadata", "text": "<actionable>" }
   ],
   "overlays": [
-    { "type": "text",   "description": "<specific text overlay suggestion - NO abbreviations>", "timing": "<exact timestamp>" },
-    { "type": "sound", "description": "<specific audio/music suggestion - NO abbreviations>", "timing": "<exact timestamp>" },
-    { "type": "visual", "description": "<specific visual effect or edit - NO abbreviations>", "timing": "<exact timestamp>" },
-    { "type": "cta",    "description": "<specific call-to-action - NO abbreviations>", "timing": "<exact timestamp>" }
+    { "type": "text",   "description": "<suggestion>", "timing": "<timestamp>" },
+    { "type": "sound", "description": "<suggestion aligned with trendingAudioAdvice>", "timing": "<timestamp>" },
+    { "type": "visual", "description": "<suggestion>", "timing": "<timestamp>" },
+    { "type": "cta",    "description": "<suggestion>", "timing": "<timestamp>" }
   ],
   "titles": [
-    "<optimized title option 1: 50-60 chars max, strong hook + keywords>",
-    "<optimized title option 2: 50-60 chars max, strong hook + keywords>",
-    "<optimized title option 3: 50-60 chars max, strong hook + keywords>"
+    "<title 1>",
+    "<title 2>",
+    "<title 3>"
   ],
-  "description": "<optimized description: 150-200 characters, keywords + call to action, platform-optimized - NO abbreviations>",
-  "tags": ["<at least 8; ideally 15-20 specific, relevant ${isYouTubeMetadata ? 'keywords WITHOUT # symbols (plain text for YouTube Studio)' : 'hashtags for platform'} - mix of platform, content, game, context, and streaming tags>"]
+  "description": "<platform-optimized caption/description>",
+  "tags": ["<platform-native tags/keywords>"],
+  "algorithmUsed": "${algoCtx.algorithmPlatformId}",
+  "algorithmUpdatedAt": "${algoCtx.lastUpdated || 'unknown'}"
 }
 IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside of JSON.
 `
@@ -638,6 +669,13 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
       backend,
       estimatedCostUsd: clipCost.estimatedCostUsd,
       estimatedCostNote: clipCost.estimatedCostNote,
+      algorithmUsed: algoCtx.algorithmPlatformId,
+      algorithmUpdatedAt: algoCtx.lastUpdated,
+      geo: {
+        areaLabel: geo.areaLabel,
+        timezone: geo.timezone,
+        countryCode: geo.countryCode,
+      },
     })
 
     // Add cache-busting headers

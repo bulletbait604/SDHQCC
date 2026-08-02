@@ -1,26 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
   INTERNAL_API_SECRET_HEADER,
-  getInternalApiSecret,
+  isValidCronRequest,
   isValidInternalApiSecret,
 } from '@/lib/internalApi'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { verifyStaffUser } from '@/lib/auth/staffAccess'
 
 export const dynamic = 'force-dynamic'
+/** Full multi-platform research can exceed default serverless limits. */
+export const maxDuration = 300
 
 async function runAlgorithmsUpdate(): Promise<Response> {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.CLIP_EDITOR_APP_URL || 'http://localhost:3000'
-  const secret = getInternalApiSecret()
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (secret) {
-    headers[INTERNAL_API_SECRET_HEADER] = secret
-  }
-
-  const response = await fetch(`${baseUrl}/api/algorithms`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({}),
+  // Dynamic import avoids static circular coupling between route modules.
+  // On failure, prior Mongo snapshot is preserved — app keeps working.
+  const { runAlgorithmRefresh } = await import('@/app/api/algorithms/route')
+  const response = await runAlgorithmRefresh({
+    force: false,
+    source: 'monthly-cron',
+    actorUsername: 'system',
   })
   const data = await response.json().catch(() => ({}))
 
@@ -31,26 +29,56 @@ async function runAlgorithmsUpdate(): Promise<Response> {
         : typeof data.error === 'string'
           ? data.error
           : 'Failed to update algorithms'
-    throw new Error(message)
+    return NextResponse.json(
+      { error: message, details: data.details },
+      { status: response.status }
+    )
   }
 
   return NextResponse.json({
     success: true,
-    message: 'Algorithm data updated successfully',
+    skipped: data.skipped === true,
+    message:
+      data.skipped === true
+        ? typeof data.message === 'string'
+          ? data.message
+          : 'Already updated this month'
+        : 'Algorithm data updated successfully',
     provider: typeof data.provider === 'string' ? data.provider : undefined,
+    model: typeof data.model === 'string' ? data.model : undefined,
     lastUpdated: typeof data.lastUpdated === 'string' ? data.lastUpdated : undefined,
+    estimatedCostNote:
+      typeof data.estimatedCostNote === 'string' ? data.estimatedCostNote : undefined,
   })
+}
+
+async function authorizeAndRun(req: NextRequest): Promise<Response> {
+  // Monthly Vercel Cron sets x-vercel-cron: 1 (no env var needed).
+  if (isValidCronRequest(req)) {
+    return await runAlgorithmsUpdate()
+  }
+  const secret = req.headers.get(INTERNAL_API_SECRET_HEADER)
+  if (isValidInternalApiSecret(secret)) {
+    return await runAlgorithmsUpdate()
+  }
+  await verifyStaffUser(req)
+  return await runAlgorithmsUpdate()
+}
+
+/** Vercel Cron (1st of month) — authorized via x-vercel-cron header */
+export async function GET(req: NextRequest) {
+  try {
+    return await authorizeAndRun(req)
+  } catch (error: unknown) {
+    if (error instanceof AuthError) return createAuthErrorResponse(error)
+    console.error('Error updating algorithms (GET cron):', error)
+    return NextResponse.json({ error: 'Failed to update algorithms' }, { status: 500 })
+  }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const secret = req.headers.get(INTERNAL_API_SECRET_HEADER)
-    if (isValidInternalApiSecret(secret)) {
-      return await runAlgorithmsUpdate()
-    }
-
-    await verifyStaffUser(req)
-    return await runAlgorithmsUpdate()
+    return await authorizeAndRun(req)
   } catch (error: unknown) {
     if (error instanceof AuthError) return createAuthErrorResponse(error)
     console.error('Error updating algorithms:', error)

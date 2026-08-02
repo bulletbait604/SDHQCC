@@ -99,7 +99,7 @@ export default function AlgorithmInsightsSection({
 
         <div className="flex flex-col items-center mb-6">
           <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
-            Powered By: Gemini 2.5 Flash
+            Powered By: Gemini 2.5 Flash-Lite
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             {isLoadingAlgorithms && (
@@ -107,6 +107,10 @@ export default function AlgorithmInsightsSection({
             )}
             {algorithmError && <span className="text-red-500 text-base">{algorithmError}</span>}
             <p className={`${subtitleClasses} text-base`}>Last updated: {lastUpdated}</p>
+            <p className={`${subtitleClasses} text-xs w-full text-center`}>
+              Auto-refreshes on the 1st of every month via Gemini Flash-Lite · used by Analyzer,
+              Post4Me &amp; Clip Editor
+            </p>
           </div>
 
           {isAdmin && showAdminControls && (
@@ -185,8 +189,12 @@ export default function AlgorithmInsightsSection({
                 <div className="space-y-3">
                   {platform.data ? (
                     <>
-                      {platform.data.summaries ? (
-                        platform.data.summaries.slice(0, 4).map((summary, index) => (
+                      {Array.isArray(platform.data.summaries) &&
+                      platform.data.summaries.filter((s) => typeof s === 'string').length > 0 ? (
+                        platform.data.summaries
+                          .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+                          .slice(0, 4)
+                          .map((summary, index) => (
                           <div key={index} className="flex items-start space-x-3 group">
                             <div
                               className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 transition-all duration-300 ${
@@ -266,7 +274,7 @@ export default function AlgorithmInsightsSection({
                       {expandedPlatform.name}
                     </h3>
                     <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}`}>
-                      Powered By: Gemini 2.5 Flash
+                      Powered By: Gemini 2.5 Flash-Lite
                     </p>
                     <p className={`text-base ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
                       Algorithm Insight
@@ -295,7 +303,11 @@ export default function AlgorithmInsightsSection({
                       accent="cyan"
                       icon={<TrendingUp className="w-5 h-5 mr-2" />}
                       title="Key Changes"
-                      body={expandedPlatform.data.keyChanges}
+                      body={
+                        typeof expandedPlatform.data.keyChanges === 'string'
+                          ? expandedPlatform.data.keyChanges
+                          : 'Key changes unavailable.'
+                      }
                     />
                     <DetailBlock
                       darkMode={darkMode}
@@ -303,7 +315,11 @@ export default function AlgorithmInsightsSection({
                       accent="green"
                       icon={<Video className="w-5 h-5 mr-2" />}
                       title="Editing Tips"
-                      body={expandedPlatform.data.editingTips}
+                      body={
+                        typeof expandedPlatform.data.editingTips === 'string'
+                          ? expandedPlatform.data.editingTips
+                          : 'Editing tips unavailable.'
+                      }
                     />
                     <DetailBlock
                       darkMode={darkMode}
@@ -311,7 +327,11 @@ export default function AlgorithmInsightsSection({
                       accent="cyan"
                       icon={<Globe className="w-5 h-5 mr-2" />}
                       title="Posting Tips"
-                      body={expandedPlatform.data.postingTips}
+                      body={
+                        typeof expandedPlatform.data.postingTips === 'string'
+                          ? expandedPlatform.data.postingTips
+                          : 'Posting tips unavailable.'
+                      }
                     />
                     <DetailBlock
                       darkMode={darkMode}
@@ -319,7 +339,11 @@ export default function AlgorithmInsightsSection({
                       accent="green"
                       icon={<Hash className="w-5 h-5 mr-2" />}
                       title="Title Tips"
-                      body={expandedPlatform.data.titleTips}
+                      body={
+                        typeof expandedPlatform.data.titleTips === 'string'
+                          ? expandedPlatform.data.titleTips
+                          : 'Title tips unavailable.'
+                      }
                     />
                     <DetailBlock
                       darkMode={darkMode}
@@ -327,7 +351,11 @@ export default function AlgorithmInsightsSection({
                       accent="cyan"
                       icon={<Brain className="w-5 h-5 mr-2" />}
                       title="Description Tips"
-                      body={expandedPlatform.data.descriptionTips}
+                      body={
+                        typeof expandedPlatform.data.descriptionTips === 'string'
+                          ? expandedPlatform.data.descriptionTips
+                          : 'Description tips unavailable.'
+                      }
                     />
                   </>
                 ) : (

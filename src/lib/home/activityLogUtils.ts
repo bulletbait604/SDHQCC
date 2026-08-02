@@ -3,6 +3,8 @@ import type { ActivityLogEntry } from '@/lib/home/types'
 export function formatActivityActionLabel(action: ActivityLogEntry['action']): string {
   if (action === 'token_grant') return 'coin grant'
   if (action === 'token_purchase') return 'coin purchase'
+  if (action === 'algorithm_refresh') return 'algorithm update'
+  if (action === 'algorithm_refresh_failed') return 'algorithm update failed'
   return action.replace(/_/g, ' ')
 }
 

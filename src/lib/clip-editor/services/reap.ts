@@ -184,8 +184,9 @@ export function buildViralClipPrompt(params: {
 
   return (
     `Create viral short-form clips for ${platformHint}. ${layoutHint} ` +
-    `Keep clips under 60 seconds. Cut dead air, emphasize hooks, reactions, and quotable lines. ` +
-    `Trailer-style pacing with punchy cuts.`
+    `Aggressively remove silence, pauses, filler words, and dead air — never return near-full-length copies of the source. ` +
+    `Prefer 15–45 second clips with a hard hook in the first second, punchy jump cuts, and only the highest-energy moments. ` +
+    `Skip intros, outros, rambling, and low-energy stretches. Trailer-style pacing.`
   ).slice(0, 1000)
 }
 
@@ -319,7 +320,12 @@ export function pickBestReapClip(clips: ReapClip[] | undefined): ReapClip | null
   if (!clips?.length) return null
   const playable = clips.filter((c) => Boolean(reapClipPlaybackUrl(c)))
   if (!playable.length) return null
-  return [...playable].sort((a, b) => (Number(b.viralityScore) || 0) - (Number(a.viralityScore) || 0))[0]
+  return [...playable].sort((a, b) => {
+    const scoreDiff = (Number(b.viralityScore) || 0) - (Number(a.viralityScore) || 0)
+    // Prefer a tighter edit when virality is close — avoid near-full-length dumps.
+    if (Math.abs(scoreDiff) >= 0.75) return scoreDiff
+    return (Number(a.duration) || 999) - (Number(b.duration) || 999)
+  })[0]
 }
 
 export function isReapTerminalStatus(status: string | undefined): boolean {
@@ -332,10 +338,22 @@ export function isReapSuccessStatus(status: string | undefined): boolean {
 }
 
 /**
- * Start a Creator-plan-safe Reap project.
- * - ≥2 min → create-clips (AI viral cuts + captions; no reframe — Studio-only)
- * - <2 min → create-captions (3s–15m; emojis + highlights)
- * Creator limits: 1080p max, 3 concurrent projects, no /create-reframe.
+ * Reap AI clipping (`create-clips`) requires source videos ≥2 minutes.
+ * Captions-only does not cut dead air — do not use it as a clipping substitute.
+ */
+export const REAP_CLIPPING_MIN_SECONDS = 120
+
+export function canUseReapAiClipping(durationSeconds: number | undefined): boolean {
+  return (
+    typeof durationSeconds === 'number' &&
+    Number.isFinite(durationSeconds) &&
+    durationSeconds >= REAP_CLIPPING_MIN_SECONDS
+  )
+}
+
+/**
+ * Start Creator-plan Reap AI clipping. Throws if the source is under 2 minutes —
+ * Reap will reject shorter files, and captions-only would keep nearly full length.
  */
 export async function startReapViralProject(
   sourceUrl: string,
@@ -343,14 +361,21 @@ export async function startReapViralProject(
 ): Promise<{
   projectId: string
   uploadId: string
-  mode: 'clipping' | 'captions'
+  mode: 'clipping'
 }> {
+  const duration = options.durationSeconds ?? 0
+  if (!canUseReapAiClipping(duration)) {
+    throw new Error(
+      `Reap AI clipping needs a source of at least ${REAP_CLIPPING_MIN_SECONDS} seconds (you sent ${Math.round(duration)}s). ` +
+        `Upload a longer VOD/stream segment — Captions-only cannot cut dead air, and Studio does not unlock short-clip AI cutting via API.`
+    )
+  }
+
   const genre = layoutToReapGenre(options.layoutTemplate, options.genre)
   const orientation = platformToReapOrientation(options.platform, options.landscapeMode)
   const captionsPreset = options.captionsPreset?.trim() || 'system_beasty'
   const enableEmojis = options.enableEmojis !== false
   const enableHighlights = options.enableHighlights !== false
-  const duration = options.durationSeconds ?? 0
 
   const { uploadId } = await uploadSourceUrlToReap({
     sourceUrl,
@@ -358,44 +383,28 @@ export async function startReapViralProject(
     mimeType: options.mimeType,
   })
 
-  // Long-form clipping (Reap requires ≥2 minutes)
-  if (duration >= 120) {
-    const project = await createReapClips({
-      uploadId,
-      reframeClips: false,
-      exportOrientation: orientation,
-      exportResolution: 1080,
-      captionsPreset,
-      enableEmojis,
-      enableHighlights,
-      language: options.language || undefined,
-      genre,
-      clipDurations: [
-        [0, 30],
-        [30, 60],
-        [60, 90],
-      ],
-      prompt: buildViralClipPrompt({
-        platform: options.platform,
-        layoutTemplate: options.layoutTemplate,
-        prompt: options.prompt,
-      }),
-    })
-    if (!project.id) throw new Error('Reap create-clips returned no project id')
-    return { projectId: project.id, uploadId, mode: 'clipping' }
-  }
-
-  // Short clips: captions only (Creator-safe; no Studio reframe)
-  const captions = await createReapCaptions({
+  const project = await createReapClips({
     uploadId,
+    reframeClips: false,
+    exportOrientation: orientation,
+    exportResolution: 1080,
     captionsPreset,
-    language: options.language || undefined,
     enableEmojis,
     enableHighlights,
-    resolution: 1080,
+    language: options.language || undefined,
+    genre,
+    clipDurations: [
+      [0, 30],
+      [30, 60],
+    ],
+    prompt: buildViralClipPrompt({
+      platform: options.platform,
+      layoutTemplate: options.layoutTemplate,
+      prompt: options.prompt,
+    }),
   })
-  if (!captions.id) throw new Error('Reap create-captions returned no project id')
-  return { projectId: captions.id, uploadId, mode: 'captions' }
+  if (!project.id) throw new Error('Reap create-clips returned no project id')
+  return { projectId: project.id, uploadId, mode: 'clipping' }
 }
 
 export function reapClipsToViralSegments(clips: ReapClip[]): Array<{

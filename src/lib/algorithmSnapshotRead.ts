@@ -8,6 +8,10 @@ export type AlgorithmSnapshotPayload = {
   lastUpdated: string | null
   provider?: string
   errors?: string[]
+  /** True when a refresh only updated some platforms (prior data kept for the rest). */
+  incomplete?: boolean
+  model?: string
+  updatedPlatforms?: string[]
 }
 
 export async function readAlgorithmSnapshotFromMongo(): Promise<AlgorithmSnapshotPayload | null> {

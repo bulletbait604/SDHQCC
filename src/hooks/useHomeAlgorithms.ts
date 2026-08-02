@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { DEFAULT_PLATFORMS } from '@/lib/home/defaultPlatforms'
 import type { ActivityLogEntry, Platform } from '@/lib/home/types'
-import { postActivityLog } from '@/lib/home/activityLogUtils'
 import type { KickUser } from '@/lib/home/types'
 
 export interface UseHomeAlgorithmsOptions {
@@ -27,36 +26,13 @@ export function useHomeAlgorithms({ user, isAdmin, onActivityLog, runOnMount = t
 
     void (async () => {
       try {
+        // Landing / Resource Hub always read the shared Mongo snapshot.
+        // Fresh research runs automatically via Vercel Cron on the 1st of each month
+        // (GET /api/algorithms/update) — clients never trigger research themselves.
         const getRes = await fetch('/api/algorithms', { credentials: 'include' })
         if (!getRes.ok) throw new Error(`API error: ${getRes.status}`)
         const getData = await getRes.json()
-        const lastFromApi = getData.lastUpdated as string | undefined
-
-        const needsSundayRefresh = (): boolean => {
-          const now = new Date()
-          if (now.getDay() !== 0) return false
-          if (!lastFromApi) return true
-          const lu = new Date(lastFromApi)
-          const daysSince = Math.floor((now.getTime() - lu.getTime()) / (1000 * 60 * 60 * 24))
-          return daysSince >= 6
-        }
-
-        if (needsSundayRefresh()) {
-          const postRes = await fetch('/api/algorithms', {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({}),
-          })
-          if (!postRes.ok) throw new Error(`API error: ${postRes.status}`)
-          const data = await postRes.json()
-          if (data.data) {
-            setLastUpdated(data.lastUpdated)
-            setPlatforms((prev) =>
-              prev.map((p) => ({ ...p, data: data.data[p.id] || null }))
-            )
-          }
-        } else if (getData.data) {
+        if (getData.data) {
           setLastUpdated(getData.lastUpdated)
           setPlatforms((prev) =>
             prev.map((p) => ({ ...p, data: getData.data[p.id] || null }))
@@ -117,22 +93,24 @@ export function useHomeAlgorithms({ user, isAdmin, onActivityLog, runOnMount = t
           const platformName = platformId
             ? platforms.find((p) => p.id === platformId)?.name
             : null
-          const details = platformName
-            ? `Manual ${platformName} algorithm refresh${payload.provider ? ` via ${payload.provider}` : ''}`
-            : `Manual algorithm refresh${payload.provider ? ` via ${payload.provider}` : ''}`
+          // Server writes the canonical activity-log entry (success/partial + details).
+          // Mirror it locally so the Activity Log UI updates immediately.
+          const details =
+            typeof payload.incomplete === 'boolean' && payload.incomplete
+              ? `[SUCCESS] staff — Partial ${platformName || 'all platforms'} update via ${payload.provider || 'AI'}. Some platforms kept previous data.`
+              : `[SUCCESS] staff — ${platformName || 'All platforms'} algorithm refresh via ${payload.provider || 'AI'} (${payload.model || 'gemini-2.5-flash-lite'}).`
           const refreshEntry: ActivityLogEntry = {
             id: Date.now().toString(),
             username: user.username,
             timestamp: new Date().toISOString(),
             action: 'algorithm_refresh',
             details,
+            estimatedCostNote:
+              typeof payload.estimatedCostNote === 'string'
+                ? payload.estimatedCostNote
+                : undefined,
           }
           onActivityLog(refreshEntry)
-          void postActivityLog({
-            username: user.username,
-            action: 'algorithm_refresh',
-            details,
-          })
           alert(
             platformName
               ? `${platformName} algorithm refreshed successfully!`
@@ -141,6 +119,7 @@ export function useHomeAlgorithms({ user, isAdmin, onActivityLog, runOnMount = t
         }
       } catch (error) {
         console.error('Algorithm refresh error:', error)
+        // Server already wrote algorithm_refresh_failed to the activity log.
         alert(error instanceof Error ? error.message : 'Failed to refresh algorithms.')
       } finally {
         setIsLoadingAlgorithms(false)

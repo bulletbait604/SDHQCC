@@ -46,7 +46,7 @@ export function buildPost4MePlatformOutput(
   const youtubeDescription = isYouTube
     ? stripHashtagsFromDescription(meta.description.replace(/<[^>]*>/g, ''))
     : undefined
-  const combinedCaption = isYouTube ? undefined : buildCombinedPostCaption(meta)
+  const combinedCaption = isYouTube ? undefined : buildCombinedPostCaption(meta, platformId)
 
   return {
     platformId,

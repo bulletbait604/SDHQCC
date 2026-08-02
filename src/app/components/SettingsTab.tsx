@@ -323,7 +323,8 @@ export default function SettingsTab({
               <option value="payment_failed">Payment Failed</option>
               <option value="verification_attempt">Verification Attempt</option>
               <option value="access_expired">Access Expired</option>
-              <option value="algorithm_refresh">Algorithm Refresh</option>
+              <option value="algorithm_refresh">Algorithm Update</option>
+              <option value="algorithm_refresh_failed">Algorithm Update Failed</option>
               <option value="tag_generation">Tag Generation</option>
               <option value="thumbnail_generation">Thumbnail Generation</option>
               <option value="clip_analysis">Clip Analysis</option>
@@ -376,7 +377,19 @@ export default function SettingsTab({
           ) : (
             activityLog
               .filter((entry: ActivityLogEntry) => {
-                if (filterAction !== 'all' && entry.action !== filterAction) return false
+                if (filterAction !== 'all') {
+                  // "Algorithm Update" shows success + failed; failed filter stays exact.
+                  if (filterAction === 'algorithm_refresh') {
+                    if (
+                      entry.action !== 'algorithm_refresh' &&
+                      entry.action !== 'algorithm_refresh_failed'
+                    ) {
+                      return false
+                    }
+                  } else if (entry.action !== filterAction) {
+                    return false
+                  }
+                }
                 if (filterUser !== 'all' && entry.username !== filterUser) return false
                 if (filterDate !== 'all') {
                   const entryDate = new Date(entry.timestamp)
@@ -403,6 +416,7 @@ export default function SettingsTab({
                   case 'verification_attempt': return 'text-yellow-500'
                   case 'access_expired': return 'text-orange-500'
                   case 'algorithm_refresh': return 'text-cyan-400'
+                  case 'algorithm_refresh_failed': return 'text-red-400'
                   case 'tag_generation': return 'text-pink-400'
                   case 'thumbnail_generation': return 'text-amber-400'
                   case 'clip_analysis': return 'text-violet-400'
@@ -418,7 +432,8 @@ export default function SettingsTab({
                   case 'payment_failed': return ''
                   case 'verification_attempt': return ''
                   case 'access_expired': return ''
-                  case 'algorithm_refresh': return 'Refresh'
+                  case 'algorithm_refresh': return 'OK'
+                  case 'algorithm_refresh_failed': return 'X'
                   default: return ''
                 }
               }

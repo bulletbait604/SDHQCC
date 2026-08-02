@@ -73,6 +73,100 @@ export default function AnalyzeTab({
         )
       : ''
 
+  const insightCards = (() => {
+    const apiInsights = clipAnalysisResult?.insights
+    if (Array.isArray(apiInsights) && apiInsights.length > 0) {
+      return apiInsights.slice(0, 4).map((insight, idx) => {
+        const key = (insight.label || `insight-${idx}`).toLowerCase().replace(/\s+/g, '-')
+        const score =
+          typeof insight.score === 'number'
+            ? insight.score
+            : key.includes('hook')
+              ? clipAnalysisResult?.hookStrength
+              : key.includes('engagement')
+                ? clipAnalysisResult?.engagementPotential
+                : key.includes('visual')
+                  ? clipAnalysisResult?.visualQuality
+                  : key.includes('audio')
+                    ? clipAnalysisResult?.audioQuality
+                    : clipAnalysisResult?.score
+        const desc = insight.description || insight.value || 'See detailed recommendations below.'
+        return {
+          key,
+          icon: insight.icon || '✨',
+          label: insight.label || 'Insight',
+          score: Math.round(score ?? clipAnalysisResult?.score ?? 0),
+          preview: [insight.value, desc].filter((v): v is string => Boolean(v && String(v).trim())),
+          details: [desc],
+        }
+      })
+    }
+    if (!clipAnalysisResult) return []
+    return [
+      {
+        key: 'hook',
+        icon: '🎯',
+        label: 'Hook Strength',
+        score: clipAnalysisResult.hookStrength ?? Math.round(clipAnalysisResult.score * 0.9),
+        preview: [
+          clipAnalysisResult.hookAnalysis?.summary || 'Hook analysis will appear after AI review.',
+          clipAnalysisResult.hookAnalysis?.improvement || 'Open recommendations for specific edits.',
+        ].filter(Boolean),
+        details: [
+          clipAnalysisResult.hookAnalysis?.platformFit,
+          clipAnalysisResult.hookAnalysis?.improvement,
+        ].filter((v): v is string => Boolean(v)),
+      },
+      {
+        key: 'engagement',
+        icon: '⚡',
+        label: 'Engagement Potential',
+        score:
+          clipAnalysisResult.engagementPotential ?? Math.round(clipAnalysisResult.score * 0.95),
+        preview: [clipAnalysisResult.scoreSummary || 'Engagement estimate from live algorithm fit.'],
+        details: clipAnalysisResult.recommendations
+          ?.filter((r) => /engagement|cta|comment/i.test(`${r.category} ${r.text}`))
+          .map((r) => r.text) || [],
+      },
+      {
+        key: 'visual',
+        icon: '🎬',
+        label: 'Visual Quality',
+        score: clipAnalysisResult.visualQuality ?? Math.round(clipAnalysisResult.score * 0.85),
+        preview: [
+          clipAnalysisResult.watermarkCheck?.details || 'Visual quality scored from the clip.',
+        ],
+        details: [
+          clipAnalysisResult.watermarkCheck?.action,
+          ...(clipAnalysisResult.recommendations
+            ?.filter((r) => /visual|watermark/i.test(`${r.category} ${r.text}`))
+            .map((r) => r.text) || []),
+        ].filter((v): v is string => Boolean(v)),
+      },
+      {
+        key: 'audio',
+        icon: '🔊',
+        label: 'Audio Quality',
+        score: clipAnalysisResult.audioQuality ?? Math.round(clipAnalysisResult.score * 0.88),
+        preview: [
+          clipAnalysisResult.trendingAudioAdvice?.rationale ||
+            'Audio scored from clarity + trend fit.',
+        ],
+        details: [
+          clipAnalysisResult.trendingAudioAdvice?.searchKeywords
+            ? `Search sounds for: ${clipAnalysisResult.trendingAudioAdvice.searchKeywords}`
+            : undefined,
+          clipAnalysisResult.trendingAudioAdvice?.mixTip,
+        ].filter((v): v is string => Boolean(v)),
+      },
+    ]
+  })()
+
+  const sortedRecs = [...(clipAnalysisResult?.recommendations || [])].sort((a, b) => {
+    const rank = (p?: string) => (p === 'high' ? 0 : p === 'med' ? 1 : 2)
+    return rank(a.priority) - rank(b.priority)
+  })
+
   return (
 <div className={`relative py-8 ${cardClasses} ${!hasTabAccess('analyze') && !hasTabAccess('clip-analyzer') ? 'pointer-events-none' : ''}`}>
   {!hasTabAccess('analyze') && !hasTabAccess('clip-analyzer') && (
@@ -339,14 +433,25 @@ export default function AnalyzeTab({
                   Content Insights
                 </h4>
               </div>
+              {(clipAnalysisResult.algorithmUpdatedAt || clipAnalysisResult.geo?.areaLabel) && (
+                <p className={`text-xs mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {clipAnalysisResult.algorithmUpdatedAt
+                    ? `Algorithm snapshot: ${clipAnalysisResult.algorithmUsed || clipPlatform} · updated ${
+                        (() => {
+                          const d = new Date(clipAnalysisResult.algorithmUpdatedAt)
+                          return Number.isNaN(d.getTime())
+                            ? clipAnalysisResult.algorithmUpdatedAt
+                            : d.toLocaleDateString()
+                        })()
+                      }`
+                    : null}
+                  {clipAnalysisResult.geo?.areaLabel
+                    ? `${clipAnalysisResult.algorithmUpdatedAt ? ' · ' : ''}Posting times localized for ${clipAnalysisResult.geo.areaLabel} (${clipAnalysisResult.geo.timezone || 'local'})`
+                    : null}
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-4">
-                {/* Category Score Cards */}
-                {[
-                  { key: 'hook', icon: '🎯', label: 'Hook Strength', score: clipAnalysisResult.hookStrength || Math.round(clipAnalysisResult.score * 0.9), preview: ['Strong opening visual/audio hook captures immediate attention', '3-second curiosity gap creates intrigue', 'Pattern interrupt technique used effectively', 'Opening aligns with trending content patterns', 'High retention potential in critical first 3 seconds'], details: ['Your hook captures attention within the critical first 3 seconds - this is when 80% of viewers decide to keep watching or scroll away', 'Uses pattern interrupt or unexpected element that breaks viewer scrolling pattern', 'Creates curiosity gap that demands viewers keep watching to get the payoff', 'Strong audio/visual sync in opening frames maximizes impact', 'Aligns with trending content patterns currently favored by the algorithm', 'Recommended: Test multiple hook variations in first 24 hours to identify highest performing version'] },
-                  { key: 'engagement', icon: '⚡', label: 'Engagement Potential', score: clipAnalysisResult.engagementPotential || Math.round(clipAnalysisResult.score * 0.95), preview: ['Loop-worthy content structure encourages re-watches', 'Clear call-to-action present for viewer interaction', 'Creates conversation opportunities in comments', 'Emotional trigger words boost response rates', 'Favorable watch time retention curve predicted'], details: ['Content structure encourages re-watches and loops - viewers naturally want to watch again', 'Includes subtle or direct call-to-action that prompts viewer interaction', 'Creates conversation in comments section with discussion-worthy content', 'Trigger words used to boost emotional response and engagement', 'Watch time retention curve is favorable with strong mid-video hold', 'Recommended: Respond to first 10 comments within 30 minutes of posting to boost algorithm ranking'] },
-                  { key: 'visual', icon: '🎬', label: 'Visual Quality', score: clipAnalysisResult.visualQuality || Math.round(clipAnalysisResult.score * 0.85), preview: ['Properly formatted 9:16 vertical mobile viewing', 'Consistent color grading and lighting throughout', 'Face/on-camera presence detected for algorithm boost', 'Clean background without visual distractions', 'Dynamic motion keeps viewer attention engaged'], details: ['Properly formatted for vertical 9:16 mobile viewing - optimized for phone screens', 'Consistent color grading and lighting throughout maintains professional appearance', 'Face/on-camera presence detected (major algorithm boost for all platforms)', 'Background is clean and non-distracting keeping focus on subject', 'Motion and movement keeps viewer attention from wandering', 'Recommended: Maintain 1080x1920 resolution for best quality and clarity on all devices'] },
-                  { key: 'audio', icon: '🔊', label: 'Audio Quality', score: clipAnalysisResult.audioQuality || Math.round(clipAnalysisResult.score * 0.88), preview: ['Clear voice audio with proper leveling', 'Trending sound integration detected', 'Background music complements voiceover', 'Precise audio-visual synchronization', 'Strategic sound effects for emphasis'], details: ['Voice audio is clear and properly leveled - no clipping or distortion detected', 'Uses trending or algorithm-boosting audio/sound that increases discoverability', 'Background music complements without overpowering the main audio', 'Audio-visual synchronization is precise creating professional feel', 'Sound effects used strategically for emphasis on key moments', 'Recommended: Use original audio mix with trending sound layered at 20% volume for best results'] }
-                ].map((cat, idx) => {
+                {insightCards.map((cat, idx) => {
                   const isExpanded = expandedCards.has(`cat-${cat.key}`)
                   return (
                     <div key={idx} className={`rounded-xl border-2 overflow-hidden transition-all duration-300 flex flex-col ${
@@ -425,6 +530,169 @@ export default function AnalyzeTab({
               </div>
             </div>
           </div>
+
+          {/* Growth Playbook — algorithm-backed recs */}
+          {(clipAnalysisResult.hookAnalysis ||
+            clipAnalysisResult.trendingAudioAdvice ||
+            clipAnalysisResult.watermarkCheck ||
+            clipAnalysisResult.postingPlan ||
+            sortedRecs.length > 0) && (
+            <div>
+              <div
+                className={`relative overflow-hidden rounded-xl p-4 ${
+                  darkMode
+                    ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20'
+                    : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'
+                }`}
+              >
+                <h4
+                  className={`text-base font-semibold tracking-wider uppercase mb-4 ${
+                    darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'
+                  }`}
+                >
+                  Growth Playbook
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                  {clipAnalysisResult.hookAnalysis && (
+                    <div
+                      className={`rounded-lg p-3 ${
+                        darkMode ? 'bg-sdhq-dark-700/60' : 'bg-white'
+                      }`}
+                    >
+                      <div className="text-sm font-semibold mb-1">🪝 Hook ID</div>
+                      <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        {typeof clipAnalysisResult.hookAnalysis.timestampSeconds === 'number'
+                          ? `@ ${clipAnalysisResult.hookAnalysis.timestampSeconds}s · `
+                          : ''}
+                        {clipAnalysisResult.hookAnalysis.summary}
+                      </p>
+                      {clipAnalysisResult.hookAnalysis.improvement && (
+                        <p className={`text-sm mt-2 ${darkMode ? 'text-sdhq-cyan-300' : 'text-sdhq-cyan-700'}`}>
+                          Fix: {clipAnalysisResult.hookAnalysis.improvement}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {clipAnalysisResult.trendingAudioAdvice && (
+                    <div
+                      className={`rounded-lg p-3 ${
+                        darkMode ? 'bg-sdhq-dark-700/60' : 'bg-white'
+                      }`}
+                    >
+                      <div className="text-sm font-semibold mb-1">🎵 Trending Audio</div>
+                      <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        {clipAnalysisResult.trendingAudioAdvice.recommendation?.replace(/_/g, ' ')}
+                        {clipAnalysisResult.trendingAudioAdvice.rationale
+                          ? ` — ${clipAnalysisResult.trendingAudioAdvice.rationale}`
+                          : ''}
+                      </p>
+                      {clipAnalysisResult.trendingAudioAdvice.searchKeywords && (
+                        <p className={`text-sm mt-2 ${darkMode ? 'text-sdhq-cyan-300' : 'text-sdhq-cyan-700'}`}>
+                          Search: {clipAnalysisResult.trendingAudioAdvice.searchKeywords}
+                        </p>
+                      )}
+                      {clipAnalysisResult.trendingAudioAdvice.mixTip && (
+                        <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          {clipAnalysisResult.trendingAudioAdvice.mixTip}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {clipAnalysisResult.watermarkCheck && (
+                    <div
+                      className={`rounded-lg p-3 ${
+                        darkMode ? 'bg-sdhq-dark-700/60' : 'bg-white'
+                      }`}
+                    >
+                      <div className="text-sm font-semibold mb-1">🔍 Watermark Check</div>
+                      <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        {clipAnalysisResult.watermarkCheck.detected
+                          ? 'Watermark / UI chrome detected'
+                          : 'No obvious cross-platform watermark'}
+                        {clipAnalysisResult.watermarkCheck.details
+                          ? ` — ${clipAnalysisResult.watermarkCheck.details}`
+                          : ''}
+                      </p>
+                      {clipAnalysisResult.watermarkCheck.action && (
+                        <p className={`text-sm mt-2 ${darkMode ? 'text-sdhq-cyan-300' : 'text-sdhq-cyan-700'}`}>
+                          {clipAnalysisResult.watermarkCheck.action}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {clipAnalysisResult.postingPlan && (
+                    <div
+                      className={`rounded-lg p-3 ${
+                        darkMode ? 'bg-sdhq-dark-700/60' : 'bg-white'
+                      }`}
+                    >
+                      <div className="text-sm font-semibold mb-1">📅 Best Times (Your Area)</div>
+                      <p className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {clipAnalysisResult.postingPlan.areaLabel ||
+                          clipAnalysisResult.geo?.areaLabel ||
+                          'Your region'}{' '}
+                        · {clipAnalysisResult.postingPlan.timezone || clipAnalysisResult.geo?.timezone}
+                      </p>
+                      <ul className={`text-sm space-y-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        {(clipAnalysisResult.postingPlan.bestWindowsLocal || []).map((w, i) => (
+                          <li key={i}>• {w}</li>
+                        ))}
+                      </ul>
+                      {clipAnalysisResult.postingPlan.frequencyTip && (
+                        <p className={`text-sm mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                          {clipAnalysisResult.postingPlan.frequencyTip}
+                        </p>
+                      )}
+                      {clipAnalysisResult.postingPlan.crossPostNote && (
+                        <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          {clipAnalysisResult.postingPlan.crossPostNote}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {sortedRecs.length > 0 && (
+                  <div>
+                    <div
+                      className={`text-sm font-semibold mb-2 ${
+                        darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'
+                      }`}
+                    >
+                      Suggested Edits
+                    </div>
+                    <ul className="space-y-2">
+                      {sortedRecs.map((rec, i) => (
+                        <li
+                          key={i}
+                          className={`text-sm flex gap-2 ${
+                            darkMode ? 'text-gray-300' : 'text-gray-700'
+                          }`}
+                        >
+                          <span
+                            className={`shrink-0 uppercase text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded ${
+                              rec.priority === 'high'
+                                ? 'bg-red-500/20 text-red-300'
+                                : rec.priority === 'med'
+                                  ? 'bg-yellow-500/20 text-yellow-300'
+                                  : 'bg-gray-500/20 text-gray-300'
+                            }`}
+                          >
+                            {rec.priority || 'tip'}
+                          </span>
+                          <span>
+                            {rec.category ? (
+                              <span className="font-medium">{rec.category}: </span>
+                            ) : null}
+                            {rec.text}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Overlays - 2x2 Grid with FULL Detail Always Visible */}
           <div>

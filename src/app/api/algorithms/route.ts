@@ -7,6 +7,11 @@ import {
   readAlgorithmSnapshotFromMongo,
   type AlgorithmSnapshotPayload,
 } from '@/lib/algorithmSnapshotRead'
+import {
+  extractBalancedJsonObject,
+  normalizeAlgorithmPlatformData,
+} from '@/lib/algorithmPlatformNormalize'
+import { writeActivityLogEntry } from '@/lib/activityLogWrite'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { verifyStaffUser } from '@/lib/auth/staffAccess'
 import {
@@ -16,8 +21,24 @@ import {
 
 export const dynamic = 'force-dynamic'
 
-const ALGORITHM_GEMINI_MODEL =
-  (process.env.ALGORITHM_GEMINI_MODEL || process.env.GEMINI_ALGORITHM_MODEL || 'gemini-2.5-flash').trim()
+/**
+ * Text-only monthly research — use Flash-Lite (cheap) by default.
+ * Override with ALGORITHM_GEMINI_MODEL if needed.
+ * Paid approx: ~$0.10/1M in, ~$0.40/1M out (vs Flash $0.30 / $2.50).
+ */
+const ALGORITHM_GEMINI_MODEL = (
+  process.env.ALGORITHM_GEMINI_MODEL ||
+  process.env.GEMINI_ALGORITHM_MODEL ||
+  'gemini-2.5-flash-lite'
+).trim()
+
+function alreadyUpdatedThisUtcMonth(lastUpdated: string | null | undefined): boolean {
+  if (!lastUpdated) return false
+  const lu = new Date(lastUpdated)
+  if (Number.isNaN(lu.getTime())) return false
+  const now = new Date()
+  return lu.getUTCFullYear() === now.getUTCFullYear() && lu.getUTCMonth() === now.getUTCMonth()
+}
 
 async function readDataFromMongo(): Promise<AlgorithmSnapshotPayload | null> {
   try {
@@ -29,25 +50,21 @@ async function readDataFromMongo(): Promise<AlgorithmSnapshotPayload | null> {
 }
 
 async function writeDataToMongo(payload: AlgorithmSnapshotPayload): Promise<void> {
-  try {
-    const client = await clientPromise
-    await client
-      .db('sdhq')
-      .collection(ALGORITHM_SNAPSHOT_COLLECTION)
-      .updateOne(
-        { _id: ALGORITHM_DOC_ID },
-        {
-          $set: {
-            payload,
-            updatedAt: new Date().toISOString(),
-          },
+  const client = await clientPromise
+  await client
+    .db('sdhq')
+    .collection(ALGORITHM_SNAPSHOT_COLLECTION)
+    .updateOne(
+      { _id: ALGORITHM_DOC_ID },
+      {
+        $set: {
+          payload,
+          updatedAt: new Date().toISOString(),
         },
-        { upsert: true }
-      )
-    console.log('[Algorithms] Saved to MongoDB')
-  } catch (error) {
-    console.error('[Algorithms] MongoDB write failed:', error)
-  }
+      },
+      { upsert: true }
+    )
+  console.log('[Algorithms] Saved to MongoDB')
 }
 
 const platforms = [
@@ -107,6 +124,7 @@ async function readData(): Promise<AlgorithmSnapshotPayload> {
 }
 
 async function writeData(data: AlgorithmSnapshotPayload) {
+  // Mongo is source of truth — must succeed or the refresh fails (keep prior snapshot).
   await writeDataToMongo(data)
 
   if (GITHUB_TOKEN) {
@@ -167,101 +185,86 @@ async function writeData(data: AlgorithmSnapshotPayload) {
   }
 }
 
-function parseAlgorithmJsonContent(content: string): any {
+function parseAlgorithmJsonContent(content: string): unknown {
   let cleanContent = content.trim()
   if (cleanContent.includes('```')) {
     cleanContent = cleanContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
   }
-  return JSON.parse(cleanContent || '{}')
+  try {
+    return JSON.parse(cleanContent || '{}')
+  } catch {
+    const balanced = extractBalancedJsonObject(cleanContent)
+    if (!balanced) throw new Error('Model returned non-JSON content')
+    return JSON.parse(balanced)
+  }
 }
 
 function buildAlgorithmResearchPrompt(platform: string): string {
-  return `You are an expert social media algorithm analyst. Conduct a THOROUGH and COMPREHENSIVE analysis of the current ${platform} algorithm as of 2026.
+  // Mid-size monthly snapshot (~$0.02–$0.10 on Flash-Lite for all 5 platforms; budget OK to ~$0.20).
+  return `You are an expert social media algorithm analyst. Research the current ${platform} recommendation system for creators (2026).
 
-Your analysis should be based on current industry reports, platform announcements, creator feedback, and observable patterns. Review the following aspects in depth:
+Cover, with concrete numbers where possible:
+1) Ranking / distribution signals (watch time, completion, shares, saves, comments, rewatches, follows)
+2) What changed recently vs outdated advice
+3) Editing: length, first 1–3s hook, pacing, captions/text, trending audio, watermark/cross-post risk
+4) Posting: local-time windows (give examples for US Eastern, UK, AU + say convert to local), frequency
+5) Metadata: titles/captions, tag count/placement, sound-search keywords
 
-1. ALGORITHM MECHANICS:
-   - How the recommendation system works (signals, ranking factors, distribution logic)
-   - Recent algorithm updates and their impact
-   - Content lifecycle (initial test phase, expansion, plateau)
-   - How different content formats are treated (video, carousel, stories, etc.)
-
-2. ENGAGEMENT SIGNALS (in order of priority):
-   - Primary ranking factors and their weights
-   - How different engagement types affect distribution
-   - Watch time/retention benchmarks
-   - Completion rates and their thresholds
-
-3. CONTENT STRATEGY:
-   - Optimal video length ranges for maximum reach
-   - Hook strategies that work on ${platform}
-   - Content format preferences
-   - Trending features to leverage
-
-4. POSTING OPTIMIZATION:
-   - Best times to post (by timezone and audience)
-   - Ideal posting frequency
-   - Content calendar recommendations
-   - Batch posting vs. spaced posting
-
-5. METADATA OPTIMIZATION:
-   - Title/caption strategies
-   - Hashtag usage (count, placement, research methods)
-   - Description best practices
-   - Thumbnail/title optimization
-
-6. ADVANCED TACTICS:
-   - Cross-posting strategies
-   - Series and episodic content
-   - Call-to-action placement
-   - Community engagement techniques
-
-Based on this thorough analysis, provide the following information in valid JSON format:
-
+Return ONLY valid JSON (no markdown):
 {
-  "keyChanges": "Comprehensive 300-400 word summary of how the ${platform} algorithm currently works, including recent changes and distribution mechanics. Be specific about ranking factors and their relative importance.",
-  "editingTips": "Detailed editing recommendations (250-300 words) including: optimal video lengths, pacing, transitions, on-screen text usage, audio/music choices, and production quality standards.",
-  "postingTips": "Comprehensive posting strategy (250-300 words) covering: best posting times with data, frequency recommendations, batch vs live posting, and content calendar structure.",
-  "titleTips": "Advanced title/caption optimization guide (200-250 words) including: hook formulas, keyword strategies, length optimization, and CTR improvement techniques.",
-  "descriptionTips": "Complete description optimization guide (200-250 words) covering: hashtag strategies (research, count, placement), link usage, and SEO optimization.",
+  "keyChanges": "150-220 words: how ${platform} ranks/distributes content now + recent shifts",
+  "editingTips": "150-220 words: length, pacing, hooks, on-screen text, trending audio, watermark cleanup",
+  "postingTips": "150-220 words: best windows with clock times, frequency, batch vs spaced posting",
+  "titleTips": "100-150 words: first-3s hook formulas, CTR/title/caption patterns that work on ${platform}",
+  "descriptionTips": "100-150 words: captions, hashtag/keyword strategy (counts), sound search phrases, links/CTA",
   "summaries": [
-    "First actionable insight - max 8 words, specific to ${platform}",
-    "Second actionable insight - max 8 words, specific to ${platform}",
-    "Third actionable insight - max 8 words, specific to ${platform}",
-    "Fourth actionable insight - max 8 words, specific to ${platform}",
-    "Fifth actionable insight - max 8 words, specific to ${platform}"
+    "insight max 8 words",
+    "insight max 8 words",
+    "insight max 8 words",
+    "insight max 8 words",
+    "insight max 8 words"
   ]
 }
-
-Requirements:
-- Be EXTREMELY specific and actionable
-- Include concrete numbers, time ranges, and percentages where relevant
-- Focus on what's working NOW in 2026, not outdated advice
-- Use professional tone while remaining accessible
-- Return ONLY valid JSON, no markdown code blocks or explanations outside the JSON structure`
+Be specific and actionable. Prefer current 2026 practices over generic advice.`
 }
 
-// Primary: Gemini 2.5 Flash for algorithm research (same model family as other SDHQ tools)
+// Primary: Gemini Flash-Lite (Google AI) — cheapest stable text model for this job
 async function researchWithGemini(platform: string, geminiApiKey: string): Promise<any> {
   const prompt = buildAlgorithmResearchPrompt(platform)
+  console.log(`[Algorithms] Trying ${ALGORITHM_GEMINI_MODEL} for ${platform}...`)
+
+  const ai = new GoogleGenAI({ apiKey: geminiApiKey })
+  const contents = [{ role: 'user' as const, parts: [{ text: prompt }] }]
 
   try {
-    console.log(`[Algorithms] Trying ${ALGORITHM_GEMINI_MODEL} for ${platform}...`)
-    
-    const ai = new GoogleGenAI({ apiKey: geminiApiKey })
-    const response = await ai.models.generateContent({
-      model: ALGORITHM_GEMINI_MODEL,
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    })
-
-    const content = typeof response.text === 'string' ? response.text : ''
-    
-    console.log(`[Algorithms] Gemini succeeded for ${platform}`)
-    
-    if (!content) {
-      throw new Error('No content in Gemini response')
+    let response
+    try {
+      response = await ai.models.generateContent({
+        model: ALGORITHM_GEMINI_MODEL,
+        contents,
+        // Avoid billed "thinking" tokens on monthly batch research
+        config: {
+          temperature: 0.45,
+          maxOutputTokens: 2200,
+          thinkingConfig: { thinkingBudget: 0 },
+        } as {
+          temperature?: number
+          maxOutputTokens?: number
+          thinkingConfig?: { thinkingBudget?: number }
+        },
+      })
+    } catch {
+      // Older SDK / model variants may reject thinkingConfig — retry plain
+      response = await ai.models.generateContent({
+        model: ALGORITHM_GEMINI_MODEL,
+        contents,
+        config: { temperature: 0.45, maxOutputTokens: 2200 },
+      })
     }
 
+    const content = typeof response.text === 'string' ? response.text : ''
+    console.log(`[Algorithms] Gemini succeeded for ${platform}`)
+    if (!content) throw new Error('No content in Gemini response')
     return parseAlgorithmJsonContent(content)
   } catch (error) {
     console.error(`[Algorithms] Gemini failed for ${platform}:`, error)
@@ -528,113 +531,309 @@ const placeholderData = {
   }
 }
 
+function sanitizeSnapshotForClients(storedData: AlgorithmSnapshotPayload): AlgorithmSnapshotPayload {
+  const data: Record<string, unknown> = {}
+  for (const [id, raw] of Object.entries(storedData.data || {})) {
+    const normalized = normalizeAlgorithmPlatformData(raw)
+    if (normalized) data[id] = normalized
+  }
+  // Fill any missing platforms from placeholders so the landing never renders null crashes
+  for (const p of platforms) {
+    if (!data[p.id] && placeholderData[p.id as keyof typeof placeholderData]) {
+      data[p.id] = placeholderData[p.id as keyof typeof placeholderData]
+    }
+  }
+  return {
+    ...storedData,
+    data,
+    lastUpdated: storedData.lastUpdated || new Date().toISOString(),
+  }
+}
+
 export async function GET() {
   const storedData = await readData()
-  
+
   // If no stored data exists, return placeholder data
-  if (!storedData.lastUpdated || Object.keys(storedData.data).length === 0) {
+  if (!storedData.lastUpdated || Object.keys(storedData.data || {}).length === 0) {
     return NextResponse.json({
       data: placeholderData,
-      lastUpdated: new Date().toISOString()
+      lastUpdated: new Date().toISOString(),
     })
   }
-  
-  return NextResponse.json(storedData)
+
+  return NextResponse.json(sanitizeSnapshotForClients(storedData))
+}
+
+async function logAlgorithmRefreshActivity(params: {
+  ok: boolean
+  skipped?: boolean
+  actorUsername: string
+  source: string
+  details: string
+  estimatedCostNote?: string
+}): Promise<void> {
+  const status = params.skipped ? 'SKIPPED' : params.ok ? 'SUCCESS' : 'FAILED'
+  await writeActivityLogEntry({
+    username: params.actorUsername,
+    action: params.ok || params.skipped ? 'algorithm_refresh' : 'algorithm_refresh_failed',
+    details: `[${status}] ${params.source} — ${params.details}`,
+    estimatedCostNote: params.estimatedCostNote,
+  })
+}
+
+/** Shared research runner used by staff POST and monthly cron (no CRON_SECRET needed). */
+export async function runAlgorithmRefresh(opts?: {
+  platformId?: string
+  /** Cron skips if already refreshed this UTC month; staff passes force: true */
+  force?: boolean
+  /** Who/what triggered the run (shown in activity log). */
+  source?: 'monthly-cron' | 'staff' | 'internal'
+  actorUsername?: string
+}): Promise<NextResponse> {
+  const platformId = opts?.platformId
+  const force = opts?.force === true
+  const source = opts?.source || (force ? 'staff' : 'monthly-cron')
+  const actorUsername = (opts?.actorUsername || 'system').trim() || 'system'
+
+  if (!hasAlgorithmAiProviderConfigured()) {
+    const error =
+      'No AI API key configured for algorithm research. Set GEMINI_ALGORITHM_API_KEY (or GEMINI_ALGO_API / GEMINI_API), DEEPSEEK_API_KEY, and/or RAPID_API_KEY.'
+    await logAlgorithmRefreshActivity({
+      ok: false,
+      actorUsername,
+      source,
+      details: error,
+    })
+    return NextResponse.json({ error }, { status: 500 })
+  }
+
+  if (platformId && !platforms.some((p) => p.id === platformId)) {
+    await logAlgorithmRefreshActivity({
+      ok: false,
+      actorUsername,
+      source,
+      details: `Unknown platformId: ${platformId}`,
+    })
+    return NextResponse.json(
+      { error: `Unknown platformId: ${platformId}` },
+      { status: 400 }
+    )
+  }
+
+  const existingData = await readData()
+
+  // Once-per-month guard — only skip complete successful months (not incomplete merges)
+  const priorIncomplete =
+    typeof (existingData as { incomplete?: unknown }).incomplete === 'boolean'
+      ? Boolean((existingData as { incomplete?: boolean }).incomplete)
+      : false
+  if (
+    !force &&
+    !platformId &&
+    !priorIncomplete &&
+    alreadyUpdatedThisUtcMonth(existingData.lastUpdated)
+  ) {
+    console.log(
+      `[Algorithms] Skipping refresh — already updated this month (${existingData.lastUpdated})`
+    )
+    const skipNote =
+      'Skipped AI calls. Full monthly refresh is ~5 Flash-Lite text calls (typically well under $0.20).'
+    await logAlgorithmRefreshActivity({
+      ok: true,
+      skipped: true,
+      actorUsername,
+      source,
+      details: `Already updated this month (lastUpdated: ${existingData.lastUpdated}). Next automatic run is on the 1st. Model: ${ALGORITHM_GEMINI_MODEL}.`,
+      estimatedCostNote: skipNote,
+    })
+    return NextResponse.json({
+      ...existingData,
+      skipped: true,
+      message: 'Already updated this month — next automatic refresh is on the 1st.',
+      model: ALGORITHM_GEMINI_MODEL,
+      estimatedCostNote: skipNote,
+    })
+  }
+
+  // Always start from prior snapshot so a bad/partial refresh cannot wipe the app.
+  const data: AlgorithmSnapshotPayload & {
+    model?: string
+    estimatedCostNote?: string
+    incomplete?: boolean
+    updatedPlatforms?: string[]
+  } = {
+    data: { ...(existingData.data || {}) },
+    lastUpdated: existingData.lastUpdated,
+    provider: existingData.provider,
+    errors: existingData.errors,
+  }
+  const errors: string[] = []
+  const updatedPlatforms: string[] = []
+
+  const platformsToRefresh = platformId
+    ? platforms.filter((p) => p.id === platformId)
+    : platforms
+
+  // Mid-size outputs for DeepSeek fallbacks too
+  const maxTokens = platformId ? 2200 : 1800
+  const providersUsed: string[] = []
+  let geminiFullyDown = false
+
+  for (const platform of platformsToRefresh) {
+    try {
+      const result = await researchAlgorithm(platform.name, maxTokens)
+
+      if (!result) {
+        errors.push(`${platform.name}: No data returned (kept previous)`)
+        continue
+      }
+
+      const { provider, ...platformData } = result as Record<string, unknown> & {
+        provider?: string
+      }
+      const normalized = normalizeAlgorithmPlatformData(platformData)
+      if (!normalized) {
+        errors.push(`${platform.name}: Invalid AI shape (kept previous)`)
+        continue
+      }
+
+      data.data[platform.id] = normalized
+      updatedPlatforms.push(platform.id)
+      if (typeof provider === 'string' && provider && !providersUsed.includes(provider)) {
+        providersUsed.push(provider)
+      }
+    } catch (error) {
+      if (error instanceof GeminiAlgorithmUnavailableError) {
+        geminiFullyDown = true
+        errors.push(`${platform.name}: Gemini unavailable (kept previous)`)
+        continue
+      }
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+      errors.push(`${platform.name}: ${errorMsg} (kept previous)`)
+    }
+  }
+
+  // Nothing new validated — do not touch Mongo; leave app on last good snapshot.
+  if (updatedPlatforms.length === 0) {
+    const failDetails =
+      errors.length > 0
+        ? errors.join('; ')
+        : 'No platforms returned usable data (previous snapshot preserved).'
+    if (geminiFullyDown && providersUsed.length === 0) {
+      await logAlgorithmRefreshActivity({
+        ok: false,
+        actorUsername,
+        source,
+        details: `Gemini unavailable. ${failDetails}`,
+      })
+      return NextResponse.json(
+        {
+          error: 'GEMINI_UNAVAILABLE',
+          userMessage: GEMINI_VACATION_USER_MESSAGE,
+          details: errors,
+          preserved: true,
+        },
+        { status: 503 }
+      )
+    }
+    await logAlgorithmRefreshActivity({
+      ok: false,
+      actorUsername,
+      source,
+      details: `Failed to research any platforms. ${failDetails}`,
+    })
+    return NextResponse.json(
+      {
+        error: 'Failed to research any platforms',
+        details: errors,
+        preserved: true,
+        lastUpdated: existingData.lastUpdated,
+      },
+      { status: 500 }
+    )
+  }
+
+  const allRequestedOk = updatedPlatforms.length === platformsToRefresh.length
+  // Only lock the monthly skip when a full multi-platform run fully succeeds.
+  if (allRequestedOk && !platformId) {
+    data.lastUpdated = new Date().toISOString()
+    data.incomplete = false
+  } else {
+    // Partial success: merge new platforms, keep prior lastUpdated so cron can retry
+    // if something else triggers it; staff can force anytime.
+    data.incomplete = true
+    if (!data.lastUpdated) {
+      data.lastUpdated = new Date().toISOString()
+    }
+  }
+
+  data.provider = providersUsed.join(', ') || existingData.provider || 'unknown'
+  data.model = ALGORITHM_GEMINI_MODEL
+  data.errors = errors.length > 0 ? errors : undefined
+  data.updatedPlatforms = updatedPlatforms
+  data.estimatedCostNote =
+    'Rough: 5× gemini-2.5-flash-lite mid-size calls ≈ ~$0.02–$0.10/month (budget ~$0.20).'
+
+  try {
+    await writeData(data)
+  } catch (error) {
+    console.error('[Algorithms] Persist failed — leaving previous snapshot in place:', error)
+    await logAlgorithmRefreshActivity({
+      ok: false,
+      actorUsername,
+      source,
+      details: `Research produced updates for ${updatedPlatforms.join(', ')} but Mongo save failed: ${
+        error instanceof Error ? error.message : 'Mongo write failed'
+      }. Previous snapshot preserved.`,
+      estimatedCostNote: data.estimatedCostNote,
+    })
+    return NextResponse.json(
+      {
+        error: 'Failed to save algorithm snapshot',
+        details: error instanceof Error ? error.message : 'Mongo write failed',
+        preserved: true,
+      },
+      { status: 500 }
+    )
+  }
+
+  const scope = platformId ? `platform ${platformId}` : 'all platforms'
+  const successDetails = allRequestedOk
+    ? `Updated ${scope} successfully. Provider: ${data.provider}. Model: ${ALGORITHM_GEMINI_MODEL}. Platforms: ${updatedPlatforms.join(', ')}. lastUpdated: ${data.lastUpdated}.`
+    : `Partial update for ${scope}. Updated: ${updatedPlatforms.join(', ')}. Issues: ${errors.join('; ') || 'none'}. Prior data kept for failed platforms. Provider: ${data.provider}. Model: ${ALGORITHM_GEMINI_MODEL}.`
+
+  await logAlgorithmRefreshActivity({
+    ok: true,
+    actorUsername,
+    source,
+    details: successDetails,
+    estimatedCostNote: data.estimatedCostNote,
+  })
+
+  return NextResponse.json(data)
 }
 
 export async function POST(request: NextRequest) {
   const internalSecret = request.headers.get(INTERNAL_API_SECRET_HEADER)
+  let source: 'staff' | 'internal' = 'internal'
+  let actorUsername = 'system'
+
   if (!isValidInternalApiSecret(internalSecret)) {
     try {
-      await verifyStaffUser(request)
+      const staff = await verifyStaffUser(request)
+      source = 'staff'
+      actorUsername = staff.username
     } catch (error) {
       if (error instanceof AuthError) return createAuthErrorResponse(error)
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
   }
 
-  if (!hasAlgorithmAiProviderConfigured()) {
-    return NextResponse.json(
-      {
-        error:
-          'No AI API key configured for algorithm research. Set GEMINI_ALGORITHM_API_KEY (or GEMINI_ALGO_API / GEMINI_API), DEEPSEEK_API_KEY, and/or RAPID_API_KEY.',
-      },
-      { status: 500 }
-    )
+  const body = (await request.json().catch(() => ({}))) as {
+    platformId?: unknown
+    force?: unknown
   }
-
-  const body = (await request.json().catch(() => ({}))) as { platformId?: unknown }
-  const platformId = typeof body.platformId === 'string' ? body.platformId : undefined // Optional: specific platform to refresh
-
-  if (platformId && !platforms.some((p) => p.id === platformId)) {
-    return NextResponse.json(
-      { error: `Unknown platformId: ${platformId}` },
-      { status: 400 }
-    )
-  }
-  
-  // Read existing data first
-  const existingData = await readData()
-  const data: any = { data: { ...(existingData.data || {}) } }
-  const errors: string[] = []
-
-  const platformsToRefresh = platformId 
-    ? platforms.filter(p => p.id === platformId)
-    : platforms
-
-  // Use higher max_tokens for single platform refresh, lower for all platforms
-  const maxTokens = platformId ? 2500 : 1000
-  
-  // Track which provider was used
-  const providersUsed: string[] = []
-
-  for (const platform of platformsToRefresh) {
-    try {
-      const result = await researchAlgorithm(platform.name, maxTokens)
-
-      if (result) {
-        const { provider, ...platformData } = result
-        data.data[platform.id] = platformData
-        if (provider && !providersUsed.includes(provider)) {
-          providersUsed.push(provider)
-        }
-      } else {
-        errors.push(`${platform.name}: No data returned`)
-      }
-    } catch (error) {
-      if (error instanceof GeminiAlgorithmUnavailableError) {
-        return NextResponse.json(
-          {
-            error: 'GEMINI_UNAVAILABLE',
-            userMessage: error.userMessage,
-          },
-          { status: 503 }
-        )
-      }
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error'
-      errors.push(`${platform.name}: ${errorMsg}`)
-    }
-  }
-
-  if (errors.length === platformsToRefresh.length && providersUsed.length === 0) {
-    return NextResponse.json({
-      error: 'Failed to research requested platform data',
-      details: errors,
-    }, { status: 500 })
-  }
-
-  if (Object.keys(data.data).length === 0) {
-    return NextResponse.json({
-      error: 'Failed to research any platforms',
-      details: errors
-    }, { status: 500 })
-  }
-
-  data.lastUpdated = new Date().toISOString()
-  data.provider = providersUsed.join(', ') || 'unknown'
-  data.errors = errors.length > 0 ? errors : undefined
-
-  await writeData(data)
-
-  return NextResponse.json(data)
+  const platformId = typeof body.platformId === 'string' ? body.platformId : undefined
+  // Staff / internal refreshes always force (manual control)
+  return runAlgorithmRefresh({ platformId, force: true, source, actorUsername })
 }
