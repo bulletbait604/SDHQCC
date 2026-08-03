@@ -28,6 +28,8 @@ import {
   thumbnailClipDurationExceededMessage,
   thumbnailClipMaxDurationSeconds,
 } from "@/lib/thumbnailClipLimits";
+import { formatThumbnailAlgorithmContextForPlatform } from "@/lib/algorithmContext";
+import { viralClipPaintRulesBlock } from "@/lib/thumbnailViralClipPrompt";
 import { verifyAuth, AuthError, createAuthErrorResponse, hasUnlimitedAccess } from "@/lib/auth/verifyAuth";
 import { spendToolCoins } from "@/lib/coins/spendToolCoins";
 import { isSafeR2ObjectKey } from "@/lib/r2KeyValidation";
@@ -703,6 +705,9 @@ function brandLogoOverlayBlock(
   return `\n\n**Branding mode (enabled):** Include recognizable, readable branding for these named entities: ${targets.join(", ")}. If any are platforms, include their logo/wordmark as visible badge elements. If any are games/franchises, include clear game title wordmarks and matching emblem-like badges. Keep all branding high-contrast and readable at thumbnail size.`;
 }
 
+const THUMBNAIL_CLIP_FRAME_OVERLAY_CONTRACT =
+  "\n\n**Clip-frame viral mode:** Keep the provided gameplay/person frame recognizable. Add a LOUD sticker pack (huge outlined text + emoji + arrow + circle). Never invent people, faces, enemies, or new game assets.";
+
 function buildPromptText(
   instructionText: string,
   spec: ReturnType<typeof thumbnailSpecFromPlatforms>,
@@ -716,7 +721,9 @@ function buildPromptText(
   /** Extra spelling/legibility pressure for diffusion-rendered typography (FLUX family). */
   includeFluxTypographySpellingHints?: boolean,
   researchBlock?: string,
-  researchLogos?: string[]
+  researchLogos?: string[],
+  /** When editing a captured clip frame with Thumbnail 2.0-style rules. */
+  clipFrameViralMode?: boolean
 ): string {
   const domain = domainHintsForPrompt(domainKeywordSource ?? instructionText);
   const keywordSource = domainKeywordSource ?? instructionText;
@@ -731,6 +738,9 @@ function buildPromptText(
     ? THUMBNAIL_FLUX_TYPOGRAPHY_SPELLING_BLOCK
     : "";
   const research = researchBlock?.trim() ? researchBlock : "";
+  const overlayContract = clipFrameViralMode
+    ? THUMBNAIL_CLIP_FRAME_OVERLAY_CONTRACT
+    : THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT;
 
   const fidelity =
     literalAnchorSource &&
@@ -738,19 +748,20 @@ function buildPromptText(
       ? `\n\nCreator anchors (these phrases MUST shape mood, setting, composition, and any on-image titles): ${literalAnchorSource.trim()}`
       : "";
 
-  const obeyLiteral =
-    "\n\nPriority: The creator's topic comes first—avoid unrelated generic stock scenes. For stream/social thumbs, **spell out platform names and hooks as bold graphic type in-frame** when they said Twitch etc. Games/platforms still guide palette and mood.";
+  const obeyLiteral = clipFrameViralMode
+    ? "\n\nPriority: Edit ON TOP of the attached clip frame with viral sticker energy. Do not replace the scene or invent people/game assets."
+    : "\n\nPriority: The creator's topic comes first—avoid unrelated generic stock scenes. For stream/social thumbs, **spell out platform names and hooks as bold graphic type in-frame** when they said Twitch etc. Games/platforms still guide palette and mood.";
 
   return hasImage
     ? `You are a professional multi-platform thumbnail designer. An image is provided—compose around it and honor the text below.${obeyLiteral}
 
-Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${brandLogoBlock}${research}${fluxSpelling}${THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT}${mustKeepBlock ? `\n\nNon-negotiable request checklist:\n${mustKeepBlock}` : ""}
+Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${brandLogoBlock}${research}${fluxSpelling}${overlayContract}${mustKeepBlock ? `\n\nNon-negotiable request checklist:\n${mustKeepBlock}` : ""}
 
 Output dimensions: ${spec.pixels} (${spec.label}). ${spec.aspectNote}
 High contrast, bold colors, clear visual hierarchy—**all headline and sticker graphics must be fully rendered inside the image pixels** (never implied or left for post-production).`
     : `You are a professional multi-platform thumbnail designer.${obeyLiteral}
 
-Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${brandLogoBlock}${research}${fluxSpelling}${THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT}${mustKeepBlock ? `\n\nNon-negotiable request checklist:\n${mustKeepBlock}` : ""}
+Instructions: ${instructionText}${fidelity}${domain}${streamBlock}${platformOverlay}${brandLogoBlock}${research}${fluxSpelling}${overlayContract}${mustKeepBlock ? `\n\nNon-negotiable request checklist:\n${mustKeepBlock}` : ""}
 
 Output dimensions: ${spec.pixels} (${spec.label}). ${spec.aspectNote}
 High contrast, bold colors, clear visual hierarchy—**all headline and sticker graphics must be fully rendered inside the image pixels** (never implied or left for post-production).`;
@@ -1125,6 +1136,9 @@ async function generateThumbnailSchnell(params: {
   mimeType: string;
   platforms: string[] | undefined;
   sessionId: string | undefined;
+  /** Clip-frame path: skip research rewrite; use sticker-pack + algorithm paint rules. */
+  clipFrameViralMode?: boolean;
+  platformId?: string;
 }): Promise<ThumbnailGenResult> {
   const apiKey = process.env.GEMINI_API?.trim();
   if (!apiKey) {
@@ -1134,18 +1148,37 @@ async function generateThumbnailSchnell(params: {
   const imageModel =
     process.env.THUMBNAIL_GEMINI_IMAGE_MODEL?.trim() ||
     "gemini-2.5-flash-image";
-  const prepared = await buildPreparedThumbnailPrompt({
-    prompt: params.prompt,
-    platforms: params.platforms,
-    maxPromptLength: 800,
-  });
-  const {
-    instructionPrompt,
-    originalPrompt: truncatedPrompt,
-    geminiResearchUsed,
-    researchBlock,
-    researchLogos,
-  } = prepared;
+
+  let instructionPrompt: string;
+  let truncatedPrompt: string;
+  let geminiResearchUsed = false;
+  let researchBlock = "";
+  let researchLogos: string[] = [];
+
+  if (params.clipFrameViralMode) {
+    const platformId =
+      params.platformId ||
+      (Array.isArray(params.platforms) && params.platforms[0]) ||
+      "youtube-shorts";
+    const { block: algoContext } =
+      await formatThumbnailAlgorithmContextForPlatform(platformId);
+    instructionPrompt = `${params.prompt}\n\n${viralClipPaintRulesBlock({
+      platformId,
+      algoContext,
+    })}`;
+    truncatedPrompt = params.prompt;
+  } else {
+    const prepared = await buildPreparedThumbnailPrompt({
+      prompt: params.prompt,
+      platforms: params.platforms,
+      maxPromptLength: 800,
+    });
+    instructionPrompt = prepared.instructionPrompt;
+    truncatedPrompt = prepared.originalPrompt;
+    geminiResearchUsed = prepared.geminiResearchUsed;
+    researchBlock = prepared.researchBlock;
+    researchLogos = prepared.researchLogos;
+  }
 
   const spec = thumbnailSpecFromPlatforms(params.platforms);
   const literalAnchorSource =
@@ -1164,7 +1197,8 @@ async function generateThumbnailSchnell(params: {
     mustKeepChecklist,
     false,
     researchBlock,
-    researchLogos
+    researchLogos,
+    !!params.clipFrameViralMode
   );
   const firstPass = await generateGeminiImageWithModelFallback({
     genAI,
@@ -1183,7 +1217,14 @@ async function generateThumbnailSchnell(params: {
       .digest("hex");
     const outputHash = createHash("sha256").update(buffer).digest("hex");
     if (inputHash === outputHash) {
-      const hardEditPrompt = `${promptText}
+      const hardEditPrompt = params.clipFrameViralMode
+        ? `${promptText}
+
+CRITICAL EDIT REQUIREMENT:
+- Do NOT return the original image unchanged.
+- Keep the real scene/people; pile on the REQUIRED sticker pack (huge outlined text, emoji, arrow, circle) plus stronger contrast grade.
+- Output must be a visibly edited viral thumbnail, not a copy of the source frame.`
+        : `${promptText}
 
 CRITICAL EDIT REQUIREMENT:
 - Do NOT return the original image unchanged.
@@ -1234,6 +1275,8 @@ async function generateThumbnailFal(params: {
   mimeType: string;
   platforms: string[] | undefined;
   sessionId: string | undefined;
+  clipFrameViralMode?: boolean;
+  platformId?: string;
 }): Promise<ThumbnailGenResult> {
   const falKey = falApiKey();
   if (!falKey) {
@@ -1243,23 +1286,51 @@ async function generateThumbnailFal(params: {
   fal.config({ credentials: falKey });
   const modelId = falPaintModelId(!!params.imageBase64);
   const spec = thumbnailSpecFromPlatforms(params.platforms);
-  const prepared = await buildPreparedThumbnailPrompt({
-    prompt: params.prompt,
-    platforms: params.platforms,
-    maxPromptLength: 800,
-  });
-  const mustKeepChecklist = extractMustKeepChecklist(prepared.originalPrompt);
+
+  let instructionPrompt: string;
+  let originalPrompt: string;
+  let researchBlock = "";
+  let researchLogos: string[] = [];
+  let geminiResearchUsed = false;
+
+  if (params.clipFrameViralMode) {
+    const platformId =
+      params.platformId ||
+      (Array.isArray(params.platforms) && params.platforms[0]) ||
+      "youtube-shorts";
+    const { block: algoContext } =
+      await formatThumbnailAlgorithmContextForPlatform(platformId);
+    instructionPrompt = `${params.prompt}\n\n${viralClipPaintRulesBlock({
+      platformId,
+      algoContext,
+    })}`;
+    originalPrompt = params.prompt;
+  } else {
+    const prepared = await buildPreparedThumbnailPrompt({
+      prompt: params.prompt,
+      platforms: params.platforms,
+      maxPromptLength: 800,
+    });
+    instructionPrompt = prepared.instructionPrompt;
+    originalPrompt = prepared.originalPrompt;
+    researchBlock = prepared.researchBlock;
+    researchLogos = prepared.researchLogos;
+    geminiResearchUsed = prepared.geminiResearchUsed;
+  }
+
+  const mustKeepChecklist = extractMustKeepChecklist(originalPrompt);
   const promptText = buildPromptText(
-    prepared.instructionPrompt,
+    instructionPrompt,
     spec,
     !!params.imageBase64,
-    prepared.originalPrompt,
-    prepared.originalPrompt,
+    originalPrompt,
+    originalPrompt,
     params.platforms,
     mustKeepChecklist,
     !isFalNanoBananaT2iModel(modelId) && !isFalNanoBananaEditModel(modelId),
-    prepared.researchBlock,
-    prepared.researchLogos
+    researchBlock,
+    researchLogos,
+    !!params.clipFrameViralMode
   );
 
   const staged = params.imageBase64
@@ -1325,7 +1396,7 @@ async function generateThumbnailFal(params: {
       mimeType: downloaded.contentType,
       description: "Fal Nano Banana Pro thumbnail",
       model: modelId,
-      geminiResearchUsed: prepared.geminiResearchUsed,
+      geminiResearchUsed,
     };
   } finally {
     if (staged.stagingKey) {
@@ -1469,7 +1540,10 @@ export async function POST(req: NextRequest) {
         userPrompt,
         clipAnalysis,
         platformId,
-        { clipFrameProvided: clipFrameUsed }
+        {
+          clipFrameProvided: clipFrameUsed,
+          stickerOnlyOverlays: clipFrameUsed,
+        }
       );
     }
 
@@ -1491,6 +1565,7 @@ export async function POST(req: NextRequest) {
     }
 
     const provider = thumbnailProvider();
+    const clipFrameViralMode = !!(clipAnalysis && clipFrameUsed);
     let out;
     try {
       out =
@@ -1501,6 +1576,8 @@ export async function POST(req: NextRequest) {
               mimeType: effectiveMime,
               platforms,
               sessionId,
+              clipFrameViralMode,
+              platformId,
             })
           : await generateThumbnailSchnell({
               prompt: effectivePrompt,
@@ -1508,6 +1585,8 @@ export async function POST(req: NextRequest) {
               mimeType: effectiveMime,
               platforms,
               sessionId,
+              clipFrameViralMode,
+              platformId,
             });
     } finally {
       if (clipCleanupKey) {

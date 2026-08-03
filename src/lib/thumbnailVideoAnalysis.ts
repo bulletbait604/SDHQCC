@@ -5,10 +5,14 @@ import {
   pollGeminiFileUntilActive,
   uploadBufferToGeminiFilesApi,
 } from '@/lib/geminiFiles'
-import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
+import { formatThumbnailAlgorithmContextForPlatform } from '@/lib/algorithmContext'
 import {
   THUMBNAIL_CLIP_MAX_BYTES,
 } from '@/lib/thumbnailClipLimits'
+import {
+  buildViralClipAnalyzePrompt,
+  THUMBNAIL_CLIP_VIDEO_MODEL_DEFAULT,
+} from '@/lib/thumbnailViralClipPrompt'
 import {
   parseThumbnailVideoAnalysisJson,
   type ThumbnailVideoAnalysis,
@@ -30,7 +34,8 @@ export {
   THUMBNAIL_CLIP_SUBSCRIBER_UPSELL,
 } from '@/lib/thumbnailClipLimits'
 
-export const THUMBNAIL_VIDEO_MODEL_DEFAULT = 'gemini-2.5-flash'
+/** Clip video analysis model — prefer 3.1 Flash-Lite (usable on new Gemini keys). */
+export const THUMBNAIL_VIDEO_MODEL_DEFAULT = THUMBNAIL_CLIP_VIDEO_MODEL_DEFAULT
 
 const PLATFORM_LABELS: Record<string, string> = {
   'youtube-shorts': 'YouTube Shorts',
@@ -48,33 +53,8 @@ function normalizeMimeType(mimeType: string): string {
   return 'video/mp4'
 }
 
-async function algorithmContextForPlatform(platformId: string): Promise<string> {
-  const snapshot = await readAlgorithmSnapshotFromMongo()
-  const data = snapshot?.data
-  if (!data || typeof data !== 'object') return ''
-
-  const entry = data[platformId]
-  if (!entry || typeof entry !== 'object') return ''
-  const rec = entry as Record<string, unknown>
-  const label = PLATFORM_LABELS[platformId] || platformId
-  const summaries = Array.isArray(rec.summaries)
-    ? rec.summaries.filter((s): s is string => typeof s === 'string').slice(0, 5)
-    : []
-  const titleTips = typeof rec.titleTips === 'string' ? rec.titleTips.slice(0, 300) : ''
-  const editingTips = typeof rec.editingTips === 'string' ? rec.editingTips.slice(0, 220) : ''
-
-  return [
-    `**${label} algorithm snapshot:**`,
-    summaries.length ? `Insights: ${summaries.join(' | ')}` : '',
-    titleTips ? `Title/thumbnail copy: ${titleTips}` : '',
-    editingTips ? `Visual pacing: ${editingTips}` : '',
-  ]
-    .filter(Boolean)
-    .join('\n')
-}
-
 function isVerticalPlatform(platformId: string): boolean {
-  return ['youtube-shorts', 'tiktok', 'facebook-reels'].includes(platformId)
+  return ['youtube-shorts', 'tiktok', 'facebook-reels', 'instagram'].includes(platformId)
 }
 
 export type ThumbnailPromptOptions = {
@@ -142,8 +122,8 @@ export async function analyzeThumbnailReferenceClip(params: {
   if (!buffer) throw new Error('Reference clip not found in storage')
 
   const model =
-    process.env.THUMBNAIL_GEMINI_MODEL?.trim() ||
     process.env.THUMBNAIL_VIDEO_GEMINI_MODEL?.trim() ||
+    process.env.THUMBNAIL_GEMINI_MODEL?.trim() ||
     THUMBNAIL_VIDEO_MODEL_DEFAULT
 
   const uploaded = await uploadBufferToGeminiFilesApi({
@@ -156,50 +136,60 @@ export async function analyzeThumbnailReferenceClip(params: {
   const cleanupName = uploaded.name
   await pollGeminiFileUntilActive(apiKey, uploaded.uri, { maxRetries: 60, retryDelayMs: 2000 })
 
-  const algoContext = await algorithmContextForPlatform(params.platformId)
-  const vertical = isVerticalPlatform(params.platformId)
+  const { block: algoContext } = await formatThumbnailAlgorithmContextForPlatform(
+    params.platformId
+  )
   const durationNote =
     typeof params.durationSeconds === 'number' && params.durationSeconds > 0
-      ? `Clip duration: ~${Math.round(params.durationSeconds / 60)} minutes (${params.durationSeconds}s). Scan the FULL timeline for the single best thumbnail frame.`
+      ? `Clip duration: ~${Math.round(params.durationSeconds / 60)} minutes (${params.durationSeconds}s). Sample key peaks across the FULL timeline — do not only watch the first minute.`
       : 'Scan the full clip for the single best thumbnail-worthy moment.'
 
-  const prompt = `You are an elite viral thumbnail strategist. Watch this entire reference clip.
-
-Target platform: ${PLATFORM_LABELS[params.platformId] || params.platformId}
-Thumbnail format: ${vertical ? 'VERTICAL 9:16 (mobile short-form — hook must read in first glance)' : 'Horizontal or platform-native aspect as appropriate'}
-${durationNote}
-
-${algoContext ? `Platform algorithm notes:\n${algoContext}` : ''}
-
-Find the ONE peak moment that would maximize clicks on ${PLATFORM_LABELS[params.platformId] || params.platformId}. Consider facial expression, action peak, contrast, curiosity gap, and on-image text opportunities aligned with the platform algorithm.
-Return bestMomentTimestamp as precise MM:SS (or H:MM:SS for long clips) — we extract that exact frame for the thumbnail base image.
-
-Return valid JSON only (no markdown):
-{
-  "bestMomentTimestamp": "e.g. 12:34 or 0:45",
-  "subjectDescription": "who/what is the focal subject at that moment",
-  "emotionalHook": "the feeling that stops the scroll",
-  "onImageText": ["2-4 short ALL-CAPS headline options to paint on the thumbnail"],
-  "colorPalette": "dominant colors + mood (max 120 characters, comma-separated)",
-  "compositionNotes": "where to place subject, text, and negative space for ${vertical ? '9:16 vertical' : 'this platform'} (max 300 chars)",
-  "viralThumbnailBrief": "Detailed art direction paragraph for an AI image generator (130 words max)",
-  "algorithmAlignment": "How this thumbnail leverages ${PLATFORM_LABELS[params.platformId] || params.platformId} discovery patterns"
-}`
+  const prompt = buildViralClipAnalyzePrompt({
+    platformId: params.platformId,
+    algoContext,
+    durationNote,
+  })
 
   try {
     const genAI = new GoogleGenAI({ apiKey })
-    const response = await genAI.models.generateContent({
-      model,
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            { fileData: { fileUri: uploaded.uri, mimeType: normalizeMimeType(params.mimeType) } },
-            { text: prompt },
-          ],
+    let response
+    try {
+      response = await genAI.models.generateContent({
+        model,
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { fileData: { fileUri: uploaded.uri, mimeType: normalizeMimeType(params.mimeType) } },
+              { text: prompt },
+            ],
+          },
+        ],
+        config: {
+          temperature: 0.4,
+          maxOutputTokens: 1200,
+          thinkingConfig: { thinkingBudget: 0 },
+        } as {
+          temperature?: number
+          maxOutputTokens?: number
+          thinkingConfig?: { thinkingBudget?: number }
         },
-      ],
-    })
+      })
+    } catch {
+      response = await genAI.models.generateContent({
+        model,
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { fileData: { fileUri: uploaded.uri, mimeType: normalizeMimeType(params.mimeType) } },
+              { text: prompt },
+            ],
+          },
+        ],
+        config: { temperature: 0.4, maxOutputTokens: 1200 },
+      })
+    }
 
     const raw =
       typeof (response as { text?: string }).text === 'string'
@@ -227,6 +217,6 @@ export function estimateThumbnailVideoAnalysisUsd(durationSeconds: number): {
   const usd = base + minutes * perMin
   return {
     estimatedCostUsd: Math.round(usd * 100_000) / 100_000,
-    estimatedCostNote: `Gemini 2.5 Flash video analysis (~${minutes.toFixed(1)} min @ ~$${perMin}/min est.)`,
+    estimatedCostNote: `Gemini video analysis (~${minutes.toFixed(1)} min @ ~$${perMin}/min est.)`,
   }
 }
