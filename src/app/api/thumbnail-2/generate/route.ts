@@ -82,7 +82,6 @@ export async function POST(req: NextRequest) {
       key: out.key,
       url: `/api/image?key=${encodeURIComponent(out.key)}`,
       mimeType: out.mimeType,
-      description: out.description,
       model: out.model,
       imageModel: out.model,
       videoModel:

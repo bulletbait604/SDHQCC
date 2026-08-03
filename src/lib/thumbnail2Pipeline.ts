@@ -9,7 +9,7 @@ import {
   pollGeminiFileUntilActive,
   uploadBufferToGeminiFilesApi,
 } from '@/lib/geminiFiles'
-import { formatAlgorithmContextForPlatform } from '@/lib/algorithmContext'
+import { formatThumbnailAlgorithmContextForPlatform } from '@/lib/algorithmContext'
 import {
   parseThumbnailVideoAnalysisJson,
   type ThumbnailVideoAnalysis,
@@ -73,7 +73,9 @@ export async function analyzeThumbnail2Clip(params: {
   const cleanupName = uploaded.name
   await pollGeminiFileUntilActive(apiKey, uploaded.uri, { maxRetries: 90, retryDelayMs: 2000 })
 
-  const { block: algoContext } = await formatAlgorithmContextForPlatform(params.platformId)
+  const { block: algoContext } = await formatThumbnailAlgorithmContextForPlatform(
+    params.platformId
+  )
   const vertical = isVerticalPlatform(params.platformId)
   const label = PLATFORM_LABELS[params.platformId] || params.platformId
   const durationNote =
@@ -88,26 +90,31 @@ ${durationNote}
 
 ${algoContext}
 
+ALGORITHM FIRST: Your frame choice, emotionalHook, onImageText, and viralThumbnailBrief MUST reflect the cached ${label} algorithm data above (especially hook/title patterns and visual retention signals). algorithmAlignment must cite 1–2 concrete lines from that snapshot — not generic advice.
+
 FRAME SELECTION (pick ONE timestamp — a real screenshot will be extracted, so the emotion must already be in-frame):
-Priority order — choose the highest that actually appears in the clip:
+Priority order — choose the highest that actually appears in the clip AND matches algorithm CTR patterns:
 1) Clear human REACTION face of someone who is IN the clip (shock, fear, disbelief, rage, hype) — mouth/eyes readable
 2) Intense clutch / danger peak with that same real person visible
 3) On-screen warnings, alerts, death screens, red UI, big damage numbers already present
 4) High-contrast action of existing subjects (never invent new people)
 
 Hard bans for frame choice:
-- Do NOT pick a bland idle / menu / walking frame if a stronger reaction exists later
+- Do NOT pick a bland idle / menu / walking / "lost wandering" frame if a stronger reaction or warning UI exists
 - Prefer mid/late peaks over the first 10 seconds unless that is truly the best reaction
+- The moment must create a curiosity gap a scroller would click — confuse/lost vibes alone are weak unless paired with danger or a readable face reaction
 - subjectDescription must name only people/objects visibly in that frame
 
 OVERLAY BRIEF RULES (viralThumbnailBrief — stickers ONLY):
 - Allowed: emoji stickers, arrows, circles/ovals, underlines, outline rings, sparkle/bang stickers, bold Impact text
 - Forbidden: inventing people, faces, "shocked woman" cutouts, stock faces, new enemies, NPCs, weapons, game props, environment changes
 - If a reaction-face inset would help CTR, say to DUPLICATE/CROP the creator's face from THIS frame only — never a random person
+- Keep the brief SHORT (max ~80 words). No self-critique. No "I will regenerate" language.
 
 Viral text rules:
-- onImageText: 2–4 SHORT punchy hooks (3–6 words), ALL-CAPS where natural, platform-native slang OK
-- Prefer curiosity / bold claim / specific moment — ban vague "WATCH THIS" filler
+- onImageText: exactly 2 SHORT punchy hooks (3–6 words each), ALL-CAPS where natural
+- Pattern the wording after the cached title/hook tips (curiosity, stakes, specificity) — ban vague "WATCH THIS" / "I'M SO LOST" filler unless the clip's peak literally is that joke AND algorithm data supports soft hooks
+- No duplicate lines
 
 Return bestMomentTimestamp as MM:SS or H:MM:SS.
 
@@ -119,8 +126,8 @@ Return valid JSON only (no markdown):
   "onImageText": ["HOOK ONE", "HOOK TWO"],
   "colorPalette": "colors + mood",
   "compositionNotes": "where to place text/stickers for ${vertical ? '9:16' : '16:9'} without covering the face",
-  "viralThumbnailBrief": "Sticker-only art direction: fonts + emoji/arrow/circle overlays only; no new people or game assets (130 words max)",
-  "algorithmAlignment": "How this thumb fits ${label} discovery"
+  "viralThumbnailBrief": "Sticker-only art direction aligned to algorithm CTR (80 words max)",
+  "algorithmAlignment": "Cite cached ${label} snapshot lines this thumb follows"
 }`
 
     try {
@@ -191,6 +198,10 @@ export async function paintThumbnail2(params: {
     process.env.THUMBNAIL_GEMINI_IMAGE_MODEL?.trim() ||
     THUMBNAIL2_IMAGE_MODEL_DEFAULT
 
+  const { block: algoContext } = await formatThumbnailAlgorithmContextForPlatform(
+    params.platformId
+  )
+
   const basePrompt = mergeUserPromptWithVideoAnalysis(
     params.userPrompt || '',
     params.analysis,
@@ -200,6 +211,10 @@ export async function paintThumbnail2(params: {
 
   const paintPrompt = `${basePrompt}
 
+${algoContext}
+
+VIRAL CTR MANDATE: Make this thumbnail click-worthy for the platform using the cached algorithm data above. Maximize curiosity gap + readable emotion. Paint the onImageText hooks exactly once each (no duplicates). Prefer highlighting the real face / warning UI already in frame with circle/arrow stickers.
+
 CRITICAL PAINT RULES (these OVERRIDE the viral brief and any creator overrides if they conflict):
 1) The attached image is the ONLY source of people and scene content. Keep faces, bodies, enemies, UI, and environment recognizable — do not redraw or replace them.
 2) OVERLAYS ONLY — add flat graphics on top: bold Impact-style text (use onImageText), emoji stickers, arrows, circles/ovals, outline rings, sparkles, warning-style badges. Slight contrast/saturation grade is OK.
@@ -207,8 +222,8 @@ CRITICAL PAINT RULES (these OVERRIDE the viral brief and any creator overrides i
 4) If you add a reaction-face / shocked-face inset or duplicate, it MUST be a crop/duplicate of a person already visible in THIS frame (same identity, same face). Prefer enlarging/highlighting their existing face with a circle/arrow instead of inventing a second person.
 5) NEVER add new game characters, enemies, monsters, weapons, props, blood FX, or environment objects that are not already in the frame.
 6) Do not restage the gameplay — no new threats approaching, no extra NPCs, no background swaps.
-7) Use thick outlined thumbnail fonts so text pops on mobile.
-8) Output ONE finished thumbnail image.`
+7) Use thick outlined thumbnail fonts so text pops on mobile. Keep text high in frame so it clears platform UI chrome.
+8) OUTPUT IMAGE ONLY — do not write critiques, checklists, regeneration plans, or explanations.`
 
   const genAI = new GoogleGenAI({ apiKey })
   const candidates = [
@@ -217,63 +232,68 @@ CRITICAL PAINT RULES (these OVERRIDE the viral brief and any creator overrides i
     'gemini-2.0-flash-exp-image-generation',
   ].filter((m, i, arr) => m && arr.indexOf(m) === i)
 
+  const contents = [
+    {
+      role: 'user' as const,
+      parts: [
+        {
+          inlineData: {
+            data: params.imageBase64,
+            mimeType: params.mimeType || 'image/jpeg',
+          },
+        },
+        { text: paintPrompt },
+      ],
+    },
+  ]
+
   let lastError: unknown
   for (const model of candidates) {
-    try {
-      const response = await genAI.models.generateContent({
-        model,
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                inlineData: {
-                  data: params.imageBase64,
-                  mimeType: params.mimeType || 'image/jpeg',
-                },
-              },
-              { text: paintPrompt },
-            ],
+    for (const modalities of [[Modality.IMAGE], [Modality.TEXT, Modality.IMAGE]] as const) {
+      try {
+        const response = await genAI.models.generateContent({
+          model,
+          contents,
+          config: {
+            responseModalities: [...modalities],
           },
-        ],
-        config: {
-          responseModalities: [Modality.TEXT, Modality.IMAGE],
-        },
-      })
+        })
 
-      const parts = response.candidates?.[0]?.content?.parts ?? []
-      const imagePart = parts.find((p) =>
-        (p as { inlineData?: { mimeType?: string } })?.inlineData?.mimeType?.startsWith?.('image/')
-      ) as { inlineData?: { data?: string; mimeType?: string } } | undefined
+        const parts = response.candidates?.[0]?.content?.parts ?? []
+        const imagePart = parts.find((p) =>
+          (p as { inlineData?: { mimeType?: string } })?.inlineData?.mimeType?.startsWith?.(
+            'image/'
+          )
+        ) as { inlineData?: { data?: string; mimeType?: string } } | undefined
 
-      if (!imagePart?.inlineData?.data || !imagePart.inlineData.mimeType) {
-        throw new Error('Gemini did not return an image')
+        if (!imagePart?.inlineData?.data || !imagePart.inlineData.mimeType) {
+          throw new Error('Gemini did not return an image')
+        }
+
+        const buffer = Buffer.from(imagePart.inlineData.data, 'base64')
+        const contentType = imagePart.inlineData.mimeType
+        const ext = contentType.includes('png')
+          ? 'png'
+          : contentType.includes('webp')
+            ? 'webp'
+            : 'jpg'
+        const key = `thumbnails/${params.sessionId}/${randomUUID()}.${ext}`
+        const ok = await putBufferToR2(key, buffer, contentType)
+        if (!ok) throw new Error('Failed to store thumbnail in R2')
+
+        return {
+          key,
+          mimeType: contentType,
+          description: 'Thumbnail 2.0',
+          model,
+        }
+      } catch (error) {
+        lastError = error
+        console.warn(
+          `[Thumbnail2] Image model ${model} modalities=${modalities.join('+')} failed:`,
+          error
+        )
       }
-
-      const buffer = Buffer.from(imagePart.inlineData.data, 'base64')
-      const contentType = imagePart.inlineData.mimeType
-      const ext = contentType.includes('png')
-        ? 'png'
-        : contentType.includes('webp')
-          ? 'webp'
-          : 'jpg'
-      const key = `thumbnails/${params.sessionId}/${randomUUID()}.${ext}`
-      const ok = await putBufferToR2(key, buffer, contentType)
-      if (!ok) throw new Error('Failed to store thumbnail in R2')
-
-      const textPart = parts.find((p) => typeof (p as { text?: string }).text === 'string') as
-        | { text?: string }
-        | undefined
-
-      return {
-        key,
-        mimeType: contentType,
-        description: textPart?.text?.trim() || 'Thumbnail 2.0 viral frame edit',
-        model,
-      }
-    } catch (error) {
-      lastError = error
-      console.warn(`[Thumbnail2] Image model ${model} failed:`, error)
     }
   }
 

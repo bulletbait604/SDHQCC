@@ -75,3 +75,65 @@ export async function formatAlgorithmContextForPlatform(platformId: string): Pro
     }
   }
 }
+
+/**
+ * Thumbnail-focused slice of the cached algorithm snapshot.
+ * Emphasizes CTR / hook patterns the paint + frame picker must follow.
+ */
+export async function formatThumbnailAlgorithmContextForPlatform(platformId: string): Promise<{
+  algorithmPlatformId: string
+  lastUpdated: string | null
+  block: string
+}> {
+  const algorithmPlatformId = toAlgorithmPlatformId(platformId)
+  const label = LABEL[algorithmPlatformId] || algorithmPlatformId
+  try {
+    const snapshot = await readAlgorithmSnapshotFromMongo()
+    if (!snapshot?.data || typeof snapshot.data !== 'object') {
+      return {
+        algorithmPlatformId,
+        lastUpdated: null,
+        block: `**${label} thumbnail algorithm:** unavailable — use high-CTR curiosity + emotion defaults.`,
+      }
+    }
+
+    const entry = snapshot.data[algorithmPlatformId]
+    const rec = normalizeAlgorithmPlatformData(entry)
+    if (!rec) {
+      return {
+        algorithmPlatformId,
+        lastUpdated: snapshot.lastUpdated,
+        block: `**${label} thumbnail algorithm:** no cached entry yet.`,
+      }
+    }
+
+    const summaries = rec.summaries.slice(0, 8)
+    const parts = [
+      `**${label} CACHED algorithm data for THUMBNAILS** (updated ${snapshot.lastUpdated || 'unknown'}). You MUST follow this — do not invent competing strategy:`,
+      summaries.length ? `Discovery insights: ${summaries.join(' | ')}` : '',
+      rec.titleTips
+        ? `HOOK / TITLE patterns (drive onImageText + curiosity gap): ${rec.titleTips.slice(0, 600)}`
+        : '',
+      rec.editingTips
+        ? `VISUAL / RETENTION patterns (drive frame choice + sticker emphasis): ${rec.editingTips.slice(0, 500)}`
+        : '',
+      rec.keyChanges
+        ? `Ranking signals that affect thumb CTR: ${rec.keyChanges.slice(0, 400)}`
+        : '',
+      'Apply these patterns to: (1) which moment you pick, (2) the exact hook wording, (3) what the eye is forced to look at first (face / warning / action).',
+    ].filter(Boolean)
+
+    return {
+      algorithmPlatformId,
+      lastUpdated: snapshot.lastUpdated,
+      block: parts.join('\n'),
+    }
+  } catch (error) {
+    console.warn('[algorithmContext] thumbnail snapshot failed:', error)
+    return {
+      algorithmPlatformId,
+      lastUpdated: null,
+      block: `**${label} thumbnail algorithm:** temporarily unavailable — use high-CTR curiosity + emotion defaults.`,
+    }
+  }
+}

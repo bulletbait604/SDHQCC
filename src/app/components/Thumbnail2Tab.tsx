@@ -68,7 +68,6 @@ export default function Thumbnail2Tab({
   const [error, setError] = useState('')
   const [resultKey, setResultKey] = useState<string | null>(null)
   const [resultMeta, setResultMeta] = useState<{
-    description?: string
     videoModel?: string
     imageModel?: string
   } | null>(null)
@@ -225,7 +224,6 @@ export default function Thumbnail2Tab({
       })
       const genData = (await genRes.json()) as {
         key?: string
-        description?: string
         videoModel?: string
         imageModel?: string
         estimatedCostUsd?: number
@@ -238,7 +236,6 @@ export default function Thumbnail2Tab({
 
       setResultKey(genData.key)
       setResultMeta({
-        description: genData.description,
         videoModel: analyzeData.videoModel || genData.videoModel,
         imageModel: genData.imageModel,
       })
@@ -404,9 +401,6 @@ export default function Thumbnail2Tab({
             alt="Thumbnail 2.0 result"
             className="w-full max-w-lg mx-auto rounded-lg border border-sdhq-cyan-500/30"
           />
-          {resultMeta?.description && (
-            <p className={`text-sm ${subtitleClasses}`}>{resultMeta.description}</p>
-          )}
           <a
             href={`/api/image?key=${encodeURIComponent(resultKey)}&download=1`}
             className="inline-flex items-center text-sm text-sdhq-cyan-400 hover:underline"
