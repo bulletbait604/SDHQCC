@@ -29,7 +29,10 @@ import {
   thumbnailClipMaxDurationSeconds,
 } from "@/lib/thumbnailClipLimits";
 import { formatThumbnailAlgorithmContextForPlatform } from "@/lib/algorithmContext";
-import { viralClipPaintRulesBlock } from "@/lib/thumbnailViralClipPrompt";
+import {
+  viralClipPaintRulesBlock,
+  viralGeneralThumbnailRulesBlock,
+} from "@/lib/thumbnailViralClipPrompt";
 import { verifyAuth, AuthError, createAuthErrorResponse, hasUnlimitedAccess } from "@/lib/auth/verifyAuth";
 import { spendToolCoins } from "@/lib/coins/spendToolCoins";
 import { isSafeR2ObjectKey } from "@/lib/r2KeyValidation";
@@ -624,9 +627,9 @@ function platformOverlayHintsFromPlatforms(platforms: string[] | undefined): str
   return `\n\n**Selected platforms (${ids.join(", ")}):**\n${bits.map((b) => `• ${b}`).join("\n")}`;
 }
 
-/** Universal contract so models don't return plain illustrations with empty "title safe" zones. */
+/** Universal contract so models don't return quiet illustrations / title-only images. */
 const THUMBNAIL_GRAPHIC_OVERLAY_CONTRACT =
-  "\n\n**Mandatory graphic thumbnail treatment:** The final image must include **real painted typography**—at least a **dominant headline** plus a **second text line** (subtitle, stat, or callout)—with **thick stroke, hard shadow, or outer glow** so it reads at tiny preview size. Add **collage-style graphic layers**: arrows, starbursts, simple badges, sparkles, or emoji-like doodles as **flat stickers** around the focal subject. Phrases should echo the instructions (or invent short hooks if none given).";
+  "\n\n**Mandatory VIRAL graphic treatment (all required):** (1) **Huge outlined Impact-style headline** + **second hook line** with thick stroke/shadow; (2) at least one **LARGE emoji sticker**; (3) at least one **thick bright arrow** pointing at the face/action; (4) at least one **bright circle/oval** around the focal subject; (5) punchy contrast/saturation. A plain scene or zoomed photo with only a caption is a FAIL. Hooks should be high-stakes/specific (ban soft filler like WATCH THIS).";
 
 /**
  * Diffusion models (FLUX, etc.) often garble painted text. Nano Banana skips this—its stack is separate.
@@ -1187,7 +1190,7 @@ async function generateThumbnailSchnell(params: {
       : undefined;
   const mustKeepChecklist = extractMustKeepChecklist(truncatedPrompt);
 
-  const promptText = buildPromptText(
+  let promptText = buildPromptText(
     instructionPrompt,
     spec,
     !!params.imageBase64,
@@ -1200,6 +1203,21 @@ async function generateThumbnailSchnell(params: {
     researchLogos,
     !!params.clipFrameViralMode
   );
+
+  if (!params.clipFrameViralMode) {
+    const platformId =
+      params.platformId ||
+      (Array.isArray(params.platforms) && params.platforms[0]) ||
+      "youtube-shorts";
+    const { block: algoContext } =
+      await formatThumbnailAlgorithmContextForPlatform(platformId);
+    promptText = `${promptText}\n\n${viralGeneralThumbnailRulesBlock({
+      platformId,
+      algoContext,
+      hasReferenceImage: !!params.imageBase64,
+    })}`;
+  }
+
   const firstPass = await generateGeminiImageWithModelFallback({
     genAI,
     primaryModel: imageModel,
@@ -1217,19 +1235,12 @@ async function generateThumbnailSchnell(params: {
       .digest("hex");
     const outputHash = createHash("sha256").update(buffer).digest("hex");
     if (inputHash === outputHash) {
-      const hardEditPrompt = params.clipFrameViralMode
-        ? `${promptText}
+      const hardEditPrompt = `${promptText}
 
 CRITICAL EDIT REQUIREMENT:
 - Do NOT return the original image unchanged.
-- Keep the real scene/people; pile on the REQUIRED sticker pack (huge outlined text, emoji, arrow, circle) plus stronger contrast grade.
-- Output must be a visibly edited viral thumbnail, not a copy of the source frame.`
-        : `${promptText}
-
-CRITICAL EDIT REQUIREMENT:
-- Do NOT return the original image unchanged.
-- Apply clear visual transformation: new background treatment, stronger lighting/color grade, added graphic overlays, and re-composed focal hierarchy.
-- Output must be a visibly edited thumbnail variant, not a copy of the source frame.`;
+- Keep the real subject recognizable; pile on the REQUIRED viral sticker pack (huge outlined text, emoji, arrow, circle) plus stronger contrast grade.
+- Output must be a visibly edited viral thumbnail, not a copy of the source.`;
       const retry = await generateGeminiImage({
         genAI,
         imageModel: selectedImageModel,
@@ -1319,7 +1330,7 @@ async function generateThumbnailFal(params: {
   }
 
   const mustKeepChecklist = extractMustKeepChecklist(originalPrompt);
-  const promptText = buildPromptText(
+  let promptText = buildPromptText(
     instructionPrompt,
     spec,
     !!params.imageBase64,
@@ -1332,6 +1343,20 @@ async function generateThumbnailFal(params: {
     researchLogos,
     !!params.clipFrameViralMode
   );
+
+  if (!params.clipFrameViralMode) {
+    const platformId =
+      params.platformId ||
+      (Array.isArray(params.platforms) && params.platforms[0]) ||
+      "youtube-shorts";
+    const { block: algoContext } =
+      await formatThumbnailAlgorithmContextForPlatform(platformId);
+    promptText = `${promptText}\n\n${viralGeneralThumbnailRulesBlock({
+      platformId,
+      algoContext,
+      hasReferenceImage: !!params.imageBase64,
+    })}`;
+  }
 
   const staged = params.imageBase64
     ? await stagingImageUrlForFal({

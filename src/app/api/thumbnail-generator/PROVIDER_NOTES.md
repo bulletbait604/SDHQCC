@@ -1,6 +1,6 @@
 # Thumbnail generator
 
-**Default pipeline:** Text/image prompts → Gemini research rewrite → **Gemini 2.5 Flash Image** paints. **Clip uploads** skip research rewrite and use the viral sticker-pack + cached algorithm path (same as Thumbnail 2.0): analyze with `gemini-3.1-flash-lite`, paint overlays only on the captured frame.
+**Default pipeline:** Text/image prompts → Gemini research (`gemini-3.1-flash-lite`) with cached algorithm virality scoring → **Gemini 2.5 Flash Image** paints with required sticker pack. **Clip uploads** skip research rewrite and use the viral sticker-pack + cached algorithm path (same as Thumbnail 2.0): analyze with `gemini-3.1-flash-lite`, paint overlays only on the captured frame.
 
 | Step | Model | Env |
 |------|--------|-----|

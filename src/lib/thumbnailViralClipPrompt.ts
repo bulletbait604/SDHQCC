@@ -111,3 +111,33 @@ CRITICAL PAINT RULES (these OVERRIDE the viral brief and any creator overrides i
 7) Keep big text high enough to clear platform UI chrome; do not bury the face under text.
 8) OUTPUT IMAGE ONLY — no critiques, checklists, regeneration plans, or explanations.`
 }
+
+/**
+ * Virality rules for text-only + uploaded-image thumbnail paths
+ * (scene inventing allowed for text-only; stickers still mandatory).
+ */
+export function viralGeneralThumbnailRulesBlock(params: {
+  platformId: string
+  algoContext: string
+  hasReferenceImage?: boolean
+}): string {
+  const label = platformLabelForThumbnail(params.platformId)
+  const modeBlock = params.hasReferenceImage
+    ? `REFERENCE IMAGE MODE: Edit ON TOP of the attached image. Keep the real subject/scene recognizable. Amplify with stickers, outlined text, and grade — do not swap in unrelated stock faces. Prefer circle + arrow on the existing focal person.`
+    : `TEXT-ONLY MODE: Invent a scroll-stopping scene for ${label} (expressive face, high stakes, curiosity gap). Compose like a top clickbait thumb — never a quiet flat illustration.`
+
+  return `${params.algoContext}
+
+VIRALITY SCORE MANDATE for ${label} (missing any item is a FAIL):
+${modeBlock}
+1) Emotion + curiosity gap must read at phone preview size in under 1 second
+2) REQUIRED sticker pack — all must appear:
+   A) HUGE Impact / YouTube-thumbnail text with thick outline + shadow (exactly 2 short ALL-CAPS hooks)
+   B) At least one LARGE emoji sticker (😱 😳 💀 🔥 😮 or closest match)
+   C) At least one thick bright arrow pointing at the face or key action
+   D) At least one bright circle/oval around the focal face or threat
+   E) Punchy contrast/saturation grade (slight vignette OK)
+3) Hook wording MUST follow the cached algorithm title/hook patterns above (stakes, specificity, curiosity) — ban soft filler like "WATCH THIS" / "MY DAY"
+4) A zoomed photo or plain scene with only a caption is a FAIL
+5) OUTPUT IMAGE ONLY — no critiques, checklists, or regeneration plans`
+}

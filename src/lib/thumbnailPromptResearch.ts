@@ -1,7 +1,8 @@
 import { GoogleGenAI } from '@google/genai'
-import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
+import { formatThumbnailAlgorithmContextForPlatform } from '@/lib/algorithmContext'
 
-export const THUMBNAIL_RESEARCH_MODEL_DEFAULT = 'gemini-2.5-flash'
+/** Text research for non-clip thumbs — prefer 3.1 Flash-Lite (usable on new Gemini keys). */
+export const THUMBNAIL_RESEARCH_MODEL_DEFAULT = 'gemini-3.1-flash-lite'
 
 const PLATFORM_LABELS: Record<string, string> = {
   'youtube-shorts': 'YouTube Shorts',
@@ -102,39 +103,19 @@ function normalizeResearch(
 async function algorithmContextForPlatforms(
   platformIds: string[] | undefined
 ): Promise<string> {
-  const ids = Array.isArray(platformIds) ? platformIds : []
-  if (ids.length === 0) return ''
-
-  const snapshot = await readAlgorithmSnapshotFromMongo()
-  const data = snapshot?.data
-  if (!data || typeof data !== 'object') return ''
-
-  const chunks: string[] = []
-  for (const id of ids) {
-    const entry = data[id]
-    if (!entry || typeof entry !== 'object') continue
-    const rec = entry as Record<string, unknown>
-    const label = PLATFORM_LABELS[id] || id
-    const summaries = asStringArray(rec.summaries).slice(0, 4)
-    const titleTips =
-      typeof rec.titleTips === 'string' ? rec.titleTips.slice(0, 280) : ''
-    const editingTips =
-      typeof rec.editingTips === 'string' ? rec.editingTips.slice(0, 220) : ''
-    if (summaries.length === 0 && !titleTips && !editingTips) continue
-    chunks.push(
-      [
-        `**${label} algorithm snapshot:**`,
-        summaries.length ? `Insights: ${summaries.join(' | ')}` : '',
-        titleTips ? `Title/thumbnail copy: ${titleTips}` : '',
-        editingTips ? `Visual pacing: ${editingTips}` : '',
-      ]
-        .filter(Boolean)
-        .join('\n')
-    )
+  const ids = Array.isArray(platformIds) ? platformIds.filter(Boolean) : []
+  if (ids.length === 0) {
+    const fallback = await formatThumbnailAlgorithmContextForPlatform('youtube-shorts')
+    return `\n\n${fallback.block}`
   }
 
+  const chunks: string[] = []
+  for (const id of ids.slice(0, 3)) {
+    const { block } = await formatThumbnailAlgorithmContextForPlatform(id)
+    if (block.trim()) chunks.push(block)
+  }
   if (chunks.length === 0) return ''
-  return `\n\nStored platform algorithm notes (apply to layout, hooks, and on-image text):\n${chunks.join('\n\n')}`
+  return `\n\n${chunks.join('\n\n')}`
 }
 
 function buildResearchSystemContext(platformIds: string[] | undefined): string {
@@ -220,18 +201,25 @@ export async function researchThumbnailPrompt(params: {
 
   const metaPrompt = `${systemContext}${algoContext}
 
-Analyze the creator notes. Identify streaming vs social platforms vs games/media; choose logo badges; apply algorithm hooks.
+Analyze the creator notes. Score for VIRAL CTR using the cached algorithm data above (title/hook tips + visual retention). Identify streaming vs social platforms vs games/media; choose logo badges.
+
+VIRALITY SCORE checklist — visualBrief MUST specify all of these:
+1) Scroll-stopping emotion / curiosity gap (face reaction, stakes, or warning energy)
+2) Required sticker pack: huge outlined Impact text + large emoji + thick arrow + bright circle
+3) High-contrast grade (not a quiet flat scene)
+4) Hook wording patterned on the cached algorithm title tips (specific stakes — ban soft "WATCH THIS")
+5) algorithmHooks must cite 1–3 concrete lines from the cached algorithm snapshot
 
 Return **only valid JSON** (no markdown fences):
 {
-  "visualBrief": "One paragraph (max 130 words) with concrete visual directions and painted typography.",
+  "visualBrief": "One paragraph (max 140 words) describing a high-CTR viral thumb with the full sticker pack and algorithm-aligned hooks.",
   "detectedStreamingPlatforms": ["Twitch"],
   "detectedSocialPlatforms": ["YouTube Shorts"],
   "detectedGamesOrMedia": ["Windrose"],
   "logosAndWordmarks": ["Twitch purple wordmark badge bottom-left"],
-  "onImageText": ["LIVE ON TWITCH", "NEW BOSS FIGHT"],
-  "algorithmHooks": ["3-second hook as giant headline"],
-  "paletteAndMood": "short palette note"
+  "onImageText": ["HOOK ONE", "HOOK TWO"],
+  "algorithmHooks": ["cite cached title/retention tip 1", "cite tip 2"],
+  "paletteAndMood": "high-contrast viral palette note"
 }
 
 Creator notes:
