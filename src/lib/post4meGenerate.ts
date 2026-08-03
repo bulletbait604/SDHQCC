@@ -33,17 +33,67 @@ const PLATFORM_LABELS: Record<string, string> = {
 const post4mePlatformEntrySchema = z.object({
   platformId: z.string().optional(),
   title: z.string().optional(),
-  titles: z.array(z.string()).optional(),
-  description: z.string(),
-  tags: z.array(z.string()),
-  viralityScore: z.number().min(0).max(100).optional(),
-  viralitySummary: z.string().max(400).optional(),
+  titles: z.array(z.union([z.string(), z.number(), z.boolean()])).optional(),
+  description: z.union([z.string(), z.number(), z.boolean()]).optional(),
+  tags: z.array(z.union([z.string(), z.number(), z.boolean()])).optional(),
+  viralityScore: z.union([z.number(), z.string()]).optional(),
+  viralitySummary: z.union([z.string(), z.number(), z.boolean()]).optional(),
 })
 
 const post4meMultiRawSchema = z.object({
-  results: z.array(post4mePlatformEntrySchema.extend({ platformId: z.string() })).optional(),
-  platforms: z.record(post4mePlatformEntrySchema).optional(),
+  results: z.array(z.record(z.unknown())).optional(),
+  platforms: z.record(z.unknown()).optional(),
 })
+
+type CoercedPost4MeEntry = {
+  platformId: string
+  title?: string
+  titles?: string[]
+  description: string
+  tags: string[]
+  viralityScore?: number
+  viralitySummary?: string
+}
+
+function coercePost4MePlatformEntry(
+  platformId: string,
+  raw: unknown
+): CoercedPost4MeEntry | null {
+  if (!raw || typeof raw !== 'object') return null
+  const parsed = post4mePlatformEntrySchema.safeParse(raw)
+  if (!parsed.success) return null
+  const row = parsed.data
+  const description =
+    row.description != null ? String(row.description).trim() : ''
+  const tags = Array.isArray(row.tags)
+    ? row.tags.map((t) => String(t).trim()).filter(Boolean)
+    : []
+  const titles = Array.isArray(row.titles)
+    ? row.titles.map((t) => String(t).trim()).filter(Boolean)
+    : []
+  let viralityScore: number | undefined
+  if (typeof row.viralityScore === 'number' && Number.isFinite(row.viralityScore)) {
+    viralityScore = Math.max(0, Math.min(100, row.viralityScore))
+  } else if (typeof row.viralityScore === 'string') {
+    const n = Number(row.viralityScore)
+    if (Number.isFinite(n)) viralityScore = Math.max(0, Math.min(100, n))
+  }
+  const viralitySummary =
+    row.viralitySummary != null
+      ? String(row.viralitySummary).trim().slice(0, 600)
+      : undefined
+  // Need at least a description or titles to be usable
+  if (!description && titles.length === 0) return null
+  return {
+    platformId,
+    title: row.title != null ? String(row.title) : titles[0],
+    titles: titles.length ? titles : undefined,
+    description: description || titles[0] || '',
+    tags,
+    viralityScore,
+    viralitySummary: viralitySummary || undefined,
+  }
+}
 
 export type Post4MeResult = NormalizedClipMetadata & {
   platformId: string
@@ -91,8 +141,14 @@ function normalizeMimeType(mimeType: string): string {
 }
 
 async function algorithmContextForPlatform(platformId: string): Promise<string> {
-  const { block } = await formatAlgorithmContextForPlatform(platformId)
-  return block
+  try {
+    const { block } = await formatAlgorithmContextForPlatform(platformId)
+    // Keep Post4Me prompts bounded — oversized algo dumps cause Gemini timeouts / bad JSON.
+    return block.length > 1800 ? `${block.slice(0, 1797)}...` : block
+  } catch (error) {
+    console.warn('[Post4Me] Algorithm context unavailable:', error)
+    return ''
+  }
 }
 
 function tagGuidance(platformId: string, _platforms: Platform[]): string {
@@ -234,17 +290,28 @@ Include one object in "results" for EVERY platform ID listed above. Order result
       parsed = JSON.parse(extracted)
     }
 
-    const multi = post4meMultiRawSchema.parse(parsed)
-    const entries: Array<z.infer<typeof post4mePlatformEntrySchema> & { platformId: string }> =
-      []
+    const multi = post4meMultiRawSchema.safeParse(parsed)
+    if (!multi.success) {
+      console.error('[Post4Me] Unexpected Gemini JSON shape:', multi.error.message)
+      throw new Error('Could not parse Gemini response')
+    }
 
-    if (multi.results?.length) {
-      for (const row of multi.results) {
-        if (row.platformId) entries.push(row as typeof entries[number])
+    const entries: CoercedPost4MeEntry[] = []
+
+    if (multi.data.results?.length) {
+      for (const row of multi.data.results) {
+        const id =
+          typeof (row as { platformId?: unknown }).platformId === 'string'
+            ? String((row as { platformId: string }).platformId).trim().toLowerCase()
+            : ''
+        if (!id) continue
+        const coerced = coercePost4MePlatformEntry(id, row)
+        if (coerced) entries.push(coerced)
       }
-    } else if (multi.platforms) {
-      for (const [platformId, row] of Object.entries(multi.platforms)) {
-        entries.push({ ...row, platformId })
+    } else if (multi.data.platforms) {
+      for (const [platformId, row] of Object.entries(multi.data.platforms)) {
+        const coerced = coercePost4MePlatformEntry(platformId.trim().toLowerCase(), row)
+        if (coerced) entries.push(coerced)
       }
     }
 
@@ -263,7 +330,7 @@ Include one object in "results" for EVERY platform ID listed above. Order result
         platformId,
         isYouTube: isYouTubeClipPlatform(platformId),
         viralityScore: rawMeta.viralityScore,
-        viralitySummary: rawMeta.viralitySummary?.trim(),
+        viralitySummary: rawMeta.viralitySummary,
       })
     }
 

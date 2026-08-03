@@ -9,8 +9,8 @@ export function buildCombinedPostCaption(
   platformId?: string
 ): string {
   const title = (meta.title || meta.titles?.[0] || '').trim()
-  const desc = meta.description.trim()
-  const tags = meta.tags
+  const desc = (meta.description || '').trim()
+  const tags = (meta.tags || [])
     .map((t) => (t.startsWith('#') ? t : `#${t.replace(/^#+/, '')}`))
     .filter(Boolean)
 
