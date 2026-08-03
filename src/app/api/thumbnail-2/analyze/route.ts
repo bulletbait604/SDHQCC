@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
       analysis,
       platformId: platform,
       videoModel:
-        process.env.THUMBNAIL2_VIDEO_MODEL?.trim() || 'gemini-2.5-flash-lite',
+        process.env.THUMBNAIL2_VIDEO_MODEL?.trim() || 'gemini-3.1-flash-lite',
     })
   } catch (err: unknown) {
     if (err instanceof AuthError) return createAuthErrorResponse(err)

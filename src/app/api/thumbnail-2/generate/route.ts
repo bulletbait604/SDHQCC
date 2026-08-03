@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
       model: out.model,
       imageModel: out.model,
       videoModel:
-        process.env.THUMBNAIL2_VIDEO_MODEL?.trim() || 'gemini-2.5-flash-lite',
+        process.env.THUMBNAIL2_VIDEO_MODEL?.trim() || 'gemini-3.1-flash-lite',
       coinCost: COIN_COST,
       estimatedCostUsd: estimate.estimatedCostUsd,
       estimatedCostNote: estimate.estimatedCostNote,

@@ -23,7 +23,7 @@ export function thumbnail2ClipDurationExceededMessage(_subscriber?: boolean): st
   return `Clip must be ${THUMBNAIL2_CLIP_MAX_DURATION_MINUTES} minutes or shorter.`
 }
 
-/** Video understanding — Flash-Lite keeps long-clip analysis cheap. */
-export const THUMBNAIL2_VIDEO_MODEL_DEFAULT = 'gemini-2.5-flash-lite'
+/** Video understanding — 3.1 Flash-Lite (2.5 Flash-Lite blocked for new Gemini keys). */
+export const THUMBNAIL2_VIDEO_MODEL_DEFAULT = 'gemini-3.1-flash-lite'
 /** Image paint — native Gemini image model for overlays / stickers on the frame. */
 export const THUMBNAIL2_IMAGE_MODEL_DEFAULT = 'gemini-2.5-flash-image'
