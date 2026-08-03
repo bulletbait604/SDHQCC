@@ -95,7 +95,7 @@ export function formatVideoAnalysisForThumbnailPrompt(
 
   const frameBlock = options?.clipFrameProvided
     ? options.stickerOnlyOverlays
-      ? `CRITICAL: The attached image IS the exact video frame at ${analysis.bestMomentTimestamp}. Preserve every person, face, enemy, UI, and environment pixel as-is. Only add flat graphic overlays (text, emoji stickers, arrows, circles, outlines). Do NOT invent people, faces, characters, enemies, weapons, or scene objects.`
+      ? `CRITICAL: The attached image IS the exact video frame at ${analysis.bestMomentTimestamp}. Keep every real person/face/enemy/UI/environment recognizable. You MUST pile on loud flat graphic overlays (big outlined text + emoji stickers + arrows + circles) so it reads as a viral Shorts/TikTok thumb — NOT a plain zoomed screenshot with a caption. Do NOT invent people, faces, characters, enemies, weapons, or scene objects.`
       : `CRITICAL: The attached image IS the exact video frame at ${analysis.bestMomentTimestamp}. Keep the subject, pose, and scene recognizable. Edit ON TOP of this frame: add bold text overlays, stickers, arrows, emoji-style graphics, color grading, and viral thumbnail polish — do NOT replace with unrelated stock art.`
     : 'Create a viral click-worthy thumbnail based on this analyzed clip moment.'
 
@@ -106,7 +106,7 @@ export function formatVideoAnalysisForThumbnailPrompt(
     `Subject: ${analysis.subjectDescription}`,
     `Hook energy: ${analysis.emotionalHook}`,
     analysis.onImageText.length
-      ? `Paint this on-image text (spell exactly): ${analysis.onImageText.map((t) => `"${t}"`).join(', ')}`
+      ? `Paint this on-image text (spell exactly, huge Impact style): ${analysis.onImageText.map((t) => `"${t}"`).join(', ')}`
       : '',
     `Colors: ${analysis.colorPalette}`,
     `Composition: ${analysis.compositionNotes}`,

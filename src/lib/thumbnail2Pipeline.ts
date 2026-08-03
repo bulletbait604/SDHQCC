@@ -105,15 +105,20 @@ Hard bans for frame choice:
 - The moment must create a curiosity gap a scroller would click — confuse/lost vibes alone are weak unless paired with danger or a readable face reaction
 - subjectDescription must name only people/objects visibly in that frame
 
-OVERLAY BRIEF RULES (viralThumbnailBrief — stickers ONLY):
-- Allowed: emoji stickers, arrows, circles/ovals, underlines, outline rings, sparkle/bang stickers, bold Impact text
-- Forbidden: inventing people, faces, "shocked woman" cutouts, stock faces, new enemies, NPCs, weapons, game props, environment changes
-- If a reaction-face inset would help CTR, say to DUPLICATE/CROP the creator's face from THIS frame only — never a random person
-- Keep the brief SHORT (max ~80 words). No self-critique. No "I will regenerate" language.
+OVERLAY BRIEF RULES (viralThumbnailBrief — stickers ONLY, but LOUD):
+- A zoomed screenshot + title alone is a FAIL. Brief must specify a full viral sticker pack:
+  1) 1–2 huge outlined ALL-CAPS hooks
+  2) at least ONE big emoji sticker matching the emotion (😱 😳 💀 🔥 😮 etc.)
+  3) at least ONE thick arrow pointing at the face or danger UI
+  4) at least ONE bright circle/oval around the key subject or warning
+  5) optional: sparkles / bang / "!" badges / neon underlines
+- Forbidden: inventing people, faces, stock cutouts, new enemies, NPCs, weapons, game props, environment changes
+- If a reaction inset helps CTR, DUPLICATE/CROP the creator face from THIS frame only
+- Keep the brief punchy (max ~100 words). No self-critique. No "I will regenerate" language.
 
 Viral text rules:
-- onImageText: exactly 2 SHORT punchy hooks (3–6 words each), ALL-CAPS where natural
-- Pattern the wording after the cached title/hook tips (curiosity, stakes, specificity) — ban vague "WATCH THIS" / "I'M SO LOST" filler unless the clip's peak literally is that joke AND algorithm data supports soft hooks
+- onImageText: exactly 2 SHORT punchy hooks (3–6 words each), ALL-CAPS, high-stakes / curiosity / specificity
+- Pattern wording after cached title/hook tips — ban soft filler ("I'M SO LOST", "WATCH THIS") unless the peak literally is that joke
 - No duplicate lines
 
 Return bestMomentTimestamp as MM:SS or H:MM:SS.
@@ -124,9 +129,9 @@ Return valid JSON only (no markdown):
   "subjectDescription": "who/what is visibly in that frame (real clip subject only)",
   "emotionalHook": "the scroll-stopping feeling already visible in-frame",
   "onImageText": ["HOOK ONE", "HOOK TWO"],
-  "colorPalette": "colors + mood",
-  "compositionNotes": "where to place text/stickers for ${vertical ? '9:16' : '16:9'} without covering the face",
-  "viralThumbnailBrief": "Sticker-only art direction aligned to algorithm CTR (80 words max)",
+  "colorPalette": "high-contrast viral colors + mood",
+  "compositionNotes": "where BIG text + emoji + arrow + circle go for ${vertical ? '9:16' : '16:9'} without covering the face",
+  "viralThumbnailBrief": "Loud sticker pack art direction (emoji+arrow+circle+Impact text) aligned to algorithm CTR (100 words max)",
   "algorithmAlignment": "Cite cached ${label} snapshot lines this thumb follows"
 }`
 
@@ -201,6 +206,7 @@ export async function paintThumbnail2(params: {
   const { block: algoContext } = await formatThumbnailAlgorithmContextForPlatform(
     params.platformId
   )
+  const label = PLATFORM_LABELS[params.platformId] || params.platformId
 
   const basePrompt = mergeUserPromptWithVideoAnalysis(
     params.userPrompt || '',
@@ -213,17 +219,24 @@ export async function paintThumbnail2(params: {
 
 ${algoContext}
 
-VIRAL CTR MANDATE: Make this thumbnail click-worthy for the platform using the cached algorithm data above. Maximize curiosity gap + readable emotion. Paint the onImageText hooks exactly once each (no duplicates). Prefer highlighting the real face / warning UI already in frame with circle/arrow stickers.
+VIRAL CTR MANDATE: This must look like a top ${label} clickbait thumbnail — chaotic sticker energy, not a quiet cropped screenshot with a caption. Follow the cached algorithm data for hook style. Paint each onImageText hook exactly once (no duplicates).
+
+REQUIRED STICKER PACK (all of these must appear — missing any is a fail):
+A) HUGE Impact / YouTube-thumbnail text with thick black/white outline + drop shadow (mobile-readable from arm's length)
+B) At least one LARGE emoji sticker (😱 😳 💀 🔥 😮 or closest match to the emotionalHook) near the subject
+C) At least one thick bright arrow pointing at the face OR the danger/warning UI already in frame
+D) At least one bright circle/oval around the key face or threat marker already in frame
+E) Punchy grade: boost contrast/saturation, slight vignette OK — still keep the real scene recognizable
 
 CRITICAL PAINT RULES (these OVERRIDE the viral brief and any creator overrides if they conflict):
 1) The attached image is the ONLY source of people and scene content. Keep faces, bodies, enemies, UI, and environment recognizable — do not redraw or replace them.
-2) OVERLAYS ONLY — add flat graphics on top: bold Impact-style text (use onImageText), emoji stickers, arrows, circles/ovals, outline rings, sparkles, warning-style badges. Slight contrast/saturation grade is OK.
+2) OVERLAYS ONLY — pile on flat graphics (text, emoji stickers, arrows, circles, sparkles, bang/"!" badges). A title-only or zoom-only edit is NOT enough.
 3) NEVER invent or paste a new person, random woman/man face, stock reaction face, influencer cutout, or any face not clearly taken from the attached frame.
-4) If you add a reaction-face / shocked-face inset or duplicate, it MUST be a crop/duplicate of a person already visible in THIS frame (same identity, same face). Prefer enlarging/highlighting their existing face with a circle/arrow instead of inventing a second person.
+4) If you add a reaction-face inset, it MUST be a crop/duplicate of a person already visible in THIS frame. Prefer circle+arrow on their existing face.
 5) NEVER add new game characters, enemies, monsters, weapons, props, blood FX, or environment objects that are not already in the frame.
-6) Do not restage the gameplay — no new threats approaching, no extra NPCs, no background swaps.
-7) Use thick outlined thumbnail fonts so text pops on mobile. Keep text high in frame so it clears platform UI chrome.
-8) OUTPUT IMAGE ONLY — do not write critiques, checklists, regeneration plans, or explanations.`
+6) Do not restage the gameplay — no new threats, NPCs, or background swaps.
+7) Keep big text high enough to clear platform UI chrome; do not bury the face under text.
+8) OUTPUT IMAGE ONLY — no critiques, checklists, regeneration plans, or explanations.`
 
   const genAI = new GoogleGenAI({ apiKey })
   const candidates = [
