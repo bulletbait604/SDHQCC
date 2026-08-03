@@ -325,7 +325,7 @@ export default function Thumbnail2Tab({
                       ? ` · ${Math.round(clipDurationSeconds / 60)} min`
                       : ''
                   }`
-                : 'Drop or choose a clip (up to 2 hours for subscribers)'}
+                : 'Drop or choose a clip (max 60 minutes)'}
             </span>
             <input
               type="file"
