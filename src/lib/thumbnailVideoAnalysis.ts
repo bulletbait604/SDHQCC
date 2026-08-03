@@ -77,10 +77,16 @@ function isVerticalPlatform(platformId: string): boolean {
   return ['youtube-shorts', 'tiktok', 'facebook-reels'].includes(platformId)
 }
 
+export type ThumbnailPromptOptions = {
+  clipFrameProvided?: boolean
+  /** Thumbnail 2.0: stickers/text only; never invent people or scene objects. */
+  stickerOnlyOverlays?: boolean
+}
+
 export function formatVideoAnalysisForThumbnailPrompt(
   analysis: ThumbnailVideoAnalysis,
   platformId: string,
-  options?: { clipFrameProvided?: boolean }
+  options?: ThumbnailPromptOptions
 ): string {
   const vertical = isVerticalPlatform(platformId)
   const aspect = vertical
@@ -88,7 +94,9 @@ export function formatVideoAnalysisForThumbnailPrompt(
     : 'platform-appropriate aspect ratio'
 
   const frameBlock = options?.clipFrameProvided
-    ? `CRITICAL: The attached image IS the exact video frame at ${analysis.bestMomentTimestamp}. Keep the subject, pose, and scene recognizable. Edit ON TOP of this frame: add bold text overlays, stickers, arrows, emoji-style graphics, color grading, and viral thumbnail polish — do NOT replace with unrelated stock art.`
+    ? options.stickerOnlyOverlays
+      ? `CRITICAL: The attached image IS the exact video frame at ${analysis.bestMomentTimestamp}. Preserve every person, face, enemy, UI, and environment pixel as-is. Only add flat graphic overlays (text, emoji stickers, arrows, circles, outlines). Do NOT invent people, faces, characters, enemies, weapons, or scene objects.`
+      : `CRITICAL: The attached image IS the exact video frame at ${analysis.bestMomentTimestamp}. Keep the subject, pose, and scene recognizable. Edit ON TOP of this frame: add bold text overlays, stickers, arrows, emoji-style graphics, color grading, and viral thumbnail polish — do NOT replace with unrelated stock art.`
     : 'Create a viral click-worthy thumbnail based on this analyzed clip moment.'
 
   return [
@@ -113,7 +121,7 @@ export function mergeUserPromptWithVideoAnalysis(
   userPrompt: string,
   analysis: ThumbnailVideoAnalysis,
   platformId: string,
-  options?: { clipFrameProvided?: boolean }
+  options?: ThumbnailPromptOptions
 ): string {
   const videoBlock = formatVideoAnalysisForThumbnailPrompt(analysis, platformId, options)
   const trimmed = userPrompt.trim()

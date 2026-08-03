@@ -88,23 +88,38 @@ ${durationNote}
 
 ${algoContext}
 
-Find the ONE peak moment that maximizes CTR on ${label}: face/reaction, action peak, contrast, curiosity gap.
-Return bestMomentTimestamp as MM:SS or H:MM:SS — a frame will be extracted at that exact time.
+FRAME SELECTION (pick ONE timestamp — a real screenshot will be extracted, so the emotion must already be in-frame):
+Priority order — choose the highest that actually appears in the clip:
+1) Clear human REACTION face of someone who is IN the clip (shock, fear, disbelief, rage, hype) — mouth/eyes readable
+2) Intense clutch / danger peak with that same real person visible
+3) On-screen warnings, alerts, death screens, red UI, big damage numbers already present
+4) High-contrast action of existing subjects (never invent new people)
+
+Hard bans for frame choice:
+- Do NOT pick a bland idle / menu / walking frame if a stronger reaction exists later
+- Prefer mid/late peaks over the first 10 seconds unless that is truly the best reaction
+- subjectDescription must name only people/objects visibly in that frame
+
+OVERLAY BRIEF RULES (viralThumbnailBrief — stickers ONLY):
+- Allowed: emoji stickers, arrows, circles/ovals, underlines, outline rings, sparkle/bang stickers, bold Impact text
+- Forbidden: inventing people, faces, "shocked woman" cutouts, stock faces, new enemies, NPCs, weapons, game props, environment changes
+- If a reaction-face inset would help CTR, say to DUPLICATE/CROP the creator's face from THIS frame only — never a random person
 
 Viral text rules:
 - onImageText: 2–4 SHORT punchy hooks (3–6 words), ALL-CAPS where natural, platform-native slang OK
 - Prefer curiosity / bold claim / specific moment — ban vague "WATCH THIS" filler
-- viralThumbnailBrief: art direction for overlays, stickers, arrows, emoji bursts, bold Impact-style fonts on the frame
+
+Return bestMomentTimestamp as MM:SS or H:MM:SS.
 
 Return valid JSON only (no markdown):
 {
   "bestMomentTimestamp": "e.g. 1:12:34 or 12:34 or 0:45",
-  "subjectDescription": "who/what is the focal subject",
-  "emotionalHook": "the scroll-stopping feeling",
+  "subjectDescription": "who/what is visibly in that frame (real clip subject only)",
+  "emotionalHook": "the scroll-stopping feeling already visible in-frame",
   "onImageText": ["HOOK ONE", "HOOK TWO"],
   "colorPalette": "colors + mood",
-  "compositionNotes": "subject/text placement for ${vertical ? '9:16' : '16:9'}",
-  "viralThumbnailBrief": "Art direction: bold viral fonts, sticker/emoji accents, arrows, high contrast grade (130 words max)",
+  "compositionNotes": "where to place text/stickers for ${vertical ? '9:16' : '16:9'} without covering the face",
+  "viralThumbnailBrief": "Sticker-only art direction: fonts + emoji/arrow/circle overlays only; no new people or game assets (130 words max)",
   "algorithmAlignment": "How this thumb fits ${label} discovery"
 }`
 
@@ -180,17 +195,20 @@ export async function paintThumbnail2(params: {
     params.userPrompt || '',
     params.analysis,
     params.platformId,
-    { clipFrameProvided: true }
+    { clipFrameProvided: true, stickerOnlyOverlays: true }
   )
 
   const paintPrompt = `${basePrompt}
 
-CRITICAL PAINT RULES:
-- The attached image IS the exact clip frame. Keep subject/pose recognizable.
-- ADD bold viral text overlays (use onImageText hooks), stickers, arrows, emoji-style pops, high-contrast grade.
-- Use thick Impact / YouTube-thumbnail style fonts with outline/shadow so text pops on mobile.
-- Do NOT replace the scene with unrelated stock art.
-- Output ONE finished thumbnail image.`
+CRITICAL PAINT RULES (these OVERRIDE the viral brief and any creator overrides if they conflict):
+1) The attached image is the ONLY source of people and scene content. Keep faces, bodies, enemies, UI, and environment recognizable — do not redraw or replace them.
+2) OVERLAYS ONLY — add flat graphics on top: bold Impact-style text (use onImageText), emoji stickers, arrows, circles/ovals, outline rings, sparkles, warning-style badges. Slight contrast/saturation grade is OK.
+3) NEVER invent or paste a new person, random woman/man face, stock reaction face, influencer cutout, or any face not clearly taken from the attached frame.
+4) If you add a reaction-face / shocked-face inset or duplicate, it MUST be a crop/duplicate of a person already visible in THIS frame (same identity, same face). Prefer enlarging/highlighting their existing face with a circle/arrow instead of inventing a second person.
+5) NEVER add new game characters, enemies, monsters, weapons, props, blood FX, or environment objects that are not already in the frame.
+6) Do not restage the gameplay — no new threats approaching, no extra NPCs, no background swaps.
+7) Use thick outlined thumbnail fonts so text pops on mobile.
+8) Output ONE finished thumbnail image.`
 
   const genAI = new GoogleGenAI({ apiKey })
   const candidates = [
