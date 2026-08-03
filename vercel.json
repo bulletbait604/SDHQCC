@@ -26,6 +26,12 @@
     },
     "src/app/api/clip-analyze/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/thumbnail-2/analyze/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/thumbnail-2/generate/route.ts": {
+      "maxDuration": 300
     }
   }
 }

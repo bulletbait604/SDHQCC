@@ -16,8 +16,9 @@ export const homeTranslations = {
     clipEditorDesc:
       'Upload a raw clip (≤90s), then Cut it for a vertical preview, then Finish for effects, captions, and your final platform-ready render.',
     rnd: 'R&D',
+    thumbnail2: 'Thumbnail 2.0',
     tradebot: 'Tradebot',
-    rndPickTool: 'R&D — pick a tool below',
+    rndPickTool: 'R&D — owner only · pick a tool below',
     tradebotScan: 'Run scan',
     tradebotScanning: 'Scanning…',
     tradebotNoOpportunities: 'No gaps above the fee threshold right now. Try again later.',
@@ -76,8 +77,9 @@ export const homeTranslations = {
     clipEditorDesc:
       'Un creador de clips totalmente optimizado por IA — cortes más inteligentes, ritmo y exportaciones listas para cada plataforma — está en camino.',
     rnd: 'I+D',
+    thumbnail2: 'Thumbnail 2.0',
     tradebot: 'Tradebot',
-    rndPickTool: 'I+D — elige una herramienta abajo',
+    rndPickTool: 'I+D — solo propietario · elige una herramienta abajo',
     tradebotScan: 'Escanear',
     tradebotScanning: 'Escaneando…',
     tradebotNoOpportunities: 'Sin brechas por encima de comisiones. Intenta más tarde.',
@@ -136,8 +138,9 @@ export const homeTranslations = {
     clipEditorDesc:
       'Un créateur de clips entièrement optimisé par IA — découpes plus fines, rythme et exports prêts pour chaque plateforme — arrive bientôt.',
     rnd: 'R&D',
+    thumbnail2: 'Thumbnail 2.0',
     tradebot: 'Tradebot',
-    rndPickTool: 'R&D — choisissez un outil ci-dessous',
+    rndPickTool: 'R&D — propriétaire seulement · choisissez un outil ci-dessous',
     tradebotScan: 'Lancer scan',
     tradebotScanning: 'Analyse…',
     tradebotNoOpportunities: 'Aucun écart au-dessus des frais pour le moment.',
@@ -196,8 +199,9 @@ export const homeTranslations = {
     clipEditorDesc:
       'Ein vollständig KI-optimierter Clip-Creator — intelligentere Schnitte, Timing und exportfertige Ausgaben für jede Plattform — kommt bald.',
     rnd: 'F&E',
+    thumbnail2: 'Thumbnail 2.0',
     tradebot: 'Tradebot',
-    rndPickTool: 'F&E — Werkzeug unten wählen',
+    rndPickTool: 'F&E — nur Owner · Werkzeug unten wählen',
     tradebotScan: 'Scan starten',
     tradebotScanning: 'Scanne…',
     tradebotNoOpportunities: 'Keine Spreads über Gebührenschwelle.',

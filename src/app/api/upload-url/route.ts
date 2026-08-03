@@ -6,6 +6,7 @@ import {
   AuthError,
   createAuthErrorResponse,
 } from '@/lib/auth/verifyAuth'
+import { isAllowlistedOwner } from '@/lib/ownerAllowlist'
 
 const isProd = process.env.NODE_ENV === 'production'
 
@@ -22,6 +23,9 @@ export async function POST(request: NextRequest) {
     }
     if (purpose === 'clip-editor' && !hasClipEditorAccess(user)) {
       return NextResponse.json({ error: 'Clip Editor requires the Editor badge.' }, { status: 403 })
+    }
+    if (purpose === 'thumbnail-2' && !isAllowlistedOwner(user.username)) {
+      return NextResponse.json({ error: 'Thumbnail 2.0 is owner-only.' }, { status: 403 })
     }
     console.log('Upload URL API: Request body:', { filename, contentType, purpose })
 
@@ -74,19 +78,22 @@ export async function POST(request: NextRequest) {
           purpose === 'clip-analyzer' ||
           purpose === 'clip-editor' ||
           purpose === 'thumbnail-generator' ||
+          purpose === 'thumbnail-2' ||
           purpose === 'post4me'
             ? user.username
             : undefined,
         purpose:
           purpose === 'thumbnail-generator'
             ? 'thumbnail-generator'
-            : purpose === 'post4me'
-              ? 'post4me'
-              : purpose === 'clip-editor'
-                ? 'clip-editor'
-                : purpose === 'clip-analyzer'
-                  ? 'clip-analyzer'
-                  : undefined,
+            : purpose === 'thumbnail-2'
+              ? 'thumbnail-2'
+              : purpose === 'post4me'
+                ? 'post4me'
+                : purpose === 'clip-editor'
+                  ? 'clip-editor'
+                  : purpose === 'clip-analyzer'
+                    ? 'clip-analyzer'
+                    : undefined,
       })
     } catch (generateError: unknown) {
       console.error('Upload URL API: Error in generateUploadUrl:', generateError)

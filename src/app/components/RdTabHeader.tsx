@@ -1,23 +1,26 @@
 'use client'
 
-import { Bot, Film } from 'lucide-react'
+import { Bot, Film, ImageIcon } from 'lucide-react'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
-export type RdSubTab = 'clip-editor' | 'tradebot'
+export type RdSubTab = 'clip-editor' | 'tradebot' | 'thumbnail-2'
 
 const SUB_TAB_META: Record<RdSubTab, { icon: typeof Film; shortLabel: string }> = {
-  'clip-editor': { icon: Film, shortLabel: 'Clip Editor' },
-  tradebot: { icon: Bot, shortLabel: 'Tradebot' },
+  'clip-editor': { icon: Film, shortLabel: 'Clips' },
+  'thumbnail-2': { icon: ImageIcon, shortLabel: 'Thumb 2' },
+  tradebot: { icon: Bot, shortLabel: 'Trade' },
 }
 
 export function rdTabTitle(
   subTab: RdSubTab,
-  labels: { clipEditor: string; tradebot: string }
+  labels: { clipEditor: string; tradebot: string; thumbnail2: string }
 ): string {
   switch (subTab) {
     case 'clip-editor':
       return labels.clipEditor
+    case 'thumbnail-2':
+      return labels.thumbnail2
     case 'tradebot':
       return labels.tradebot
   }
@@ -25,7 +28,7 @@ export function rdTabTitle(
 
 interface Props {
   activeSubTab: RdSubTab
-  labels: { clipEditor: string; tradebot: string }
+  labels: { clipEditor: string; tradebot: string; thumbnail2: string }
   pickToolLabel: string
   darkMode: boolean
   tabListClasses: string
@@ -46,6 +49,8 @@ export default function RdTabHeader({
     switch (id) {
       case 'clip-editor':
         return labels.clipEditor
+      case 'thumbnail-2':
+        return labels.thumbnail2
       case 'tradebot':
         return labels.tradebot
     }
@@ -60,7 +65,7 @@ export default function RdTabHeader({
         </p>
       </div>
       <TabsList
-        className={cn('grid w-full max-w-xl mx-auto grid-cols-2 mb-6 rounded-xl p-1', tabListClasses)}
+        className={cn('grid w-full max-w-2xl mx-auto grid-cols-3 mb-6 rounded-xl p-1', tabListClasses)}
       >
         {(Object.keys(SUB_TAB_META) as RdSubTab[]).map((id) => {
           const meta = SUB_TAB_META[id]

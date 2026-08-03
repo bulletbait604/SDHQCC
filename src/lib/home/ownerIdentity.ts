@@ -23,9 +23,14 @@ export function capOwnerRole(username: string, role: Role): Role {
   return role
 }
 
-/** Tab access — R&D tools (clip editor, tradebot) for site owner + admin; clip-editor API uses verifyAuth helper. */
+/** Tab access — R&D (Clip Editor, Tradebot, Thumbnail 2.0) is site-owner only. */
 export function hasTabAccessForUser(userRole: Role, tabId: string, username: string | null | undefined): boolean {
-  if (tabId === 'rnd' || tabId === 'tradebot' || tabId === 'clip-editor') {
+  if (
+    tabId === 'rnd' ||
+    tabId === 'tradebot' ||
+    tabId === 'clip-editor' ||
+    tabId === 'thumbnail-2'
+  ) {
     return canAccessRnd(userRole, username)
   }
   return TAB_PERMISSIONS[userRole]?.[tabId] ?? true

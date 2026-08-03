@@ -2,6 +2,7 @@
 export const TOOL_COIN_COSTS = {
   'tag-generator': 1,
   'thumbnail-generator': 2,
+  'thumbnail-2': 3,
   'clip-analyzer': 2,
   post4me: 2,
   'background-remover': 0,

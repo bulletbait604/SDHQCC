@@ -13,6 +13,7 @@ import BackgroundRemoverTab from '@/app/components/BackgroundRemoverTab'
 import AnalyzeTab from '@/app/components/AnalyzeTab'
 import ClipEditorTab from '@/app/components/ClipEditorTab'
 import TradebotTab from '@/app/components/TradebotTab'
+import Thumbnail2Tab from '@/app/components/Thumbnail2Tab'
 import KickClipsComingSoon from '@/app/components/KickClipsComingSoon'
 import SettingsTab from '@/app/components/SettingsTab'
 import type { ActivityLogEntry, HomeLanguage, KickUser, Platform } from '@/lib/home/types'
@@ -337,6 +338,7 @@ export default function HomeMainTabs({
                 labels={{
                   clipEditor: t.clipEditor,
                   tradebot: t.tradebot,
+                  thumbnail2: t.thumbnail2 || 'Thumbnail 2.0',
                 }}
                 pickToolLabel={t.rndPickTool}
                 darkMode={darkMode}
@@ -357,6 +359,21 @@ export default function HomeMainTabs({
                   deductCoins={deductCoins}
                   hasUnlimitedAccess={hasUnlimitedAccess || isOwner}
                   refreshBalance={refreshBalance}
+                />
+              </TabsContent>
+
+              <TabsContent value="thumbnail-2">
+                <Thumbnail2Tab
+                  darkMode={darkMode}
+                  cardClasses={cardClasses}
+                  textClasses={textClasses}
+                  subtitleClasses={subtitleClasses}
+                  platforms={platforms}
+                  user={user}
+                  hasUnlimitedAccess={hasUnlimitedAccess || isOwner}
+                  hasEnoughCoins={hasEnoughCoins}
+                  refreshBalance={refreshBalance}
+                  onLogActivity={onThumbnailActivityLog}
                 />
               </TabsContent>
 
