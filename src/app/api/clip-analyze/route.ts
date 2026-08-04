@@ -317,7 +317,6 @@ export async function POST(request: NextRequest) {
       algoBlock: algoCtx.block,
       locationBlock,
       timezone: geo.timezone,
-      areaLabel: geo.areaLabel,
       algorithmPlatformId: algoCtx.algorithmPlatformId,
       algorithmUpdatedAt: algoCtx.lastUpdated,
     })
@@ -586,9 +585,7 @@ export async function POST(request: NextRequest) {
       algorithmUsed: algoCtx.algorithmPlatformId,
       algorithmUpdatedAt: algoCtx.lastUpdated,
       geo: {
-        areaLabel: geo.areaLabel,
         timezone: geo.timezone,
-        countryCode: geo.countryCode,
       },
     })
 

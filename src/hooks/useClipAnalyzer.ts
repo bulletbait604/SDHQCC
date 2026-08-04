@@ -57,7 +57,6 @@ export interface ClipAnalysisResult {
   }
   postingPlan?: {
     timezone?: string
-    areaLabel?: string
     bestWindowsLocal?: string[]
     frequencyTip?: string
     crossPostNote?: string
@@ -65,9 +64,7 @@ export interface ClipAnalysisResult {
   algorithmUsed?: string
   algorithmUpdatedAt?: string | null
   geo?: {
-    areaLabel?: string
     timezone?: string
-    countryCode?: string | null
   }
   extractedData?: unknown
   estimatedCostUsd?: number

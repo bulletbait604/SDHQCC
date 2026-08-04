@@ -1,6 +1,6 @@
 /**
- * Infer viewer country / timezone from edge headers + optional Kick profile extras.
- * Used to localize posting-time recommendations in Clip Analyzer.
+ * Infer viewer timezone from edge headers (for localizing posting windows).
+ * Do not expose city/region/country in product UI or AI-facing posting copy.
  */
 
 const COUNTRY_DEFAULT_TZ: Record<string, string> = {
@@ -22,11 +22,7 @@ const COUNTRY_DEFAULT_TZ: Record<string, string> = {
 }
 
 export type RequestGeoContext = {
-  countryCode: string | null
-  region: string | null
-  city: string | null
   timezone: string
-  areaLabel: string
 }
 
 function header(headers: Headers, name: string): string | null {
@@ -36,23 +32,15 @@ function header(headers: Headers, name: string): string | null {
 
 export function resolveRequestGeo(
   headers: Headers,
-  kickExtras?: { country?: string; city?: string; state?: string } | null
+  _kickExtras?: { country?: string; city?: string; state?: string } | null
 ): RequestGeoContext {
   const countryCode = (
     header(headers, 'x-vercel-ip-country') ||
     header(headers, 'cf-ipcountry') ||
-    kickExtras?.country ||
     null
   )
     ?.toUpperCase()
     .slice(0, 2) || null
-
-  const region =
-    header(headers, 'x-vercel-ip-country-region') ||
-    kickExtras?.state ||
-    null
-
-  const city = header(headers, 'x-vercel-ip-city') || kickExtras?.city || null
 
   const tzHeader = header(headers, 'x-vercel-ip-timezone')
   const timezone =
@@ -60,16 +48,11 @@ export function resolveRequestGeo(
     (countryCode && COUNTRY_DEFAULT_TZ[countryCode]) ||
     'UTC'
 
-  const areaBits = [city, region, countryCode].filter(Boolean)
-  const areaLabel = areaBits.length ? areaBits.join(', ') : 'your region (timezone estimated)'
-
-  return { countryCode, region, city, timezone, areaLabel }
+  return { timezone }
 }
 
 export function geoPromptBlock(geo: RequestGeoContext): string {
-  return `CREATOR LOCATION CONTEXT (localize posting advice):
-- Area: ${geo.areaLabel}
+  return `CREATOR TIMEZONE (localize posting advice — do NOT mention city, region, or country):
 - Timezone: ${geo.timezone}
-- Country: ${geo.countryCode || 'unknown'}
-Convert all "best times to post" into this creator's local timezone (${geo.timezone}). Prefer concrete local windows (e.g. "Tue–Thu 6–9pm ${geo.timezone}") over vague UTC-only advice.`
+Convert all "best times to post" into this timezone (${geo.timezone}). Prefer concrete local windows (e.g. "Tue–Thu 6–9pm ${geo.timezone}") over vague UTC-only advice. Never name the creator's city, state, or country in postingPlan or recommendations.`
 }

@@ -433,7 +433,7 @@ export default function AnalyzeTab({
                   Content Insights
                 </h4>
               </div>
-              {(clipAnalysisResult.algorithmUpdatedAt || clipAnalysisResult.geo?.areaLabel) && (
+              {(clipAnalysisResult.algorithmUpdatedAt || clipAnalysisResult.geo?.timezone) && (
                 <p className={`text-xs mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                   {clipAnalysisResult.algorithmUpdatedAt
                     ? `Algorithm snapshot: ${clipAnalysisResult.algorithmUsed || clipPlatform} · updated ${
@@ -445,8 +445,8 @@ export default function AnalyzeTab({
                         })()
                       }`
                     : null}
-                  {clipAnalysisResult.geo?.areaLabel
-                    ? `${clipAnalysisResult.algorithmUpdatedAt ? ' · ' : ''}Posting times localized for ${clipAnalysisResult.geo.areaLabel} (${clipAnalysisResult.geo.timezone || 'local'})`
+                  {clipAnalysisResult.geo?.timezone
+                    ? `${clipAnalysisResult.algorithmUpdatedAt ? ' · ' : ''}Posting times in ${clipAnalysisResult.geo.timezone}`
                     : null}
                 </p>
               )}
@@ -640,12 +640,12 @@ export default function AnalyzeTab({
                         darkMode ? 'bg-sdhq-dark-700/60' : 'bg-white'
                       }`}
                     >
-                      <div className="text-sm font-semibold mb-1">📅 Best Times (Your Area)</div>
+                      <div className="text-sm font-semibold mb-1">📅 Best Times</div>
                       <p className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        {clipAnalysisResult.postingPlan.areaLabel ||
-                          clipAnalysisResult.geo?.areaLabel ||
-                          'Your region'}{' '}
-                        · {clipAnalysisResult.postingPlan.timezone || clipAnalysisResult.geo?.timezone}
+                        Timezone:{' '}
+                        {clipAnalysisResult.postingPlan.timezone ||
+                          clipAnalysisResult.geo?.timezone ||
+                          'local'}
                       </p>
                       <ul className={`text-sm space-y-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                         {(clipAnalysisResult.postingPlan.bestWindowsLocal || []).map((w, i) => (

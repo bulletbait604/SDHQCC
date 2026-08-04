@@ -54,7 +54,6 @@ export function buildClipAnalyzePrompt(params: {
   algoBlock: string
   locationBlock: string
   timezone: string
-  areaLabel: string
   algorithmPlatformId: string
   algorithmUpdatedAt: string | null
 }): string {
@@ -89,7 +88,7 @@ CRITICAL ANALYSIS REQUIREMENTS:
 4. HOOK: exact timestampSeconds; type; platform fit; one concrete first-1–3s fix.
 5. TRENDING AUDIO: keep / layer / replace + searchKeywords (no fake song titles).
 6. WATERMARK: detect + action.
-7. POSTING: best local windows for ${params.timezone} using LIVE posting tips.
+7. POSTING: best windows in timezone ${params.timezone} using LIVE posting tips. Do NOT mention city/region/country — timezone only.
 8. SCORING (0–100): Hook 25 + Engagement 20 + Visual/Audio 15 + Platform fit 20 + Metadata 20. Sub-scores must justify the overall score — do not invent a high overall with weak subs.
 9. TAGS:
 ${
@@ -134,8 +133,7 @@ Return ONLY this JSON (no markdown, no preamble):
   },
   "postingPlan": {
     "timezone": "${params.timezone}",
-    "areaLabel": "${params.areaLabel}",
-    "bestWindowsLocal": ["<w1>", "<w2>", "<w3>"],
+    "bestWindowsLocal": ["<w1 in ${params.timezone}>", "<w2>", "<w3>"],
     "frequencyTip": "<frequency for ${params.platformLabel}>",
     "crossPostNote": "<vs Facebook Reels if identical cross-post>"
   },
@@ -209,6 +207,19 @@ export function recalibrateClipAnalysisScores(
       })
     : raw.insights
 
+  const postingPlan =
+    raw.postingPlan && typeof raw.postingPlan === 'object'
+      ? (() => {
+          const p = { ...(raw.postingPlan as Record<string, unknown>) }
+          delete p.areaLabel
+          delete p.city
+          delete p.region
+          delete p.country
+          delete p.countryCode
+          return p
+        })()
+      : raw.postingPlan
+
   return {
     ...raw,
     hookStrength: hook,
@@ -216,10 +227,8 @@ export function recalibrateClipAnalysisScores(
     visualQuality: vis,
     audioQuality: aud,
     score,
-    scoreTitle:
-      typeof raw.scoreTitle === 'string' && raw.scoreTitle.trim()
-        ? scoreTitleFromScore(score)
-        : scoreTitleFromScore(score),
+    scoreTitle: scoreTitleFromScore(score),
     insights,
+    postingPlan,
   }
 }
