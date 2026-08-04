@@ -10,6 +10,7 @@ import {
   POST4ME_CLIP_MAX_BYTES,
   POST4ME_CLIP_MAX_DURATION_SECONDS,
   post4meClipDurationExceededMessage,
+  post4meClipLimitLabel,
 } from '@/lib/post4meLimits'
 import type { Post4MePlatformOutput } from '@/lib/post4meFormat'
 import Post4MePlatformResults from '@/app/components/Post4MePlatformResults'
@@ -153,7 +154,7 @@ export default function Post4MeTab({
       return
     }
     if (!clipFile) {
-      setError('Upload a clip up to 90 seconds.')
+      setError(`Upload a clip ${post4meClipLimitLabel()}.`)
       return
     }
     if (!user) {
@@ -318,7 +319,7 @@ export default function Post4MeTab({
             <label
               className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}
             >
-              Reference clip (max {POST4ME_CLIP_MAX_DURATION_SECONDS}s)
+              Reference clip (max {Math.round(POST4ME_CLIP_MAX_DURATION_SECONDS / 60)} min)
             </label>
             <div
               className={`border-2 border-dashed rounded-xl p-4 ${clipFile ? 'border-cyan-500' : 'border-gray-600'}`}
