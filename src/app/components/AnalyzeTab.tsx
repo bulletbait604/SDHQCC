@@ -198,7 +198,7 @@ export default function AnalyzeTab({
       <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{analyzeTitle}</h3>
     </div>
     <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
-      Powered By: Gemini 2.5 Flash
+      Powered By: Gemini 3.1 Flash-Lite
     </p>
     <p className={`${textClasses} text-base`}>{clipAnalyzerDesc}</p>
   </div>
@@ -225,7 +225,7 @@ export default function AnalyzeTab({
       </li>
     </ol>
     <div className={`mt-3 p-2 rounded text-sm ${darkMode ? 'bg-sdhq-dark-900/50 text-sdhq-cyan-300' : 'bg-sdhq-cyan-50 text-sdhq-cyan-700'}`}>
-      <span className="font-semibold">💡 AI Analysis:</span> Videos up to 250MB are analyzed by Gemini 2.5 Flash with platform-specific insights.
+      <span className="font-semibold">💡 AI Analysis:</span> Videos up to 250MB are ranked against live platform algorithms with actionable edit advice.
     </div>
   </div>
 
@@ -536,6 +536,7 @@ export default function AnalyzeTab({
             clipAnalysisResult.trendingAudioAdvice ||
             clipAnalysisResult.watermarkCheck ||
             clipAnalysisResult.postingPlan ||
+            clipAnalysisResult.algorithmAlignment ||
             sortedRecs.length > 0) && (
             <div>
               <div
@@ -552,6 +553,19 @@ export default function AnalyzeTab({
                 >
                   Growth Playbook
                 </h4>
+                {typeof clipAnalysisResult.algorithmAlignment === 'string' &&
+                  clipAnalysisResult.algorithmAlignment.trim() && (
+                    <div
+                      className={`rounded-lg p-3 mb-3 ${
+                        darkMode ? 'bg-sdhq-dark-700/60' : 'bg-white'
+                      }`}
+                    >
+                      <div className="text-sm font-semibold mb-1">📐 Algorithm Fit</div>
+                      <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        {clipAnalysisResult.algorithmAlignment}
+                      </p>
+                    </div>
+                  )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                   {clipAnalysisResult.hookAnalysis && (
                     <div

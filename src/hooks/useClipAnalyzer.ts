@@ -27,6 +27,8 @@ export interface ClipAnalysisResult {
   engagementPotential?: number
   visualQuality?: number
   audioQuality?: number
+  /** How the score maps to cached live algorithm snapshot lines. */
+  algorithmAlignment?: string
   analysisSource?: string
   title?: string
   titles?: string[]

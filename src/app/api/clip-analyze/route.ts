@@ -18,24 +18,26 @@ import {
 } from '@/lib/geminiFiles'
 import { estimateClipAnalysisUsd } from '@/lib/estimatedInferenceCost'
 import {
-  isYouTubeClipPlatform,
   normalizeClipAnalysisMetadata,
-  youtubeShortsMetadataPromptBlock,
 } from '@/lib/clipAnalyzerMetadata'
 import { formatAlgorithmContextForPlatform } from '@/lib/algorithmContext'
 import { geoPromptBlock, resolveRequestGeo } from '@/lib/requestGeo'
+import {
+  buildClipAnalyzePrompt,
+  clipAnalyzeTimeoutMs,
+  recalibrateClipAnalysisScores,
+  resolveClipAnalyzeModel,
+} from '@/lib/clipAnalyzePrompt'
 
 // Force dynamic rendering to prevent static optimization
 export const dynamic = 'force-dynamic'
+export const maxDuration = 300
 
 const CLIP_ANALYZE_COIN_COST = toolCoinCost('clip-analyzer') ?? 2
 
 /** Gemini can fetch HTTPS / signed URLs directly; larger clips still use the Files API after R2. */
 const GEMINI_EXTERNAL_URL_MAX_BYTES = 100 * 1024 * 1024
 const CLIP_MAX_BYTES = 250 * 1024 * 1024
-
-// Use gemini-2.5-flash model (stable release)
-const MODEL_NAME = 'gemini-2.5-flash'
 
 type TargetPlatform = 'tiktok' | 'youtube' | 'reels'
 
@@ -44,16 +46,6 @@ function normalizeTargetPlatform(platform: string): TargetPlatform {
   if (p === 'youtube' || p === 'youtube-shorts' || p === 'shorts') return 'youtube'
   if (p === 'instagram' || p === 'instagram-reels' || p === 'reels') return 'reels'
   return 'tiktok'
-}
-
-function platformEditingDirective(platform: TargetPlatform): string {
-  if (platform === 'youtube') {
-    return `Focus on the "Loop." Ensure the last 2 seconds lead back into the first 2 seconds for infinite loop potential.`
-  }
-  if (platform === 'reels') {
-    return `Focus on "Cinematic Quality." Use longer cuts (3-4 seconds) and ensure the center of the frame is the priority for the Grid view.`
-  }
-  return `Focus on a 3-second visual hook. Edit for "Chaos Pacing"—cut every 1.5 seconds to keep retention high.`
 }
 
 function clipAnalyzerBackend(): string {
@@ -139,8 +131,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Platform is required' }, { status: 400 })
     }
     const targetPlatform = normalizeTargetPlatform(platform)
-    const isYouTubeMetadata = isYouTubeClipPlatform(platform)
-
     // Note: 150MB limit is enforced on the frontend for direct URLs
     // Videos larger than 150MB may not be accessible for analysis
 
@@ -319,184 +309,104 @@ export async function POST(request: NextRequest) {
     const algoCtx = await formatAlgorithmContextForPlatform(platform || 'tiktok')
     const geo = resolveRequestGeo(request.headers)
     const locationBlock = geoPromptBlock(geo)
+    const modelName = resolveClipAnalyzeModel()
+    const analyzeTimeoutMs = clipAnalyzeTimeoutMs()
+    const analyzePrompt = buildClipAnalyzePrompt({
+      platformLabel: platform,
+      targetPlatform,
+      algoBlock: algoCtx.block,
+      locationBlock,
+      timezone: geo.timezone,
+      areaLabel: geo.areaLabel,
+      algorithmPlatformId: algoCtx.algorithmPlatformId,
+      algorithmUpdatedAt: algoCtx.lastUpdated,
+    })
 
       const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
 
       for (;;) {
       try {
-      console.log('[DEBUG] Using model:', MODEL_NAME)
-      console.log('[DEBUG] Starting Gemini API call with timeout protection...')
-      
-      // Add timeout protection (Vercel serverless has 60s timeout)
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Gemini API timeout after 52 seconds')), 52000)
-      })
-      
+      console.log('[DEBUG] Using model:', modelName)
+      console.log('[DEBUG] Starting Gemini API call with timeout ms:', analyzeTimeoutMs)
+
+      const withTimeout = <T,>(p: Promise<T>) =>
+        Promise.race([
+          p,
+          new Promise<never>((_, reject) => {
+            setTimeout(
+              () => reject(new Error(`Gemini API timeout after ${analyzeTimeoutMs} ms`)),
+              analyzeTimeoutMs
+            )
+          }),
+        ])
+
       console.log('[DEBUG] Analyzing file URI:', fileUriForGemini.substring(0, 120))
-      
-      const geminiResponse = await Promise.race([
-        genAI.models.generateContent({
-          model: MODEL_NAME,
-          contents: [
+
+      const contents = [
+        {
+          role: 'user' as const,
+          parts: [
             {
-              role: 'user',
-              parts: [
-                {
-                  fileData: {
-                    mimeType: effectiveMime,
-                    fileUri: fileUriForGemini
-                  }
-                },
-                {
-                  text: `You are an expert social media algorithm analyst and content strategist. Analyze this video file IN-DEPTH for ${platform} optimization.
+              fileData: {
+                mimeType: effectiveMime,
+                fileUri: fileUriForGemini,
+              },
+            },
+            { text: analyzePrompt },
+          ],
+        },
+      ]
 
-PLATFORM EDITING DIRECTIVE:
-${platformEditingDirective(targetPlatform)}
+      let geminiResponse: any
+      try {
+        geminiResponse = await withTimeout(
+          genAI.models.generateContent({
+            model: modelName,
+            contents,
+            config: {
+              temperature: 0.35,
+              maxOutputTokens: 4096,
+              thinkingConfig: { thinkingBudget: 0 },
+            } as {
+              temperature?: number
+              maxOutputTokens?: number
+              thinkingConfig?: { thinkingBudget?: number }
+            },
+          })
+        )
+      } catch (firstErr: any) {
+        if (String(firstErr?.message || firstErr).includes('timeout')) throw firstErr
+        geminiResponse = await withTimeout(
+          genAI.models.generateContent({
+            model: modelName,
+            contents,
+            config: { temperature: 0.35, maxOutputTokens: 4096 },
+          })
+        )
+      }
 
-LIVE ALGORITHM DATA (must drive recommendations — do not ignore):
-${algoCtx.block}
-
-${locationBlock}
-
-CRITICAL ANALYSIS REQUIREMENTS:
-1. **SUBJECT MATTER IDENTIFICATION**: 
-   - What is the video about? Identify main topic, theme, niche, and target audience
-   - Detect if this is gaming content - identify the specific game being played
-   - Detect if this is from a streaming platform (Twitch, YouTube Live, Kick, etc.) - identify the original streaming platform
-   - Identify the content type (gameplay, commentary, tutorial, highlight, montage, vlog, etc.)
-2. **VISUAL ANALYSIS**: 
-   - Scene-by-scene breakdown (first 3 seconds, middle, ending)
-   - Camera angles, lighting, color grading
-   - Visual effects, transitions, text overlays
-   - Motion, energy, pacing throughout
-   - Thumbnail-worthy moments
-   - Cross-platform watermarks (TikTok/IG/YT logos, burn-ins) — flag if present
-3. **AUDIO ANALYSIS**:
-   - Speech/dialogue content
-   - Background music genre, mood, energy
-   - Whether audio sounds original vs trending-sound friendly
-   - Sound effects, mix quality, game audio
-4. **HOOK ANALYSIS** (mandatory):
-   - Exact timestamp of the strongest hook (seconds)
-   - What grabs attention in first 1–3 seconds?
-   - Is the hook visual, audio, or conceptual?
-   - How well does it fit ${platform} vs Facebook-style sharebait?
-5. **TRENDING AUDIO / SOUND STRATEGY**:
-   - Recommend whether to keep original audio, layer a trending sound, or replace
-   - Give a concrete search phrase to find sounds on ${platform} (genre/mood/keywords) — not a fake specific song title unless clearly audible
-6. **WATERMARK / CROSS-POST RISK**:
-   - Detect visible platform watermarks or UI chrome from another app
-   - Advise whether to re-export clean / crop / reframe before posting
-7. **ENGAGEMENT + POSTING FIT**:
-   - What keeps viewers watching?
-   - Best local posting windows for this creator's timezone (${geo.timezone}) using the LIVE algorithm posting tips
-8. **PLATFORM ALGORITHM PRIORITIES** — combine LIVE snapshot above with:
-- TikTok: early hook, completion, rewatches, comments, trending audio, niche tags
-- Instagram Reels: saves/shares, first-line caption, clean visuals, avoid watermarked cross-posts
-- YouTube Shorts: title CTR, retention, search keywords, loop potential
-9. **SCORING (0-100)**: Hook 25 + Engagement 20 + Visual/Audio 15 + Platform fit 20 + Metadata 20
-10. **TAG REQUIREMENTS**:
-${
-  isYouTubeMetadata
-    ? youtubeShortsMetadataPromptBlock()
-    : `Mix platform + niche + content tags. Prefer 5–12 high-signal tags for Reels/TikTok (not 30 spam tags). Use # prefix.`
-}
-
-Return this exact JSON structure:
-{
-  "score": <integer 0-100>,
-  "scoreTitle": "<Excellent/Good/Fair/Needs Improvement>",
-  "scoreSummary": "<2 sentences: main strength + key improvement>",
-  "hookStrength": <integer 0-100>,
-  "engagementPotential": <integer 0-100>,
-  "visualQuality": <integer 0-100>,
-  "audioQuality": <integer 0-100>,
-  "insights": [
-    { "icon": "🎯", "label": "Hook Strength", "value": "<Strong/Moderate/Weak>", "description": "<why + specific fix>", "score": <0-100> },
-    { "icon": "⚡", "label": "Engagement Potential", "value": "<High/Medium/Low>", "description": "<why + boost>", "score": <0-100> },
-    { "icon": "🎬", "label": "Visual Quality", "value": "<Professional/Good/Fair>", "description": "<why + fix>", "score": <0-100> },
-    { "icon": "🔊", "label": "Audio Quality", "value": "<Clear/Muffled/Unbalanced>", "description": "<why + fix>", "score": <0-100> }
-  ],
-  "hookAnalysis": {
-    "timestampSeconds": <number>,
-    "type": "<visual|audio|conceptual|mixed>",
-    "summary": "<what the hook is>",
-    "platformFit": "<how well it fits ${platform}>",
-    "improvement": "<specific edit to strengthen the first 1-3s>"
-  },
-  "trendingAudioAdvice": {
-    "recommendation": "<keep_original|layer_trending|replace_with_trending>",
-    "rationale": "<why>",
-    "searchKeywords": "<concrete sound-search phrase for ${platform}>",
-    "mixTip": "<e.g. keep VO loud; layer trend at ~15-25% if useful>"
-  },
-  "watermarkCheck": {
-    "detected": <true|false>,
-    "details": "<what was seen or 'none detected'>",
-    "action": "<re-export clean / crop edges / safe to post>"
-  },
-  "postingPlan": {
-    "timezone": "${geo.timezone}",
-    "areaLabel": "${geo.areaLabel}",
-    "bestWindowsLocal": ["<local window 1>", "<local window 2>", "<local window 3>"],
-    "frequencyTip": "<how often to post this style on ${platform}>",
-    "crossPostNote": "<how this clip may perform vs Facebook Reels if identical cross-post>"
-  },
-  "recommendations": [
-    { "priority": "high", "category": "Hook", "text": "<actionable>" },
-    { "priority": "high", "category": "Trending Audio", "text": "<actionable>" },
-    { "priority": "high", "category": "Watermark", "text": "<actionable>" },
-    { "priority": "med", "category": "Pacing", "text": "<actionable>" },
-    { "priority": "med", "category": "Visual", "text": "<actionable>" },
-    { "priority": "med", "category": "Posting Time", "text": "<local-time actionable using ${geo.timezone}>" },
-    { "priority": "low", "category": "Metadata", "text": "<actionable>" }
-  ],
-  "overlays": [
-    { "type": "text",   "description": "<suggestion>", "timing": "<timestamp>" },
-    { "type": "sound", "description": "<suggestion aligned with trendingAudioAdvice>", "timing": "<timestamp>" },
-    { "type": "visual", "description": "<suggestion>", "timing": "<timestamp>" },
-    { "type": "cta",    "description": "<suggestion>", "timing": "<timestamp>" }
-  ],
-  "titles": [
-    "<title 1>",
-    "<title 2>",
-    "<title 3>"
-  ],
-  "description": "<platform-optimized caption/description>",
-  "tags": ["<platform-native tags/keywords>"],
-  "algorithmUsed": "${algoCtx.algorithmPlatformId}",
-  "algorithmUpdatedAt": "${algoCtx.lastUpdated || 'unknown'}"
-}
-IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fences, no explanation outside of JSON.
-`
-              }
-            ]
-          }
-        ]
-      }),
-      timeoutPromise
-    ]) as any
-      
-      // Parse the response from Google GenAI SDK
       let rawText: string
       try {
         rawText = typeof (geminiResponse as any).text === 'function'
           ? (geminiResponse as any).text()
           : (geminiResponse as any).text ?? ''
-      } catch (textError) {
+      } catch {
         throw new Error('Gemini returned a response with no readable text — may have been blocked by safety filters')
       }
-      
+
       console.log('[DEBUG] Gemini raw response length:', rawText.length)
       console.log('[DEBUG] Gemini response preview:', rawText.substring(0, 200))
-      
+
       if (rawText) {
         let cleanContent = rawText
         if (rawText.includes('```')) {
-          cleanContent = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+          cleanContent = rawText
+            .replace(/```json\n?/g, '')
+            .replace(/```\n?/g, '')
+            .trim()
           console.log('[DEBUG] Removed markdown code blocks from response')
         }
-        
+
         try {
           try {
             analysisResult = JSON.parse(cleanContent)
@@ -506,7 +416,7 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
             analysisResult = JSON.parse(extracted)
             console.log('[DEBUG] Parsed first balanced JSON object only (response had trailing content)')
           }
-          analysisSource = MODEL_NAME
+          analysisSource = modelName
           console.log('✅ [DEBUG] Gemini analysis successful - parsed JSON with keys:', Object.keys(analysisResult))
           break
         } catch (parseError) {
@@ -517,6 +427,7 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
       } else {
         break
       }
+
     } catch (geminiError: any) {
       const canFallback =
         !attemptedPresignedFallback &&
@@ -581,7 +492,7 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
         return NextResponse.json({ 
           error: 'Analysis timeout',
           userMessage: 'The video is taking too long to analyze. Please try a shorter video or check back later.',
-          details: 'Gemini API timeout after 52 seconds'
+          details: `Gemini API timeout after ${analyzeTimeoutMs} ms`
         }, { status: 504 })
       }
       
@@ -606,7 +517,7 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
       }
       
       // Handle all other errors
-      const errorDetails = `Model: ${MODEL_NAME}, HTTP ${httpStatus}: ${errorMessage}`
+      const errorDetails = `Model: ${modelName}, HTTP ${httpStatus}: ${errorMessage}`
       return NextResponse.json({ 
         error: 'Analysis failed',
         userMessage: 'Gemini is having a tough time right now. Please check back later.',
@@ -627,14 +538,17 @@ IMPORTANT: Respond ONLY with a valid JSON object — no preamble, no markdown fe
     }
 
     if (analysisResult && typeof analysisResult === 'object') {
+      const calibrated = recalibrateClipAnalysisScores(
+        analysisResult as Record<string, unknown>
+      )
       const meta = normalizeClipAnalysisMetadata(platform, {
-        title: (analysisResult as Record<string, unknown>).title,
-        titles: (analysisResult as Record<string, unknown>).titles,
-        description: (analysisResult as Record<string, unknown>).description,
-        tags: (analysisResult as Record<string, unknown>).tags,
+        title: calibrated.title,
+        titles: calibrated.titles,
+        description: calibrated.description,
+        tags: calibrated.tags,
       })
       analysisResult = {
-        ...(analysisResult as Record<string, unknown>),
+        ...calibrated,
         title: meta.title,
         titles: meta.titles,
         description: meta.description,
