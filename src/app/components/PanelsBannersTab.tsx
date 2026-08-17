@@ -321,15 +321,16 @@ export default function PanelsBannersTab({
 
   const modeOptions: { id: PanelsBannersOutputMode; label: string; hint: string }[] = [
     { id: 'banner', label: 'Banner only', hint: 'Offline / profile banner' },
-    { id: 'panels', label: 'Panels only', hint: 'Info panels / feature cards' },
-    { id: 'both', label: 'Banner + panels', hint: 'Full channel kit' },
+    { id: 'panels', label: 'Panels only', hint: 'Wide header strips (title bars)' },
+    { id: 'both', label: 'Banner + panels', hint: 'Offline banner + header strips' },
   ]
 
   return (
     <div className="space-y-6">
       <p className={`text-sm ${subtitleClasses}`}>
         Pick a streaming platform, upload up to 3 references, describe the brand, then Gemini
-        researches official sizing and paints <strong>two very different mockups</strong>.
+        researches official sizing and paints <strong>two very different mockups</strong>. Panels
+        are wide header strips (title + designed background) — not tall cards.
       </p>
 
       <section className="space-y-3">
@@ -641,7 +642,7 @@ export default function PanelsBannersTab({
                     </div>
                     <div
                       className={`relative w-full bg-black/40 ${
-                        asset.kind === 'banner' ? 'aspect-video' : 'aspect-[4/5] max-w-xs mx-auto'
+                        asset.kind === 'banner' ? 'aspect-video' : 'aspect-[5/1]'
                       }`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}

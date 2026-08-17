@@ -128,11 +128,14 @@ export async function researchPlatformAssetSizes(params: {
   const prompt = `You are a streaming-platform brand designer and docs researcher.
 
 Platform: ${platform.name} (id: ${platform.id})
-User wants: ${outputMode === 'both' ? 'offline/profile BANNER and info PANELS' : outputMode}
+User wants: ${outputMode === 'both' ? 'offline/profile BANNER and PANEL HEADERS' : outputMode}
 
 Our current defaults (verify / refine — do not invent impossible sizes):
 - Banner default: ${platform.banner.width}x${platform.banner.height} (${platform.banner.label}) — ${platform.banner.notes || ''}
-- Panel default: ${platform.panel.width}x${platform.panel.height} (${platform.panel.label}) — ${platform.panel.notes || ''}
+- Panel header default: ${platform.panel.width}x${platform.panel.height} (${platform.panel.label}) — ${platform.panel.notes || ''}
+
+IMPORTANT PRODUCT RULE: "Panels" in this app are WIDE SHORT HEADER STRIPS (~5:1), not tall Twitch info cards.
+Prefer keeping panelWidth much larger than panelHeight (e.g. 1200x240). Do NOT switch panels to portrait/tall cards.
 
 Return ONLY JSON:
 {
@@ -145,14 +148,15 @@ Return ONLY JSON:
   "panelLabel": string,
   "panelNotes": string,
   "panelCount": number,
-  "researchNotes": "2-4 sentences on official or commonly accepted sizes for offline/profile banners and panels on this platform",
+  "researchNotes": "2-4 sentences on banner sizes and header-strip panel art for this platform",
   "sourcesNote": "what you based this on (official docs / common creator practice)"
 }
 
 Rules:
-- Prefer official published pixel sizes when known.
-- Twitch offline banners are typically 1920x1080; Twitch panels ~320px wide.
+- Prefer official published pixel sizes for banners when known.
+- Twitch offline banners are typically 1920x1080.
 - YouTube channel art is typically 2560x1440 with a smaller safe zone.
+- For panels/headers: keep a wide landscape strip (height roughly 1/4 to 1/6 of width).
 - panelCount should be 3 unless the platform clearly uses a different set.
 - If unsure, keep our defaults and say so in researchNotes.`
 
@@ -168,6 +172,14 @@ Rules:
   } catch {
     parsed = {}
   }
+
+  // Keep panels as wide header strips even if the model suggests tall cards.
+  const panelWidth = clampSize(parsed.panelWidth, platform.panel.width)
+  const panelHeightRaw = clampSize(parsed.panelHeight, platform.panel.height)
+  const panelHeight =
+    panelHeightRaw >= panelWidth * 0.55
+      ? Math.round(panelWidth / 5)
+      : panelHeightRaw
 
   return {
     platformId: platform.id,
@@ -185,8 +197,8 @@ Rules:
           : platform.banner.notes,
     },
     panel: {
-      width: clampSize(parsed.panelWidth, platform.panel.width),
-      height: clampSize(parsed.panelHeight, platform.panel.height),
+      width: panelWidth,
+      height: Math.max(120, panelHeight),
       label:
         typeof parsed.panelLabel === 'string' && parsed.panelLabel.trim()
           ? parsed.panelLabel.trim()
@@ -294,19 +306,45 @@ function buildAssetPrompt(params: {
   panelTotal?: number
 }): string {
   const ratio = aspectRatioLabel(params.size.width, params.size.height)
-  const roleLine =
-    params.kind === 'panel' && params.panelTitle
-      ? `PANEL TITLE (must appear clearly on the artwork): "${params.panelTitle}"
-This is panel ${(params.panelIndex ?? 0) + 1} of ${params.panelTotal ?? 1} in a matching set.
-Design the panel specifically for that title's purpose (e.g. PC Specs → hardware vibe; Donations → tip/support; Commands → chat commands; Blerps → soundboard; Throne → wishlist/gifts; Socials → icons/handles; Merch → shop; About Me → intro).`
-      : ''
 
-  return `Create a ${params.platformName} streamer ${params.kind} artwork.
+  if (params.kind === 'panel') {
+    const title = params.panelTitle || 'Panel'
+    return `Create a ${params.platformName} streamer PANEL HEADER — a wide, short title strip (NOT a tall info card).
+
+TARGET SIZE: ${params.size.width}x${params.size.height}px (${ratio}) — landscape header bar.
+This is header ${(params.panelIndex ?? 0) + 1} of ${params.panelTotal ?? 1} in a matching set.
+
+PANEL TITLE (must be the hero text, spelled exactly): "${title}"
+
+FORMAT (match this product style):
+- Wide horizontal strip / section header — like a channel "About Me" / "Socials" bar.
+- Designed or boldly colored background (shapes, arcs, gradients, patterns OK).
+- Large, thick, high-contrast title centered (or slightly left-of-center) in the strip.
+- Optional small secondary tagline ONLY if it fits without clutter (max ~6 words).
+- Optional small brand mark / icon block on the far left — abstract shapes from the references, NOT platform logos.
+- NO body copy, NO bullet lists, NO schedule grids, NO social icon walls, NO tall "card" layouts.
+- NO fake browser/Twitch/Kick UI chrome.
+- Think: streaming channel section header graphic, not a flyer and not a portrait panel.
+
+Creator brief (colors / vibe only — title stays "${title}"):
+"""${params.userPrompt.trim() || 'Use the reference images for brand colors and motifs.'}"""
+
+${params.style.artDirection}
+
+Reference images attached — pull palette, motifs, energy. Do not copy trademarks from references.
+
+Hard rules:
+- Fill ${params.size.width}x${params.size.height} (${ratio}) edge-to-edge; no letterboxing.
+- Keep the strip short and wide; never invent a tall portrait composition.
+- Title must be huge, readable, correctly spelled: "${title}".
+- Output a single finished panel-header image only.`
+  }
+
+  return `Create a ${params.platformName} streamer offline/profile BANNER artwork.
 
 TARGET SIZE (exact intent): ${params.size.width}x${params.size.height}px (${ratio})
 Asset label: ${params.size.label}
 ${params.size.notes ? `Platform notes: ${params.size.notes}` : ''}
-${roleLine}
 
 Creator brief:
 """${params.userPrompt.trim() || 'Build a cohesive stream brand kit from the reference images.'}"""
@@ -318,9 +356,9 @@ Reference images (up to 3) are attached — extract colors, subjects, motifs, an
 Hard rules:
 - Compose for ${params.size.width}x${params.size.height} (${ratio}). Fill the frame; no letterboxing.
 - Leave safe margins so UI chrome will not crop critical faces/text.
-- Text must be sparse, readable, and spelled correctly. Prefer 3–8 words max on banners; panels should feature the panel title prominently.
+- Text must be sparse, readable, and spelled correctly. Prefer 3–8 words max.
 - No watermarks, no fake UI browser chrome, no Twitch/Kick logos unless the user explicitly asked for platform-neutral shapes.
-- Output a single finished ${params.kind} image only.`
+- Output a single finished banner image only.`
 }
 
 async function storeGeneratedAsset(params: {

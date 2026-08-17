@@ -24,7 +24,7 @@ export type PlatformSizeDefaults = {
   name: string
   /** Offline / profile / channel banner */
   banner: AssetSizeSpec
-  /** Single info panel */
+  /** Wide short panel header strip (title bar), not a tall card */
   panel: AssetSizeSpec
   /** How many panels we generate per mockup */
   panelCount: number
@@ -33,7 +33,18 @@ export type PlatformSizeDefaults = {
 /**
  * Conservative published defaults. Gemini research may refine these at runtime;
  * we never invent wildly different ratios without model confirmation.
+ *
+ * Panels are HEADER STRIPS (wide × short) — bold title on a designed background —
+ * not tall info cards. Match creator channel section headers (~5:1).
  */
+const PANEL_HEADER: AssetSizeSpec = {
+  width: 1200,
+  height: 240,
+  label: 'Panel header',
+  notes:
+    'Wide short header strip only: designed/colored background + bold centered title. Not a tall card, not a full info panel.',
+}
+
 export const PANELS_BANNERS_PLATFORMS: PlatformSizeDefaults[] = [
   {
     id: 'kick',
@@ -44,12 +55,7 @@ export const PANELS_BANNERS_PLATFORMS: PlatformSizeDefaults[] = [
       label: 'Channel / profile banner',
       notes: 'Wide channel header; keep key art in the center safe area.',
     },
-    panel: {
-      width: 320,
-      height: 400,
-      label: 'Info panel',
-      notes: 'About / schedule / social style panel.',
-    },
+    panel: { ...PANEL_HEADER },
     panelCount: 3,
   },
   {
@@ -61,12 +67,7 @@ export const PANELS_BANNERS_PLATFORMS: PlatformSizeDefaults[] = [
       label: 'Offline screen banner',
       notes: 'Shown when the channel is offline; 16:9 full-frame.',
     },
-    panel: {
-      width: 320,
-      height: 400,
-      label: 'About panel',
-      notes: 'Twitch panels are ~320px wide; height is flexible.',
-    },
+    panel: { ...PANEL_HEADER },
     panelCount: 3,
   },
   {
@@ -78,12 +79,7 @@ export const PANELS_BANNERS_PLATFORMS: PlatformSizeDefaults[] = [
       label: 'Channel art / banner',
       notes: 'Upload 2560×1440; keep critical content inside ~1546×423 TV safe area.',
     },
-    panel: {
-      width: 1280,
-      height: 720,
-      label: 'Channel link / feature card',
-      notes: 'YouTube has no Twitch-style panels; generate feature cards for links / community.',
-    },
+    panel: { ...PANEL_HEADER },
     panelCount: 3,
   },
   {
@@ -95,12 +91,7 @@ export const PANELS_BANNERS_PLATFORMS: PlatformSizeDefaults[] = [
       label: 'Cover / offline-style banner',
       notes: 'Landscape cover suitable for gaming page headers.',
     },
-    panel: {
-      width: 1200,
-      height: 628,
-      label: 'Page feature image',
-      notes: 'Link / about style feature image for the page.',
-    },
+    panel: { ...PANEL_HEADER },
     panelCount: 3,
   },
   {
@@ -112,12 +103,7 @@ export const PANELS_BANNERS_PLATFORMS: PlatformSizeDefaults[] = [
       label: 'Channel banner',
       notes: 'Wide header for the Trovo channel page.',
     },
-    panel: {
-      width: 320,
-      height: 400,
-      label: 'Channel panel',
-      notes: 'Trovo-style info panel (~320px wide).',
-    },
+    panel: { ...PANEL_HEADER },
     panelCount: 3,
   },
   {
@@ -129,12 +115,7 @@ export const PANELS_BANNERS_PLATFORMS: PlatformSizeDefaults[] = [
       label: 'Channel banner',
       notes: 'Wide channel header artwork.',
     },
-    panel: {
-      width: 1280,
-      height: 720,
-      label: 'Feature / promo card',
-      notes: 'Promo card for channel highlights or links.',
-    },
+    panel: { ...PANEL_HEADER },
     panelCount: 3,
   },
   {
@@ -146,12 +127,7 @@ export const PANELS_BANNERS_PLATFORMS: PlatformSizeDefaults[] = [
       label: 'Channel banner',
       notes: 'Art-stream channel header.',
     },
-    panel: {
-      width: 320,
-      height: 400,
-      label: 'Info panel',
-      notes: 'Commission / schedule / links style panel.',
-    },
+    panel: { ...PANEL_HEADER },
     panelCount: 3,
   },
 ]
