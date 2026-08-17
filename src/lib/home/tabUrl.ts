@@ -15,7 +15,7 @@ const TAB_QUERY_KEYS = ['tab', 'create', 'rnd'] as const
 
 const MAIN_TABS = new Set(['educate', 'create', 'analyze', 'kick-clips', 'settings', 'rnd'])
 const CREATE_SUBS = new Set<CreateSubTab>(['tags', 'thumbnail', 'post4me', 'background'])
-const RND_SUBS = new Set<RdSubTab>(['clip-editor', 'tradebot', 'thumbnail-2'])
+const RND_SUBS = new Set<RdSubTab>(['clip-editor', 'tradebot', 'thumbnail-2', 'panels-banners'])
 
 /** Legacy ?tab= names from older links. */
 const LEGACY_TAB_MAP: Record<string, HomeTabState> = {

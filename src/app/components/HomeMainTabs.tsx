@@ -14,6 +14,7 @@ import AnalyzeTab from '@/app/components/AnalyzeTab'
 import ClipEditorTab from '@/app/components/ClipEditorTab'
 import TradebotTab from '@/app/components/TradebotTab'
 import Thumbnail2Tab from '@/app/components/Thumbnail2Tab'
+import PanelsBannersTab from '@/app/components/PanelsBannersTab'
 import KickClipsComingSoon from '@/app/components/KickClipsComingSoon'
 import SettingsTab from '@/app/components/SettingsTab'
 import type { ActivityLogEntry, HomeLanguage, KickUser, Platform } from '@/lib/home/types'
@@ -339,6 +340,7 @@ export default function HomeMainTabs({
                   clipEditor: t.clipEditor,
                   tradebot: t.tradebot,
                   thumbnail2: t.thumbnail2 || 'Thumbnail 2.0',
+                  panelsBanners: t.panelsBanners || "P&B's — Panels & banners",
                 }}
                 pickToolLabel={t.rndPickTool}
                 darkMode={darkMode}
@@ -374,6 +376,14 @@ export default function HomeMainTabs({
                   hasEnoughCoins={hasEnoughCoins}
                   refreshBalance={refreshBalance}
                   onLogActivity={onThumbnailActivityLog}
+                />
+              </TabsContent>
+
+              <TabsContent value="panels-banners">
+                <PanelsBannersTab
+                  darkMode={darkMode}
+                  subtitleClasses={subtitleClasses}
+                  user={user}
                 />
               </TabsContent>
 

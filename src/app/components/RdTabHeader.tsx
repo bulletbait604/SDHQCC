@@ -1,26 +1,29 @@
 'use client'
 
-import { Bot, Film, ImageIcon } from 'lucide-react'
+import { Bot, Film, ImageIcon, PanelsTopLeft } from 'lucide-react'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
-export type RdSubTab = 'clip-editor' | 'tradebot' | 'thumbnail-2'
+export type RdSubTab = 'clip-editor' | 'tradebot' | 'thumbnail-2' | 'panels-banners'
 
 const SUB_TAB_META: Record<RdSubTab, { icon: typeof Film; shortLabel: string }> = {
   'clip-editor': { icon: Film, shortLabel: 'Clips' },
   'thumbnail-2': { icon: ImageIcon, shortLabel: 'Thumb 2' },
+  'panels-banners': { icon: PanelsTopLeft, shortLabel: "P&B's" },
   tradebot: { icon: Bot, shortLabel: 'Trade' },
 }
 
 export function rdTabTitle(
   subTab: RdSubTab,
-  labels: { clipEditor: string; tradebot: string; thumbnail2: string }
+  labels: { clipEditor: string; tradebot: string; thumbnail2: string; panelsBanners: string }
 ): string {
   switch (subTab) {
     case 'clip-editor':
       return labels.clipEditor
     case 'thumbnail-2':
       return labels.thumbnail2
+    case 'panels-banners':
+      return labels.panelsBanners
     case 'tradebot':
       return labels.tradebot
   }
@@ -28,7 +31,7 @@ export function rdTabTitle(
 
 interface Props {
   activeSubTab: RdSubTab
-  labels: { clipEditor: string; tradebot: string; thumbnail2: string }
+  labels: { clipEditor: string; tradebot: string; thumbnail2: string; panelsBanners: string }
   pickToolLabel: string
   darkMode: boolean
   tabListClasses: string
@@ -51,6 +54,8 @@ export default function RdTabHeader({
         return labels.clipEditor
       case 'thumbnail-2':
         return labels.thumbnail2
+      case 'panels-banners':
+        return labels.panelsBanners
       case 'tradebot':
         return labels.tradebot
     }
@@ -65,7 +70,10 @@ export default function RdTabHeader({
         </p>
       </div>
       <TabsList
-        className={cn('grid w-full max-w-2xl mx-auto grid-cols-3 mb-6 rounded-xl p-1', tabListClasses)}
+        className={cn(
+          'grid w-full max-w-3xl mx-auto grid-cols-2 sm:grid-cols-4 mb-6 rounded-xl p-1',
+          tabListClasses
+        )}
       >
         {(Object.keys(SUB_TAB_META) as RdSubTab[]).map((id) => {
           const meta = SUB_TAB_META[id]
