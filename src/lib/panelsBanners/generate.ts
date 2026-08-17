@@ -1,5 +1,6 @@
 import { GoogleGenAI, Modality } from '@google/genai'
 import { randomUUID } from 'crypto'
+import sharp from 'sharp'
 import { putBufferToR2 } from '@/lib/r2'
 import {
   aspectRatioLabel,
@@ -16,6 +17,22 @@ const IMAGE_MODEL_FALLBACKS = [
   'gemini-2.0-flash-preview-image-generation',
   'gemini-2.0-flash-exp-image-generation',
 ]
+
+/** Gemini Flash Image supported aspect ratios. */
+const GEMINI_ASPECT_RATIOS = [
+  '1:1',
+  '3:2',
+  '2:3',
+  '3:4',
+  '4:3',
+  '4:5',
+  '5:4',
+  '9:16',
+  '16:9',
+  '21:9',
+] as const
+
+type GeminiAspectRatio = (typeof GEMINI_ASPECT_RATIOS)[number]
 
 export type ReferenceImage = {
   base64: string
@@ -100,6 +117,8 @@ type MockupStyle = {
   title: string
   styleBrief: string
   artDirection: string
+  /** Locked hex palette — every asset in this mockup must use these colors. */
+  paletteLock: string
 }
 
 const MOCKUP_STYLES: MockupStyle[] = [
@@ -107,23 +126,29 @@ const MOCKUP_STYLES: MockupStyle[] = [
     id: 'mockup-a',
     title: 'Mockup A — Neon Esports',
     styleBrief: 'High-energy neon esports branding with bold shapes and max contrast.',
+    paletteLock:
+      'LOCKED PALETTE (use these exact colors for EVERY asset in this mockup set): background #0B0F14, accent A #00F0FF, accent B #FF2BD6, accent C #B8FF3D, text #FFFFFF, shadow #000000.',
     artDirection: `STYLE LOCK — Mockup A (Neon Esports):
 - Aggressive esports / competitive stream brand.
 - Neon cyan, magenta, electric lime accents on deep charcoal/black.
 - Hard geometric frames, speed lines, angular panels, glossy highlights.
 - Bold Impact-style display type only where text is needed; keep copy SHORT.
-- High contrast, saturated, scroll-stopping — NOT soft, NOT pastel, NOT photo-realistic lifestyle.`,
+- High contrast, saturated, scroll-stopping — NOT soft, NOT pastel, NOT photo-realistic lifestyle.
+- All panels in this set must share ONE identical background treatment and layout — only the title text changes.`,
   },
   {
     id: 'mockup-b',
     title: 'Mockup B — Cinematic Brand',
     styleBrief: 'Soft cinematic brand kit with elegant type and atmospheric depth.',
+    paletteLock:
+      'LOCKED PALETTE (use these exact colors for EVERY asset in this mockup set): background #1A1512, accent A #C4A574, accent B #E8DCC8, accent C #5C6B73, text #F5F0E8, shadow #0A0806.',
     artDirection: `STYLE LOCK — Mockup B (Cinematic Brand):
 - Premium cinematic / lifestyle creator brand.
 - Muted filmic grades, soft rim light, shallow depth cues, elegant serif or clean modern type.
 - Generous negative space, subtle gradients, tasteful grain — NOT neon, NOT cluttered esports HUD.
 - Calm confidence; magazine / Netflix-key-art energy rather than tournament overlay energy.
-- Very different from neon esports: if A is loud, B must feel quiet and expensive.`,
+- Very different from neon esports: if A is loud, B must feel quiet and expensive.
+- All panels in this set must share ONE identical background treatment and layout — only the title text changes.`,
   },
 ]
 
@@ -131,24 +156,51 @@ function stripDataUrlPrefix(raw: string): string {
   return raw.replace(/^data:[^;]+;base64,/, '').trim()
 }
 
-function isModelNotFoundError(error: unknown): boolean {
-  const s = String(error || '').toLowerCase()
-  return (
-    s.includes('not found') ||
-    s.includes('not supported') ||
-    s.includes('"code":404') ||
-    s.includes('is not supported for generatecontent')
-  )
+function nearestGeminiAspectRatio(width: number, height: number): GeminiAspectRatio {
+  const target = width / Math.max(1, height)
+  let best: GeminiAspectRatio = '16:9'
+  let bestDiff = Number.POSITIVE_INFINITY
+  for (const label of GEMINI_ASPECT_RATIOS) {
+    const [a, b] = label.split(':').map(Number)
+    const r = a / b
+    const diff = Math.abs(r - target)
+    if (diff < bestDiff) {
+      bestDiff = diff
+      best = label
+    }
+  }
+  return best
+}
+
+/** Force exact pixel dimensions (cover + center crop). Always PNG for crisp text. */
+async function resizeToExactSize(
+  buffer: Buffer,
+  width: number,
+  height: number
+): Promise<{ buffer: Buffer; mimeType: string }> {
+  const out = await sharp(buffer)
+    .rotate()
+    .resize(width, height, {
+      fit: 'cover',
+      position: 'centre',
+      withoutEnlargement: false,
+    })
+    .png({ compressionLevel: 8 })
+    .toBuffer()
+  return { buffer: out, mimeType: 'image/png' }
 }
 
 async function generateOneImage(params: {
   genAI: GoogleGenAI
   promptText: string
   references: ReferenceImage[]
+  targetWidth: number
+  targetHeight: number
 }): Promise<{ buffer: Buffer; mimeType: string; model: string }> {
   const models = [IMAGE_MODEL, ...IMAGE_MODEL_FALLBACKS].filter(
     (m, i, arr) => m && arr.indexOf(m) === i
   )
+  const aspectRatio = nearestGeminiAspectRatio(params.targetWidth, params.targetHeight)
 
   const parts: Array<{ inlineData?: { data: string; mimeType: string }; text?: string }> = []
   for (const ref of params.references.slice(0, 3)) {
@@ -168,7 +220,10 @@ async function generateOneImage(params: {
         const response = await params.genAI.models.generateContent({
           model,
           contents: [{ role: 'user', parts }],
-          config: { responseModalities: [...modalities] },
+          config: {
+            responseModalities: [...modalities],
+            imageConfig: { aspectRatio },
+          },
         })
         const outParts = response.candidates?.[0]?.content?.parts ?? []
         const imagePart = outParts.find(
@@ -184,15 +239,43 @@ async function generateOneImage(params: {
         if (!imagePart?.inlineData?.data || !imagePart.inlineData.mimeType) {
           throw new Error('Gemini returned no image')
         }
+        const raw = Buffer.from(imagePart.inlineData.data, 'base64')
+        const resized = await resizeToExactSize(raw, params.targetWidth, params.targetHeight)
         return {
-          buffer: Buffer.from(imagePart.inlineData.data, 'base64'),
-          mimeType: imagePart.inlineData.mimeType,
+          buffer: resized.buffer,
+          mimeType: resized.mimeType,
           model,
         }
       } catch (error) {
         lastError = error
-        if (!isModelNotFoundError(error) && modalities[0] === Modality.IMAGE) {
-          // try next modality combo / model
+        // Retry without imageConfig if the SDK/model rejects it.
+        if (
+          String(error).toLowerCase().includes('imageconfig') ||
+          String(error).toLowerCase().includes('aspect')
+        ) {
+          try {
+            const response = await params.genAI.models.generateContent({
+              model,
+              contents: [{ role: 'user', parts }],
+              config: { responseModalities: [...modalities] },
+            })
+            const outParts = response.candidates?.[0]?.content?.parts ?? []
+            const imagePart = outParts.find(
+              (p) =>
+                p &&
+                typeof p === 'object' &&
+                'inlineData' in p &&
+                (p as { inlineData?: { mimeType?: string } }).inlineData?.mimeType?.startsWith(
+                  'image/'
+                )
+            ) as { inlineData?: { data?: string; mimeType?: string } } | undefined
+            if (!imagePart?.inlineData?.data) throw error
+            const raw = Buffer.from(imagePart.inlineData.data, 'base64')
+            const resized = await resizeToExactSize(raw, params.targetWidth, params.targetHeight)
+            return { buffer: resized.buffer, mimeType: resized.mimeType, model }
+          } catch (inner) {
+            lastError = inner
+          }
         }
       }
     }
@@ -211,63 +294,74 @@ function buildAssetPrompt(params: {
   panelTitle?: string
   panelIndex?: number
   panelTotal?: number
+  /** When set, this is a text-swap edit of an existing panel template. */
+  matchTemplate?: boolean
 }): string {
   const ratio = aspectRatioLabel(params.size.width, params.size.height)
+  const geminiRatio = nearestGeminiAspectRatio(params.size.width, params.size.height)
 
   if (params.kind === 'panel') {
     const title = params.panelTitle || 'Panel'
     const isNarrowHeader = params.size.width <= 400
-    return `Create a ${params.platformName} streamer PANEL HEADER image — a short title bar only (NOT a tall info card).
 
-TARGET SIZE (exact): ${params.size.width}x${params.size.height}px (${ratio}).
-This is header ${(params.panelIndex ?? 0) + 1} of ${params.panelTotal ?? 1} in a matching set.
+    if (params.matchTemplate) {
+      return `EDIT the attached TEMPLATE panel header image.
 
-PANEL TITLE (must be the hero text, spelled exactly): "${title}"
+Keep EVERYTHING identical except the title text:
+- Same background colors, shapes, layout, margins, font style, effects.
+- Same exact canvas size feel (${params.size.width}x${params.size.height}, ${ratio}).
+- ONLY change the displayed title to exactly: "${title}"
+
+Do not redesign. Do not recolor. Do not change composition. Text swap only.
+Output a single panel-header image.`
+    }
+
+    return `Create a ${params.platformName} streamer PANEL HEADER — short title bar only (NOT a tall info card).
+
+EXACT OUTPUT SIZE REQUIRED: ${params.size.width}×${params.size.height}px (${ratio}). Requested model aspect ${geminiRatio}; fill the entire frame edge-to-edge.
+This is panel header 1 of ${params.panelTotal ?? 1} — it is the MASTER TEMPLATE for the whole matching set.
+
+PANEL TITLE (hero text, spelled exactly): "${title}"
+
+${params.style.paletteLock}
 
 FORMAT:
-- ${isNarrowHeader ? 'Narrow channel panel HEADER (Twitch/Kick style): exactly full panel width, only ~1/5 the height of a tall info panel.' : 'Wide feature HEADER strip for this platform.'}
-- Designed or boldly colored background (shapes, arcs, gradients, patterns OK).
-- Huge, thick, high-contrast title filling most of the strip — readable at small size.
-- Optional tiny left icon/mark from brand colors — NOT platform logos (no Kick/Twitch marks).
-- NO body copy, NO bullet lists, NO schedule grids, NO social icon walls, NO tall cards.
-- NO fake UI chrome.
-- Think: section title bar like a stream "About Me" / "Socials" header graphic.
+- ${isNarrowHeader ? `Twitch/Kick panel HEADER: ${params.size.width}px wide × ${params.size.height}px tall (~1/5 of a full info panel).` : `Feature HEADER strip: ${params.size.width}×${params.size.height}.`}
+- One solid designed background (flat color blocks / bold shapes OK).
+- Huge high-contrast title; optional tiny left mark from brand colors (NO platform logos).
+- NO body copy, lists, schedules, icon walls, tall cards, or fake UI.
 
-Creator brief (colors / vibe only — title stays "${title}"):
-"""${params.userPrompt.trim() || 'Use the reference images for brand colors and motifs.'}"""
+Creator brief (vibe only — title stays "${title}"):
+"""${params.userPrompt.trim() || 'Use reference images for motifs; still obey the locked palette.'}"""
 
 ${params.style.artDirection}
 
-Reference images attached — pull palette, motifs, energy. Do not copy trademarks from references.
-
 Hard rules:
-- Fill ${params.size.width}x${params.size.height} (${ratio}) edge-to-edge; no letterboxing.
-- Keep it short and wide relative to height — never invent a tall portrait panel.
-- Title must be huge, readable, correctly spelled: "${title}".
-- Output a single finished panel-header image only.`
+- Canvas must read as ${params.size.width}×${params.size.height} (${ratio}).
+- Title exactly "${title}".
+- Output one finished panel-header image.`
   }
 
-  return `Create a ${params.platformName} streamer OFFLINE BANNER artwork.
+  return `Create a ${params.platformName} OFFLINE BANNER.
 
-TARGET SIZE (exact intent): ${params.size.width}x${params.size.height}px (${ratio})
-Asset label: ${params.size.label}
-${params.size.notes ? `Platform notes: ${params.size.notes}` : ''}
+EXACT OUTPUT SIZE REQUIRED: ${params.size.width}×${params.size.height}px (${ratio}). Requested model aspect ${geminiRatio}; fill the entire frame — no letterboxing, no thin strip.
+Asset: ${params.size.label}
+${params.size.notes ? `Notes: ${params.size.notes}` : ''}
 
-This is the full offline screen / channel offline banner viewers see when the stream is not live — compose for ${params.size.width}×${params.size.height}, not a thin profile header strip.
+${params.style.paletteLock}
+
+This is the full offline / player / cover banner — compose for ${params.size.width}×${params.size.height}, NOT a panel header.
 
 Creator brief:
-"""${params.userPrompt.trim() || 'Build a cohesive stream brand kit from the reference images.'}"""
+"""${params.userPrompt.trim() || 'Build cohesive brand art from the references while obeying the locked palette.'}"""
 
 ${params.style.artDirection}
 
-Reference images (up to 3) are attached — extract colors, subjects, motifs, and vibe. Do NOT copy logos or trademarks from references; reinterpret as original brand art.
-
 Hard rules:
-- Compose for ${params.size.width}x${params.size.height} (${ratio}). Fill the frame; no letterboxing.
-- Leave safe margins so UI chrome will not crop critical faces/text.
-- Text must be sparse, readable, and spelled correctly. Prefer 3–8 words max.
-- No watermarks, no fake UI browser chrome, no Twitch/Kick logos unless the user explicitly asked for platform-neutral shapes.
-- Output a single finished offline banner image only.`
+- Full-bleed ${params.size.width}×${params.size.height} (${ratio}).
+- Sparse readable text (3–8 words max).
+- No watermarks / fake UI / platform logos unless asked.
+- Output one finished offline banner.`
 }
 
 async function storeGeneratedAsset(params: {
@@ -312,6 +406,8 @@ async function generateMockup(params: {
     const out = await generateOneImage({
       genAI: params.genAI,
       references: params.references,
+      targetWidth: params.research.banner.width,
+      targetHeight: params.research.banner.height,
       promptText: buildAssetPrompt({
         platformName: params.research.platformName,
         kind: 'banner',
@@ -341,35 +437,55 @@ async function generateMockup(params: {
   if (needPanels) {
     const titles =
       params.panelTitles.length > 0 ? params.panelTitles : PANEL_FALLBACK_TITLES.slice(0, 3)
-    const panelResults = await Promise.all(
-      titles.map(async (panelTitle, i) => {
-        const out = await generateOneImage({
-          genAI: params.genAI,
-          references: params.references,
-          promptText: buildAssetPrompt({
-            platformName: params.research.platformName,
-            kind: 'panel',
-            size: params.research.panel,
-            userPrompt: params.userPrompt,
-            style: params.style,
-            panelTitle,
-            panelIndex: i,
-            panelTotal: titles.length,
-          }),
-        })
-        const key = await storeGeneratedAsset({
-          sessionId: params.sessionId,
-          buffer: out.buffer,
-          mimeType: out.mimeType,
+
+    // Master panel first — later panels are title-swap edits so size/color stay uniform.
+    let masterBuffer: Buffer | null = null
+    let masterMime = 'image/png'
+
+    for (let i = 0; i < titles.length; i++) {
+      const panelTitle = titles[i]
+      const isMaster = i === 0
+      const refs: ReferenceImage[] = isMaster
+        ? params.references
+        : [
+            {
+              base64: masterBuffer!.toString('base64'),
+              mimeType: masterMime,
+            },
+            ...params.references.slice(0, 2),
+          ]
+
+      const out = await generateOneImage({
+        genAI: params.genAI,
+        references: refs,
+        targetWidth: params.research.panel.width,
+        targetHeight: params.research.panel.height,
+        promptText: buildAssetPrompt({
+          platformName: params.research.platformName,
           kind: 'panel',
-          styleId: params.style.id,
+          size: params.research.panel,
+          userPrompt: params.userPrompt,
+          style: params.style,
+          panelTitle,
           panelIndex: i,
-        })
-        return { i, panelTitle, out, key }
+          panelTotal: titles.length,
+          matchTemplate: !isMaster,
+        }),
       })
-    )
-    for (const { i, panelTitle, out, key } of panelResults.sort((a, b) => a.i - b.i)) {
       imageModel = out.model
+      if (isMaster) {
+        masterBuffer = out.buffer
+        masterMime = out.mimeType
+      }
+
+      const key = await storeGeneratedAsset({
+        sessionId: params.sessionId,
+        buffer: out.buffer,
+        mimeType: out.mimeType,
+        kind: 'panel',
+        styleId: params.style.id,
+        panelIndex: i,
+      })
       assets.push({
         kind: 'panel',
         label: `${params.style.title} — ${panelTitle}`,
