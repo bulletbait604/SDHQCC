@@ -320,7 +320,7 @@ export default function PanelsBannersTab({
   }
 
   const modeOptions: { id: PanelsBannersOutputMode; label: string; hint: string }[] = [
-    { id: 'banner', label: 'Banner only', hint: 'Offline / profile banner' },
+    { id: 'banner', label: 'Banner only', hint: 'Offline banner (Kick: 1920×1080)' },
     { id: 'panels', label: 'Panels only', hint: 'Wide header strips (title bars)' },
     { id: 'both', label: 'Banner + panels', hint: 'Offline banner + header strips' },
   ]

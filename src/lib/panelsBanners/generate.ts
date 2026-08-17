@@ -153,9 +153,11 @@ Return ONLY JSON:
 }
 
 Rules:
-- Prefer official published pixel sizes for banners when known.
-- Twitch offline banners are typically 1920x1080.
-- YouTube channel art is typically 2560x1440 with a smaller safe zone.
+- Prefer official published pixel sizes for offline/profile banners when known.
+- KICK Channel Offline Banner is exactly 1920×1080 (Kick Help Center). Do not use 1920×480 for Kick.
+- KICK profile header banner is a different asset (min 1280×700) — our "banner" output means the offline banner unless noted.
+- Twitch offline banners are typically 1920×1080.
+- YouTube channel art is typically 2560×1440 with a smaller safe zone.
 - For panels/headers: keep a wide landscape strip (height roughly 1/4 to 1/6 of width).
 - panelCount should be 3 unless the platform clearly uses a different set.
 - If unsure, keep our defaults and say so in researchNotes.`
@@ -181,12 +183,20 @@ Rules:
       ? Math.round(panelWidth / 5)
       : panelHeightRaw
 
+  // Lock known official offline banner sizes (research can refine notes, not break upload specs).
+  let bannerWidth = clampSize(parsed.bannerWidth, platform.banner.width)
+  let bannerHeight = clampSize(parsed.bannerHeight, platform.banner.height)
+  if (platform.id === 'kick' || platform.id === 'twitch') {
+    bannerWidth = 1920
+    bannerHeight = 1080
+  }
+
   return {
     platformId: platform.id,
     platformName: platform.name,
     banner: {
-      width: clampSize(parsed.bannerWidth, platform.banner.width),
-      height: clampSize(parsed.bannerHeight, platform.banner.height),
+      width: bannerWidth,
+      height: bannerHeight,
       label:
         typeof parsed.bannerLabel === 'string' && parsed.bannerLabel.trim()
           ? parsed.bannerLabel.trim()
@@ -340,11 +350,13 @@ Hard rules:
 - Output a single finished panel-header image only.`
   }
 
-  return `Create a ${params.platformName} streamer offline/profile BANNER artwork.
+  return `Create a ${params.platformName} streamer OFFLINE BANNER artwork.
 
 TARGET SIZE (exact intent): ${params.size.width}x${params.size.height}px (${ratio})
 Asset label: ${params.size.label}
 ${params.size.notes ? `Platform notes: ${params.size.notes}` : ''}
+
+This is the full offline screen / channel offline banner viewers see when the stream is not live — compose for ${params.size.width}×${params.size.height}, not a thin profile header strip.
 
 Creator brief:
 """${params.userPrompt.trim() || 'Build a cohesive stream brand kit from the reference images.'}"""
@@ -358,7 +370,7 @@ Hard rules:
 - Leave safe margins so UI chrome will not crop critical faces/text.
 - Text must be sparse, readable, and spelled correctly. Prefer 3–8 words max.
 - No watermarks, no fake UI browser chrome, no Twitch/Kick logos unless the user explicitly asked for platform-neutral shapes.
-- Output a single finished banner image only.`
+- Output a single finished offline banner image only.`
 }
 
 async function storeGeneratedAsset(params: {

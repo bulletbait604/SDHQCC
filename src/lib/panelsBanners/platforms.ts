@@ -51,9 +51,10 @@ export const PANELS_BANNERS_PLATFORMS: PlatformSizeDefaults[] = [
     name: 'KICK',
     banner: {
       width: 1920,
-      height: 480,
-      label: 'Channel / profile banner',
-      notes: 'Wide channel header; keep key art in the center safe area.',
+      height: 1080,
+      label: 'Channel offline banner',
+      notes:
+        'Kick official size: 1920×1080 (1080p). Shown on the channel when the stream has ended. Max 4MB JPG/PNG. (Separate from the 1280×700 profile header banner.)',
     },
     panel: { ...PANEL_HEADER },
     panelCount: 3,
@@ -64,8 +65,8 @@ export const PANELS_BANNERS_PLATFORMS: PlatformSizeDefaults[] = [
     banner: {
       width: 1920,
       height: 1080,
-      label: 'Offline screen banner',
-      notes: 'Shown when the channel is offline; 16:9 full-frame.',
+      label: 'Offline screen',
+      notes: 'Twitch offline screen: 1920×1080 full-frame 16:9.',
     },
     panel: { ...PANEL_HEADER },
     panelCount: 3,
