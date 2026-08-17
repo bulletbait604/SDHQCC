@@ -45,6 +45,7 @@ type ResearchResult = {
   platformName: string
   banner: { width: number; height: number; label: string; notes?: string }
   panel: { width: number; height: number; label: string; notes?: string }
+  profileBanner?: { width: number; height: number; label: string; notes?: string }
   panelCount: number
   researchNotes: string
   sourcesNote: string
@@ -284,7 +285,7 @@ export default function PanelsBannersTab({
     try {
       const compressed = await Promise.all(refs.map((r) => compressReferenceDataUrl(r.dataUrl)))
 
-      setLoadingStep('Researching platform banner & panel sizes…')
+      setLoadingStep('Loading saved platform sizes…')
       const res = await fetch('/api/panels-banners/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -329,8 +330,8 @@ export default function PanelsBannersTab({
     <div className="space-y-6">
       <p className={`text-sm ${subtitleClasses}`}>
         Pick a streaming platform, upload up to 3 references, describe the brand, then Gemini
-        researches official sizing and paints <strong>two very different mockups</strong>. Panels
-        are wide header strips (title + designed background) — not tall cards.
+        paints <strong>two very different mockups</strong> at saved official sizes. Kick/Twitch
+        panels are <strong>320×80 headers</strong> (full panel width, ~1/5 height) — not tall cards.
       </p>
 
       <section className="space-y-3">
@@ -355,8 +356,11 @@ export default function PanelsBannersTab({
           ))}
         </div>
         <p className={`text-xs ${subtitleClasses}`}>
-          Defaults — banner {platform.banner.width}×{platform.banner.height}, panel{' '}
-          {platform.panel.width}×{platform.panel.height}. Gemini will verify before painting.
+          Saved sizes — banner {platform.banner.width}×{platform.banner.height}
+          {platform.profileBanner
+            ? ` (profile header ${platform.profileBanner.width}×${platform.profileBanner.height} is separate)`
+            : ''}
+          , panel {platform.panel.width}×{platform.panel.height}.
         </p>
       </section>
 
@@ -581,7 +585,7 @@ export default function PanelsBannersTab({
             }`}
           >
             <h4 className={`text-sm font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-              Size research — {result.research.platformName}
+              Saved sizes — {result.research.platformName}
             </h4>
             <p className={`text-sm mb-2 ${subtitleClasses}`}>{result.research.researchNotes}</p>
             <ul className={`text-xs space-y-1 ${subtitleClasses}`}>
@@ -589,13 +593,19 @@ export default function PanelsBannersTab({
                 Banner: {result.research.banner.width}×{result.research.banner.height} —{' '}
                 {result.research.banner.label}
               </li>
+              {result.research.profileBanner && (
+                <li>
+                  Profile header (not generated here): {result.research.profileBanner.width}×
+                  {result.research.profileBanner.height} — {result.research.profileBanner.label}
+                </li>
+              )}
               <li>
                 Panel: {result.research.panel.width}×{result.research.panel.height} —{' '}
                 {result.research.panel.label} × {result.research.panelCount}
               </li>
               <li>{result.research.sourcesNote}</li>
               <li>
-                Models: {result.textModel} (research) · {result.imageModel} (paint)
+                Models: {result.textModel} (sizes) · {result.imageModel} (paint)
               </li>
             </ul>
           </section>
@@ -642,7 +652,7 @@ export default function PanelsBannersTab({
                     </div>
                     <div
                       className={`relative w-full bg-black/40 ${
-                        asset.kind === 'banner' ? 'aspect-video' : 'aspect-[5/1]'
+                        asset.kind === 'banner' ? 'aspect-video' : 'aspect-[4/1] max-w-md'
                       }`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}

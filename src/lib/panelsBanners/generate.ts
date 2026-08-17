@@ -8,8 +8,6 @@ import {
   type PlatformSizeDefaults,
 } from '@/lib/panelsBanners/platforms'
 
-const TEXT_MODEL =
-  process.env.PANELS_BANNERS_TEXT_MODEL?.trim() || 'gemini-2.5-flash'
 const IMAGE_MODEL =
   process.env.PANELS_BANNERS_IMAGE_MODEL?.trim() || 'gemini-2.5-flash-image'
 
@@ -33,6 +31,40 @@ export type ResearchedSizes = {
   researchNotes: string
   sourcesNote: string
   model: string
+  profileBanner?: AssetSizeSpec
+  panelStyle: 'header' | 'feature'
+}
+
+/** Return saved platform sizes — no live LLM lookup. */
+export function resolvePlatformAssetSizes(params: {
+  platform: PlatformSizeDefaults
+  outputMode: PanelsBannersOutputMode
+  panelTitleCount?: number
+}): ResearchedSizes {
+  const { platform, outputMode, panelTitleCount } = params
+  const panelCount =
+    typeof panelTitleCount === 'number' && panelTitleCount > 0
+      ? panelTitleCount
+      : platform.panelCount
+
+  const bannerSrc = platform.banner.source ? ` Banner: ${platform.banner.source}.` : ''
+  const panelSrc = platform.panel.source ? ` Panel: ${platform.panel.source}.` : ''
+  const profileNote = platform.profileBanner
+    ? ` Also note profile header ${platform.profileBanner.width}×${platform.profileBanner.height} (${platform.profileBanner.label}) is a separate upload — this tool’s banner output is the offline/player asset.`
+    : ''
+
+  return {
+    platformId: platform.id,
+    platformName: platform.name,
+    banner: { ...platform.banner },
+    panel: { ...platform.panel },
+    panelCount,
+    profileBanner: platform.profileBanner ? { ...platform.profileBanner } : undefined,
+    panelStyle: platform.panelStyle,
+    researchNotes: `Using saved ${platform.name} sizes for ${outputMode}: banner ${platform.banner.width}×${platform.banner.height}, panel ${platform.panel.width}×${platform.panel.height}.${profileNote}`,
+    sourcesNote: `${bannerSrc}${panelSrc}`.trim() || 'Saved Creator Corner platform size table.',
+    model: 'hardcoded-size-table',
+  }
 }
 
 export type GeneratedAsset = {
@@ -97,141 +129,6 @@ const MOCKUP_STYLES: MockupStyle[] = [
 
 function stripDataUrlPrefix(raw: string): string {
   return raw.replace(/^data:[^;]+;base64,/, '').trim()
-}
-
-function extractJsonObject(raw: string): unknown {
-  const clean = raw.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim()
-  const start = clean.indexOf('{')
-  const end = clean.lastIndexOf('}')
-  if (start === -1 || end === -1 || end <= start) {
-    throw new Error('Research response was not JSON')
-  }
-  return JSON.parse(clean.slice(start, end + 1))
-}
-
-function clampSize(n: unknown, fallback: number, min = 64, max = 4096): number {
-  const v = typeof n === 'number' ? n : Number(n)
-  if (!Number.isFinite(v)) return fallback
-  return Math.max(min, Math.min(max, Math.round(v)))
-}
-
-export async function researchPlatformAssetSizes(params: {
-  platform: PlatformSizeDefaults
-  outputMode: PanelsBannersOutputMode
-}): Promise<ResearchedSizes> {
-  const apiKey = process.env.GEMINI_API?.trim()
-  if (!apiKey) throw new Error('GEMINI_API is not configured')
-
-  const genAI = new GoogleGenAI({ apiKey })
-  const { platform, outputMode } = params
-
-  const prompt = `You are a streaming-platform brand designer and docs researcher.
-
-Platform: ${platform.name} (id: ${platform.id})
-User wants: ${outputMode === 'both' ? 'offline/profile BANNER and PANEL HEADERS' : outputMode}
-
-Our current defaults (verify / refine — do not invent impossible sizes):
-- Banner default: ${platform.banner.width}x${platform.banner.height} (${platform.banner.label}) — ${platform.banner.notes || ''}
-- Panel header default: ${platform.panel.width}x${platform.panel.height} (${platform.panel.label}) — ${platform.panel.notes || ''}
-
-IMPORTANT PRODUCT RULE: "Panels" in this app are WIDE SHORT HEADER STRIPS (~5:1), not tall Twitch info cards.
-Prefer keeping panelWidth much larger than panelHeight (e.g. 1200x240). Do NOT switch panels to portrait/tall cards.
-
-Return ONLY JSON:
-{
-  "bannerWidth": number,
-  "bannerHeight": number,
-  "bannerLabel": string,
-  "bannerNotes": string,
-  "panelWidth": number,
-  "panelHeight": number,
-  "panelLabel": string,
-  "panelNotes": string,
-  "panelCount": number,
-  "researchNotes": "2-4 sentences on banner sizes and header-strip panel art for this platform",
-  "sourcesNote": "what you based this on (official docs / common creator practice)"
-}
-
-Rules:
-- Prefer official published pixel sizes for offline/profile banners when known.
-- KICK Channel Offline Banner is exactly 1920×1080 (Kick Help Center). Do not use 1920×480 for Kick.
-- KICK profile header banner is a different asset (min 1280×700) — our "banner" output means the offline banner unless noted.
-- Twitch offline banners are typically 1920×1080.
-- YouTube channel art is typically 2560×1440 with a smaller safe zone.
-- For panels/headers: keep a wide landscape strip (height roughly 1/4 to 1/6 of width).
-- panelCount should be 3 unless the platform clearly uses a different set.
-- If unsure, keep our defaults and say so in researchNotes.`
-
-  const response = await genAI.models.generateContent({
-    model: TEXT_MODEL,
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-  })
-
-  const text = response.text?.trim() || ''
-  let parsed: Record<string, unknown> = {}
-  try {
-    parsed = extractJsonObject(text) as Record<string, unknown>
-  } catch {
-    parsed = {}
-  }
-
-  // Keep panels as wide header strips even if the model suggests tall cards.
-  const panelWidth = clampSize(parsed.panelWidth, platform.panel.width)
-  const panelHeightRaw = clampSize(parsed.panelHeight, platform.panel.height)
-  const panelHeight =
-    panelHeightRaw >= panelWidth * 0.55
-      ? Math.round(panelWidth / 5)
-      : panelHeightRaw
-
-  // Lock known official offline banner sizes (research can refine notes, not break upload specs).
-  let bannerWidth = clampSize(parsed.bannerWidth, platform.banner.width)
-  let bannerHeight = clampSize(parsed.bannerHeight, platform.banner.height)
-  if (platform.id === 'kick' || platform.id === 'twitch') {
-    bannerWidth = 1920
-    bannerHeight = 1080
-  }
-
-  return {
-    platformId: platform.id,
-    platformName: platform.name,
-    banner: {
-      width: bannerWidth,
-      height: bannerHeight,
-      label:
-        typeof parsed.bannerLabel === 'string' && parsed.bannerLabel.trim()
-          ? parsed.bannerLabel.trim()
-          : platform.banner.label,
-      notes:
-        typeof parsed.bannerNotes === 'string' && parsed.bannerNotes.trim()
-          ? parsed.bannerNotes.trim()
-          : platform.banner.notes,
-    },
-    panel: {
-      width: panelWidth,
-      height: Math.max(120, panelHeight),
-      label:
-        typeof parsed.panelLabel === 'string' && parsed.panelLabel.trim()
-          ? parsed.panelLabel.trim()
-          : platform.panel.label,
-      notes:
-        typeof parsed.panelNotes === 'string' && parsed.panelNotes.trim()
-          ? parsed.panelNotes.trim()
-          : platform.panel.notes,
-    },
-    panelCount: Math.max(
-      1,
-      Math.min(5, clampSize(parsed.panelCount, platform.panelCount, 1, 5))
-    ),
-    researchNotes:
-      typeof parsed.researchNotes === 'string' && parsed.researchNotes.trim()
-        ? parsed.researchNotes.trim()
-        : `Using verified defaults for ${platform.name} ${outputMode} assets.`,
-    sourcesNote:
-      typeof parsed.sourcesNote === 'string' && parsed.sourcesNote.trim()
-        ? parsed.sourcesNote.trim()
-        : 'Merged Gemini research with Creator Corner platform defaults.',
-    model: TEXT_MODEL,
-  }
 }
 
 function isModelNotFoundError(error: unknown): boolean {
@@ -319,22 +216,22 @@ function buildAssetPrompt(params: {
 
   if (params.kind === 'panel') {
     const title = params.panelTitle || 'Panel'
-    return `Create a ${params.platformName} streamer PANEL HEADER — a wide, short title strip (NOT a tall info card).
+    const isNarrowHeader = params.size.width <= 400
+    return `Create a ${params.platformName} streamer PANEL HEADER image — a short title bar only (NOT a tall info card).
 
-TARGET SIZE: ${params.size.width}x${params.size.height}px (${ratio}) — landscape header bar.
+TARGET SIZE (exact): ${params.size.width}x${params.size.height}px (${ratio}).
 This is header ${(params.panelIndex ?? 0) + 1} of ${params.panelTotal ?? 1} in a matching set.
 
 PANEL TITLE (must be the hero text, spelled exactly): "${title}"
 
-FORMAT (match this product style):
-- Wide horizontal strip / section header — like a channel "About Me" / "Socials" bar.
+FORMAT:
+- ${isNarrowHeader ? 'Narrow channel panel HEADER (Twitch/Kick style): exactly full panel width, only ~1/5 the height of a tall info panel.' : 'Wide feature HEADER strip for this platform.'}
 - Designed or boldly colored background (shapes, arcs, gradients, patterns OK).
-- Large, thick, high-contrast title centered (or slightly left-of-center) in the strip.
-- Optional small secondary tagline ONLY if it fits without clutter (max ~6 words).
-- Optional small brand mark / icon block on the far left — abstract shapes from the references, NOT platform logos.
-- NO body copy, NO bullet lists, NO schedule grids, NO social icon walls, NO tall "card" layouts.
-- NO fake browser/Twitch/Kick UI chrome.
-- Think: streaming channel section header graphic, not a flyer and not a portrait panel.
+- Huge, thick, high-contrast title filling most of the strip — readable at small size.
+- Optional tiny left icon/mark from brand colors — NOT platform logos (no Kick/Twitch marks).
+- NO body copy, NO bullet lists, NO schedule grids, NO social icon walls, NO tall cards.
+- NO fake UI chrome.
+- Think: section title bar like a stream "About Me" / "Socials" header graphic.
 
 Creator brief (colors / vibe only — title stays "${title}"):
 """${params.userPrompt.trim() || 'Use the reference images for brand colors and motifs.'}"""
@@ -345,7 +242,7 @@ Reference images attached — pull palette, motifs, energy. Do not copy trademar
 
 Hard rules:
 - Fill ${params.size.width}x${params.size.height} (${ratio}) edge-to-edge; no letterboxing.
-- Keep the strip short and wide; never invent a tall portrait composition.
+- Keep it short and wide relative to height — never invent a tall portrait panel.
 - Title must be huge, readable, correctly spelled: "${title}".
 - Output a single finished panel-header image only.`
   }
@@ -523,14 +420,11 @@ export async function runPanelsBannersPipeline(params: {
 
   const sessionId = params.sessionId || randomUUID()
   const genAI = new GoogleGenAI({ apiKey })
-  const research = await researchPlatformAssetSizes({
+  const research = resolvePlatformAssetSizes({
     platform: params.platform,
     outputMode: params.outputMode,
+    panelTitleCount: needPanels ? panelTitles.length : undefined,
   })
-  // Honor user-selected panel count over researched default.
-  if (needPanels) {
-    research.panelCount = panelTitles.length
-  }
 
   // Run mockups sequentially to reduce Gemini rate-limit / timeout risk.
   const mockups: MockupResult[] = []
@@ -555,6 +449,6 @@ export async function runPanelsBannersPipeline(params: {
     mockups,
     outputMode: params.outputMode,
     imageModel,
-    textModel: TEXT_MODEL,
+    textModel: research.model,
   }
 }
