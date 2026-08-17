@@ -1,4 +1,6 @@
 import { GoogleGenAI, Modality } from '@google/genai'
+import { randomUUID } from 'crypto'
+import { putBufferToR2 } from '@/lib/r2'
 import {
   aspectRatioLabel,
   type AssetSizeSpec,
@@ -39,8 +41,8 @@ export type GeneratedAsset = {
   width: number
   height: number
   mimeType: string
-  /** data URL for immediate UI preview/download */
-  dataUrl: string
+  /** R2 object key — load via /api/image?key=… */
+  key: string
   panelIndex?: number
   /** User-selected panel title (panels only) */
   panelTitle?: string
@@ -321,6 +323,29 @@ Hard rules:
 - Output a single finished ${params.kind} image only.`
 }
 
+async function storeGeneratedAsset(params: {
+  sessionId: string
+  buffer: Buffer
+  mimeType: string
+  kind: 'banner' | 'panel'
+  styleId: string
+  panelIndex?: number
+}): Promise<string> {
+  const ext = params.mimeType.includes('png')
+    ? 'png'
+    : params.mimeType.includes('webp')
+      ? 'webp'
+      : 'jpg'
+  const suffix =
+    params.kind === 'panel' && params.panelIndex != null
+      ? `panel-${params.panelIndex + 1}`
+      : params.kind
+  const key = `thumbnails/panels-banners/${params.sessionId}/${params.styleId}-${suffix}-${randomUUID().slice(0, 8)}.${ext}`
+  const ok = await putBufferToR2(key, params.buffer, params.mimeType)
+  if (!ok) throw new Error('Failed to store generated asset in R2')
+  return key
+}
+
 async function generateMockup(params: {
   genAI: GoogleGenAI
   research: ResearchedSizes
@@ -329,6 +354,7 @@ async function generateMockup(params: {
   references: ReferenceImage[]
   style: MockupStyle
   panelTitles: string[]
+  sessionId: string
 }): Promise<{ mockup: MockupResult; imageModel: string }> {
   const assets: GeneratedAsset[] = []
   let imageModel = IMAGE_MODEL
@@ -348,13 +374,20 @@ async function generateMockup(params: {
       }),
     })
     imageModel = out.model
+    const key = await storeGeneratedAsset({
+      sessionId: params.sessionId,
+      buffer: out.buffer,
+      mimeType: out.mimeType,
+      kind: 'banner',
+      styleId: params.style.id,
+    })
     assets.push({
       kind: 'banner',
       label: `${params.style.title} — ${params.research.banner.label}`,
       width: params.research.banner.width,
       height: params.research.banner.height,
       mimeType: out.mimeType,
-      dataUrl: `data:${out.mimeType};base64,${out.buffer.toString('base64')}`,
+      key,
     })
   }
 
@@ -377,10 +410,18 @@ async function generateMockup(params: {
             panelTotal: titles.length,
           }),
         })
-        return { i, panelTitle, out }
+        const key = await storeGeneratedAsset({
+          sessionId: params.sessionId,
+          buffer: out.buffer,
+          mimeType: out.mimeType,
+          kind: 'panel',
+          styleId: params.style.id,
+          panelIndex: i,
+        })
+        return { i, panelTitle, out, key }
       })
     )
-    for (const { i, panelTitle, out } of panelResults.sort((a, b) => a.i - b.i)) {
+    for (const { i, panelTitle, out, key } of panelResults.sort((a, b) => a.i - b.i)) {
       imageModel = out.model
       assets.push({
         kind: 'panel',
@@ -388,7 +429,7 @@ async function generateMockup(params: {
         width: params.research.panel.width,
         height: params.research.panel.height,
         mimeType: out.mimeType,
-        dataUrl: `data:${out.mimeType};base64,${out.buffer.toString('base64')}`,
+        key,
         panelIndex: i,
         panelTitle,
       })
@@ -412,6 +453,7 @@ export async function runPanelsBannersPipeline(params: {
   userPrompt: string
   references: ReferenceImage[]
   panelTitles?: string[]
+  sessionId?: string
 }): Promise<PanelsBannersResult> {
   const apiKey = process.env.GEMINI_API?.trim()
   if (!apiKey) throw new Error('GEMINI_API is not configured')
@@ -429,6 +471,7 @@ export async function runPanelsBannersPipeline(params: {
     throw new Error('Select at least one panel title')
   }
 
+  const sessionId = params.sessionId || randomUUID()
   const genAI = new GoogleGenAI({ apiKey })
   const research = await researchPlatformAssetSizes({
     platform: params.platform,
@@ -451,6 +494,7 @@ export async function runPanelsBannersPipeline(params: {
       references: params.references,
       style,
       panelTitles,
+      sessionId,
     })
     imageModel = used
     mockups.push(mockup)

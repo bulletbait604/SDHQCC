@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { verifyOwnerUser } from '@/lib/auth/staffAccess'
 import { runPanelsBannersPipeline } from '@/lib/panelsBanners/generate'
@@ -14,7 +15,9 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 const MAX_REFERENCES = 3
-const MAX_IMAGE_BYTES = 8 * 1024 * 1024
+/** Per-image after client compression — keep request under Vercel body limits. */
+const MAX_IMAGE_BYTES = 1.5 * 1024 * 1024
+const MAX_TOTAL_REF_BYTES = 3.5 * 1024 * 1024
 const MAX_PROMPT_CHARS = 2000
 
 type IncomingRef = {
@@ -22,18 +25,17 @@ type IncomingRef = {
   mimeType?: string
 }
 
-function normalizeRef(raw: IncomingRef): { base64: string; mimeType: string } | null {
+function normalizeRef(raw: IncomingRef): { base64: string; mimeType: string; bytes: number } | null {
   if (typeof raw?.base64 !== 'string' || !raw.base64.trim()) return null
   const base64 = raw.base64.replace(/^data:[^;]+;base64,/, '').trim()
   if (!base64) return null
-  // rough size check from base64 length
   const approxBytes = Math.floor((base64.length * 3) / 4)
   if (approxBytes > MAX_IMAGE_BYTES) return null
   const mimeType =
     typeof raw.mimeType === 'string' && raw.mimeType.startsWith('image/')
       ? raw.mimeType
       : 'image/jpeg'
-  return { base64, mimeType }
+  return { base64, mimeType, bytes: approxBytes }
 }
 
 /** Owner-only R&D: research platform banner/panel sizes, then paint 2 mockups via Gemini. */
@@ -85,12 +87,27 @@ export async function POST(req: NextRequest) {
     const refs = refsIn.map(normalizeRef).filter(Boolean) as {
       base64: string
       mimeType: string
+      bytes: number
     }[]
 
     if (refs.length === 0) {
       return NextResponse.json(
-        { error: 'Upload 1–3 reference images.' },
+        {
+          error: 'Upload 1–3 reference images (each under ~1.5MB after compression).',
+          userMessage: 'Reference images are too large or missing. Try smaller JPGs.',
+        },
         { status: 400 }
+      )
+    }
+
+    const totalBytes = refs.reduce((sum, r) => sum + r.bytes, 0)
+    if (totalBytes > MAX_TOTAL_REF_BYTES) {
+      return NextResponse.json(
+        {
+          error: 'Reference images total size is too large.',
+          userMessage: 'Use fewer or smaller reference images and try again.',
+        },
+        { status: 413 }
       )
     }
 
@@ -98,8 +115,9 @@ export async function POST(req: NextRequest) {
       platform,
       outputMode,
       userPrompt,
-      references: refs,
+      references: refs.map(({ base64, mimeType }) => ({ base64, mimeType })),
       panelTitles: needPanels ? panelTitles : [],
+      sessionId: randomUUID(),
     })
 
     return NextResponse.json(result)

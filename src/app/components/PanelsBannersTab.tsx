@@ -28,7 +28,7 @@ type GeneratedAsset = {
   width: number
   height: number
   mimeType: string
-  dataUrl: string
+  key: string
   panelIndex?: number
   panelTitle?: string
 }
@@ -76,6 +76,55 @@ export interface PanelsBannersTabProps {
 
 const MAX_REFS = 3
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024
+const COMPRESS_MAX_SIDE = 1280
+const COMPRESS_QUALITY = 0.82
+
+function assetImageSrc(key: string): string {
+  return `/api/image?key=${encodeURIComponent(key)}`
+}
+
+async function compressReferenceDataUrl(
+  dataUrl: string
+): Promise<{ base64: string; mimeType: string }> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image()
+    img.onload = () => {
+      const scale = Math.min(1, COMPRESS_MAX_SIDE / Math.max(img.width, img.height))
+      const w = Math.max(1, Math.round(img.width * scale))
+      const h = Math.max(1, Math.round(img.height * scale))
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        reject(new Error('Could not compress reference image'))
+        return
+      }
+      ctx.drawImage(img, 0, 0, w, h)
+      const out = canvas.toDataURL('image/jpeg', COMPRESS_QUALITY)
+      resolve({ base64: out, mimeType: 'image/jpeg' })
+    }
+    img.onerror = () => reject(new Error('Could not read reference image'))
+    img.src = dataUrl
+  })
+}
+
+async function parseJsonResponse<T>(res: Response): Promise<T> {
+  const text = await res.text()
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    const snippet = text.replace(/\s+/g, ' ').trim().slice(0, 120)
+    if (/request entity too large/i.test(text) || res.status === 413) {
+      throw new Error('Upload too large for the server. Use fewer/smaller reference images.')
+    }
+    throw new Error(
+      snippet
+        ? `Server error (${res.status}): ${snippet}`
+        : `Server returned a non-JSON response (${res.status}).`
+    )
+  }
+}
 
 export default function PanelsBannersTab({
   darkMode,
@@ -202,15 +251,14 @@ export default function PanelsBannersTab({
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  const downloadAsset = (asset: GeneratedAsset, mockupId: string) => {
-    const ext = asset.mimeType.includes('png') ? 'png' : 'jpg'
+  const downloadAsset = (asset: GeneratedAsset) => {
     const slug = (asset.panelTitle || asset.kind)
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
     const a = document.createElement('a')
-    a.href = asset.dataUrl
-    a.download = `pb-${platformId}-${mockupId}-${slug || asset.kind}.${ext}`
+    a.href = `${assetImageSrc(asset.key)}&download=1`
+    a.download = `pb-${platformId}-${slug || asset.kind}`
     a.click()
   }
 
@@ -231,9 +279,12 @@ export default function PanelsBannersTab({
     setIsWorking(true)
     setError('')
     setResult(null)
-    setLoadingStep('Researching platform banner & panel sizes…')
+    setLoadingStep('Compressing reference images…')
 
     try {
+      const compressed = await Promise.all(refs.map((r) => compressReferenceDataUrl(r.dataUrl)))
+
+      setLoadingStep('Researching platform banner & panel sizes…')
       const res = await fetch('/api/panels-banners/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -243,9 +294,9 @@ export default function PanelsBannersTab({
           outputMode,
           prompt,
           panelTitles: needsPanels ? selectedPanelTitles : [],
-          references: refs.map((r) => ({
-            base64: r.dataUrl,
-            mimeType: r.mimeType,
+          references: compressed.map((c) => ({
+            base64: c.base64,
+            mimeType: c.mimeType,
           })),
         }),
       })
@@ -255,7 +306,7 @@ export default function PanelsBannersTab({
           ? `Painting mockups (${selectedPanelTitles.length} panel${selectedPanelTitles.length === 1 ? '' : 's'} × 2 styles)…`
           : 'Painting banner mockups with Gemini…'
       )
-      const data = (await res.json()) as GenerateResponse
+      const data = await parseJsonResponse<GenerateResponse>(res)
       if (!res.ok) {
         throw new Error(data.userMessage || data.error || 'Generation failed')
       }
@@ -582,7 +633,7 @@ export default function PanelsBannersTab({
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => downloadAsset(asset, mockup.id)}
+                        onClick={() => downloadAsset(asset)}
                       >
                         <Download className="w-3.5 h-3.5 mr-1" />
                         Save
@@ -595,7 +646,7 @@ export default function PanelsBannersTab({
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={asset.dataUrl}
+                        src={assetImageSrc(asset.key)}
                         alt={asset.label}
                         className="w-full h-full object-contain"
                       />
