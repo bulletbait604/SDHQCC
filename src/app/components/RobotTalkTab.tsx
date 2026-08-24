@@ -135,6 +135,26 @@ const MODELS_BY_PROVIDER: Record<string, AIModel[]> = {
     { id: 'koboldcpp-local', name: 'Kobold.cpp (Local Server)', provider: 'Local / Downloadable' },
     { id: 'llama-cpp-local', name: 'llama.cpp (Local Server)', provider: 'Local / Downloadable' },
   ],
+  'AI Video Editors': [
+    { id: 'capcut', name: 'CapCut AI', provider: 'AI Video Editors' },
+    { id: 'capcut-auto-cut', name: 'CapCut AutoCut / Auto Edit', provider: 'AI Video Editors' },
+    { id: 'capcut-captions', name: 'CapCut Auto Captions', provider: 'AI Video Editors' },
+    { id: 'descript', name: 'Descript (Underlord)', provider: 'AI Video Editors' },
+    { id: 'runway-gen3', name: 'Runway Gen-3 / Aleph', provider: 'AI Video Editors' },
+    { id: 'pika', name: 'Pika Labs', provider: 'AI Video Editors' },
+    { id: 'kling', name: 'Kling AI', provider: 'AI Video Editors' },
+    { id: 'luma-dream-machine', name: 'Luma Dream Machine', provider: 'AI Video Editors' },
+    { id: 'adobe-premiere-ai', name: 'Adobe Premiere Pro (Firefly / Sensei)', provider: 'AI Video Editors' },
+    { id: 'davinci-resolve', name: 'DaVinci Resolve (Magic Mask / AI)', provider: 'AI Video Editors' },
+    { id: 'final-cut-pro', name: 'Final Cut Pro (AI Features)', provider: 'AI Video Editors' },
+    { id: 'opus-clip', name: 'Opus Clip', provider: 'AI Video Editors' },
+    { id: 'vizard', name: 'Vizard.ai', provider: 'AI Video Editors' },
+    { id: 'veed', name: 'VEED.io', provider: 'AI Video Editors' },
+    { id: 'invideo', name: 'InVideo AI', provider: 'AI Video Editors' },
+    { id: 'pictory', name: 'Pictory', provider: 'AI Video Editors' },
+    { id: 'shotstack', name: 'Shotstack', provider: 'AI Video Editors' },
+    { id: 'reap', name: 'Reap', provider: 'AI Video Editors' },
+  ],
 }
 
 const SUGGESTIONS = [

@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
       "- Llama/Open Source: Use explicit system prompt blocks, clear delimiters, and few-shot examples if applicable.\n" +
       "- Cursor: Focus heavily on precise code generation, refactoring instructions, explicit file paths, and function signatures. Keep prompts concise, direct, and highly actionable for an IDE assistant.\n" +
       "- Local / Downloadable (Ollama, LM Studio): Keep instructions simple, direct, and highly structured with clear system prompts and delimiters. Local models have smaller context windows and lower reasoning capacity, so avoid overly complex nested reasoning instructions unless target is a reasoning model like DeepSeek-R1.\n" +
+      "- AI Video Editors (CapCut, Descript, Runway, Opus Clip, Vizard, Premiere, DaVinci, etc.): Write practical editing briefs, not chatbot system prompts. Include: target platform (TikTok/Reels/Shorts), aspect ratio (9:16), duration, pacing/cut style, caption style, overlays/text hooks, music/SFX vibe, B-roll guidance, and export settings. Use short imperative steps the editor's AI/auto tools can follow (e.g. AutoCut, Auto Captions, Magic Mask). Avoid abstract chain-of-thought; be visual and production-ready.\n" +
       "- Reasoning/Coding models: Focus heavily on edge cases, logical constraints, and precise output schemas.\n\n" +
       "Return ONLY a valid JSON object. No conversational filler, no markdown formatting outside the JSON."
 
