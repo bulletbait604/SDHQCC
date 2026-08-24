@@ -4,18 +4,18 @@ import { Bot, Film, ImageIcon, PanelsTopLeft } from 'lucide-react'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
-export type RdSubTab = 'clip-editor' | 'tradebot' | 'thumbnail-2' | 'panels-banners'
+export type RdSubTab = 'clip-editor' | 'robot-talk' | 'thumbnail-2' | 'panels-banners'
 
 const SUB_TAB_META: Record<RdSubTab, { icon: typeof Film; shortLabel: string }> = {
   'clip-editor': { icon: Film, shortLabel: 'Clips' },
   'thumbnail-2': { icon: ImageIcon, shortLabel: 'Thumb 2' },
   'panels-banners': { icon: PanelsTopLeft, shortLabel: "P&B's" },
-  tradebot: { icon: Bot, shortLabel: 'Trade' },
+  'robot-talk': { icon: Bot, shortLabel: 'RobotTalk' },
 }
 
 export function rdTabTitle(
   subTab: RdSubTab,
-  labels: { clipEditor: string; tradebot: string; thumbnail2: string; panelsBanners: string }
+  labels: { clipEditor: string; robotTalk: string; thumbnail2: string; panelsBanners: string }
 ): string {
   switch (subTab) {
     case 'clip-editor':
@@ -24,14 +24,14 @@ export function rdTabTitle(
       return labels.thumbnail2
     case 'panels-banners':
       return labels.panelsBanners
-    case 'tradebot':
-      return labels.tradebot
+    case 'robot-talk':
+      return labels.robotTalk
   }
 }
 
 interface Props {
   activeSubTab: RdSubTab
-  labels: { clipEditor: string; tradebot: string; thumbnail2: string; panelsBanners: string }
+  labels: { clipEditor: string; robotTalk: string; thumbnail2: string; panelsBanners: string }
   pickToolLabel: string
   darkMode: boolean
   tabListClasses: string
@@ -56,8 +56,8 @@ export default function RdTabHeader({
         return labels.thumbnail2
       case 'panels-banners':
         return labels.panelsBanners
-      case 'tradebot':
-        return labels.tradebot
+      case 'robot-talk':
+        return labels.robotTalk
     }
   }
 

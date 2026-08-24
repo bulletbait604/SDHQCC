@@ -12,7 +12,7 @@ import Post4MeTab from '@/app/components/Post4MeTab'
 import BackgroundRemoverTab from '@/app/components/BackgroundRemoverTab'
 import AnalyzeTab from '@/app/components/AnalyzeTab'
 import ClipEditorTab from '@/app/components/ClipEditorTab'
-import TradebotTab from '@/app/components/TradebotTab'
+import RobotTalkTab from '@/app/components/RobotTalkTab'
 import Thumbnail2Tab from '@/app/components/Thumbnail2Tab'
 import PanelsBannersTab from '@/app/components/PanelsBannersTab'
 import KickClipsComingSoon from '@/app/components/KickClipsComingSoon'
@@ -338,7 +338,7 @@ export default function HomeMainTabs({
                 activeSubTab={rndSubTab}
                 labels={{
                   clipEditor: t.clipEditor,
-                  tradebot: t.tradebot,
+                  robotTalk: t.robotTalk || 'RobotTalk',
                   thumbnail2: t.thumbnail2 || 'Thumbnail 2.0',
                   panelsBanners: t.panelsBanners || "P&B's — Panels & banners",
                 }}
@@ -387,18 +387,11 @@ export default function HomeMainTabs({
                 />
               </TabsContent>
 
-              <TabsContent value="tradebot">
-                <TradebotTab
+              <TabsContent value="robot-talk">
+                <RobotTalkTab
                   darkMode={darkMode}
                   subtitleClasses={subtitleClasses}
-                  title={t.tradebot}
-                  scanLabel={t.tradebotScan}
-                  scanningLabel={t.tradebotScanning}
-                  noOpportunitiesLabel={t.tradebotNoOpportunities}
-                  aiInsightLabel={t.tradebotAiInsight}
-                  setupTitle={t.tradebotSetupTitle}
-                  lastScanLabel={t.tradebotLastScan}
-                  alertsOnlyLabel={t.tradebotAlertsOnly}
+                  title={t.robotTalk || 'RobotTalk'}
                 />
               </TabsContent>
             </div>

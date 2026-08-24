@@ -23,11 +23,11 @@ export function capOwnerRole(username: string, role: Role): Role {
   return role
 }
 
-/** Tab access — R&D (Clip Editor, Tradebot, Thumbnail 2.0) is site-owner only. */
+/** Tab access — R&D (Clip Editor, RobotTalk, Thumbnail 2.0) is site-owner only. */
 export function hasTabAccessForUser(userRole: Role, tabId: string, username: string | null | undefined): boolean {
   if (
     tabId === 'rnd' ||
-    tabId === 'tradebot' ||
+    tabId === 'robot-talk' ||
     tabId === 'clip-editor' ||
     tabId === 'thumbnail-2'
   ) {
