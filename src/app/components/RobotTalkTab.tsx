@@ -14,6 +14,8 @@ import {
   Check,
   Info,
   ArrowRight,
+  Search,
+  ChevronDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -142,6 +144,22 @@ export default function RobotTalkTab({ darkMode, subtitleClasses, title }: Robot
   const [promptExplanation, setPromptExplanation] = useState('')
   const [copied, setCopied] = useState(false)
 
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false)
+  const [modelSearchQuery, setModelSearchQuery] = useState('')
+  const modelDropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(event.target as Node)) {
+        setIsModelDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
   // Scroll to bottom whenever messages list changes
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -194,6 +212,11 @@ export default function RobotTalkTab({ darkMode, subtitleClasses, title }: Robot
     }
   }
 
+  // Find selected model details
+  const selectedModel = Object.values(MODELS_BY_PROVIDER)
+    .flat()
+    .find((m) => m.id === selectedModelId)
+
   // Prompt Architect Handlers
   const handleGeneratePrompt = async () => {
     if (!ideaInput.trim() || architectLoading) return
@@ -202,16 +225,6 @@ export default function RobotTalkTab({ darkMode, subtitleClasses, title }: Robot
     setArchitectError(null)
     setGeneratedPrompt('')
     setPromptExplanation('')
-
-    // Find selected model details
-    let selectedModel: AIModel | undefined
-    for (const provider of Object.keys(MODELS_BY_PROVIDER)) {
-      const found = MODELS_BY_PROVIDER[provider].find((m) => m.id === selectedModelId)
-      if (found) {
-        selectedModel = found
-        break
-      }
-    }
 
     try {
       const res = await fetch('/api/robot-talk/generate-prompt', {
@@ -253,6 +266,20 @@ export default function RobotTalkTab({ darkMode, subtitleClasses, title }: Robot
       `Here is a prompt I generated using the AI Prompt Architect for ${selectedModelId}:\n\n---\n\n${generatedPrompt}`
     )
   }
+
+  // Filter providers and models based on search query
+  const filteredProviders = Object.keys(MODELS_BY_PROVIDER).reduce<Record<string, AIModel[]>>((acc, provider) => {
+    const matches = MODELS_BY_PROVIDER[provider].filter(
+      (model) =>
+        model.name.toLowerCase().includes(modelSearchQuery.toLowerCase()) ||
+        model.id.toLowerCase().includes(modelSearchQuery.toLowerCase()) ||
+        provider.toLowerCase().includes(modelSearchQuery.toLowerCase())
+    )
+    if (matches.length > 0) {
+      acc[provider] = matches
+    }
+    return acc
+  }, {})
 
   return (
     <div className="flex flex-col h-[650px] max-w-4xl mx-auto rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm">
@@ -433,25 +460,83 @@ export default function RobotTalkTab({ darkMode, subtitleClasses, title }: Robot
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 h-full p-6 overflow-y-auto bg-gray-50/20 dark:bg-gray-950/20">
             {/* Left Column: Input Form */}
             <div className="md:col-span-5 flex flex-col space-y-4">
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 relative" ref={modelDropdownRef}>
                 <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Target AI Model
                 </label>
-                <select
-                  value={selectedModelId}
-                  onChange={(e) => setSelectedModelId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-sdhq-green-500/50 focus:border-sdhq-green-500 transition-all duration-200"
+                
+                {/* Trigger Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsModelDropdownOpen(!isModelDropdownOpen)
+                    setModelSearchQuery('') // Reset search query when opening
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-sdhq-green-500/50 focus:border-sdhq-green-500 transition-all duration-200 text-left"
                 >
-                  {Object.keys(MODELS_BY_PROVIDER).map((provider) => (
-                    <optgroup key={provider} label={provider}>
-                      {MODELS_BY_PROVIDER[provider].map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
+                  <span className="truncate">
+                    {selectedModel ? `${selectedModel.name} (${selectedModel.provider})` : 'Select a model...'}
+                  </span>
+                  <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
+                </button>
+
+                {/* Dropdown Popover */}
+                {isModelDropdownOpen && (
+                  <div className="absolute left-0 right-0 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-lg z-50 flex flex-col max-h-[320px] overflow-hidden">
+                    {/* Search Input */}
+                    <div className="flex items-center px-3 py-2 border-b border-gray-150 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
+                      <Search className="w-4 h-4 text-gray-400 dark:text-gray-500 mr-2 shrink-0" />
+                      <input
+                        type="text"
+                        value={modelSearchQuery}
+                        onChange={(e) => setModelSearchQuery(e.target.value)}
+                        placeholder="Search models or providers..."
+                        className="w-full bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none"
+                        autoFocus
+                      />
+                    </div>
+
+                    {/* Model List */}
+                    <div className="flex-1 overflow-y-auto py-1">
+                      {Object.keys(filteredProviders).length === 0 ? (
+                        <div className="px-4 py-3 text-xs text-gray-400 dark:text-gray-500 text-center">
+                          No models found
+                        </div>
+                      ) : (
+                        Object.keys(filteredProviders).map((provider) => (
+                          <div key={provider} className="space-y-0.5">
+                            {/* Provider Header */}
+                            <div className="px-3 py-1 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider bg-gray-50/50 dark:bg-gray-900/30">
+                              {provider}
+                            </div>
+                            {/* Models */}
+                            {filteredProviders[provider].map((model) => {
+                              const isSelected = model.id === selectedModelId
+                              return (
+                                <button
+                                  key={model.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedModelId(model.id)
+                                    setIsModelDropdownOpen(false)
+                                  }}
+                                  className={`w-full text-left px-4 py-2 text-xs transition-colors duration-150 flex items-center justify-between ${
+                                    isSelected
+                                      ? 'bg-sdhq-green-500/10 text-sdhq-green-600 dark:text-sdhq-green-400 font-medium'
+                                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                                  }`}
+                                >
+                                  <span>{model.name}</span>
+                                  {isSelected && <Check className="w-3.5 h-3.5 text-sdhq-green-500 shrink-0" />}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1.5 flex-1 flex flex-col">
