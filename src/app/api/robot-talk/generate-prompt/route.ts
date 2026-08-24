@@ -43,6 +43,8 @@ export async function POST(req: NextRequest) {
       "- OpenAI o1/o3-mini (Reasoning): Do not use chain-of-thought or 'think step-by-step' prompts. Keep instructions direct, highly specific, and focus on constraints and final output requirements.\n" +
       "- Google Gemini: Use clear contextual framing, structured instructions, and explicit input/output definitions.\n" +
       "- Llama/Open Source: Use explicit system prompt blocks, clear delimiters, and few-shot examples if applicable.\n" +
+      "- Cursor: Focus heavily on precise code generation, refactoring instructions, explicit file paths, and function signatures. Keep prompts concise, direct, and highly actionable for an IDE assistant.\n" +
+      "- Local / Downloadable (Ollama, LM Studio): Keep instructions simple, direct, and highly structured with clear system prompts and delimiters. Local models have smaller context windows and lower reasoning capacity, so avoid overly complex nested reasoning instructions unless target is a reasoning model like DeepSeek-R1.\n" +
       "- Reasoning/Coding models: Focus heavily on edge cases, logical constraints, and precise output schemas.\n\n" +
       "Return ONLY a valid JSON object. No conversational filler, no markdown formatting outside the JSON."
 

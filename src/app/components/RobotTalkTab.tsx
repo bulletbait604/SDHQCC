@@ -116,6 +116,25 @@ const MODELS_BY_PROVIDER: Record<string, AIModel[]> = {
     { id: 'sonar-large', name: 'Sonar Large', provider: 'Perplexity' },
     { id: 'sonar-medium', name: 'Sonar Medium', provider: 'Perplexity' },
   ],
+  'Cursor': [
+    { id: 'cursor-small', name: 'Cursor Small', provider: 'Cursor' },
+    { id: 'cursor-fast', name: 'Cursor Fast', provider: 'Cursor' },
+    { id: 'cursor-grok-4-5', name: 'Cursor Grok 4.5', provider: 'Cursor' },
+    { id: 'cursor-grok-4-6', name: 'Cursor Grok 4.6', provider: 'Cursor' },
+    { id: 'cursor-composer', name: 'Cursor Composer (Multi-file)', provider: 'Cursor' },
+    { id: 'cursor-tab', name: 'Cursor Tab (Autocomplete)', provider: 'Cursor' },
+  ],
+  'Local / Downloadable': [
+    { id: 'ollama-deepseek-r1', name: 'DeepSeek-R1 (Local via Ollama)', provider: 'Local / Downloadable' },
+    { id: 'ollama-llama3-3', name: 'Llama 3.3 (Local via Ollama)', provider: 'Local / Downloadable' },
+    { id: 'ollama-qwen2-5-coder', name: 'Qwen 2.5 Coder (Local via Ollama)', provider: 'Local / Downloadable' },
+    { id: 'ollama-mistral', name: 'Mistral (Local via Ollama)', provider: 'Local / Downloadable' },
+    { id: 'ollama-gemma2', name: 'Gemma 2 (Local via Ollama)', provider: 'Local / Downloadable' },
+    { id: 'ollama-phi4', name: 'Phi-4 (Local via Ollama)', provider: 'Local / Downloadable' },
+    { id: 'lm-studio-local', name: 'LM Studio (Local Server)', provider: 'Local / Downloadable' },
+    { id: 'koboldcpp-local', name: 'Kobold.cpp (Local Server)', provider: 'Local / Downloadable' },
+    { id: 'llama-cpp-local', name: 'llama.cpp (Local Server)', provider: 'Local / Downloadable' },
+  ],
 }
 
 const SUGGESTIONS = [
