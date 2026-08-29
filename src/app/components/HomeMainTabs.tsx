@@ -393,8 +393,11 @@ export default function HomeMainTabs({
                 <GoingLiveTab
                   darkMode={darkMode}
                   subtitleClasses={subtitleClasses}
-                  description={t.goingLiveDesc || 'R&D prototype for going live.'}
-                  comingSoonLabel={t.comingSoon || 'Coming soon...'}
+                  description={
+                    t.goingLiveDesc ||
+                    'Upload references, pick platforms and a vibe, then get a stream title, social posts, and posters.'
+                  }
+                  user={user}
                 />
               </TabsContent>
 

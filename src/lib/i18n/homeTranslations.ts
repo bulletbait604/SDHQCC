@@ -19,7 +19,8 @@ export const homeTranslations = {
     thumbnail2: 'Thumbnail 2.0',
     panelsBanners: "P&B's — Panels & banners",
     goingLive: 'Going Live',
-    goingLiveDesc: 'Stream go-live tools — copy, checklist, and assets. Under construction.',
+    goingLiveDesc:
+      'Upload up to 4 references, pick a streaming platform, social networks, and a vibe. Get a stream title, a post per network, and a matching poster.',
     robotTalk: 'RobotTalk',
     rndPickTool: 'R&D — owner only · pick a tool below',
     backgroundRemover: 'Background Remover',
@@ -76,7 +77,8 @@ export const homeTranslations = {
     thumbnail2: 'Thumbnail 2.0',
     panelsBanners: "P&B's — Paneles y banners",
     goingLive: 'En vivo',
-    goingLiveDesc: 'Prototipo I+D para salir en vivo — textos, checklist y recursos.',
+    goingLiveDesc:
+      'Sube hasta 4 referencias, elige una plataforma de streaming, redes y un tono. Obtén título, un post por red y un póster.',
     robotTalk: 'RobotTalk',
     rndPickTool: 'I+D — solo propietario · elige una herramienta abajo',
     backgroundRemover: 'Eliminador de fondo',
@@ -133,7 +135,8 @@ export const homeTranslations = {
     thumbnail2: 'Thumbnail 2.0',
     panelsBanners: "P&B's — Panneaux et bannières",
     goingLive: 'En direct',
-    goingLiveDesc: 'Prototype R&D pour le passage en live — textes, checklist et ressources.',
+    goingLiveDesc:
+      'Importez jusqu’à 4 visuels, choisissez une plateforme de stream, des réseaux et un ton. Titre, un post par réseau et un poster.',
     robotTalk: 'RobotTalk',
     rndPickTool: 'R&D — propriétaire seulement · choisissez un outil ci-dessous',
     backgroundRemover: 'Suppression d’arrière-plan',
@@ -190,7 +193,8 @@ export const homeTranslations = {
     thumbnail2: 'Thumbnail 2.0',
     panelsBanners: "P&B's — Panels & Banner",
     goingLive: 'Live gehen',
-    goingLiveDesc: 'F&E-Prototyp für den Stream-Start — Texte, Checkliste und Assets.',
+    goingLiveDesc:
+      'Bis zu 4 Referenzen, Streaming-Plattform, Netzwerke und Ton. Stream-Titel, ein Post pro Netzwerk und ein Poster.',
     robotTalk: 'RobotTalk',
     rndPickTool: 'F&E — nur Owner · Werkzeug unten wählen',
     backgroundRemover: 'Hintergrund entfernen',
