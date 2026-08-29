@@ -15,6 +15,7 @@ import ClipEditorTab from '@/app/components/ClipEditorTab'
 import RobotTalkTab from '@/app/components/RobotTalkTab'
 import Thumbnail2Tab from '@/app/components/Thumbnail2Tab'
 import PanelsBannersTab from '@/app/components/PanelsBannersTab'
+import GoingLiveTab from '@/app/components/GoingLiveTab'
 import KickClipsComingSoon from '@/app/components/KickClipsComingSoon'
 import SettingsTab from '@/app/components/SettingsTab'
 import type { ActivityLogEntry, HomeLanguage, KickUser, Platform } from '@/lib/home/types'
@@ -341,6 +342,7 @@ export default function HomeMainTabs({
                   robotTalk: t.robotTalk || 'RobotTalk',
                   thumbnail2: t.thumbnail2 || 'Thumbnail 2.0',
                   panelsBanners: t.panelsBanners || "P&B's — Panels & banners",
+                  goingLive: t.goingLive || 'Going Live',
                 }}
                 pickToolLabel={t.rndPickTool}
                 darkMode={darkMode}
@@ -384,6 +386,15 @@ export default function HomeMainTabs({
                   darkMode={darkMode}
                   subtitleClasses={subtitleClasses}
                   user={user}
+                />
+              </TabsContent>
+
+              <TabsContent value="going-live">
+                <GoingLiveTab
+                  darkMode={darkMode}
+                  subtitleClasses={subtitleClasses}
+                  description={t.goingLiveDesc || 'R&D prototype for going live.'}
+                  comingSoonLabel={t.comingSoon || 'Coming soon...'}
                 />
               </TabsContent>
 

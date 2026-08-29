@@ -1,22 +1,33 @@
 'use client'
 
-import { Bot, Film, ImageIcon, PanelsTopLeft } from 'lucide-react'
+import { Bot, Film, ImageIcon, PanelsTopLeft, RadioTower } from 'lucide-react'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
-export type RdSubTab = 'clip-editor' | 'robot-talk' | 'thumbnail-2' | 'panels-banners'
+export type RdSubTab =
+  | 'clip-editor'
+  | 'robot-talk'
+  | 'thumbnail-2'
+  | 'panels-banners'
+  | 'going-live'
+
+type RdLabels = {
+  clipEditor: string
+  robotTalk: string
+  thumbnail2: string
+  panelsBanners: string
+  goingLive: string
+}
 
 const SUB_TAB_META: Record<RdSubTab, { icon: typeof Film; shortLabel: string }> = {
   'clip-editor': { icon: Film, shortLabel: 'Clips' },
   'thumbnail-2': { icon: ImageIcon, shortLabel: 'Thumb 2' },
   'panels-banners': { icon: PanelsTopLeft, shortLabel: "P&B's" },
+  'going-live': { icon: RadioTower, shortLabel: 'Live' },
   'robot-talk': { icon: Bot, shortLabel: 'RobotTalk' },
 }
 
-export function rdTabTitle(
-  subTab: RdSubTab,
-  labels: { clipEditor: string; robotTalk: string; thumbnail2: string; panelsBanners: string }
-): string {
+export function rdTabTitle(subTab: RdSubTab, labels: RdLabels): string {
   switch (subTab) {
     case 'clip-editor':
       return labels.clipEditor
@@ -24,6 +35,8 @@ export function rdTabTitle(
       return labels.thumbnail2
     case 'panels-banners':
       return labels.panelsBanners
+    case 'going-live':
+      return labels.goingLive
     case 'robot-talk':
       return labels.robotTalk
   }
@@ -31,7 +44,7 @@ export function rdTabTitle(
 
 interface Props {
   activeSubTab: RdSubTab
-  labels: { clipEditor: string; robotTalk: string; thumbnail2: string; panelsBanners: string }
+  labels: RdLabels
   pickToolLabel: string
   darkMode: boolean
   tabListClasses: string
@@ -56,6 +69,8 @@ export default function RdTabHeader({
         return labels.thumbnail2
       case 'panels-banners':
         return labels.panelsBanners
+      case 'going-live':
+        return labels.goingLive
       case 'robot-talk':
         return labels.robotTalk
     }
@@ -71,7 +86,7 @@ export default function RdTabHeader({
       </div>
       <TabsList
         className={cn(
-          'grid w-full max-w-3xl mx-auto grid-cols-2 sm:grid-cols-4 mb-6 rounded-xl p-1',
+          'grid h-auto w-full max-w-4xl mx-auto grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 mb-6 rounded-xl p-1',
           tabListClasses
         )}
       >
