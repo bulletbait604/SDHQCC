@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { verifyOwnerUser } from '@/lib/auth/staffAccess'
 import { listViralClipJobsForUser } from '@/lib/viralClipGen/history'
-import { runViralClipPipeline, validateViralClipInput } from '@/lib/viralClipGen/pipeline'
+import {
+  pollViralClipJob,
+  startViralClipJob,
+  validateViralClipInput,
+} from '@/lib/viralClipGen/pipeline'
 import { VIDEO_GENERATION_COSTS } from '@/lib/viralClipGen/costs'
 import { VIRAL_CLIP_DURATIONS } from '@/lib/viralClipGen/config'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 300
+export const maxDuration = 60
 
 function statusOf(err: unknown): number {
   if (err && typeof err === 'object' && 'status' in err) {
@@ -17,13 +21,13 @@ function statusOf(err: unknown): number {
   return 503
 }
 
-/** Owner-only R&D: Gemini plan → fal video → optional Shotstack concat. */
+/** Owner-only R&D: queue Gemini plan + fal jobs, then poll until complete. */
 export async function POST(req: NextRequest) {
   try {
     const user = await verifyOwnerUser(req)
     const body = await req.json().catch(() => ({}))
     const input = validateViralClipInput(body)
-    const result = await runViralClipPipeline({
+    const result = await startViralClipJob({
       user,
       prompt: input.prompt,
       duration: input.duration,
@@ -44,6 +48,11 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const user = await verifyOwnerUser(req)
+    const jobId = req.nextUrl.searchParams.get('jobId')?.trim()
+    if (jobId) {
+      const result = await pollViralClipJob(user, jobId)
+      return NextResponse.json(result)
+    }
     const jobs = await listViralClipJobsForUser(user.username, 20)
     return NextResponse.json({
       jobs,
@@ -53,6 +62,7 @@ export async function GET(req: NextRequest) {
   } catch (err: unknown) {
     if (err instanceof AuthError) return createAuthErrorResponse(err)
     console.error('[viral-clip-gen] history', err)
-    return NextResponse.json({ error: 'Could not load clip history.' }, { status: 503 })
+    const message = err instanceof Error ? err.message : 'Could not load clip history.'
+    return NextResponse.json({ error: message, userMessage: message }, { status: statusOf(err) })
   }
 }

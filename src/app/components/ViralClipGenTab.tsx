@@ -200,7 +200,7 @@ export default function ViralClipGenTab({
 
     try {
       const compressed = await Promise.all(refs.map((r) => compressImage(r.dataUrl)))
-      setStatus('generating')
+      setStatus('preparing')
       const res = await fetch('/api/viral-clip-gen', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -218,8 +218,36 @@ export default function ViralClipGenTab({
       if (!res.ok) {
         throw new Error(data.userMessage || data.error || 'Generation failed')
       }
-      setStatus(data.job?.status || 'complete')
-      setJob(data.job)
+      let current = data.job
+      setJob(current)
+      setStatus(current?.status || 'generating')
+
+      for (let i = 0; i < 150; i++) {
+        if (!current || current.status === 'complete' || current.status === 'failed') break
+        await new Promise((r) => setTimeout(r, 5000))
+        const pollRes = await fetch(
+          `/api/viral-clip-gen?jobId=${encodeURIComponent(current.id)}`,
+          { credentials: 'include' }
+        )
+        const pollData = await parseJsonResponse<GenerateResponse>(pollRes)
+        if (!pollRes.ok) {
+          throw new Error(pollData.userMessage || pollData.error || 'Generation failed')
+        }
+        current = pollData.job
+        setJob(current)
+        setStatus(current?.status || 'generating')
+      }
+
+      if (current?.status === 'failed') {
+        throw new Error(current.error || 'Generation failed')
+      }
+      if (current?.status !== 'complete') {
+        throw new Error(
+          'Still generating. Keep this tab open, or check Recent clips in a few minutes.'
+        )
+      }
+      setJob(current)
+      setStatus('complete')
       refreshBalance()
       void loadHistory()
     } catch (err) {
@@ -347,6 +375,7 @@ export default function ViralClipGenTab({
         <p className={`text-xs ${subtitleClasses}`}>
           Vertical 9:16 for TikTok, Shorts, and Reels.
           {hasUnlimitedAccess ? ' Unlimited credits on this account.' : ` Your balance: ${coinBalance}.`}
+          {' '}Generation usually takes 1–4 minutes.
         </p>
       </section>
 

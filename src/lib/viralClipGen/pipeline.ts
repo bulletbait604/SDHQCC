@@ -3,9 +3,9 @@ import {
 } from '@/lib/r2'
 import { spendToolCoins, refundToolCoins } from '@/lib/coins/spendToolCoins'
 import type { VerifiedUser } from '@/lib/auth/verifyAuth'
-import { assembleViralClipIfNeeded } from '@/lib/viralClipGen/assemble'
 import {
   VIRAL_CLIP_ASPECT_RATIO,
+  VIRAL_CLIP_JOB_STALE_MS,
   VIRAL_CLIP_MAX_IMAGE_BYTES,
   VIRAL_CLIP_MAX_REFERENCE_IMAGES,
   VIRAL_CLIP_MODEL_MAX_REFERENCE_IMAGES,
@@ -15,11 +15,19 @@ import {
   type ViralClipDuration,
 } from '@/lib/viralClipGen/config'
 import { VIRAL_CLIP_GEN_TOOL, viralClipGenCoinCost } from '@/lib/viralClipGen/costs'
-import { generateVideo } from '@/lib/viralClipGen/falVideo'
 import {
+  getQueuedVideoStatus,
+  getQueuedVideoUrl,
+  submitVideo,
+} from '@/lib/viralClipGen/falVideo'
+import { checkViralClipAssembly, submitViralClipAssembly } from '@/lib/viralClipGen/assemble'
+import {
+  claimViralClipJobStatus,
   createViralClipJob,
+  getViralClipJobForUser,
   newViralClipJobId,
   updateViralClipJob,
+  type ViralClipFalSegment,
   type ViralClipJob,
 } from '@/lib/viralClipGen/history'
 import { planViralClip, type ViralClipReference } from '@/lib/viralClipGen/plan'
@@ -150,7 +158,47 @@ export function validateViralClipInput(body: {
   return { prompt, duration: durationRaw, references }
 }
 
-export async function runViralClipPipeline(params: {
+async function failJob(
+  user: VerifiedUser,
+  job: ViralClipJob,
+  message: string
+): Promise<ViralClipJob> {
+  await updateViralClipJob(job.id, { status: 'failed', error: message })
+  if (job.creditCost > 0 && !job.refunded) {
+    try {
+      await refundToolCoins(user, VIRAL_CLIP_GEN_TOOL, job.creditCost)
+      await updateViralClipJob(job.id, { refunded: true })
+    } catch (refundErr) {
+      console.error('[viral-clip-gen] refund failed:', refundErr)
+    }
+  }
+  return { ...job, status: 'failed', error: message, refunded: true }
+}
+
+async function finalizeJob(
+  user: VerifiedUser,
+  job: ViralClipJob,
+  sourceUrl: string
+): Promise<ViralClipJob> {
+  const buffer = await downloadVideo(sourceUrl)
+  const stored = await storeBufferAsMp4({
+    username: user.username,
+    jobId: job.id,
+    buffer,
+  })
+  const videoUrl = `/api/image?key=${encodeURIComponent(stored.key)}`
+  const complete: Partial<ViralClipJob> = {
+    status: 'complete',
+    videoKey: stored.key,
+    videoUrl,
+    error: '',
+  }
+  await updateViralClipJob(job.id, complete)
+  return { ...job, ...complete, status: 'complete' } as ViralClipJob
+}
+
+/** Start Gemini planning + fal queue. Returns quickly so Vercel does not time out. */
+export async function startViralClipJob(params: {
   user: VerifiedUser
   prompt: string
   duration: ViralClipDuration
@@ -186,6 +234,9 @@ export async function runViralClipPipeline(params: {
     videoUrl: '',
     creditCost: spend.deducted,
     error: '',
+    falSegments: [],
+    shotstackRenderId: '',
+    refunded: false,
     createdAt: now,
     updatedAt: now,
   }
@@ -200,62 +251,42 @@ export async function runViralClipPipeline(params: {
       references: params.references,
     })
 
-    await updateViralClipJob(jobId, {
-      status: 'generating',
-      generatedPrompt: plan.falPrompt,
-      referenceNotes: [staged.notes, plan.referenceNotes].filter(Boolean).join(' '),
-      model: plan.rawModel,
-    })
-
-    const segmentUrls: string[] = []
-    let falModel = ''
+    const falSegments: ViralClipFalSegment[] = []
     for (const segment of plan.segments) {
-      const generated = await generateVideo({
+      const queued = await submitVideo({
         prompt: segment.prompt || plan.falPrompt,
         negativePrompt: plan.negativePrompt,
         duration: segment.duration,
         aspectRatio: VIRAL_CLIP_ASPECT_RATIO,
         referenceImageUrls: staged.urls,
       })
-      falModel = generated.model
-      segmentUrls.push(generated.videoUrl)
+      falSegments.push({
+        requestId: queued.requestId,
+        model: queued.model,
+        duration: segment.duration,
+        videoUrl: '',
+      })
     }
 
-    await updateViralClipJob(jobId, { status: 'rendering', model: falModel })
-
-    const assembledUrl = await assembleViralClipIfNeeded({
-      segmentUrls,
-      segmentDurations: plan.segments.map((s) => s.duration),
-    })
-
-    const buffer = await downloadVideo(assembledUrl)
-    const stored = await storeBufferAsMp4({
-      username: params.user.username,
-      jobId,
-      buffer,
-    })
-
-    const videoUrl = `/api/image?key=${encodeURIComponent(stored.key)}`
-    const complete: Partial<ViralClipJob> = {
-      status: 'complete',
-      videoKey: stored.key,
-      videoUrl,
-      model: falModel,
+    const generating: Partial<ViralClipJob> = {
+      status: 'generating',
       generatedPrompt: plan.falPrompt,
       referenceNotes: [staged.notes, plan.referenceNotes].filter(Boolean).join(' '),
+      model: falSegments[0]?.model || plan.rawModel,
+      falSegments,
       error: '',
     }
-    await updateViralClipJob(jobId, complete)
+    await updateViralClipJob(jobId, generating)
 
     return {
-      job: { ...job, ...complete, status: 'complete' } as ViralClipJob,
+      job: { ...job, ...generating, status: 'generating' } as ViralClipJob,
       remainingCoins: spend.remainingCoins,
       unlimited: spend.unlimited,
     }
   } catch (err) {
     const message = userFacingError(err)
     try {
-      await updateViralClipJob(jobId, { status: 'failed', error: message })
+      await updateViralClipJob(jobId, { status: 'failed', error: message, refunded: spend.deducted > 0 })
     } catch {
       /* history write is best-effort */
     }
@@ -273,5 +304,107 @@ export async function runViralClipPipeline(params: {
     throw Object.assign(new Error(message), {
       status: status >= 400 && status < 600 ? status : 503,
     })
+  }
+}
+
+/** Advance a queued fal/Shotstack job. Safe to call repeatedly. */
+export async function pollViralClipJob(
+  user: VerifiedUser,
+  jobId: string
+): Promise<ViralClipGenerateResult> {
+  const job = await getViralClipJobForUser(jobId, user.username)
+  if (!job) {
+    throw Object.assign(new Error('Clip not found.'), { status: 404 })
+  }
+  if (job.status === 'complete' || job.status === 'failed') {
+    return { job, remainingCoins: 0, unlimited: false }
+  }
+
+  const ageMs = Date.now() - Date.parse(job.createdAt)
+  if (Number.isFinite(ageMs) && ageMs > VIRAL_CLIP_JOB_STALE_MS) {
+    const failed = await failJob(
+      user,
+      job,
+      'Generation timed out. Try a 5 or 10 second clip.'
+    )
+    return { job: failed, remainingCoins: 0, unlimited: false }
+  }
+
+  try {
+    if (job.status === 'rendering' && job.shotstackRenderId) {
+      const check = await checkViralClipAssembly(job.shotstackRenderId)
+      if (check.pending || !check.url) {
+        return { job, remainingCoins: 0, unlimited: false }
+      }
+      const done = await finalizeJob(user, job, check.url)
+      return { job: done, remainingCoins: 0, unlimited: false }
+    }
+
+    const segments = [...job.falSegments]
+    if (segments.length === 0) {
+      const failed = await failJob(user, job, 'Video generation did not start.')
+      return { job: failed, remainingCoins: 0, unlimited: false }
+    }
+
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i]!
+      if (seg.videoUrl) continue
+      const state = await getQueuedVideoStatus(seg.model, seg.requestId)
+      if (state === 'FAILED') {
+        const failed = await failJob(
+          user,
+          job,
+          'Video generation failed. Try a simpler prompt or fewer reference images.'
+        )
+        return { job: failed, remainingCoins: 0, unlimited: false }
+      }
+      if (state === 'COMPLETED') {
+        seg.videoUrl = await getQueuedVideoUrl(seg.model, seg.requestId)
+      }
+    }
+    await updateViralClipJob(job.id, { falSegments: segments })
+
+    if (segments.some((s) => !s.videoUrl)) {
+      return {
+        job: { ...job, falSegments: segments, status: 'generating' },
+        remainingCoins: 0,
+        unlimited: false,
+      }
+    }
+
+    const claimed = await claimViralClipJobStatus(job.id, 'generating', 'rendering')
+    if (!claimed) {
+      const latest = await getViralClipJobForUser(jobId, user.username)
+      return { job: latest || job, remainingCoins: 0, unlimited: false }
+    }
+
+    const submitted = await submitViralClipAssembly({
+      segmentUrls: segments.map((s) => s.videoUrl),
+      segmentDurations: segments.map((s) => s.duration),
+    })
+    if (submitted.url) {
+      const done = await finalizeJob(user, { ...job, status: 'rendering' }, submitted.url)
+      return { job: done, remainingCoins: 0, unlimited: false }
+    }
+    if (!submitted.renderId) throw new Error('Could not start final assembly.')
+    await updateViralClipJob(job.id, {
+      status: 'rendering',
+      shotstackRenderId: submitted.renderId,
+      falSegments: segments,
+    })
+    return {
+      job: {
+        ...job,
+        falSegments: segments,
+        status: 'rendering',
+        shotstackRenderId: submitted.renderId,
+      },
+      remainingCoins: 0,
+      unlimited: false,
+    }
+  } catch (err) {
+    const message = userFacingError(err)
+    const failed = await failJob(user, job, message)
+    return { job: failed, remainingCoins: 0, unlimited: false }
   }
 }

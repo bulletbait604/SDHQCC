@@ -9,18 +9,18 @@ export type FalVideoGenerateInput = {
   referenceImageUrls: string[]
 }
 
-export type FalVideoGenerateResult = {
-  videoUrl: string
+export type FalQueuedVideo = {
+  requestId: string
   model: string
 }
 
-function falKey(): string {
+function ensureFal() {
   const key = (process.env.FAL_KEY || process.env.FAL_API_KEY || '').trim()
   if (!key) throw new Error('FAL_KEY is not configured')
-  return key
+  fal.config({ credentials: key })
 }
 
-function findVideoUrl(data: unknown): string {
+export function findVideoUrl(data: unknown): string {
   if (!data || typeof data !== 'object') return ''
   const rec = data as Record<string, unknown>
   if (rec.video && typeof rec.video === 'object') {
@@ -42,7 +42,7 @@ function stripDataUrl(raw: string): { mime: string; bytes: Buffer } | null {
   }
 }
 
-function describeFalError(err: unknown): string {
+export function describeFalError(err: unknown): string {
   if (!err || typeof err !== 'object') return err instanceof Error ? err.message : String(err)
   const rec = err as {
     message?: unknown
@@ -58,7 +58,7 @@ function describeFalError(err: unknown): string {
     for (const item of detail.slice(0, 4)) {
       if (typeof item === 'string' && item.trim()) parts.push(item.trim())
       else if (item && typeof item === 'object') {
-        const row = item as { loc?: unknown; msg?: unknown; type?: unknown }
+        const row = item as { loc?: unknown; msg?: unknown }
         const loc = Array.isArray(row.loc) ? row.loc.map(String).join('.') : ''
         const msg = typeof row.msg === 'string' ? row.msg : ''
         if (msg) parts.push(loc ? `${loc}: ${msg}` : msg)
@@ -82,71 +82,92 @@ async function resolveImageUrl(raw: string): Promise<string> {
   return fal.storage.upload(blob)
 }
 
-/**
- * Provider-backed video generation. Swap models in viralClipGen/config.ts.
- *
- * Kling 2.1 Standard is image-to-video only (no T2V endpoint).
- * Text-to-video uses Kling 1.6 Standard, which supports 9:16 and 5s/10s.
- */
-export async function generateVideo(params: FalVideoGenerateInput): Promise<FalVideoGenerateResult> {
-  const key = falKey()
-  fal.config({ credentials: key })
+async function buildFalInput(params: FalVideoGenerateInput): Promise<{
+  model: string
+  input: Record<string, unknown>
+}> {
   const models = viralClipGenModels()
   const duration = params.duration === 10 ? '10' : '5'
   const refs = params.referenceImageUrls.filter((u) => typeof u === 'string' && u.trim())
-
   const hasRefs = refs.length > 0
   const model = hasRefs ? models.imageToVideo : models.textToVideo
 
   const input: Record<string, unknown> = {
     prompt: params.prompt,
     duration,
+    cfg_scale: 0.5,
   }
   if (params.negativePrompt) input.negative_prompt = params.negativePrompt
-  input.cfg_scale = 0.5
-
   if (hasRefs) {
     input.image_url = await resolveImageUrl(refs[0]!)
   } else {
     input.aspect_ratio = params.aspectRatio
   }
+  return { model, input }
+}
 
-  const run = async (payload: Record<string, unknown>) => {
-    const result = await fal.subscribe(model, {
-      input: payload,
-      logs: true,
-      onQueueUpdate: (update) => {
-        if (update.status === 'IN_PROGRESS') {
-          for (const log of update.logs ?? []) {
-            console.log('[viral-clip-gen][fal]', log.message)
-          }
-        }
-      },
-    })
+export function falUserFacingError(err: unknown, hasRefs: boolean): string {
+  const detail = describeFalError(err)
+  console.error('[viral-clip-gen] fal error:', detail, err)
+  if (/not found|404|unknown endpoint|does not exist/i.test(detail)) {
+    return 'Video generation failed. The selected video model is not available.'
+  }
+  if (/unauthor|401|403|invalid.*key|forbidden/i.test(detail)) {
+    return 'Video generation failed. The video API key was rejected.'
+  }
+  if (/image|download|fetch|url/i.test(detail) && hasRefs) {
+    return 'Video generation failed. The reference image could not be used. Try a smaller JPG or PNG.'
+  }
+  if (/unprocessable|422|extra_forbidden|unexpected/i.test(detail)) {
+    return 'Video generation failed. The request was rejected by the video model.'
+  }
+  return 'Video generation failed. Try a simpler prompt or fewer reference images.'
+}
+
+/** Queue a Kling job and return immediately. Poll with getQueuedVideoStatus / getQueuedVideoUrl. */
+export async function submitVideo(params: FalVideoGenerateInput): Promise<FalQueuedVideo> {
+  ensureFal()
+  const { model, input } = await buildFalInput(params)
+  try {
+    const submitted = (await fal.queue.submit(model, { input })) as { request_id?: string }
+    const requestId = submitted.request_id?.trim()
+    if (!requestId) throw new Error('Video generation did not start.')
+    return { requestId, model }
+  } catch (err) {
+    throw new Error(falUserFacingError(err, params.referenceImageUrls.length > 0))
+  }
+}
+
+export type FalQueueState = 'IN_QUEUE' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'UNKNOWN'
+
+export async function getQueuedVideoStatus(
+  model: string,
+  requestId: string
+): Promise<FalQueueState> {
+  ensureFal()
+  try {
+    const status = (await fal.queue.status(model, { requestId, logs: true })) as {
+      status?: string
+    }
+    const raw = String(status.status || '').toUpperCase()
+    if (raw === 'COMPLETED' || raw === 'IN_QUEUE' || raw === 'IN_PROGRESS' || raw === 'FAILED') {
+      return raw
+    }
+    return 'UNKNOWN'
+  } catch (err) {
+    throw new Error(falUserFacingError(err, false))
+  }
+}
+
+export async function getQueuedVideoUrl(model: string, requestId: string): Promise<string> {
+  ensureFal()
+  try {
+    const result = await fal.queue.result(model, { requestId })
     const url =
       findVideoUrl((result as { data?: unknown }).data) || findVideoUrl(result)
     if (!url) throw new Error('Video generation returned no file.')
     return url
-  }
-
-  try {
-    const videoUrl = await run(input)
-    return { videoUrl, model }
   } catch (err) {
-    const detail = describeFalError(err)
-    console.error('[viral-clip-gen] fal generate failed:', { model, duration, hasRefs, detail, err })
-    if (/not found|404|unknown endpoint|does not exist/i.test(detail)) {
-      throw new Error('Video generation failed. The selected video model is not available.')
-    }
-    if (/unauthor|401|403|invalid.*key|forbidden/i.test(detail)) {
-      throw new Error('Video generation failed. The video API key was rejected.')
-    }
-    if (/image|download|fetch|url/i.test(detail) && hasRefs) {
-      throw new Error('Video generation failed. The reference image could not be used. Try a smaller JPG or PNG.')
-    }
-    if (/unprocessable|422|extra_forbidden|unexpected/i.test(detail)) {
-      throw new Error('Video generation failed. The request was rejected by the video model.')
-    }
-    throw new Error('Video generation failed. Try a simpler prompt or fewer reference images.')
+    throw new Error(falUserFacingError(err, false))
   }
 }

@@ -13,36 +13,14 @@ export function shotstackConfigured(): boolean {
   return Boolean(resolveShotstackApiKey())
 }
 
-async function pollRender(renderId: string, apiKey: string): Promise<string> {
-  const deadline = Date.now() + 180_000
-  while (Date.now() < deadline) {
-    const res = await fetch(`${shotstackEditApiRoot()}/render/${encodeURIComponent(renderId)}`, {
-      headers: { 'x-api-key': apiKey, Accept: 'application/json' },
-    })
-    const data = (await res.json().catch(() => ({}))) as {
-      response?: { status?: string; url?: string }
-      message?: string
-    }
-    if (!res.ok) {
-      throw new Error(shotstackSubmitUserMessage(data) || 'Could not check the final render.')
-    }
-    const status = data.response?.status
-    if (status === 'done' && data.response?.url) return data.response.url
-    if (status === 'failed') throw new Error('Final assembly failed. Please try again.')
-    await new Promise((r) => setTimeout(r, 4000))
-  }
-  throw new Error('Final assembly timed out. Try a shorter clip.')
-}
-
-/** Concatenate fal segments into one 9:16 mp4. No-op for a single clip. */
-export async function assembleViralClipIfNeeded(params: {
+export async function submitViralClipAssembly(params: {
   segmentUrls: string[]
   segmentDurations: number[]
-}): Promise<string> {
+}): Promise<{ url?: string; renderId?: string }> {
   if (params.segmentUrls.length === 0) {
     throw new Error('No video segments to assemble.')
   }
-  if (params.segmentUrls.length === 1) return params.segmentUrls[0]!
+  if (params.segmentUrls.length === 1) return { url: params.segmentUrls[0] }
 
   const apiKey = resolveShotstackApiKey()
   if (!apiKey) {
@@ -93,5 +71,27 @@ export async function assembleViralClipIfNeeded(params: {
   if (!res.ok || !data.response?.id) {
     throw new Error(shotstackSubmitUserMessage(data) || 'Could not start final assembly.')
   }
-  return pollRender(data.response.id, apiKey)
+  return { renderId: data.response.id }
+}
+
+export async function checkViralClipAssembly(
+  renderId: string
+): Promise<{ url?: string; pending?: boolean }> {
+  const apiKey = resolveShotstackApiKey()
+  if (!apiKey) throw new Error('SHOTSTACK_API_KEY is not configured')
+
+  const res = await fetch(`${shotstackEditApiRoot()}/render/${encodeURIComponent(renderId)}`, {
+    headers: { 'x-api-key': apiKey, Accept: 'application/json' },
+  })
+  const data = (await res.json().catch(() => ({}))) as {
+    response?: { status?: string; url?: string }
+    message?: string
+  }
+  if (!res.ok) {
+    throw new Error(shotstackSubmitUserMessage(data) || 'Could not check the final render.')
+  }
+  const status = data.response?.status
+  if (status === 'done' && data.response?.url) return { url: data.response.url }
+  if (status === 'failed') throw new Error('Final assembly failed. Please try again.')
+  return { pending: true }
 }

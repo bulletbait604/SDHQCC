@@ -42,6 +42,9 @@ export function viralClipGenGeminiModel(): string {
   return process.env.VIRAL_CLIP_GEN_GEMINI_MODEL?.trim() || 'gemini-2.5-flash'
 }
 
+/** Fail jobs still generating after this many ms (Kling can take several minutes). */
+export const VIRAL_CLIP_JOB_STALE_MS = 15 * 60 * 1000
+
 export function isViralClipDuration(value: unknown): value is ViralClipDuration {
   return typeof value === 'number' && (VIRAL_CLIP_DURATIONS as readonly number[]).includes(value)
 }
