@@ -14,6 +14,7 @@ export function normalizeYouTubeTag(tag: string): string {
   return tag
     .trim()
     .replace(/^#+/, '')
+    .replace(/_/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 }

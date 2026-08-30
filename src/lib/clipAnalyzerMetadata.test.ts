@@ -11,6 +11,10 @@ test('formats YouTube tags as comma-separated plain text', () => {
     formatYouTubeTagsForCopy(['#gaming', 'minecraft', ' Minecraft ', 'gaming']),
     'gaming, minecraft'
   )
+  assert.equal(
+    formatYouTubeTagsForCopy(['fortnite_highlights', 'victory royale']),
+    'fortnite highlights, victory royale'
+  )
 })
 
 test('strips trailing hashtag blocks from description', () => {

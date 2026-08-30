@@ -6,6 +6,8 @@ import { Hash, Sparkles, Loader2, Copy } from 'lucide-react'
 import type { ActivityLogEntry, KickUser, Platform } from '@/lib/home/types'
 import { platformsBannerLogos } from '@/lib/home/defaultPlatforms'
 import { postActivityLog } from '@/lib/home/activityLogUtils'
+import { formatTagsForClipboard } from '@/lib/home/tagUtils'
+import { isYouTubeClipPlatform } from '@/lib/clipAnalyzerMetadata'
 
 export interface TagGeneratorTabProps {
   darkMode: boolean
@@ -35,8 +37,10 @@ export default function TagGeneratorTab({
   const [tagCount, setTagCount] = useState(10)
   const [generatedTags, setGeneratedTags] = useState<Record<string, string[]>>({})
   const [isGeneratingTags, setIsGeneratingTags] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const bannerLogos = platformsBannerLogos(platforms)
+  const youtubeTags = isYouTubeClipPlatform(tagPlatform)
 
   const handleGenerate = async () => {
     if (!tagDescription.trim()) {
@@ -236,6 +240,11 @@ export default function TagGeneratorTab({
 
           {generatedTags[tagPlatform]?.length > 0 ? (
             <>
+              {youtubeTags && (
+                <p className={`text-xs mb-3 ${subtitleClasses}`}>
+                  YouTube Studio tags: comma-separated, no #. Paste into the Tags field.
+                </p>
+              )}
               <div className="flex flex-wrap gap-2 mb-4">
                 {generatedTags[tagPlatform].map((tag, index) => (
                   <span
@@ -246,22 +255,36 @@ export default function TagGeneratorTab({
                         : 'bg-sdhq-cyan-100 text-sdhq-cyan-700 border border-sdhq-cyan-200'
                     }`}
                   >
-                    #{tag}
+                    {youtubeTags ? tag : `#${tag}`}
                   </span>
                 ))}
               </div>
+              {youtubeTags && (
+                <p
+                  className={`text-xs font-mono break-all mb-4 p-3 rounded-lg ${
+                    darkMode ? 'bg-sdhq-dark-800 text-gray-300' : 'bg-white text-gray-700'
+                  }`}
+                >
+                  {formatTagsForClipboard(tagPlatform, generatedTags[tagPlatform])}
+                </p>
+              )}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  const tagsText = generatedTags[tagPlatform].map((t) => `#${t}`).join(' ')
-                  navigator.clipboard.writeText(tagsText)
-                  alert('Tags copied to clipboard!')
+                  const tagsText = formatTagsForClipboard(tagPlatform, generatedTags[tagPlatform])
+                  void navigator.clipboard.writeText(tagsText)
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 2000)
                 }}
                 className="w-full"
               >
                 <Copy className="w-4 h-4 mr-2" />
-                Copy All Tags
+                {copied
+                  ? 'Copied!'
+                  : youtubeTags
+                    ? 'Copy for YouTube Studio'
+                    : 'Copy All Tags'}
               </Button>
             </>
           ) : (

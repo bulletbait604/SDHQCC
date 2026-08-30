@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 import { buildTagGeneratorPrompt } from '@/lib/tagGeneratorPrompt'
 import { estimateTagGenerationUsd } from '@/lib/estimatedInferenceCost'
+import { sanitizeGeneratedTag } from '@/lib/home/tagUtils'
 import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { spendToolCoins } from '@/lib/coins/spendToolCoins'
 import { verifyStaffUser } from '@/lib/auth/staffAccess'
@@ -41,16 +42,6 @@ async function generateTagsWithGemini(description: string, platform: string, cou
     throw new Error('GEMINI_API not configured')
   }
 
-  const platformContext: Record<string, string> = {
-    tiktok: 'TikTok',
-    instagram: 'Instagram',
-    'youtube-shorts': 'YouTube Shorts',
-    'youtube-long': 'YouTube',
-    'facebook-reels': 'Facebook Reels',
-  }
-
-  const platformName = platformContext[platform.toLowerCase()] || platform
-
   try {
     const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
 
@@ -86,7 +77,7 @@ async function generateTagsWithGemini(description: string, platform: string, cou
       throw new Error('No content in Gemini response')
     }
 
-    return parseTagResponse(rawText, platformName, count)
+    return parseTagResponse(rawText, platform, count)
   } catch (error: any) {
     console.error('[Tags] Gemini API error:', error)
     const errorMessage = error.message || 'Unknown error'
@@ -114,15 +105,6 @@ async function generateTagsWithFalOpenRouter(
 
   const model = (process.env.FAL_TAG_LLM_MODEL || 'google/gemini-2.5-flash').trim()
   const prompt = buildTagGeneratorPrompt(description, platform, count)
-
-  const platformContext: Record<string, string> = {
-    tiktok: 'TikTok',
-    instagram: 'Instagram',
-    'youtube-shorts': 'YouTube Shorts',
-    'youtube-long': 'YouTube',
-    'facebook-reels': 'Facebook Reels',
-  }
-  const platformName = platformContext[platform.toLowerCase()] || platform
 
   console.log('[Tags] Calling Fal OpenRouter:', { model, promptLength: prompt.length })
 
@@ -162,12 +144,12 @@ async function generateTagsWithFalOpenRouter(
     throw new Error('Fal OpenRouter returned empty output')
   }
 
-  const tags = parseTagResponse(rawText, platformName, count)
+  const tags = parseTagResponse(rawText, platform, count)
   return { tags, modelLabel: model }
 }
 
 // Parse tag response from any AI provider
-function parseTagResponse(content: string, platformName: string, count: number): string[] {
+function parseTagResponse(content: string, platformId: string, count: number): string[] {
   let tags: string[]
   try {
     tags = JSON.parse(content)
@@ -187,12 +169,12 @@ function parseTagResponse(content: string, platformName: string, count: number):
   }
 
   const cleanedTags = tags
-    .map((tag: string) => tag.toLowerCase().replace(/[^a-z0-9_]/g, ''))
+    .map((tag: string) => sanitizeGeneratedTag(String(tag), platformId))
     .filter((tag: string) => tag.length > 2)
     .slice(0, count)
 
   if (cleanedTags.length === 0) {
-    return [platformName.toLowerCase().replace(/\s/g, ''), 'content', 'viral', 'trending']
+    return [platformId.toLowerCase().replace(/\s/g, ''), 'content', 'viral', 'trending']
   }
 
   return cleanedTags

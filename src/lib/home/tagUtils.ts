@@ -1,4 +1,5 @@
 import type { Platform } from '@/lib/home/types'
+import { formatYouTubeTagsForCopy, isYouTubeClipPlatform } from '@/lib/clipAnalyzerMetadata'
 
 export function getRecommendedTagCount(platformId: string, platforms: Platform[]): number {
   const platform = platforms.find((p) => p.id === platformId)
@@ -31,4 +32,29 @@ export function getEditSuggestionsTagSlice(
   if (!list.length) return []
   const cap = Math.min(list.length, Math.max(8, getRecommendedTagCount(platformId, platforms)))
   return list.slice(0, cap)
+}
+
+/** Clean a model tag for the target platform (YouTube keeps spaces; others are hashtag slugs). */
+export function sanitizeGeneratedTag(tag: string, platformId: string): string {
+  const raw = String(tag).trim().replace(/^#+/, '')
+  if (isYouTubeClipPlatform(platformId)) {
+    return raw
+      .replace(/_/g, ' ')
+      .replace(/\s+/g, ' ')
+      .replace(/[^a-zA-Z0-9 ]/g, '')
+      .trim()
+      .toLowerCase()
+  }
+  return raw.toLowerCase().replace(/[^a-z0-9_]/g, '')
+}
+
+/** Clipboard string: YouTube Studio is comma-separated with no #; other apps are #hashtags. */
+export function formatTagsForClipboard(platformId: string, tags: string[]): string {
+  const cleaned = tags
+    .map((t) => sanitizeGeneratedTag(t, platformId))
+    .filter((t) => t.length > 2)
+  if (isYouTubeClipPlatform(platformId)) {
+    return formatYouTubeTagsForCopy(cleaned)
+  }
+  return cleaned.map((t) => `#${t}`).join(' ')
 }
