@@ -7,13 +7,16 @@ import type { ActivityLogEntry, KickUser, Platform } from '@/lib/home/types'
 import { platformsBannerLogos } from '@/lib/home/defaultPlatforms'
 import { postActivityLog } from '@/lib/home/activityLogUtils'
 import {
-  POST4ME_CLIP_MAX_BYTES,
-  POST4ME_CLIP_MAX_DURATION_SECONDS,
-  post4meClipDurationExceededMessage,
+  POST4ME_ANALYZE_CHUNK_MINUTES,
+  pickPost4MeAnalyzeWindow,
+  post4meChunkSampleTimestamps,
   post4meClipLimitLabel,
 } from '@/lib/post4meLimits'
 import type { Post4MePlatformOutput } from '@/lib/post4meFormat'
 import Post4MePlatformResults from '@/app/components/Post4MePlatformResults'
+import { extractVideoFramesAsJpeg } from '@/lib/thumbnailClipFrameClient'
+import { formatTimestampFromSeconds } from '@/lib/thumbnailClipFrame'
+import { parseJsonResponse } from '@/lib/http/parseJsonResponse'
 
 const VALID_CLIP_TYPES = [
   'video/mp4',
@@ -64,6 +67,7 @@ export default function Post4MeTab({
   const [clipFile, setClipFile] = useState<File | null>(null)
   const [clipDurationSeconds, setClipDurationSeconds] = useState<number | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [loadingStep, setLoadingStep] = useState('')
   const [error, setError] = useState('')
   const [result, setResult] = useState<Post4MeResponse | null>(null)
 
@@ -105,47 +109,11 @@ export default function Post4MeTab({
       setError('Please upload MP4, WebM, MOV, AVI, or MKV.')
       return
     }
-    if (file.size > POST4ME_CLIP_MAX_BYTES) {
-      setError('Clip file is too large.')
-      return
-    }
     const duration = await readClipDuration(file)
-    if (duration != null && duration > POST4ME_CLIP_MAX_DURATION_SECONDS) {
-      setError(post4meClipDurationExceededMessage())
-      return
-    }
     setClipFile(file)
     setClipDurationSeconds(duration)
     setError('')
     setResult(null)
-  }
-
-  const uploadClipToR2 = async (file: File): Promise<string> => {
-    const presignRes = await fetch('/api/upload-url', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        filename: file.name,
-        contentType: file.type,
-        purpose: 'post4me',
-      }),
-    })
-    if (!presignRes.ok) {
-      const errBody = await presignRes.json().catch(() => ({}))
-      throw new Error((errBody as { error?: string }).error || 'Could not get upload URL')
-    }
-    const { uploadUrl, fileKey } = (await presignRes.json()) as {
-      uploadUrl: string
-      fileKey: string
-    }
-    const putRes = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': file.type },
-      body: file,
-    })
-    if (!putRes.ok) throw new Error('Failed to upload clip')
-    return fileKey
   }
 
   const handleGenerate = async () => {
@@ -171,26 +139,44 @@ export default function Post4MeTab({
     setResult(null)
 
     try {
-      const r2FileKey = await uploadClipToR2(clipFile)
+      const window = pickPost4MeAnalyzeWindow(clipDurationSeconds)
+      const times = post4meChunkSampleTimestamps(window.startSec, window.durationSec)
+      setLoadingStep(
+        clipDurationSeconds != null && clipDurationSeconds > window.durationSec + 1
+          ? `Sampling ${POST4ME_ANALYZE_CHUNK_MINUTES} min from ${formatTimestampFromSeconds(window.startSec)}–${formatTimestampFromSeconds(window.startSec + window.durationSec)}…`
+          : 'Sampling frames from clip…'
+      )
+      const samples = await extractVideoFramesAsJpeg(clipFile, times, {
+        maxWidth: 512,
+        quality: 0.72,
+      })
+      setLoadingStep('Writing post copy…')
       const res = await fetch('/api/post4me', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          r2FileKey,
           mimeType: clipFile.type,
           fileName: clipFile.name,
           fileSize: clipFile.size,
-          durationSeconds:
+          durationSeconds: Math.round(window.durationSec),
+          chunkStartSeconds: window.startSec,
+          chunkDurationSeconds: window.durationSec,
+          sourceDurationSeconds:
             clipDurationSeconds != null ? Math.round(clipDurationSeconds) : undefined,
           platforms: selectedPlatformIds,
           prompt: prompt.trim(),
+          sampleFrames: samples.map((s) => ({
+            timestampSeconds: s.timeSec,
+            imageBase64: s.base64,
+            mimeType: s.mimeType,
+          })),
         }),
       })
-      const data = (await res.json()) as Post4MeResponse & {
+      const data = await parseJsonResponse<Post4MeResponse & {
         error?: string
         userMessage?: string
-      }
+      }>(res)
       if (!res.ok) {
         throw new Error(data.userMessage || data.error || 'Post4Me failed')
       }
@@ -228,9 +214,14 @@ export default function Post4MeTab({
         })
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Post4Me failed')
+      let message = err instanceof Error ? err.message : 'Post4Me failed'
+      if (/unexpected token/i.test(message) && /json/i.test(message)) {
+        message = 'Post4Me failed before returning a result. Please try again.'
+      }
+      setError(message)
     } finally {
       setIsGenerating(false)
+      setLoadingStep('')
     }
   }
 
@@ -319,7 +310,7 @@ export default function Post4MeTab({
             <label
               className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}
             >
-              Reference clip (max {Math.round(POST4ME_CLIP_MAX_DURATION_SECONDS / 60)} min)
+              Reference clip (any size — random {POST4ME_ANALYZE_CHUNK_MINUTES} min slice)
             </label>
             <div
               className={`border-2 border-dashed rounded-xl p-4 ${clipFile ? 'border-cyan-500' : 'border-gray-600'}`}
@@ -334,7 +325,11 @@ export default function Post4MeTab({
                     <p className={`text-xs ${subtitleClasses}`}>
                       {(clipFile.size / (1024 * 1024)).toFixed(1)} MB
                       {clipDurationSeconds != null
-                        ? ` · ${Math.round(clipDurationSeconds)}s`
+                        ? ` · ${formatTimestampFromSeconds(clipDurationSeconds)}`
+                        : ''}
+                      {clipDurationSeconds != null &&
+                      clipDurationSeconds > POST4ME_ANALYZE_CHUNK_MINUTES * 60
+                        ? ` · random ${POST4ME_ANALYZE_CHUNK_MINUTES} min analyzed`
                         : ''}
                     </p>
                   </div>
@@ -352,7 +347,10 @@ export default function Post4MeTab({
               ) : (
                 <label className="flex flex-col items-center cursor-pointer py-4">
                   <Film className={`w-8 h-8 mb-2 ${subtitleClasses}`} />
-                  <span className={`text-sm ${subtitleClasses}`}>Click to upload clip</span>
+                  <span className={`text-sm ${subtitleClasses}`}>Click to upload any length clip</span>
+                  <span className={`text-xs mt-1 ${subtitleClasses}`}>
+                    We’ll analyze a random {POST4ME_ANALYZE_CHUNK_MINUTES}-minute slice
+                  </span>
                   <input
                     type="file"
                     accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-matroska"
@@ -399,8 +397,10 @@ export default function Post4MeTab({
             {isGenerating ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Generating for {selectedPlatformIds.length} platform
-                {selectedPlatformIds.length === 1 ? '' : 's'}…
+                {loadingStep ||
+                  `Generating for ${selectedPlatformIds.length} platform${
+                    selectedPlatformIds.length === 1 ? '' : 's'
+                  }…`}
               </>
             ) : (
               <>
@@ -417,7 +417,7 @@ export default function Post4MeTab({
               className={`flex flex-col items-center justify-center h-full text-center py-12 ${subtitleClasses}`}
             >
               <Send className="w-12 h-12 mb-3 opacity-40" />
-              <p>Upload a clip, select platforms, and generate copy for each one.</p>
+              <p>Upload a clip of any length, select platforms, and generate copy for each one.</p>
               <p className="text-xs mt-2 max-w-sm">
                 Results appear in separate cards per platform — formatted for how each site expects
                 metadata.

@@ -8,8 +8,8 @@ export async function parseJsonResponse<T>(res: Response): Promise<T> {
       throw new Error('Upload too large for the server. Try a shorter clip or a smaller image.')
     }
     if (res.status === 504 || res.status === 502 || res.status === 503) {
-      throw new Error('The thumbnail service timed out. Try again, or use a shorter clip.')
+      throw new Error('The service timed out. Try again.')
     }
-    throw new Error('Thumbnail service failed before returning a result. Please try again.')
+    throw new Error('The service failed before returning a result. Please try again.')
   }
 }

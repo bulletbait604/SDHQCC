@@ -28,7 +28,7 @@ export const homeTranslations = {
       'Upload a photo and remove the background behind the main subject with AI.',
     post4me: 'Post4Me',
     post4meDesc:
-      'Upload a clip up to 5 minutes, select one or more platforms, and get algorithm-optimized copy for each — formatted for TikTok captions or YouTube separate fields.',
+      'Upload a clip of any length. We analyze a random 5-minute slice and write algorithm-optimized copy for each platform — formatted for TikTok captions or YouTube separate fields.',
     resourceHub: 'Resource Hub',
     educate: 'Educate',
     create: 'Create',
@@ -86,7 +86,7 @@ export const homeTranslations = {
       'Sube una foto y elimina el fondo detrás del sujeto principal con IA.',
     post4me: 'Post4Me',
     post4meDesc:
-      'Sube un clip de hasta 5 minutos, elige una plataforma y obtén título, descripción y etiquetas optimizados.',
+      'Sube un clip de cualquier duración. Analizamos un fragmento aleatorio de 5 minutos y generamos título, descripción y etiquetas optimizados.',
     resourceHub: 'Centro de recursos',
     educate: 'Educar',
     create: 'Crear',
@@ -144,7 +144,7 @@ export const homeTranslations = {
       'Importez une photo et supprimez l’arrière-plan derrière le sujet principal avec l’IA.',
     post4me: 'Post4Me',
     post4meDesc:
-      'Importez un clip jusqu’à 5 minutes, choisissez une plateforme et obtenez titre, description et tags optimisés.',
+      'Importez un clip de n’importe quelle durée. Nous analysons un extrait aléatoire de 5 minutes et générons titre, description et tags optimisés.',
     resourceHub: 'Centre de ressources',
     educate: 'Éduquer',
     create: 'Créer',
@@ -202,7 +202,7 @@ export const homeTranslations = {
       'Laden Sie ein Foto hoch und entfernen Sie den Hintergrund hinter dem Hauptmotiv mit KI.',
     post4me: 'Post4Me',
     post4meDesc:
-      'Laden Sie einen Clip bis 5 Minuten hoch, wählen Sie eine Plattform und erhalten Sie optimierten Titel, Beschreibung und Tags.',
+      'Laden Sie einen Clip beliebiger Länge hoch. Wir analysieren einen zufälligen 5-Minuten-Ausschnitt und liefern Titel, Beschreibung und Tags.',
     resourceHub: 'Ressourcen-Hub',
     educate: 'Lernen',
     create: 'Erstellen',

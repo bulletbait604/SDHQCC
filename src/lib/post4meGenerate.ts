@@ -161,37 +161,32 @@ function tagGuidance(platformId: string, _platforms: Platform[]): string {
   return `${viralRules} Provide about ${count} hashtags WITH # prefix.`
 }
 
-export async function generatePost4MeFromClip(params: {
-  r2FileKey: string
-  mimeType: string
+type GeminiMediaPart =
+  | { text: string }
+  | { fileData: { fileUri: string; mimeType: string } }
+  | { inlineData: { data: string; mimeType: string } }
+
+export type Post4MeSampleFrame = {
+  timestampSeconds: number
+  imageBase64: string
+  mimeType?: string
+}
+
+async function runPost4MeFromParts(params: {
+  apiKey: string
+  parts: GeminiMediaPart[]
   platformIds: string[]
   userPrompt?: string
-  durationSeconds?: number
+  durationNote: string
   platforms?: Platform[]
 }): Promise<Post4MeResult[]> {
   const platformIds = params.platformIds.filter(Boolean)
   if (platformIds.length === 0) throw new Error('At least one platform is required')
 
-  const apiKey = (process.env.GEMINI_API || '').trim()
-  if (!apiKey) throw new Error('GEMINI_API is not configured')
-
-  const buffer = await getFileFromR2(params.r2FileKey)
-  if (!buffer) throw new Error('Clip not found in storage')
-
   const platformList = params.platforms ?? []
   const userDirection = params.userPrompt?.trim()
     ? `\nCreator direction (honor this when writing copy):\n${params.userPrompt.trim()}`
     : ''
-
-  const uploaded = await uploadBufferToGeminiFilesApi({
-    apiKey,
-    buffer,
-    mimeType: normalizeMimeType(params.mimeType),
-    displayName: 'post4me-clip',
-  })
-
-  const cleanupName = uploaded.name
-  await pollGeminiFileUntilActive(apiKey, uploaded.uri, { maxRetries: 60, retryDelayMs: 2000 })
 
   const platformLabels = platformIds
     .map((id) => PLATFORM_LABELS[id] || id)
@@ -211,11 +206,11 @@ export async function generatePost4MeFromClip(params: {
     )
     .join('\n')
 
-  const prompt = `You are an elite multi-platform viral growth strategist. Watch this clip once, then write DISTINCT publish-ready metadata for EACH platform — Facebook winning with a file does NOT mean the same caption works on TikTok, Instagram, or YouTube Shorts.
+  const prompt = `You are an elite multi-platform viral growth strategist. Study this clip (or stills from a window of it), then write DISTINCT publish-ready metadata for EACH platform — Facebook winning with a file does NOT mean the same caption works on TikTok, Instagram, or YouTube Shorts.
 
 Target platforms: ${platformLabels}
 Platform IDs (use exactly in response): ${platformIds.join(', ')}
-${params.durationSeconds ? `Clip length: ~${Math.round(params.durationSeconds)}s` : ''}
+${params.durationNote}
 
 ${algoBlocks.filter(Boolean).join('\n')}
 ${multiRules}
@@ -248,100 +243,193 @@ Return valid JSON only (no markdown):
 
 Include one object in "results" for EVERY platform ID listed above. Order results the same as the platform ID list.`
 
+  const genAI = new GoogleGenAI({ apiKey: params.apiKey })
+  const response = await genAI.models.generateContent({
+    model: MODEL_NAME,
+    contents: [
+      {
+        role: 'user',
+        parts: [...params.parts, { text: prompt }],
+      },
+    ],
+    config: {
+      temperature: 0.9,
+    },
+  })
+
+  let raw =
+    typeof (response as { text?: string }).text === 'string'
+      ? (response as { text: string }).text
+      : ''
+  if (!raw.trim()) throw new Error('Gemini returned empty response')
+
+  if (raw.includes('```')) {
+    raw = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+  }
+
+  let parsed: unknown
   try {
-    const genAI = new GoogleGenAI({ apiKey })
-    const response = await genAI.models.generateContent({
-      model: MODEL_NAME,
-      contents: [
+    parsed = JSON.parse(raw)
+  } catch {
+    const extracted = extractFirstBalancedJsonObject(raw)
+    if (!extracted) throw new Error('Could not parse Gemini response')
+    parsed = JSON.parse(extracted)
+  }
+
+  const multi = post4meMultiRawSchema.safeParse(parsed)
+  if (!multi.success) {
+    console.error('[Post4Me] Unexpected Gemini JSON shape:', multi.error.message)
+    throw new Error('Could not parse Gemini response')
+  }
+
+  const entries: CoercedPost4MeEntry[] = []
+
+  if (multi.data.results?.length) {
+    for (const row of multi.data.results) {
+      const id =
+        typeof (row as { platformId?: unknown }).platformId === 'string'
+          ? String((row as { platformId: string }).platformId).trim().toLowerCase()
+          : ''
+      if (!id) continue
+      const coerced = coercePost4MePlatformEntry(id, row)
+      if (coerced) entries.push(coerced)
+    }
+  } else if (multi.data.platforms) {
+    for (const [platformId, row] of Object.entries(multi.data.platforms)) {
+      const coerced = coercePost4MePlatformEntry(platformId.trim().toLowerCase(), row)
+      if (coerced) entries.push(coerced)
+    }
+  }
+
+  const byId = new Map(entries.map((e) => [e.platformId.trim().toLowerCase(), e]))
+  const results: Post4MeResult[] = []
+
+  for (const platformId of platformIds) {
+    const rawMeta = byId.get(platformId)
+    if (!rawMeta) {
+      console.warn(`[Post4Me] Missing platform in Gemini response: ${platformId}`)
+      continue
+    }
+    const normalized = normalizeClipAnalysisMetadata(platformId, rawMeta)
+    results.push({
+      ...normalized,
+      platformId,
+      isYouTube: isYouTubeClipPlatform(platformId),
+      viralityScore: rawMeta.viralityScore,
+      viralitySummary: rawMeta.viralitySummary,
+    })
+  }
+
+  if (results.length === 0) {
+    throw new Error('Gemini did not return metadata for any selected platform')
+  }
+
+  return results
+}
+
+export async function generatePost4MeFromClip(params: {
+  r2FileKey: string
+  mimeType: string
+  platformIds: string[]
+  userPrompt?: string
+  durationSeconds?: number
+  platforms?: Platform[]
+}): Promise<Post4MeResult[]> {
+  const apiKey = (process.env.GEMINI_API || '').trim()
+  if (!apiKey) throw new Error('GEMINI_API is not configured')
+
+  const buffer = await getFileFromR2(params.r2FileKey)
+  if (!buffer) throw new Error('Clip not found in storage')
+
+  const uploaded = await uploadBufferToGeminiFilesApi({
+    apiKey,
+    buffer,
+    mimeType: normalizeMimeType(params.mimeType),
+    displayName: 'post4me-clip',
+  })
+
+  const cleanupName = uploaded.name
+  await pollGeminiFileUntilActive(apiKey, uploaded.uri, { maxRetries: 60, retryDelayMs: 2000 })
+
+  const durationNote = params.durationSeconds
+    ? `Clip length: ~${Math.round(params.durationSeconds)}s`
+    : ''
+
+  try {
+    return await runPost4MeFromParts({
+      apiKey,
+      parts: [
         {
-          role: 'user',
-          parts: [
-            {
-              fileData: {
-                fileUri: uploaded.uri,
-                mimeType: normalizeMimeType(params.mimeType),
-              },
-            },
-            { text: prompt },
-          ],
+          fileData: {
+            fileUri: uploaded.uri,
+            mimeType: normalizeMimeType(params.mimeType),
+          },
         },
       ],
-      config: {
-        temperature: 0.9,
-      },
+      platformIds: params.platformIds,
+      userPrompt: params.userPrompt,
+      durationNote,
+      platforms: params.platforms,
     })
-
-    let raw =
-      typeof (response as { text?: string }).text === 'string'
-        ? (response as { text: string }).text
-        : ''
-    if (!raw.trim()) throw new Error('Gemini returned empty response')
-
-    if (raw.includes('```')) {
-      raw = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-    }
-
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(raw)
-    } catch {
-      const extracted = extractFirstBalancedJsonObject(raw)
-      if (!extracted) throw new Error('Could not parse Gemini response')
-      parsed = JSON.parse(extracted)
-    }
-
-    const multi = post4meMultiRawSchema.safeParse(parsed)
-    if (!multi.success) {
-      console.error('[Post4Me] Unexpected Gemini JSON shape:', multi.error.message)
-      throw new Error('Could not parse Gemini response')
-    }
-
-    const entries: CoercedPost4MeEntry[] = []
-
-    if (multi.data.results?.length) {
-      for (const row of multi.data.results) {
-        const id =
-          typeof (row as { platformId?: unknown }).platformId === 'string'
-            ? String((row as { platformId: string }).platformId).trim().toLowerCase()
-            : ''
-        if (!id) continue
-        const coerced = coercePost4MePlatformEntry(id, row)
-        if (coerced) entries.push(coerced)
-      }
-    } else if (multi.data.platforms) {
-      for (const [platformId, row] of Object.entries(multi.data.platforms)) {
-        const coerced = coercePost4MePlatformEntry(platformId.trim().toLowerCase(), row)
-        if (coerced) entries.push(coerced)
-      }
-    }
-
-    const byId = new Map(entries.map((e) => [e.platformId.trim().toLowerCase(), e]))
-    const results: Post4MeResult[] = []
-
-    for (const platformId of platformIds) {
-      const rawMeta = byId.get(platformId)
-      if (!rawMeta) {
-        console.warn(`[Post4Me] Missing platform in Gemini response: ${platformId}`)
-        continue
-      }
-      const normalized = normalizeClipAnalysisMetadata(platformId, rawMeta)
-      results.push({
-        ...normalized,
-        platformId,
-        isYouTube: isYouTubeClipPlatform(platformId),
-        viralityScore: rawMeta.viralityScore,
-        viralitySummary: rawMeta.viralitySummary,
-      })
-    }
-
-    if (results.length === 0) {
-      throw new Error('Gemini did not return metadata for any selected platform')
-    }
-
-    return results
   } finally {
     await deleteGeminiUploadedFile(apiKey, cleanupName).catch(() => undefined)
   }
+}
+
+export async function generatePost4MeFromFrames(params: {
+  frames: Post4MeSampleFrame[]
+  platformIds: string[]
+  userPrompt?: string
+  chunkStartSeconds?: number
+  chunkDurationSeconds?: number
+  sourceDurationSeconds?: number
+  platforms?: Platform[]
+}): Promise<Post4MeResult[]> {
+  const apiKey = (process.env.GEMINI_API || '').trim()
+  if (!apiKey) throw new Error('GEMINI_API is not configured')
+
+  const frames = params.frames.filter(
+    (f) =>
+      Number.isFinite(f.timestampSeconds) &&
+      f.timestampSeconds >= 0 &&
+      typeof f.imageBase64 === 'string' &&
+      f.imageBase64.length > 80
+  )
+  if (frames.length < 1) throw new Error('No sample frames were provided')
+  if (frames.length > 16) throw new Error('Too many sample frames')
+
+  const parts: GeminiMediaPart[] = []
+  for (const frame of frames) {
+    const mime =
+      typeof frame.mimeType === 'string' && frame.mimeType.startsWith('image/')
+        ? frame.mimeType
+        : 'image/jpeg'
+    parts.push({ inlineData: { data: frame.imageBase64, mimeType: mime } })
+    const m = Math.floor(frame.timestampSeconds / 60)
+    const s = Math.floor(frame.timestampSeconds % 60)
+    parts.push({ text: `Still at ${m}:${String(s).padStart(2, '0')}` })
+  }
+
+  const chunkMin =
+    typeof params.chunkDurationSeconds === 'number'
+      ? Math.round(params.chunkDurationSeconds / 60)
+      : 5
+  const sourceNote =
+    typeof params.sourceDurationSeconds === 'number' && params.sourceDurationSeconds > 0
+      ? `Source file is ~${Math.round(params.sourceDurationSeconds / 60)} minutes.`
+      : ''
+  const start =
+    typeof params.chunkStartSeconds === 'number' ? Math.round(params.chunkStartSeconds) : 0
+  const durationNote = `These stills are a RANDOM ~${chunkMin}-minute window starting at ${Math.floor(start / 60)}:${String(start % 60).padStart(2, '0')} of a longer upload. ${sourceNote} Write copy for THIS window only.`
+
+  return runPost4MeFromParts({
+    apiKey,
+    parts,
+    platformIds: params.platformIds,
+    userPrompt: params.userPrompt,
+    durationNote,
+    platforms: params.platforms,
+  })
 }
 
 export function estimatePost4MeUsd(durationSeconds: number): {

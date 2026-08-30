@@ -7,12 +7,13 @@ import { toolCoinCost } from '@/lib/coins/toolCosts'
 import { deleteFileFromR2, getR2ObjectMetadata } from '@/lib/r2'
 import { isSafeR2ObjectKey } from '@/lib/r2KeyValidation'
 import { DEFAULT_PLATFORMS } from '@/lib/home/defaultPlatforms'
+import { POST4ME_ANALYZE_CHUNK_SECONDS, POST4ME_CLIP_MAX_BYTES } from '@/lib/post4meLimits'
 import {
-  POST4ME_CLIP_MAX_BYTES,
-  POST4ME_CLIP_MAX_DURATION_SECONDS,
-  post4meClipDurationExceededMessage,
-} from '@/lib/post4meLimits'
-import { generatePost4MeFromClip, estimatePost4MeUsd } from '@/lib/post4meGenerate'
+  generatePost4MeFromClip,
+  generatePost4MeFromFrames,
+  estimatePost4MeUsd,
+  type Post4MeSampleFrame,
+} from '@/lib/post4meGenerate'
 import {
   buildPost4MePlatformOutputs,
   normalizePost4MePlatformIds,
@@ -22,6 +23,37 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 const POST4ME_COIN_COST = toolCoinCost('post4me') ?? 2
+const MAX_SAMPLE_FRAMES = 16
+const MAX_FRAME_B64_CHARS = 400_000
+
+function parsePost4MeSampleFrames(raw: unknown): Post4MeSampleFrame[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null
+  if (raw.length > MAX_SAMPLE_FRAMES) {
+    throw new Error('Too many sample frames')
+  }
+  const frames: Post4MeSampleFrame[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const rec = item as Record<string, unknown>
+    const timestampSeconds =
+      typeof rec.timestampSeconds === 'number'
+        ? rec.timestampSeconds
+        : typeof rec.timeSec === 'number'
+          ? rec.timeSec
+          : NaN
+    const imageBase64 = typeof rec.imageBase64 === 'string' ? rec.imageBase64 : ''
+    if (!Number.isFinite(timestampSeconds) || timestampSeconds < 0 || !imageBase64) continue
+    if (imageBase64.length > MAX_FRAME_B64_CHARS) {
+      throw new Error('A sample frame is too large')
+    }
+    frames.push({
+      timestampSeconds,
+      imageBase64,
+      mimeType: typeof rec.mimeType === 'string' ? rec.mimeType : 'image/jpeg',
+    })
+  }
+  return frames.length > 0 ? frames : null
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,6 +68,10 @@ export async function POST(request: NextRequest) {
       platform,
       platforms,
       prompt,
+      sampleFrames: sampleFramesRaw,
+      chunkStartSeconds,
+      chunkDurationSeconds,
+      sourceDurationSeconds,
     } = body as {
       r2FileKey?: string
       mimeType?: string
@@ -45,6 +81,10 @@ export async function POST(request: NextRequest) {
       platform?: string
       platforms?: string[]
       prompt?: string
+      sampleFrames?: unknown
+      chunkStartSeconds?: number
+      chunkDurationSeconds?: number
+      sourceDurationSeconds?: number
     }
 
     const platformIds = normalizePost4MePlatformIds(
@@ -53,38 +93,18 @@ export async function POST(request: NextRequest) {
     if (platformIds.length === 0) {
       return NextResponse.json({ error: 'Select at least one platform' }, { status: 400 })
     }
-    if (typeof r2FileKey !== 'string' || !r2FileKey.trim()) {
+
+    let sampleFrames: Post4MeSampleFrame[] | null = null
+    try {
+      sampleFrames = parsePost4MeSampleFrames(sampleFramesRaw)
+    } catch (parseErr) {
+      const message = parseErr instanceof Error ? parseErr.message : 'Invalid sample frames'
+      return NextResponse.json({ error: message }, { status: 400 })
+    }
+
+    const clipKey = typeof r2FileKey === 'string' ? r2FileKey.trim() : ''
+    if (!sampleFrames && !clipKey) {
       return NextResponse.json({ error: 'Clip upload is required' }, { status: 400 })
-    }
-
-    const clipKey = r2FileKey.trim()
-    const storageUser = user.username.replace(/^@/, '').toLowerCase()
-    const prefix = `uploads/post4me-clips/${storageUser}/`
-    if (
-      !isSafeR2ObjectKey(clipKey) ||
-      !clipKey.startsWith(prefix) ||
-      clipKey.includes('..')
-    ) {
-      return NextResponse.json({ error: 'Invalid clip file key' }, { status: 400 })
-    }
-
-    const durationSec =
-      typeof durationSeconds === 'number' && Number.isFinite(durationSeconds)
-        ? durationSeconds
-        : undefined
-    if (durationSec != null && durationSec > POST4ME_CLIP_MAX_DURATION_SECONDS) {
-      return NextResponse.json({ error: post4meClipDurationExceededMessage() }, { status: 400 })
-    }
-
-    const meta = await getR2ObjectMetadata(clipKey)
-    if (!meta) {
-      return NextResponse.json(
-        { error: 'Clip not found', userMessage: 'Could not load your upload. Try uploading again.' },
-        { status: 404 }
-      )
-    }
-    if (meta.contentLength > POST4ME_CLIP_MAX_BYTES) {
-      return NextResponse.json({ error: 'File too large' }, { status: 400 })
     }
 
     if (!hasUnlimitedAccess(user)) {
@@ -108,19 +128,67 @@ export async function POST(request: NextRequest) {
     }
 
     const userPrompt = typeof prompt === 'string' ? prompt : ''
+    const chunkDur =
+      typeof chunkDurationSeconds === 'number' && Number.isFinite(chunkDurationSeconds)
+        ? chunkDurationSeconds
+        : typeof durationSeconds === 'number' && Number.isFinite(durationSeconds)
+          ? Math.min(durationSeconds, POST4ME_ANALYZE_CHUNK_SECONDS)
+          : POST4ME_ANALYZE_CHUNK_SECONDS
+    const sourceDur =
+      typeof sourceDurationSeconds === 'number' && Number.isFinite(sourceDurationSeconds)
+        ? sourceDurationSeconds
+        : typeof durationSeconds === 'number' && Number.isFinite(durationSeconds)
+          ? durationSeconds
+          : undefined
+    const chunkStart =
+      typeof chunkStartSeconds === 'number' && Number.isFinite(chunkStartSeconds)
+        ? chunkStartSeconds
+        : 0
 
     let generated
-    try {
-      generated = await generatePost4MeFromClip({
-        r2FileKey: clipKey,
-        mimeType: mimeType || meta.contentType || 'video/mp4',
+    if (sampleFrames) {
+      generated = await generatePost4MeFromFrames({
+        frames: sampleFrames,
         platformIds,
         userPrompt,
-        durationSeconds: durationSec,
+        chunkStartSeconds: chunkStart,
+        chunkDurationSeconds: chunkDur,
+        sourceDurationSeconds: sourceDur,
         platforms: DEFAULT_PLATFORMS,
       })
-    } finally {
-      await deleteFileFromR2(clipKey).catch(() => undefined)
+    } else {
+      const storageUser = user.username.replace(/^@/, '').toLowerCase()
+      const prefix = `uploads/post4me-clips/${storageUser}/`
+      if (!isSafeR2ObjectKey(clipKey) || !clipKey.startsWith(prefix) || clipKey.includes('..')) {
+        return NextResponse.json({ error: 'Invalid clip file key' }, { status: 400 })
+      }
+
+      const meta = await getR2ObjectMetadata(clipKey)
+      if (!meta) {
+        return NextResponse.json(
+          {
+            error: 'Clip not found',
+            userMessage: 'Could not load your upload. Try uploading again.',
+          },
+          { status: 404 }
+        )
+      }
+      if (meta.contentLength > POST4ME_CLIP_MAX_BYTES) {
+        return NextResponse.json({ error: 'File too large' }, { status: 400 })
+      }
+
+      try {
+        generated = await generatePost4MeFromClip({
+          r2FileKey: clipKey,
+          mimeType: mimeType || meta.contentType || 'video/mp4',
+          platformIds,
+          userPrompt,
+          durationSeconds: chunkDur,
+          platforms: DEFAULT_PLATFORMS,
+        })
+      } finally {
+        await deleteFileFromR2(clipKey).catch(() => undefined)
+      }
     }
 
     if (!hasUnlimitedAccess(user)) {
@@ -133,7 +201,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const estimate = estimatePost4MeUsd(durationSec ?? 45)
+    const estimate = estimatePost4MeUsd(chunkDur)
     const results = buildPost4MePlatformOutputs(generated)
 
     return NextResponse.json({
