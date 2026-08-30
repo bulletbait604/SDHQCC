@@ -1,5 +1,6 @@
 /** Shared limits for Thumbnail Generator reference clips. */
-export const THUMBNAIL_CLIP_MAX_BYTES = 2 * 1024 * 1024 * 1024
+export const THUMBNAIL_CLIP_MAX_GB = 3
+export const THUMBNAIL_CLIP_MAX_BYTES = THUMBNAIL_CLIP_MAX_GB * 1024 * 1024 * 1024
 
 /** Free / coin tier */
 export const THUMBNAIL_CLIP_MAX_DURATION_FREE_SECONDS = 30 * 60
@@ -23,7 +24,11 @@ export function formatThumbnailClipLimitLabel(subscriber: boolean): string {
   const minutes = subscriber
     ? THUMBNAIL_CLIP_MAX_DURATION_SUBSCRIBER_MINUTES
     : THUMBNAIL_CLIP_MAX_DURATION_FREE_MINUTES
-  return `Up to ${minutes} min · 2 GB max`
+  return `Up to ${minutes} min · ${THUMBNAIL_CLIP_MAX_GB} GB max`
+}
+
+export function thumbnailClipSizeExceededMessage(): string {
+  return `Clip must be under ${THUMBNAIL_CLIP_MAX_GB} GB. Compress long VODs before uploading.`
 }
 
 export const THUMBNAIL_CLIP_SUBSCRIBER_UPSELL =

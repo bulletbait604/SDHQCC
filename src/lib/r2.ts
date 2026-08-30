@@ -40,9 +40,11 @@ export type GenerateUploadUrlOpts = {
   /** Clip analyzer / clip editor / thumbnail: `uploads/clips/<user>/…` or `uploads/thumbnail-clips/<user>/…` */
   clipUsername?: string
   purpose?: 'clip-analyzer' | 'clip-editor' | 'thumbnail-generator' | 'thumbnail-2' | 'post4me'
+  /** Presigned PUT lifetime in seconds (default 5 min). Large thumbnail clips need longer. */
+  expiresIn?: number
 }
 
-// Generate presigned URL for upload (valid for 5 minutes)
+// Generate presigned URL for upload (default 5 minutes; callers can override expiresIn)
 export async function generateUploadUrl(
   filename: string,
   contentType: string,
@@ -78,8 +80,8 @@ export async function generateUploadUrl(
       ContentType: contentType,
     })
 
-    // URL expires in 5 minutes
-    const uploadUrl = await getSignedUrl(r2Client, command, { expiresIn: 300 })
+    const expiresIn = opts?.expiresIn ?? 300
+    const uploadUrl = await getSignedUrl(r2Client, command, { expiresIn })
     
     // Public URL for reading (requires public bucket or custom domain)
     const publicUrl = `${R2_ENDPOINT}/${R2_BUCKET_NAME}/${fileKey}`

@@ -71,6 +71,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Thumbnail Creator accepts up to 3 GB; a 5-minute URL often expires mid-upload.
+    const expiresIn = purpose === 'thumbnail-generator' ? 7200 : 300
+
     let result
     try {
       result = await generateUploadUrl(filename, contentType, {
@@ -94,6 +97,7 @@ export async function POST(request: NextRequest) {
                   : purpose === 'clip-analyzer'
                     ? 'clip-analyzer'
                     : undefined,
+        expiresIn,
       })
     } catch (generateError: unknown) {
       console.error('Upload URL API: Error in generateUploadUrl:', generateError)
@@ -120,7 +124,7 @@ export async function POST(request: NextRequest) {
       uploadUrl: result.uploadUrl,
       fileKey: result.fileKey,
       publicUrl: result.publicUrl,
-      expiresIn: 300,
+      expiresIn,
     })
   } catch (error: unknown) {
     if (error instanceof AuthError) return createAuthErrorResponse(error)

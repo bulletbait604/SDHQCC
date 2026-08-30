@@ -23,13 +23,14 @@ interface ThumbnailResult {
 import {
   THUMBNAIL_CLIP_MAX_BYTES,
   THUMBNAIL_CLIP_SUBSCRIBER_UPSELL,
+  formatThumbnailClipLimitLabel,
   thumbnailClipDurationExceededMessage,
   thumbnailClipMaxDurationSeconds,
+  thumbnailClipSizeExceededMessage,
 } from '@/lib/thumbnailClipLimits'
 import { parseBestMomentTimestamp } from '@/lib/thumbnailClipFrame'
 import { extractVideoFrameAsJpeg } from '@/lib/thumbnailClipFrameClient'
 
-const CLIP_MAX_BYTES = THUMBNAIL_CLIP_MAX_BYTES
 const VALID_CLIP_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska']
 
 function thumbnailImageSrc(key: string): string {
@@ -96,7 +97,7 @@ export default function ThumbnailGenerator({
   const COIN_COST = 2 // Thumbnail generator costs 2 coins
   
   const clipMaxDurationSec = thumbnailClipMaxDurationSeconds(hasUnlimitedAccess)
-  const clipMaxMinutes = Math.round(clipMaxDurationSec / 60)
+  const clipLimitLabel = formatThumbnailClipLimitLabel(hasUnlimitedAccess)
   
   // Available platforms for thumbnails
   const availablePlatforms = [
@@ -176,8 +177,8 @@ export default function ThumbnailGenerator({
       setError('Please upload MP4, WebM, MOV, AVI, or MKV.')
       return
     }
-    if (file.size > CLIP_MAX_BYTES) {
-      setError('Clip must be under 2 GB. Compress long VODs before uploading.')
+    if (file.size > THUMBNAIL_CLIP_MAX_BYTES) {
+      setError(thumbnailClipSizeExceededMessage())
       return
     }
     const duration = await readClipDuration(file)
@@ -577,7 +578,7 @@ export default function ThumbnailGenerator({
                     <Film className={`w-7 h-7 ${subtle}`} />
                     <p className={`text-xs text-center ${subtle}`}>Drop clip or click</p>
                     <p className={`text-[10px] text-center ${subtle}`}>
-                      Up to {clipMaxMinutes} min · 2 GB max
+                      {clipLimitLabel}
                     </p>
                   </button>
                 )}

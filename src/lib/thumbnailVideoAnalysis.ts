@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai'
-import { getFileFromR2, deleteFileFromR2 } from '@/lib/r2'
+import { getFileFromR2, deleteFileFromR2, getR2ObjectMetadata } from '@/lib/r2'
 import {
   deleteGeminiUploadedFile,
   pollGeminiFileUntilActive,
@@ -8,6 +8,7 @@ import {
 import { formatThumbnailAlgorithmContextForPlatform } from '@/lib/algorithmContext'
 import {
   THUMBNAIL_CLIP_MAX_BYTES,
+  thumbnailClipSizeExceededMessage,
 } from '@/lib/thumbnailClipLimits'
 import {
   buildViralClipAnalyzePrompt,
@@ -26,11 +27,13 @@ export {
 
 export {
   THUMBNAIL_CLIP_MAX_BYTES,
+  THUMBNAIL_CLIP_MAX_GB,
   THUMBNAIL_CLIP_MAX_DURATION_SECONDS,
   THUMBNAIL_CLIP_MAX_DURATION_FREE_SECONDS,
   THUMBNAIL_CLIP_MAX_DURATION_SUBSCRIBER_SECONDS,
   thumbnailClipMaxDurationSeconds,
   formatThumbnailClipLimitLabel,
+  thumbnailClipSizeExceededMessage,
   THUMBNAIL_CLIP_SUBSCRIBER_UPSELL,
 } from '@/lib/thumbnailClipLimits'
 
@@ -118,8 +121,16 @@ export async function analyzeThumbnailReferenceClip(params: {
   const apiKey = (process.env.GEMINI_API || '').trim()
   if (!apiKey) throw new Error('GEMINI_API is not configured')
 
+  const meta = await getR2ObjectMetadata(params.r2FileKey)
+  if (meta && meta.contentLength > THUMBNAIL_CLIP_MAX_BYTES) {
+    throw new Error(thumbnailClipSizeExceededMessage())
+  }
+
   const buffer = await getFileFromR2(params.r2FileKey)
   if (!buffer) throw new Error('Reference clip not found in storage')
+  if (buffer.length > THUMBNAIL_CLIP_MAX_BYTES) {
+    throw new Error(thumbnailClipSizeExceededMessage())
+  }
 
   const model =
     process.env.THUMBNAIL_VIDEO_GEMINI_MODEL?.trim() ||
