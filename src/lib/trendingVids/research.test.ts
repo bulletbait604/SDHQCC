@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import {
   getTrendingVidsPlatform,
   isTrendingVidsPlatformId,
+  MAX_TRENDING_VIDS_PROMPT_CHARS,
+  normalizeTrendingVidsPrompt,
   TRENDING_VIDS_PLATFORMS,
 } from '@/lib/trendingVids/platforms'
 import {
@@ -82,4 +84,32 @@ test('normalizeTrendingVidsResult keeps top 5 and requires at least 3', () => {
   assert.equal(result.trends.length, TRENDING_VIDS_COUNT)
   assert.equal(result.trends[4]?.rank, 5)
   assert.equal(result.trends[0]?.url, 'https://www.tiktok.com/@user/video/1')
+  assert.equal(result.prompt, '')
 })
+
+test('normalizeTrendingVidsPrompt trims, collapses space, and caps length', () => {
+  assert.equal(normalizeTrendingVidsPrompt('  FPS   gaming  '), 'FPS gaming')
+  assert.equal(normalizeTrendingVidsPrompt(null), '')
+  assert.equal(normalizeTrendingVidsPrompt(12), '')
+  const long = 'x'.repeat(MAX_TRENDING_VIDS_PROMPT_CHARS + 40)
+  assert.equal(normalizeTrendingVidsPrompt(long).length, MAX_TRENDING_VIDS_PROMPT_CHARS)
+})
+
+test('normalizeTrendingVidsResult echoes the creator focus prompt', () => {
+  const youtube = getTrendingVidsPlatform('youtube')!
+  const result = normalizeTrendingVidsResult({
+    raw: {
+      overview: 'Horror shorts are popping',
+      trends: [{ title: 'One' }, { title: 'Two' }, { title: 'Three' }],
+    },
+    platform: youtube,
+    sources: [],
+    searchQueries: [],
+    model: 'test',
+    usedGoogleSearch: true,
+    prompt: '  horror shorts  ',
+  })
+  assert.ok(result)
+  assert.equal(result.prompt, 'horror shorts')
+})
+

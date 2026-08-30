@@ -91,3 +91,16 @@ export const TREND_KINDS: readonly TrendingVidsKind[] = [
 export function isTrendingVidsKind(value: string): value is TrendingVidsKind {
   return (TREND_KINDS as readonly string[]).includes(value)
 }
+
+export const MAX_TRENDING_VIDS_PROMPT_CHARS = 240
+
+/** Optional creator focus for trend research — keep short and printable. */
+export function normalizeTrendingVidsPrompt(raw: unknown): string {
+  if (typeof raw !== 'string') return ''
+  return raw
+    .replace(/\r\n/g, '\n')
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .slice(0, MAX_TRENDING_VIDS_PROMPT_CHARS)
+}

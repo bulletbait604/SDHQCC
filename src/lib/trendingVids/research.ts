@@ -3,6 +3,7 @@ import { extractBalancedJsonObject } from '@/lib/algorithmPlatformNormalize'
 import {
   getTrendingVidsPlatform,
   isTrendingVidsKind,
+  normalizeTrendingVidsPrompt,
   type TrendingVidsKind,
   type TrendingVidsPlatform,
 } from '@/lib/trendingVids/platforms'
@@ -32,6 +33,7 @@ export type TrendingVidsResult = {
   platformName: string
   researchedAt: string
   overview: string
+  prompt: string
   trends: TrendItem[]
   sources: TrendingVidsSource[]
   searchQueries: string[]
@@ -151,6 +153,7 @@ export function normalizeTrendingVidsResult(params: {
   model: string
   usedGoogleSearch: boolean
   researchedAt?: string
+  prompt?: string
 }): TrendingVidsResult | null {
   const rec =
     params.raw && typeof params.raw === 'object'
@@ -174,6 +177,7 @@ export function normalizeTrendingVidsResult(params: {
     platformName: params.platform.name,
     researchedAt: params.researchedAt || new Date().toISOString(),
     overview: asTrimmed(rec.overview, 500),
+    prompt: normalizeTrendingVidsPrompt(params.prompt),
     trends,
     sources: params.sources.slice(0, 8),
     searchQueries: params.searchQueries.slice(0, 8),
@@ -211,11 +215,28 @@ function extractGrounding(response: unknown): {
   return { sources, searchQueries }
 }
 
-function buildResearchPrompt(platform: TrendingVidsPlatform, today: string): string {
+function buildResearchPrompt(
+  platform: TrendingVidsPlatform,
+  today: string,
+  userPrompt: string
+): string {
   const videoRule =
     platform.surface === 'video'
       ? `This is a VIDEO platform. For each of the 5 items, prefer a named trending video (title + creator/channel) when search results name one. Otherwise use a trending topic, sound, or hashtag. Set kind to "video" | "topic" | "hashtag" | "sound".`
       : `This is a SOCIAL/DISCUSSION platform. List trending topics, hashtags, or posts. Set kind to "topic" | "hashtag" | "post" | "video" if a named clip is actually trending.`
+
+  const safeFocus = userPrompt.replace(/"""/g, '"')
+  const focusBlock = safeFocus
+    ? `CREATOR FOCUS — steer search queries and ranking toward this (do not invent matches that search did not surface):
+"""
+${safeFocus}
+"""
+Run extra searches that combine this focus with ${platform.name} trending (niche, format, game, audience, or angle). Prefer the 5 trends that best match the focus. If the niche is thin, pick the closest current trends and say so in overview.`
+    : `No extra focus — report the general top trends on ${platform.name}.`
+
+  const focusSearch = safeFocus
+    ? `- "${platform.name} ${safeFocus.slice(0, 80)} trending today"`
+    : `- "${platform.name} viral this week"`
 
   return `You are a social-video trend researcher for creators. Today's date is ${today} (UTC).
 
@@ -223,7 +244,9 @@ Use Google Search for CURRENT ${platform.name} trends — not training-cutoff me
 Run searches such as:
 - "${platform.name} trending today ${today}"
 - "${platform.name} trending videos"
-- "${platform.name} viral this week"
+${focusSearch}
+
+${focusBlock}
 
 ${platform.searchHint}
 
@@ -231,7 +254,7 @@ ${videoRule}
 
 Return ONLY valid JSON (no markdown fences):
 {
-  "overview": "1-2 sentences: what is popping on ${platform.name} right now",
+  "overview": "1-2 sentences: what is popping on ${platform.name} right now${safeFocus ? ' for this creator focus' : ''}",
   "trends": [
     {
       "rank": 1,
@@ -252,7 +275,8 @@ Rules:
 - Do not invent specific video titles, view counts, or URLs that search did not surface.
 - If a named video is not in search results, use kind "topic" and describe the trend generally.
 - URLs must be real http(s) links from search, or empty string.
-- Be specific and useful for a creator deciding what to make next.`
+- Be specific and useful for a creator deciding what to make next.
+- If a creator focus is set, make overview and ranking directly about that focus.`
 }
 
 async function generateWithOptionalSearch(params: {
@@ -298,11 +322,14 @@ async function generateWithOptionalSearch(params: {
 
 export async function researchTrendingVids(params: {
   platformId: string
+  prompt?: string
   apiKey?: string
   modelId?: string
 }): Promise<TrendingVidsResult> {
   const platform = getTrendingVidsPlatform(params.platformId)
   if (!platform) throw new Error('Choose a valid platform.')
+
+  const userPrompt = normalizeTrendingVidsPrompt(params.prompt)
 
   const apiKey =
     params.apiKey?.trim() ||
@@ -318,7 +345,7 @@ export async function researchTrendingVids(params: {
   const { text, usedGoogleSearch, response } = await generateWithOptionalSearch({
     genAI,
     model,
-    prompt: buildResearchPrompt(platform, today),
+    prompt: buildResearchPrompt(platform, today, userPrompt),
     useGoogleSearch: true,
   })
 
@@ -331,6 +358,7 @@ export async function researchTrendingVids(params: {
     searchQueries: grounding.searchQueries,
     model,
     usedGoogleSearch,
+    prompt: userPrompt,
   })
 
   if (!normalized) {

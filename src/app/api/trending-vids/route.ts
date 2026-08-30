@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { verifyOwnerUser } from '@/lib/auth/staffAccess'
-import { isTrendingVidsPlatformId } from '@/lib/trendingVids/platforms'
+import {
+  isTrendingVidsPlatformId,
+  normalizeTrendingVidsPrompt,
+} from '@/lib/trendingVids/platforms'
 import { researchTrendingVids } from '@/lib/trendingVids/research'
 
 export const dynamic = 'force-dynamic'
@@ -12,7 +15,10 @@ export async function POST(req: NextRequest) {
   try {
     await verifyOwnerUser(req)
 
-    const body = (await req.json().catch(() => ({}))) as { platformId?: unknown }
+    const body = (await req.json().catch(() => ({}))) as {
+      platformId?: unknown
+      prompt?: unknown
+    }
     const platformId = typeof body.platformId === 'string' ? body.platformId.trim().toLowerCase() : ''
 
     if (!platformId || !isTrendingVidsPlatformId(platformId)) {
@@ -22,7 +28,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const result = await researchTrendingVids({ platformId })
+    const prompt = normalizeTrendingVidsPrompt(body.prompt)
+    const result = await researchTrendingVids({ platformId, prompt })
     return NextResponse.json(result)
   } catch (err: unknown) {
     if (err instanceof AuthError) return createAuthErrorResponse(err)

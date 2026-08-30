@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { parseJsonResponse } from '@/lib/http/parseJsonResponse'
 import {
   TRENDING_VIDS_PLATFORMS,
+  MAX_TRENDING_VIDS_PROMPT_CHARS,
   type TrendingVidsPlatformId,
 } from '@/lib/trendingVids/platforms'
 import type { TrendingVidsResult } from '@/lib/trendingVids/research'
@@ -33,6 +34,7 @@ const KIND_LABEL: Record<string, string> = {
 function formatTrendCopy(result: TrendingVidsResult, index?: number): string {
   const items = typeof index === 'number' ? [result.trends[index]] : result.trends
   const lines = [`${result.platformName} — top ${items.length} (researched ${result.researchedAt.slice(0, 10)})`]
+  if (result.prompt) lines.push(`Focus: ${result.prompt}`)
   if (result.overview) lines.push(result.overview, '')
   for (const t of items) {
     if (!t) continue
@@ -54,6 +56,7 @@ export default function TrendingVidsTab({
   description,
 }: TrendingVidsTabProps) {
   const [platformId, setPlatformId] = useState<TrendingVidsPlatformId>('youtube')
+  const [prompt, setPrompt] = useState('')
   const [isWorking, setIsWorking] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<TrendingVidsResult | null>(null)
@@ -61,6 +64,9 @@ export default function TrendingVidsTab({
 
   const platform = TRENDING_VIDS_PLATFORMS.find((p) => p.id === platformId)!
 
+  const inputShell = darkMode
+    ? 'bg-sdhq-dark-900 border-sdhq-dark-600 text-white placeholder-gray-500 focus:border-sdhq-cyan-500'
+    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-sdhq-cyan-500'
   const chipIdle = darkMode
     ? 'border-sdhq-dark-600 bg-sdhq-dark-900 text-gray-200 hover:border-sdhq-cyan-500/50'
     : 'border-gray-300 bg-white text-gray-800 hover:border-sdhq-cyan-400'
@@ -92,7 +98,7 @@ export default function TrendingVidsTab({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ platformId }),
+        body: JSON.stringify({ platformId, prompt }),
       })
       const data = await parseJsonResponse<TrendingVidsResult & { userMessage?: string; error?: string }>(
         res
@@ -138,6 +144,30 @@ export default function TrendingVidsTab({
         </div>
       </section>
 
+      <section className="space-y-2">
+        <label className={`block text-sm font-semibold ${sectionTitle}`}>
+          Focus prompt{' '}
+          <span className={`font-normal ${subtitleClasses}`}>(optional)</span>
+        </label>
+        <textarea
+          value={prompt}
+          onChange={(e) => {
+            setPrompt(e.target.value.slice(0, MAX_TRENDING_VIDS_PROMPT_CHARS))
+            setResult(null)
+          }}
+          maxLength={MAX_TRENDING_VIDS_PROMPT_CHARS}
+          rows={3}
+          placeholder="e.g. FPS gaming, horror Shorts, cooking for beginners, female-audience comedy…"
+          className={`w-full rounded-xl border px-3 py-2 text-sm outline-none resize-y min-h-[4.5rem] ${inputShell}`}
+        />
+        <p className={`text-xs ${subtitleClasses}`}>
+          Steer the search toward a niche, format, or audience. Leave blank for general top 5.
+          {prompt.length > 0
+            ? ` ${prompt.length}/${MAX_TRENDING_VIDS_PROMPT_CHARS}`
+            : ''}
+        </p>
+      </section>
+
       {error && (
         <p className="text-sm text-red-400" role="alert">
           {error}
@@ -167,6 +197,7 @@ export default function TrendingVidsTab({
           type="button"
           variant="outline"
           onClick={() => {
+            setPrompt('')
             setResult(null)
             setError('')
             setCopied({})
@@ -181,7 +212,8 @@ export default function TrendingVidsTab({
       {isWorking && (
         <p className={`text-sm flex items-center gap-2 ${subtitleClasses}`}>
           <Loader2 className="w-4 h-4 animate-spin" />
-          Searching the live web for current {platform.name} trends…
+          Searching the live web for current {platform.name} trends
+          {prompt.trim() ? ` about “${prompt.trim()}”` : ''}…
         </p>
       )}
 
@@ -195,6 +227,12 @@ export default function TrendingVidsTab({
                 </h4>
                 {result.overview && (
                   <p className={`text-sm mt-1 ${subtitleClasses}`}>{result.overview}</p>
+                )}
+                {result.prompt && (
+                  <p className={`text-sm mt-2 ${textMain}`}>
+                    <span className={`font-medium ${sectionTitle}`}>Focus: </span>
+                    {result.prompt}
+                  </p>
                 )}
                 <p className={`text-xs mt-2 ${subtitleClasses}`}>
                   {result.usedGoogleSearch
