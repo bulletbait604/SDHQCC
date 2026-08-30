@@ -1,6 +1,6 @@
 'use client'
 
-import { Bot, Film, ImageIcon, PanelsTopLeft, RadioTower } from 'lucide-react'
+import { Bot, Film, ImageIcon, PanelsTopLeft, RadioTower, TrendingUp } from 'lucide-react'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
@@ -10,6 +10,7 @@ export type RdSubTab =
   | 'thumbnail-2'
   | 'panels-banners'
   | 'going-live'
+  | 'trending-vids'
 
 type RdLabels = {
   clipEditor: string
@@ -17,6 +18,7 @@ type RdLabels = {
   thumbnail2: string
   panelsBanners: string
   goingLive: string
+  trendingVids: string
 }
 
 const SUB_TAB_META: Record<RdSubTab, { icon: typeof Film; shortLabel: string }> = {
@@ -24,6 +26,7 @@ const SUB_TAB_META: Record<RdSubTab, { icon: typeof Film; shortLabel: string }> 
   'thumbnail-2': { icon: ImageIcon, shortLabel: 'Thumb 2' },
   'panels-banners': { icon: PanelsTopLeft, shortLabel: "P&B's" },
   'going-live': { icon: RadioTower, shortLabel: 'Live' },
+  'trending-vids': { icon: TrendingUp, shortLabel: 'Trends' },
   'robot-talk': { icon: Bot, shortLabel: 'RobotTalk' },
 }
 
@@ -37,6 +40,8 @@ export function rdTabTitle(subTab: RdSubTab, labels: RdLabels): string {
       return labels.panelsBanners
     case 'going-live':
       return labels.goingLive
+    case 'trending-vids':
+      return labels.trendingVids
     case 'robot-talk':
       return labels.robotTalk
   }
@@ -71,6 +76,8 @@ export default function RdTabHeader({
         return labels.panelsBanners
       case 'going-live':
         return labels.goingLive
+      case 'trending-vids':
+        return labels.trendingVids
       case 'robot-talk':
         return labels.robotTalk
     }
@@ -86,7 +93,7 @@ export default function RdTabHeader({
       </div>
       <TabsList
         className={cn(
-          'grid h-auto w-full max-w-4xl mx-auto grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 mb-6 rounded-xl p-1',
+          'grid h-auto w-full max-w-5xl mx-auto grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 mb-6 rounded-xl p-1',
           tabListClasses
         )}
       >

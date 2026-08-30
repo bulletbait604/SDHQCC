@@ -23,7 +23,7 @@ export function capOwnerRole(username: string, role: Role): Role {
   return role
 }
 
-/** Tab access — R&D (Clip Editor, RobotTalk, Thumbnail 2.0, P&B, Going Live) is site-owner only. */
+/** Tab access — R&D (Clip Editor, RobotTalk, Thumbnail 2.0, P&B, Going Live, Trending Vids) is site-owner only. */
 export function hasTabAccessForUser(userRole: Role, tabId: string, username: string | null | undefined): boolean {
   if (
     tabId === 'rnd' ||
@@ -31,7 +31,8 @@ export function hasTabAccessForUser(userRole: Role, tabId: string, username: str
     tabId === 'clip-editor' ||
     tabId === 'thumbnail-2' ||
     tabId === 'panels-banners' ||
-    tabId === 'going-live'
+    tabId === 'going-live' ||
+    tabId === 'trending-vids'
   ) {
     return canAccessRnd(userRole, username)
   }

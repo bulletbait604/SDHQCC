@@ -21,6 +21,7 @@ const RND_SUBS = new Set<RdSubTab>([
   'thumbnail-2',
   'panels-banners',
   'going-live',
+  'trending-vids',
 ])
 
 /** Legacy ?tab= names from older links. */

@@ -16,6 +16,7 @@ import RobotTalkTab from '@/app/components/RobotTalkTab'
 import Thumbnail2Tab from '@/app/components/Thumbnail2Tab'
 import PanelsBannersTab from '@/app/components/PanelsBannersTab'
 import GoingLiveTab from '@/app/components/GoingLiveTab'
+import TrendingVidsTab from '@/app/components/TrendingVidsTab'
 import KickClipsComingSoon from '@/app/components/KickClipsComingSoon'
 import SettingsTab from '@/app/components/SettingsTab'
 import type { ActivityLogEntry, HomeLanguage, KickUser, Platform } from '@/lib/home/types'
@@ -343,6 +344,7 @@ export default function HomeMainTabs({
                   thumbnail2: t.thumbnail2 || 'Thumbnail 2.0',
                   panelsBanners: t.panelsBanners || "P&B's — Panels & banners",
                   goingLive: t.goingLive || 'Going Live',
+                  trendingVids: t.trendingVids || 'Trending Vids',
                 }}
                 pickToolLabel={t.rndPickTool}
                 darkMode={darkMode}
@@ -398,6 +400,17 @@ export default function HomeMainTabs({
                     'Upload references, pick platforms and a vibe, then get a stream title, social posts, and posters.'
                   }
                   user={user}
+                />
+              </TabsContent>
+
+              <TabsContent value="trending-vids">
+                <TrendingVidsTab
+                  darkMode={darkMode}
+                  subtitleClasses={subtitleClasses}
+                  description={
+                    t.trendingVidsDesc ||
+                    'Pick a platform. We search the live web via Google and list the top 5 trends — videos and topics for YouTube and other video apps.'
+                  }
                 />
               </TabsContent>
 

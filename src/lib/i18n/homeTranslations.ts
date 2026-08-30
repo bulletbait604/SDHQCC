@@ -21,6 +21,9 @@ export const homeTranslations = {
     goingLive: 'Going Live',
     goingLiveDesc:
       'Upload up to 4 references, pick a streaming platform, social networks, and a vibe. Get a stream title, a post per network, and a matching poster.',
+    trendingVids: 'Trending Vids',
+    trendingVidsDesc:
+      'Pick a platform. We search the live web via Google and list the top 5 trends — videos and topics for YouTube and other video apps.',
     robotTalk: 'RobotTalk',
     rndPickTool: 'R&D — owner only · pick a tool below',
     backgroundRemover: 'Background Remover',
@@ -79,6 +82,9 @@ export const homeTranslations = {
     goingLive: 'En vivo',
     goingLiveDesc:
       'Sube hasta 4 referencias, elige una plataforma de streaming, redes y un tono. Obtén título, un post por red y un póster.',
+    trendingVids: 'Vids en tendencia',
+    trendingVidsDesc:
+      'Elige una plataforma. Buscamos en la web en vivo con Google y listamos las 5 tendencias — vídeos y temas para YouTube y otras apps de vídeo.',
     robotTalk: 'RobotTalk',
     rndPickTool: 'I+D — solo propietario · elige una herramienta abajo',
     backgroundRemover: 'Eliminador de fondo',
@@ -137,6 +143,9 @@ export const homeTranslations = {
     goingLive: 'En direct',
     goingLiveDesc:
       'Importez jusqu’à 4 visuels, choisissez une plateforme de stream, des réseaux et un ton. Titre, un post par réseau et un poster.',
+    trendingVids: 'Vids tendances',
+    trendingVidsDesc:
+      'Choisissez une plateforme. On cherche le web en direct via Google et on liste les 5 tendances — vidéos et sujets pour YouTube et les autres apps vidéo.',
     robotTalk: 'RobotTalk',
     rndPickTool: 'R&D — propriétaire seulement · choisissez un outil ci-dessous',
     backgroundRemover: 'Suppression d’arrière-plan',
@@ -195,6 +204,9 @@ export const homeTranslations = {
     goingLive: 'Live gehen',
     goingLiveDesc:
       'Bis zu 4 Referenzen, Streaming-Plattform, Netzwerke und Ton. Stream-Titel, ein Post pro Netzwerk und ein Poster.',
+    trendingVids: 'Trend-Vids',
+    trendingVidsDesc:
+      'Plattform wählen. Wir durchsuchen das Live-Web über Google und listen die Top 5 Trends — Videos und Themen für YouTube und andere Video-Apps.',
     robotTalk: 'RobotTalk',
     rndPickTool: 'F&E — nur Owner · Werkzeug unten wählen',
     backgroundRemover: 'Hintergrund entfernen',
