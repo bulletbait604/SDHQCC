@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Thumbnail Creator accepts up to 3 GB; a 5-minute URL often expires mid-upload.
+    // Thumbnail Creator accepts up to 3.5 GB; a 5-minute URL often expires mid-upload.
     const expiresIn = purpose === 'thumbnail-generator' ? 7200 : 300
 
     let result

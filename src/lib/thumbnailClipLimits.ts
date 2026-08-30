@@ -1,5 +1,5 @@
 /** Shared limits for Thumbnail Generator reference clips. */
-export const THUMBNAIL_CLIP_MAX_GB = 3
+export const THUMBNAIL_CLIP_MAX_GB = 3.5
 export const THUMBNAIL_CLIP_MAX_BYTES = THUMBNAIL_CLIP_MAX_GB * 1024 * 1024 * 1024
 
 /** Free / coin tier */
