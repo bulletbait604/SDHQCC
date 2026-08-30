@@ -2,6 +2,9 @@
 export const THUMBNAIL_CLIP_MAX_GB = 3.5
 export const THUMBNAIL_CLIP_MAX_BYTES = THUMBNAIL_CLIP_MAX_GB * 1024 * 1024 * 1024
 
+/** Full-video Gemini analysis via R2 URL. Larger clips use client frame samples instead. */
+export const THUMBNAIL_CLIP_SERVER_VIDEO_MAX_BYTES = 80 * 1024 * 1024
+
 /** Free / coin tier */
 export const THUMBNAIL_CLIP_MAX_DURATION_FREE_SECONDS = 30 * 60
 export const THUMBNAIL_CLIP_MAX_DURATION_FREE_MINUTES = 30

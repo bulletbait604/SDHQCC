@@ -28,8 +28,12 @@ import {
   thumbnailClipMaxDurationSeconds,
   thumbnailClipSizeExceededMessage,
 } from '@/lib/thumbnailClipLimits'
-import { parseBestMomentTimestamp } from '@/lib/thumbnailClipFrame'
-import { extractVideoFrameAsJpeg } from '@/lib/thumbnailClipFrameClient'
+import {
+  parseBestMomentTimestamp,
+  thumbnailSampleTimestamps,
+} from '@/lib/thumbnailClipFrame'
+import { extractVideoFrameAsJpeg, extractVideoFramesAsJpeg } from '@/lib/thumbnailClipFrameClient'
+import { parseJsonResponse } from '@/lib/http/parseJsonResponse'
 
 const VALID_CLIP_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska']
 
@@ -77,7 +81,6 @@ export default function ThumbnailGenerator({
 
   const [clipFile, setClipFile] = useState<File | null>(null)
   const [clipDurationSeconds, setClipDurationSeconds] = useState<number | null>(null)
-  const [clipR2Key, setClipR2Key] = useState<string | null>(null)
   const [loadingStep, setLoadingStep] = useState('')
   
   const [selectedPlatform, setSelectedPlatform] = useState('youtube-shorts')
@@ -188,43 +191,13 @@ export default function ThumbnailGenerator({
     }
     setClipFile(file)
     setClipDurationSeconds(duration)
-    setClipR2Key(null)
     setError('')
   }
 
   const clearClip = () => {
     setClipFile(null)
     setClipDurationSeconds(null)
-    setClipR2Key(null)
     if (clipInputRef.current) clipInputRef.current.value = ''
-  }
-
-  const uploadClipToR2 = async (file: File): Promise<string> => {
-    const presignRes = await fetch('/api/upload-url', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        filename: file.name,
-        contentType: file.type,
-        purpose: 'thumbnail-generator',
-      }),
-    })
-    if (!presignRes.ok) {
-      const errBody = await presignRes.json().catch(() => ({}))
-      throw new Error((errBody as { error?: string }).error || 'Could not get upload URL')
-    }
-    const { uploadUrl, fileKey } = (await presignRes.json()) as {
-      uploadUrl: string
-      fileKey: string
-    }
-    const putRes = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': file.type },
-      body: file,
-    })
-    if (!putRes.ok) throw new Error('Failed to upload clip to storage')
-    return fileKey
   }
 
   // ── Generate ───────────────────────────────────────────────────────────────
@@ -252,13 +225,6 @@ export default function ThumbnailGenerator({
     setLoadingStep('')
 
     try {
-      let uploadedClipKey = clipR2Key
-      if (clipFile && !uploadedClipKey) {
-        setLoadingStep('Uploading reference clip…')
-        uploadedClipKey = await uploadClipToR2(clipFile)
-        setClipR2Key(uploadedClipKey)
-      }
-
       const platformName =
         availablePlatforms.find((p) => p.id === selectedPlatform)?.name ?? 'your platform'
       const enhancedPrompt = hasPrompt
@@ -274,30 +240,40 @@ export default function ThumbnailGenerator({
       if (sourceKey) {
         body.sourceImageKey = sourceKey
       } else if (clipFile) {
-        // Clip path: analyze → capture frame → paint on that frame (below)
+        // Clip path: analyze stills → capture frame → paint on that frame (below)
       } else {
         const b64 = base64Override ?? imageBase64
         if (b64) body.imageBase64 = b64
       }
 
-      if (clipFile && uploadedClipKey) {
-        setLoadingStep('Gemini analyzing clip for best moment…')
+      if (clipFile) {
+        setLoadingStep('Sampling frames from clip…')
+        const times = thumbnailSampleTimestamps(clipDurationSeconds, 8)
+        const samples = await extractVideoFramesAsJpeg(clipFile, times, {
+          maxWidth: 512,
+          quality: 0.72,
+        })
+        setLoadingStep('Picking the best thumbnail moment…')
         const analyzeRes = await fetch('/api/thumbnail-generator/analyze-clip', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            referenceClipR2Key: uploadedClipKey,
             referenceClipMimeType: clipFile.type,
             referenceClipDurationSeconds:
               clipDurationSeconds != null ? Math.round(clipDurationSeconds) : undefined,
             platforms: [selectedPlatform],
+            sampleFrames: samples.map((s) => ({
+              timestampSeconds: s.timeSec,
+              imageBase64: s.base64,
+              mimeType: s.mimeType,
+            })),
           }),
         })
-        const analyzeData = (await analyzeRes.json()) as {
+        const analyzeData = await parseJsonResponse<{
           analysis?: { bestMomentTimestamp?: string }
           error?: string
-        }
+        }>(analyzeRes)
         if (!analyzeRes.ok) {
           throw new Error(analyzeData.error || 'Clip analysis failed')
         }
@@ -310,14 +286,16 @@ export default function ThumbnailGenerator({
           analyzeData.analysis.bestMomentTimestamp,
           clipDurationSeconds ?? undefined
         )
-        const frame = await extractVideoFrameAsJpeg(clipFile, seekSec)
+        const frame = await extractVideoFrameAsJpeg(clipFile, seekSec, {
+          maxWidth: 1280,
+          quality: 0.86,
+        })
         body.imageBase64 = frame.base64
         body.mimeType = frame.mimeType
         body.referenceClipAnalysis = analyzeData.analysis
         if (clipDurationSeconds != null) {
           body.referenceClipDurationSeconds = Math.round(clipDurationSeconds)
         }
-        setClipR2Key(null)
       } else {
         setLoadingStep('Generating viral thumbnail…')
       }
@@ -327,15 +305,28 @@ export default function ThumbnailGenerator({
           ? 'Painting thumbnail on clip frame…'
           : 'Painting thumbnail…'
       )
-      const result = await fetch('/api/thumbnail-generator', {
+      const paintRes = await fetch('/api/thumbnail-generator', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(body),
-      }).then((r) => r.json())
+      })
+      const result = await parseJsonResponse<{
+        error?: string
+        mimeType?: string
+        key?: string
+        description?: string
+        videoAnalysisUsed?: boolean
+        clipFrameUsed?: boolean
+        estimatedCostUsd?: number
+        estimatedCostNote?: string
+      }>(paintRes)
 
       if (result.error) {
         throw new Error(result.error)
+      }
+      if (!result.key) {
+        throw new Error('Thumbnail generation did not return an image. Please try again.')
       }
 
       const newResult: ThumbnailResult = {
@@ -352,7 +343,6 @@ export default function ThumbnailGenerator({
         return [newResult, ...withoutDup].slice(0, 3)
       })
       setResult(newResult)
-      setClipR2Key(null)
       clearClip()
 
       onBalanceRefresh?.()
@@ -376,7 +366,10 @@ export default function ThumbnailGenerator({
         })
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      let message = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      if (/unexpected token/i.test(message) && /json/i.test(message)) {
+        message = 'Thumbnail service failed before returning a result. Please try again.'
+      }
       setError(message)
     } finally {
       setIsGenerating(false)
