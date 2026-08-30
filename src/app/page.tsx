@@ -40,7 +40,7 @@ import { startKickLogin } from '@/lib/kick/startKickLogin'
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState('educate')
   const [createSubTab, setCreateSubTab] = useState<CreateSubTab>('thumbnail')
-  const [rndSubTab, setRndSubTab] = useState<RdSubTab>('clip-editor')
+  const [rndSubTab, setRndSubTab] = useState<RdSubTab>('viral-clip-gen')
   const [showSettings, setShowSettings] = useState(false)
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false)
   const [showTerms, setShowTerms] = useState(false)
@@ -173,7 +173,6 @@ export default function HomePage() {
 
   const {
     balance,
-    deductCoins,
     hasEnoughCoins,
     hasUnlimitedAccess,
     loading: coinLoading,
@@ -325,12 +324,12 @@ export default function HomePage() {
             hasTabAccess={hasTabAccess}
             hasEnoughCoins={hasEnoughCoins}
             hasUnlimitedAccess={hasUnlimitedAccess}
+            coinBalance={balance}
             coinLoading={coinLoading}
             refreshBalance={refreshBalance}
             onActivityLog={appendActivityLog}
             onThumbnailActivityLog={logThumbnailGeneration}
             clipAnalyzer={clipAnalyzer}
-            deductCoins={deductCoins}
             onDonate={() => setShowDonatePopup(true)}
             onLanguageChange={handleLanguageChange}
             onDarkModeToggle={toggleDarkMode}

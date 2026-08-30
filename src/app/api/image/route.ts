@@ -14,9 +14,22 @@ const r2 = new S3Client({
 
 const BUCKET = process.env.R2_BUCKET_NAME!
 
+function contentTypeForKey(key: string, fromR2?: string): string {
+  const lower = key.toLowerCase()
+  if (lower.endsWith('.mp4')) return 'video/mp4'
+  if (lower.endsWith('.webm')) return 'video/webm'
+  if (lower.endsWith('.png')) return 'image/png'
+  if (lower.endsWith('.webp')) return 'image/webp'
+  if (lower.endsWith('.gif')) return 'image/gif'
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg'
+  if (fromR2 && fromR2 !== 'application/octet-stream') return fromR2
+  return fromR2 || 'application/octet-stream'
+}
+
 function userOwnsUploadKey(key: string, username: string): boolean {
   const safeUser = username.replace(/^@/, '').toLowerCase().replace(/[^a-z0-9_-]/g, '_').slice(0, 64)
-  return key.startsWith(`uploads/clips/${safeUser}/`)
+  return key.startsWith(`uploads/clips/${safeUser}/`) ||
+    key.startsWith(`uploads/viral-clip-gen/${safeUser}/`)
 }
 
 export async function GET(request: NextRequest) {
@@ -67,12 +80,17 @@ export async function GET(request: NextRequest) {
       ? 'public, max-age=31536000'
       : 'private, max-age=3600'
 
-    return new NextResponse(buffer, {
-      headers: {
-        'Content-Type': response.ContentType || 'image/png',
-        'Cache-Control': cacheControl,
-      },
-    })
+    const contentType = contentTypeForKey(key, response.ContentType)
+    const headers: Record<string, string> = {
+      'Content-Type': contentType,
+      'Cache-Control': cacheControl,
+    }
+    if (searchParams.get('download') === '1') {
+      const filename = (key.split('/').pop() || 'download').replace(/["\r\n]/g, '')
+      headers['Content-Disposition'] = `attachment; filename="${filename}"`
+    }
+
+    return new NextResponse(buffer, { headers })
   } catch (error: unknown) {
     console.error('[Image Proxy] Error:', error)
     return NextResponse.json({ error: 'Failed to fetch image' }, { status: 500 })

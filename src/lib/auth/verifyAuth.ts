@@ -160,12 +160,6 @@ export function hasUnlimitedAccess(user: VerifiedUser): boolean {
   return UNLIMITED_ROLES.includes(user.role)
 }
 
-/** Clip Editor entitlement: site owner, admin, editor badge, or Mongo owner role. */
-export function hasClipEditorAccess(user: VerifiedUser): boolean {
-  if (isAllowlistedOwner(user.username)) return true
-  return user.role === 'editor' || user.role === 'owner' || user.role === 'admin'
-}
-
 /**
  * Combined auth + optional role check
  * Convenience function for common use case

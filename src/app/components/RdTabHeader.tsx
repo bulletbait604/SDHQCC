@@ -1,49 +1,31 @@
 'use client'
 
-import { Bot, Film, ImageIcon, PanelsTopLeft, RadioTower, TrendingUp } from 'lucide-react'
+import { Clapperboard, RadioTower, TrendingUp } from 'lucide-react'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
-export type RdSubTab =
-  | 'clip-editor'
-  | 'robot-talk'
-  | 'thumbnail-2'
-  | 'panels-banners'
-  | 'going-live'
-  | 'trending-vids'
+export type RdSubTab = 'going-live' | 'trending-vids' | 'viral-clip-gen'
 
 type RdLabels = {
-  clipEditor: string
-  robotTalk: string
-  thumbnail2: string
-  panelsBanners: string
   goingLive: string
   trendingVids: string
+  viralClipGen: string
 }
 
-const SUB_TAB_META: Record<RdSubTab, { icon: typeof Film; shortLabel: string }> = {
-  'clip-editor': { icon: Film, shortLabel: 'Clips' },
-  'thumbnail-2': { icon: ImageIcon, shortLabel: 'Thumb 2' },
-  'panels-banners': { icon: PanelsTopLeft, shortLabel: "P&B's" },
-  'going-live': { icon: RadioTower, shortLabel: 'Live' },
+const SUB_TAB_META: Record<RdSubTab, { icon: typeof Clapperboard; shortLabel: string }> = {
+  'viral-clip-gen': { icon: Clapperboard, shortLabel: 'Viral' },
   'trending-vids': { icon: TrendingUp, shortLabel: 'Trends' },
-  'robot-talk': { icon: Bot, shortLabel: 'RobotTalk' },
+  'going-live': { icon: RadioTower, shortLabel: 'Live' },
 }
 
 export function rdTabTitle(subTab: RdSubTab, labels: RdLabels): string {
   switch (subTab) {
-    case 'clip-editor':
-      return labels.clipEditor
-    case 'thumbnail-2':
-      return labels.thumbnail2
-    case 'panels-banners':
-      return labels.panelsBanners
-    case 'going-live':
-      return labels.goingLive
+    case 'viral-clip-gen':
+      return labels.viralClipGen
     case 'trending-vids':
       return labels.trendingVids
-    case 'robot-talk':
-      return labels.robotTalk
+    case 'going-live':
+      return labels.goingLive
   }
 }
 
@@ -68,18 +50,12 @@ export default function RdTabHeader({
 
   const labelFor = (id: RdSubTab) => {
     switch (id) {
-      case 'clip-editor':
-        return labels.clipEditor
-      case 'thumbnail-2':
-        return labels.thumbnail2
-      case 'panels-banners':
-        return labels.panelsBanners
-      case 'going-live':
-        return labels.goingLive
+      case 'viral-clip-gen':
+        return labels.viralClipGen
       case 'trending-vids':
         return labels.trendingVids
-      case 'robot-talk':
-        return labels.robotTalk
+      case 'going-live':
+        return labels.goingLive
     }
   }
 
@@ -93,7 +69,7 @@ export default function RdTabHeader({
       </div>
       <TabsList
         className={cn(
-          'grid h-auto w-full max-w-5xl mx-auto grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 mb-6 rounded-xl p-1',
+          'grid h-auto w-full max-w-3xl mx-auto grid-cols-3 mb-6 rounded-xl p-1',
           tabListClasses
         )}
       >

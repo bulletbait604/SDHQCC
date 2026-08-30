@@ -11,12 +11,9 @@ import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
 import Post4MeTab from '@/app/components/Post4MeTab'
 import BackgroundRemoverTab from '@/app/components/BackgroundRemoverTab'
 import AnalyzeTab from '@/app/components/AnalyzeTab'
-import ClipEditorTab from '@/app/components/ClipEditorTab'
-import RobotTalkTab from '@/app/components/RobotTalkTab'
-import Thumbnail2Tab from '@/app/components/Thumbnail2Tab'
-import PanelsBannersTab from '@/app/components/PanelsBannersTab'
 import GoingLiveTab from '@/app/components/GoingLiveTab'
 import TrendingVidsTab from '@/app/components/TrendingVidsTab'
+import ViralClipGenTab from '@/app/components/ViralClipGenTab'
 import KickClipsComingSoon from '@/app/components/KickClipsComingSoon'
 import SettingsTab from '@/app/components/SettingsTab'
 import type { ActivityLogEntry, HomeLanguage, KickUser, Platform } from '@/lib/home/types'
@@ -59,6 +56,7 @@ export interface HomeMainTabsProps {
   hasTabAccess: (tabId: string) => boolean
   hasEnoughCoins: (tool: ToolType) => boolean
   hasUnlimitedAccess: boolean
+  coinBalance: number
   coinLoading: boolean
   refreshBalance: () => void
   onActivityLog: (entry: ActivityLogEntry) => void
@@ -68,7 +66,6 @@ export interface HomeMainTabsProps {
     estimatedCostNote?: string
   }) => void
   clipAnalyzer: ClipAnalyzer
-  deductCoins: (tool: ToolType) => Promise<boolean>
   onDonate: () => void
   onLanguageChange: (lang: HomeLanguage) => void
   onDarkModeToggle: () => void
@@ -137,12 +134,12 @@ export default function HomeMainTabs({
   hasTabAccess,
   hasEnoughCoins,
   hasUnlimitedAccess,
+  coinBalance,
   coinLoading,
   refreshBalance,
   onActivityLog,
   onThumbnailActivityLog,
   clipAnalyzer,
-  deductCoins,
   onDonate,
   onLanguageChange,
   onDarkModeToggle,
@@ -339,12 +336,9 @@ export default function HomeMainTabs({
               <RdTabHeader
                 activeSubTab={rndSubTab}
                 labels={{
-                  clipEditor: t.clipEditor,
-                  robotTalk: t.robotTalk || 'RobotTalk',
-                  thumbnail2: t.thumbnail2 || 'Thumbnail 2.0',
-                  panelsBanners: t.panelsBanners || "P&B's — Panels & banners",
-                  goingLive: t.goingLive || 'Going Live',
+                  viralClipGen: t.viralClipGen || 'Viral Clip Gen',
                   trendingVids: t.trendingVids || 'Trending Vids',
+                  goingLive: t.goingLive || 'Going Live',
                 }}
                 pickToolLabel={t.rndPickTool}
                 darkMode={darkMode}
@@ -352,54 +346,18 @@ export default function HomeMainTabs({
                 tabTriggerClasses={tabTriggerClasses}
               />
 
-              <TabsContent value="clip-editor">
-                <ClipEditorTab
-                  darkMode={darkMode}
-                  cardClasses={cardClasses}
-                  textClasses={textClasses}
-                  subtitleClasses={subtitleClasses}
-                  title=""
-                  tagline={t.clipEditorDesc}
-                  user={user}
-                  hasEnoughCoins={hasEnoughCoins}
-                  deductCoins={deductCoins}
-                  hasUnlimitedAccess={hasUnlimitedAccess || isOwner}
-                  refreshBalance={refreshBalance}
-                />
-              </TabsContent>
-
-              <TabsContent value="thumbnail-2">
-                <Thumbnail2Tab
-                  darkMode={darkMode}
-                  cardClasses={cardClasses}
-                  textClasses={textClasses}
-                  subtitleClasses={subtitleClasses}
-                  platforms={platforms}
-                  user={user}
-                  hasUnlimitedAccess={hasUnlimitedAccess || isOwner}
-                  hasEnoughCoins={hasEnoughCoins}
-                  refreshBalance={refreshBalance}
-                  onLogActivity={onThumbnailActivityLog}
-                />
-              </TabsContent>
-
-              <TabsContent value="panels-banners">
-                <PanelsBannersTab
-                  darkMode={darkMode}
-                  subtitleClasses={subtitleClasses}
-                  user={user}
-                />
-              </TabsContent>
-
-              <TabsContent value="going-live">
-                <GoingLiveTab
+              <TabsContent value="viral-clip-gen">
+                <ViralClipGenTab
                   darkMode={darkMode}
                   subtitleClasses={subtitleClasses}
                   description={
-                    t.goingLiveDesc ||
-                    'Upload references, pick platforms and a vibe, then get a stream title, social posts, and posters.'
+                    t.viralClipGenDesc ||
+                    'Describe a short vertical clip, add optional references, pick a length, and generate a 9:16 video.'
                   }
-                  user={user}
+                  hasUnlimitedAccess={hasUnlimitedAccess || isOwner}
+                  coinBalance={coinBalance}
+                  coinLoading={coinLoading}
+                  refreshBalance={refreshBalance}
                 />
               </TabsContent>
 
@@ -414,11 +372,15 @@ export default function HomeMainTabs({
                 />
               </TabsContent>
 
-              <TabsContent value="robot-talk">
-                <RobotTalkTab
+              <TabsContent value="going-live">
+                <GoingLiveTab
                   darkMode={darkMode}
                   subtitleClasses={subtitleClasses}
-                  title={t.robotTalk || 'RobotTalk'}
+                  description={
+                    t.goingLiveDesc ||
+                    'Upload references, pick platforms and a vibe, then get a stream title, social posts, and posters.'
+                  }
+                  user={user}
                 />
               </TabsContent>
             </div>

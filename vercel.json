@@ -15,9 +15,6 @@
     "src/app/api/post4me/route.ts": {
       "maxDuration": 300
     },
-    "src/app/api/clip-editor/steps/run/route.ts": {
-      "maxDuration": 300
-    },
     "src/app/api/algorithms/route.ts": {
       "maxDuration": 300
     },
@@ -27,10 +24,7 @@
     "src/app/api/clip-analyze/route.ts": {
       "maxDuration": 300
     },
-    "src/app/api/thumbnail-2/analyze/route.ts": {
-      "maxDuration": 300
-    },
-    "src/app/api/thumbnail-2/generate/route.ts": {
+    "src/app/api/viral-clip-gen/route.ts": {
       "maxDuration": 300
     }
   }

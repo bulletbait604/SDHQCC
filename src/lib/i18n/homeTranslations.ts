@@ -12,19 +12,16 @@ export const homeTranslations = {
     newTool: 'New tool',
     contentAnalyzer: 'Content Analyzer',
     kickClips: 'KICK Clips',
-    clipEditor: 'Clip Editor',
-    clipEditorDesc:
-      'Upload a raw clip (≤90s), then Cut it for a vertical preview, then Finish for effects, captions, and your final platform-ready render.',
     rnd: 'R&D',
-    thumbnail2: 'Thumbnail 2.0',
-    panelsBanners: "P&B's — Panels & banners",
+    viralClipGen: 'Viral Clip Gen',
+    viralClipGenDesc:
+      'Describe a short vertical clip, add optional references, pick a length, and generate a 9:16 video.',
     goingLive: 'Going Live',
     goingLiveDesc:
       'Upload up to 4 references, pick a streaming platform, social networks, and a vibe. Get a stream title, a post per network, and a matching poster.',
     trendingVids: 'Trending Vids',
     trendingVidsDesc:
       'Pick a platform. We search the live web via Google and list the top 5 trends — videos and topics for YouTube and other video apps.',
-    robotTalk: 'RobotTalk',
     rndPickTool: 'R&D — owner only · pick a tool below',
     backgroundRemover: 'Background Remover',
     backgroundRemoverDesc:
@@ -73,19 +70,16 @@ export const homeTranslations = {
     newTool: 'Nueva herramienta',
     contentAnalyzer: 'Analizador de Contenido',
     kickClips: 'KICK Clips',
-    clipEditor: 'Editor de clips',
-    clipEditorDesc:
-      'Un creador de clips totalmente optimizado por IA — cortes más inteligentes, ritmo y exportaciones listas para cada plataforma — está en camino.',
     rnd: 'I+D',
-    thumbnail2: 'Thumbnail 2.0',
-    panelsBanners: "P&B's — Paneles y banners",
+    viralClipGen: 'Viral Clip Gen',
+    viralClipGenDesc:
+      'Describe un clip vertical, añade referencias opcionales, elige duración y genera un vídeo 9:16.',
     goingLive: 'En vivo',
     goingLiveDesc:
       'Sube hasta 4 referencias, elige una plataforma de streaming, redes y un tono. Obtén título, un post por red y un póster.',
     trendingVids: 'Vids en tendencia',
     trendingVidsDesc:
       'Elige una plataforma. Buscamos en la web en vivo con Google y listamos las 5 tendencias — vídeos y temas para YouTube y otras apps de vídeo.',
-    robotTalk: 'RobotTalk',
     rndPickTool: 'I+D — solo propietario · elige una herramienta abajo',
     backgroundRemover: 'Eliminador de fondo',
     backgroundRemoverDesc:
@@ -134,19 +128,16 @@ export const homeTranslations = {
     newTool: 'Nouvel outil',
     contentAnalyzer: 'Analyseur de Contenu',
     kickClips: 'KICK Clips',
-    clipEditor: 'Éditeur de clips',
-    clipEditorDesc:
-      'Un créateur de clips entièrement optimisé par IA — découpes plus fines, rythme et exports prêts pour chaque plateforme — arrive bientôt.',
     rnd: 'R&D',
-    thumbnail2: 'Thumbnail 2.0',
-    panelsBanners: "P&B's — Panneaux et bannières",
+    viralClipGen: 'Viral Clip Gen',
+    viralClipGenDesc:
+      'Décrivez un clip vertical, ajoutez des références optionnelles, choisissez une durée et générez une vidéo 9:16.',
     goingLive: 'En direct',
     goingLiveDesc:
       'Importez jusqu’à 4 visuels, choisissez une plateforme de stream, des réseaux et un ton. Titre, un post par réseau et un poster.',
     trendingVids: 'Vids tendances',
     trendingVidsDesc:
       'Choisissez une plateforme. On cherche le web en direct via Google et on liste les 5 tendances — vidéos et sujets pour YouTube et les autres apps vidéo.',
-    robotTalk: 'RobotTalk',
     rndPickTool: 'R&D — propriétaire seulement · choisissez un outil ci-dessous',
     backgroundRemover: 'Suppression d’arrière-plan',
     backgroundRemoverDesc:
@@ -195,19 +186,16 @@ export const homeTranslations = {
     newTool: 'New tool',
     contentAnalyzer: 'Content Analyzer',
     kickClips: 'KICK Clips',
-    clipEditor: 'Clip-Editor',
-    clipEditorDesc:
-      'Ein vollständig KI-optimierter Clip-Creator — intelligentere Schnitte, Timing und exportfertige Ausgaben für jede Plattform — kommt bald.',
     rnd: 'F&E',
-    thumbnail2: 'Thumbnail 2.0',
-    panelsBanners: "P&B's — Panels & Banner",
+    viralClipGen: 'Viral Clip Gen',
+    viralClipGenDesc:
+      'Beschreiben Sie einen vertikalen Clip, fügen Sie optionale Referenzen hinzu, wählen Sie die Länge und erzeugen Sie ein 9:16-Video.',
     goingLive: 'Live gehen',
     goingLiveDesc:
       'Bis zu 4 Referenzen, Streaming-Plattform, Netzwerke und Ton. Stream-Titel, ein Post pro Netzwerk und ein Poster.',
     trendingVids: 'Trend-Vids',
     trendingVidsDesc:
       'Plattform wählen. Wir durchsuchen das Live-Web über Google und listen die Top 5 Trends — Videos und Themen für YouTube und andere Video-Apps.',
-    robotTalk: 'RobotTalk',
     rndPickTool: 'F&E — nur Owner · Werkzeug unten wählen',
     backgroundRemover: 'Hintergrund entfernen',
     backgroundRemoverDesc:

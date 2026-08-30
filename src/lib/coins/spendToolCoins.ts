@@ -12,12 +12,17 @@ export type SpendToolCoinsResult =
 /** Deduct coins for a tool using session user — call after verifyAuth. */
 export async function spendToolCoins(
   user: VerifiedUser,
-  tool: ToolCoinName
+  tool: ToolCoinName,
+  amountOverride?: number
 ): Promise<SpendToolCoinsResult> {
-  const cost = toolCoinCost(tool)
-  if (cost === undefined) {
+  const listed = toolCoinCost(tool)
+  if (listed === undefined && amountOverride === undefined) {
     return { ok: false, status: 400, reason: 'Invalid tool' }
   }
+  const cost =
+    typeof amountOverride === 'number' && Number.isFinite(amountOverride) && amountOverride >= 0
+      ? Math.floor(amountOverride)
+      : listed ?? 0
 
   const client = await clientPromise
   const db = client.db('sdhq')
@@ -104,4 +109,37 @@ export async function spendToolCoins(
     unlimited: false,
     remainingCoins: result.value.coins,
   }
+}
+
+/** Credit coins back after a failed generation (no-op if nothing was deducted). */
+export async function refundToolCoins(
+  user: VerifiedUser,
+  tool: string,
+  amount: number
+): Promise<void> {
+  if (!Number.isFinite(amount) || amount <= 0) return
+  if (hasUnlimitedAccess(user)) return
+
+  const client = await clientPromise
+  const db = client.db('sdhq')
+  const balanceUserId = await resolveCoinBalanceUserId(db, user)
+  const result = await db.collection('coinBalances').findOneAndUpdate(
+    { userId: balanceUserId },
+    {
+      $inc: { coins: amount, totalSpent: -amount },
+      $set: { updatedAt: new Date().toISOString() },
+    },
+    { returnDocument: 'after' }
+  )
+
+  await db.collection('coinTransactions').insertOne({
+    userId: balanceUserId,
+    username: user.username,
+    type: 'refund',
+    amount,
+    tool,
+    balanceAfter: typeof result?.value?.coins === 'number' ? result.value.coins : null,
+    role: user.role,
+    timestamp: new Date().toISOString(),
+  })
 }

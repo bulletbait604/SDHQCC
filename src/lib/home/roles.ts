@@ -68,7 +68,6 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'thumbnail-generator': true,
     'clip-analyzer': true,
     post4me: true,
-    'clip-editor': false,
     'background-remover': true,
   },
   subscriber: {
@@ -79,7 +78,6 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'thumbnail-generator': true,
     'clip-analyzer': true,
     post4me: true,
-    'clip-editor': false,
     'background-remover': true,
   },
   subscriber_lifetime: {
@@ -90,7 +88,6 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'thumbnail-generator': true,
     'clip-analyzer': true,
     post4me: true,
-    'clip-editor': false,
     'background-remover': true,
   },
   editor: {
@@ -101,7 +98,6 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'thumbnail-generator': true,
     'clip-analyzer': true,
     post4me: true,
-    'clip-editor': false,
     'background-remover': true,
   },
   admin: {
@@ -112,7 +108,6 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'thumbnail-generator': true,
     'clip-analyzer': true,
     post4me: true,
-    'clip-editor': false,
     'background-remover': true,
   },
   owner: {
@@ -123,7 +118,6 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'thumbnail-generator': true,
     'clip-analyzer': true,
     post4me: true,
-    'clip-editor': true,
     'background-remover': true,
   },
   tester: {
@@ -134,7 +128,6 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'thumbnail-generator': true,
     'clip-analyzer': true,
     post4me: true,
-    'clip-editor': false,
     'background-remover': true,
   },
 }

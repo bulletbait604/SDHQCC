@@ -9,20 +9,13 @@ export interface HomeTabState {
 
 export const DEFAULT_HOME_TAB = 'educate'
 export const DEFAULT_CREATE_SUB: CreateSubTab = 'thumbnail'
-export const DEFAULT_RND_SUB: RdSubTab = 'clip-editor'
+export const DEFAULT_RND_SUB: RdSubTab = 'viral-clip-gen'
 
 const TAB_QUERY_KEYS = ['tab', 'create', 'rnd'] as const
 
 const MAIN_TABS = new Set(['educate', 'create', 'analyze', 'kick-clips', 'settings', 'rnd'])
 const CREATE_SUBS = new Set<CreateSubTab>(['tags', 'thumbnail', 'post4me', 'background'])
-const RND_SUBS = new Set<RdSubTab>([
-  'clip-editor',
-  'robot-talk',
-  'thumbnail-2',
-  'panels-banners',
-  'going-live',
-  'trending-vids',
-])
+const RND_SUBS = new Set<RdSubTab>(['viral-clip-gen', 'trending-vids', 'going-live'])
 
 /** Legacy ?tab= names from older links. */
 const LEGACY_TAB_MAP: Record<string, HomeTabState> = {
@@ -32,8 +25,16 @@ const LEGACY_TAB_MAP: Record<string, HomeTabState> = {
   'background-remover': { tab: 'create', create: 'background' },
   post4me: { tab: 'create', create: 'post4me' },
   'clip-analyzer': { tab: 'analyze' },
-  'clip-editor': { tab: 'rnd', rnd: 'clip-editor' },
+  'clip-editor': { tab: 'rnd', rnd: 'viral-clip-gen' },
+  'robot-talk': { tab: 'rnd', rnd: 'viral-clip-gen' },
+  'thumbnail-2': { tab: 'rnd', rnd: 'viral-clip-gen' },
+  'panels-banners': { tab: 'rnd', rnd: 'going-live' },
   'new-tool': { tab: DEFAULT_HOME_TAB },
+}
+
+function coerceRnd(rnd: RdSubTab | undefined): RdSubTab | undefined {
+  if (!rnd) return rnd
+  return RND_SUBS.has(rnd) ? rnd : DEFAULT_RND_SUB
 }
 
 export function normalizeHomeTabState(state: HomeTabState): HomeTabState {
@@ -41,7 +42,7 @@ export function normalizeHomeTabState(state: HomeTabState): HomeTabState {
   return {
     tab,
     create: tab === 'create' ? (state.create ?? DEFAULT_CREATE_SUB) : state.create,
-    rnd: tab === 'rnd' ? (state.rnd ?? DEFAULT_RND_SUB) : state.rnd,
+    rnd: tab === 'rnd' ? (coerceRnd(state.rnd) ?? DEFAULT_RND_SUB) : coerceRnd(state.rnd),
   }
 }
 
