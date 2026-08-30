@@ -23,14 +23,15 @@ export function isAllowedViralClipImageType(mime: string): boolean {
 /** Native clip lengths the fal model can generate in one call. */
 export const VIRAL_CLIP_NATIVE_DURATIONS = [5, 10] as const
 
-/** How many images the selected fal model can take (start + optional tail). */
-export const VIRAL_CLIP_MODEL_MAX_REFERENCE_IMAGES = 2
+/** Kling 2.1 Standard I2V takes one start image (`image_url`). Extra refs go to Gemini. */
+export const VIRAL_CLIP_MODEL_MAX_REFERENCE_IMAGES = 1
 
 export function viralClipGenModels() {
   return {
+    /** 2.1 Standard has no T2V endpoint. 1.6 Standard supports 9:16 and 5s/10s. */
     textToVideo:
       process.env.VIRAL_CLIP_GEN_T2V_MODEL?.trim() ||
-      'fal-ai/kling-video/v2.1/standard/text-to-video',
+      'fal-ai/kling-video/v1.6/standard/text-to-video',
     imageToVideo:
       process.env.VIRAL_CLIP_GEN_I2V_MODEL?.trim() ||
       'fal-ai/kling-video/v2.1/standard/image-to-video',

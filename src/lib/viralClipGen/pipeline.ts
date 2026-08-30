@@ -1,5 +1,4 @@
 import {
-  generatePresignedReadUrl,
   putBufferToR2,
 } from '@/lib/r2'
 import { spendToolCoins, refundToolCoins } from '@/lib/coins/spendToolCoins'
@@ -90,16 +89,15 @@ async function stageReferenceUrls(
     }
     const ok = await putBufferToR2(key, raw, ref.mimeType || 'image/jpeg')
     if (!ok) throw new Error('Could not store a reference image.')
-    const url = await generatePresignedReadUrl(key, 3600)
-    if (!url) throw new Error('Could not prepare a reference image for the video model.')
-    urls.push(url)
+    const mime = ref.mimeType || 'image/jpeg'
+    urls.push(`data:${mime};base64,${raw.toString('base64')}`)
   }
 
   const passed = urls.slice(0, VIRAL_CLIP_MODEL_MAX_REFERENCE_IMAGES)
   const extra = refs.length - passed.length
   const notes =
     extra > 0
-      ? `All ${refs.length} images were used in the Gemini plan. The video model used ${passed.length} as start/end frames.`
+      ? `All ${refs.length} images were used in the Gemini plan. The video model used the first image as the start frame.`
       : `Used ${refs.length} reference image${refs.length === 1 ? '' : 's'} in the video model.`
 
   return { urls: passed, notes }

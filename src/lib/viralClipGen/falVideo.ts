@@ -32,29 +32,83 @@ function findVideoUrl(data: unknown): string {
   return ''
 }
 
+function stripDataUrl(raw: string): { mime: string; bytes: Buffer } | null {
+  const match = raw.trim().match(/^data:([^;]+);base64,(.+)$/i)
+  if (!match) return null
+  try {
+    return { mime: match[1]!.trim(), bytes: Buffer.from(match[2]!, 'base64') }
+  } catch {
+    return null
+  }
+}
+
+function describeFalError(err: unknown): string {
+  if (!err || typeof err !== 'object') return err instanceof Error ? err.message : String(err)
+  const rec = err as {
+    message?: unknown
+    status?: unknown
+    body?: { detail?: unknown; message?: unknown }
+  }
+  const parts: string[] = []
+  if (typeof rec.status === 'number') parts.push(`status ${rec.status}`)
+  if (typeof rec.message === 'string' && rec.message.trim()) parts.push(rec.message.trim())
+  const detail = rec.body?.detail
+  if (typeof detail === 'string' && detail.trim()) parts.push(detail.trim())
+  if (Array.isArray(detail)) {
+    for (const item of detail.slice(0, 4)) {
+      if (typeof item === 'string' && item.trim()) parts.push(item.trim())
+      else if (item && typeof item === 'object') {
+        const row = item as { loc?: unknown; msg?: unknown; type?: unknown }
+        const loc = Array.isArray(row.loc) ? row.loc.map(String).join('.') : ''
+        const msg = typeof row.msg === 'string' ? row.msg : ''
+        if (msg) parts.push(loc ? `${loc}: ${msg}` : msg)
+      }
+    }
+  }
+  if (typeof rec.body?.message === 'string' && rec.body.message.trim()) {
+    parts.push(rec.body.message.trim())
+  }
+  return parts.join(' — ').slice(0, 500)
+}
+
+async function resolveImageUrl(raw: string): Promise<string> {
+  const trimmed = raw.trim()
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed
+  const parsed = stripDataUrl(trimmed)
+  if (!parsed || parsed.bytes.length < 32) {
+    throw new Error('Reference image was invalid.')
+  }
+  const blob = new Blob([new Uint8Array(parsed.bytes)], { type: parsed.mime || 'image/jpeg' })
+  return fal.storage.upload(blob)
+}
+
 /**
  * Provider-backed video generation. Swap models in viralClipGen/config.ts.
- * Extra reference URLs beyond the model's native limit are already baked into the Gemini plan.
+ *
+ * Kling 2.1 Standard is image-to-video only (no T2V endpoint).
+ * Text-to-video uses Kling 1.6 Standard, which supports 9:16 and 5s/10s.
  */
 export async function generateVideo(params: FalVideoGenerateInput): Promise<FalVideoGenerateResult> {
   const key = falKey()
   fal.config({ credentials: key })
   const models = viralClipGenModels()
-  const duration = String(params.duration === 10 ? 10 : 5)
-  const refs = params.referenceImageUrls.filter((u) => u.startsWith('http'))
+  const duration = params.duration === 10 ? '10' : '5'
+  const refs = params.referenceImageUrls.filter((u) => typeof u === 'string' && u.trim())
 
-  const model = refs.length > 0 ? models.imageToVideo : models.textToVideo
+  const hasRefs = refs.length > 0
+  const model = hasRefs ? models.imageToVideo : models.textToVideo
+
   const input: Record<string, unknown> = {
     prompt: params.prompt,
     duration,
-    aspect_ratio: params.aspectRatio,
   }
   if (params.negativePrompt) input.negative_prompt = params.negativePrompt
+  input.cfg_scale = 0.5
 
-  if (refs[0]) input.image_url = refs[0]
-  if (refs[1]) {
-    input.tail_image_url = refs[1]
-    input.image_tail_url = refs[1]
+  if (hasRefs) {
+    input.image_url = await resolveImageUrl(refs[0]!)
+  } else {
+    input.aspect_ratio = params.aspectRatio
   }
 
   const run = async (payload: Record<string, unknown>) => {
@@ -79,18 +133,20 @@ export async function generateVideo(params: FalVideoGenerateInput): Promise<FalV
     const videoUrl = await run(input)
     return { videoUrl, model }
   } catch (err) {
-    if (refs.length > 1) {
-      const retry = { ...input }
-      delete retry.tail_image_url
-      delete retry.image_tail_url
-      try {
-        const videoUrl = await run(retry)
-        return { videoUrl, model }
-      } catch {
-        /* fall through */
-      }
+    const detail = describeFalError(err)
+    console.error('[viral-clip-gen] fal generate failed:', { model, duration, hasRefs, detail, err })
+    if (/not found|404|unknown endpoint|does not exist/i.test(detail)) {
+      throw new Error('Video generation failed. The selected video model is not available.')
     }
-    console.error('[viral-clip-gen] fal generate failed:', err)
+    if (/unauthor|401|403|invalid.*key|forbidden/i.test(detail)) {
+      throw new Error('Video generation failed. The video API key was rejected.')
+    }
+    if (/image|download|fetch|url/i.test(detail) && hasRefs) {
+      throw new Error('Video generation failed. The reference image could not be used. Try a smaller JPG or PNG.')
+    }
+    if (/unprocessable|422|extra_forbidden|unexpected/i.test(detail)) {
+      throw new Error('Video generation failed. The request was rejected by the video model.')
+    }
     throw new Error('Video generation failed. Try a simpler prompt or fewer reference images.')
   }
 }
