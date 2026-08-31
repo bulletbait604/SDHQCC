@@ -119,18 +119,40 @@ TRADEBOT_CYCLE_MINUTES=60
 COINGECKO_DEMO_API_KEY=`
 
 const AGENTS = [
-  { id: 'scout', name: 'SCOUT', role: 'Market monitor', color: '#9ddd55', idle: 'Scanning a wider meme and new-coin tape.', x: '18%', y: '28%' },
-  { id: 'archive', name: 'ARCHIVE', role: 'News desk', color: '#be91ff', idle: 'Cross-checking headlines and industry tape.', x: '50%', y: '22%' },
-  { id: 'forge', name: 'FORGE', role: 'Bull desk', color: '#42cbbb', idle: 'Building the long thesis.', x: '82%', y: '28%' },
-  { id: 'relay', name: 'RELAY', role: 'Bear desk', color: '#58a9e8', idle: 'Arguing the counter-risk.', x: '22%', y: '68%' },
-  { id: 'helm', name: 'HELM', role: 'Trader', color: '#ff6557', idle: 'Letting winners run toward +8–10%.', x: '50%', y: '74%' },
-  { id: 'sentinel', name: 'SENTINEL', role: 'Guardrails', color: '#d6a56e', idle: '25% cap · 5% loss halt · lock at +10%.', x: '78%', y: '68%' },
+  { id: 'scout', name: 'FINDER', role: 'Looks for coins', idle: 'Looking for coins that might go up today.', color: '#9ddd55', x: '18%', y: '28%' },
+  { id: 'archive', name: 'NEWS', role: 'Reads the news', idle: 'Checking the news for scams.', color: '#be91ff', x: '50%', y: '22%' },
+  { id: 'forge', name: 'YES', role: 'Why we might buy', idle: 'Looking for good reasons to buy.', color: '#42cbbb', x: '82%', y: '28%' },
+  { id: 'relay', name: 'NO', role: 'Why we might wait', idle: 'Looking for reasons not to buy.', color: '#58a9e8', x: '22%', y: '68%' },
+  { id: 'helm', name: 'TRADER', role: 'Buys and sells', idle: 'Waiting to buy or sell with fake money.', color: '#ff6557', x: '50%', y: '74%' },
+  { id: 'sentinel', name: 'SAFETY', role: 'Stops big losses', idle: 'Stops new buys if we lose 5% or already made 10% today.', color: '#d6a56e', x: '78%', y: '68%' },
 ] as const
 
 const STAGES = AGENTS.map((a) => a.id)
 
 function cad(n: number): string {
   return `CA$${n.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function actionWord(action: string): string {
+  const a = action.toUpperCase()
+  if (a === 'BUY') return 'Bought'
+  if (a === 'SELL') return 'Sold'
+  return 'Held'
+}
+
+function coinName(symbol: string): string {
+  return symbol.replace(/-CAD$/i, '')
+}
+
+function plainNote(text: string): string {
+  const t = text || ''
+  if (/Paper CAD fill/i.test(t)) return t.replace(/Paper CAD fill · /i, 'Fee ')
+  if (/HOLD — no order/i.test(t) || /HOLD - no order/i.test(t)) return 'Did not buy or sell.'
+  if (/Blocked by guardrails/i.test(t)) return 'Safety said no.'
+  if (/drawdown/i.test(t)) return 'Stopped for today: fake money dropped about 5%.'
+  if (/profit lock/i.test(t)) return 'Already hit today’s profit goal. No new buys until tomorrow.'
+  if (/Hard exit/i.test(t)) return t.replace(/Hard exit · /i, 'Sold because: ')
+  return t
 }
 
 export default function TradeBotTab({ description }: TradeBotTabProps) {
@@ -149,7 +171,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
   const loadStatus = async () => {
     const res = await fetch('/api/tradebot/status', { credentials: 'include' })
     const data = await parseJsonResponse<StatusResponse>(res)
-    if (!res.ok) throw new Error(data.error || 'Could not load TradeBot status.')
+    if (!res.ok) throw new Error(data.error || 'Could not load the practice desk.')
     return data
   }
 
@@ -163,7 +185,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
         if (data.lastCycle?.decisions) setCycle(data.lastCycle)
         if (data.fills) setFills(data.fills)
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load TradeBot status.')
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load the practice desk.')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -192,14 +214,14 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
     try {
       const res = await fetch('/api/tradebot/cycle', { method: 'POST', credentials: 'include' })
       const data = await parseJsonResponse<CycleView & { error?: string; userMessage?: string }>(res)
-      if (!res.ok) throw new Error(data.userMessage || data.error || 'Paper cycle failed.')
+      if (!res.ok) throw new Error(data.userMessage || data.error || 'Could not check the market.')
       setCycle(data)
       setPhase('done')
       const next = await loadStatus()
       setStatus(next)
       if (next.fills) setFills(next.fills)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Paper cycle failed.')
+      setError(err instanceof Error ? err.message : 'Could not check the market.')
       setPhase('idle')
     } finally {
       runningRef.current = false
@@ -229,7 +251,6 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
   const goalMin = status?.dailyProfitTargetMinPct || 8
   const goalMax = status?.dailyProfitTargetMaxPct || 10
   const dayPnl = cycle?.dayPnlPct ?? status?.dayPnlPct
-  const dayOpen = cycle?.dayStartEquity ?? ledger?.dayStartEquity ?? startCad
   const quote = status?.quoteProbe
   const cryptoQuote = status?.cryptoProbe
   const universe = cycle?.scan?.universe || status?.universe?.universe || 0
@@ -238,25 +259,24 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
   const stageIndex = running ? STAGES.indexOf(phase as (typeof STAGES)[number]) : phase === 'done' ? STAGES.length : -1
 
   const inspectorTask = useMemo(() => {
-    if (running) return `${agent.name} is on the cycle.`
+    if (running) return `${agent.name} is working now.`
     if (!cycle?.decisions?.length) return agent.idle
     if (agent.id === 'sentinel') {
       const blocked = cycle.decisions.filter((d) => !d.fill?.filled && d.proposal.action !== 'HOLD')
       return blocked.length
-        ? `Blocked ${blocked.length} proposal(s) on hard rules.`
-        : 'Guardrails clear. Paper fills recorded.'
+        ? `Safety blocked ${blocked.length} trade(s).`
+        : 'Safety is OK. Practice trades were saved.'
     }
     if (agent.id === 'archive') {
-      const tape = cycle.scan?.industryTape?.slice(0, 2).join(' · ')
       const news = cycle.scan?.newsItems || 0
-      return tape ? `${news} headlines. ${tape}` : `${news} headlines on the shortlist.`
+      return news ? `Read ${news} news stories.` : 'No news this round.'
     }
     if (agent.id === 'scout') {
-      const hot = cycle.scan?.highPotential?.join(' · ')
-      return hot ? `High potential: ${hot}` : agent.idle
+      const hot = cycle.scan?.highPotential?.map(coinName).join(', ')
+      return hot ? `Coins that look hot: ${hot}` : agent.idle
     }
     if (agent.id === 'helm') {
-      const acts = cycle.decisions.map((d) => `${d.ticker} ${d.proposal.action}`).join(' · ')
+      const acts = cycle.decisions.map((d) => `${coinName(d.ticker)} ${actionWord(d.proposal.action)}`).join(', ')
       return acts || agent.idle
     }
     const first = cycle.decisions[0]
@@ -265,25 +285,31 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
 
   const feed = useMemo(() => {
     if (!cycle?.decisions?.length) {
-      return [{ who: 'ARCHIVE', color: '#be91ff', text: 'Waiting for a cycle. Will hunt new coins, memes, and cross-check rugs vs squeeze news.', at: '' }]
+      return [{ who: 'NEWS', color: '#be91ff', text: 'Press Check market to look for coins. This uses fake money, not real money.', at: '' }]
     }
     const items = cycle.decisions.map((d) => ({
-      who: `${d.ticker}`,
+      who: coinName(d.ticker),
       color: d.fill?.filled ? '#9ddd55' : d.proposal.action === 'HOLD' ? '#58a9e8' : '#d6a56e',
-      text: d.fill?.note || d.proposal.reasoning_summary || `${d.proposal.action} ${d.signal}`,
+      text: d.fill?.filled
+        ? `${actionWord(d.fill.side)} at ${cad(d.fill.price)}`
+        : d.proposal.action === 'HOLD'
+          ? 'Did not buy or sell.'
+          : plainNote(d.fill?.note || d.proposal.reasoning_summary || actionWord(d.proposal.action)),
       at: cycle.ranAt,
     }))
     if (cycle.scan) {
       items.unshift({
-        who: 'ARCHIVE',
+        who: 'NEWS',
         color: '#be91ff',
-        text: `${cycle.scan.newsItems || 0} headlines · tape: ${(cycle.scan.industryTape || []).slice(0, 2).join(' · ') || 'quiet'}`,
+        text: cycle.scan.newsItems
+          ? `Read ${cycle.scan.newsItems} news stories.`
+          : 'No news this round.',
         at: cycle.ranAt,
       })
       items.unshift({
-        who: 'SCOUT',
+        who: 'FINDER',
         color: '#9ddd55',
-        text: `Universe ${cycle.scan.universe} · new ${cycle.scan.newListings} · high potential ${(cycle.scan.highPotential || []).join(' · ') || 'none'} · shortlist ${cycle.scan.shortlist.join(' · ') || 'none'}`,
+        text: `Looked at ${cycle.scan.universe || cycle.scan.shortlist.length} coins. Hot ones: ${(cycle.scan.highPotential || []).map(coinName).join(', ') || 'none yet'}.`,
         at: cycle.ranAt,
       })
     }
@@ -297,20 +323,20 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
         <div className="tb-brand">
           <span className="tb-mark" aria-hidden />
           <span>
-            <small>CAD CRYPTO PAPER DESK</small>
-            <strong>TRADEBOT FLOOR</strong>
+            <small>Practice money · Canada</small>
+            <strong>TRADEBOT</strong>
           </span>
         </div>
         <div className={`tb-connect ${paperReady ? 'ok' : ''}`}>
           <span className="tb-dot" />
           <span>
-            <b>{paperReady ? 'PAPER RUNTIME ONLINE' : 'PAPER FLAG OFF'}</b>
-            <small>{loading ? 'SYNCING LEDGER' : 'KRAKEN · COINGECKO · CAD'}</small>
+            <b>{paperReady ? 'Ready to practice' : 'Practice is off'}</b>
+            <small>{loading ? 'Loading…' : 'Fake money only · no real trades'}</small>
           </span>
         </div>
         <div className="tb-link" style={{ background: 'linear-gradient(135deg, #5da5d82b, #5da5d80a)', boxShadow: 'inset 0 2px #5da5d8, inset 0 -1px #5da5d840' }}>
-          <small>REGION / BOOKS</small>
-          <b>CA · CAD</b>
+          <small>Money type</small>
+          <b>Canadian dollars</b>
         </div>
       </header>
 
@@ -318,32 +344,36 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
 
       <section className="tb-tickers">
         <div className="tb-ticker">
-          <small>PAPER NAV / START {cad(startCad)}</small>
+          <small>Your fake money · started with {cad(startCad)}</small>
           <b>{typeof equity === 'number' ? cad(equity) : '—'}</b>
           <em>
-            CASH {typeof cash === 'number' ? cad(cash) : '—'} · OPEN {cad(dayOpen)} · DAY{' '}
+            Cash left {typeof cash === 'number' ? cad(cash) : '—'} · today{' '}
             {typeof dayPnl === 'number'
-              ? `${dayPnl >= 0 ? '+' : ''}${dayPnl.toFixed(2)}%`
+              ? `${dayPnl >= 0 ? '+' : ''}${dayPnl.toFixed(1)}%`
               : '—'}{' '}
-            · GOAL +{goalMin}–{goalMax}%
+            · goal +{goalMin}–{goalMax}%
           </em>
         </div>
         <div className="tb-ticker">
-          <small>CRYPTO HUNT / NEW + MEMES</small>
+          <small>Coins checked</small>
           <b>{universe ? universe.toLocaleString('en-CA') : '—'}</b>
-          <em>NEW {String(newListings).padStart(2, '0')} · CRYPTO {cryptoPairs || (cryptoQuote?.ok ? 'ON' : '—')}</em>
+          <em>{newListings} new · {cryptoPairs || (cryptoQuote?.ok ? 'crypto on' : 'waiting')}</em>
         </div>
         <div className="tb-ticker">
-          <small>LIVE PRINTS</small>
+          <small>Bitcoin price (check)</small>
           <b>
-            {cryptoQuote?.ok ? cryptoQuote.symbol : quote?.ok ? quote.symbol : 'PRICE UNAVAILABLE'}
+            {cryptoQuote?.ok
+              ? coinName(cryptoQuote.symbol)
+              : quote?.ok
+                ? coinName(quote.symbol)
+                : 'No price yet'}
           </b>
           <em>
             {cryptoQuote?.ok
-              ? `${cad(cryptoQuote.price || 0)} · ${cryptoQuote.source || 'kraken'}`
+              ? cad(cryptoQuote.price || 0)
               : quote?.ok
-                ? `${cad(quote.price || 0)} · ${quote.source}`
-                : quote?.error || cryptoQuote?.error || 'FETCHING'}
+                ? cad(quote.price || 0)
+                : quote?.error || cryptoQuote?.error || 'Loading…'}
           </em>
         </div>
       </section>
@@ -352,48 +382,48 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
         <aside className="tb-rail tb-left">
           <section className="tb-panel">
             <header className="tb-heading">
-              <span>MISSION SOURCE</span>
-              <b>{paperReady ? 'ACTIVE' : 'HALTED'}</b>
+              <span>What this is</span>
+              <b>{paperReady ? 'On' : 'Off'}</b>
             </header>
             <div className="tb-body">
               <p>{description}</p>
               <p style={{ marginTop: 8 }}>
-                Seeds {TRADEBOT_DEFAULT_CRYPTO_WATCHLIST_CSV.replace(/,/g, ' · ')} · CoinGecko hunt on
+                Always watches {TRADEBOT_DEFAULT_CRYPTO_WATCHLIST_CSV.split(',').map((s) => coinName(s.trim())).join(', ')}.
               </p>
             </div>
             <div className="tb-kpi">
-              <span>UNIVERSE <b>{universe ? String(universe).padStart(2, '0') : '—'}</b></span>
-              <span>FILLS <b>{String(fills.length).padStart(2, '0')}</b></span>
+              <span>Coins looked at <b>{universe || '—'}</b></span>
+              <span>Trades done <b>{fills.length}</b></span>
             </div>
           </section>
           <section className="tb-health">
             <span>
               <i className="tb-dot" style={{ width: 7, height: 7 }} />
-              {paperReady ? 'PRIVATE PAPER RUNTIME' : 'AWAITING TRADEBOT_PAPER'}
+              {paperReady ? 'Fake money is on' : 'Turn on practice in settings'}
             </span>
-            <b>READ / RUN OWNER VIEW</b>
+            <b>You can look and run</b>
             <p className="tb-muted" style={{ marginTop: 6 }}>
-              Gemini debates. TypeScript fills. LLMs never call a broker.
+              The AI suggests. The computer records fake buys and sells. Nothing real is bought.
             </p>
           </section>
           {ledger && ledger.positions.length > 0 ? (
             <section className="tb-panel">
               <header className="tb-heading">
-                <span>OPEN BOOK</span>
-                <b>{ledger.positions.length} POS</b>
+                <span>Coins you hold</span>
+                <b>{ledger.positions.length}</b>
               </header>
               <table className="tb-table">
                 <thead>
                   <tr>
-                    <th>SYM</th>
-                    <th>QTY</th>
-                    <th>AVG</th>
+                    <th>Coin</th>
+                    <th>How many</th>
+                    <th>Avg price</th>
                   </tr>
                 </thead>
                 <tbody>
                   {ledger.positions.map((p) => (
                     <tr key={p.symbol}>
-                      <td>{p.symbol}</td>
+                      <td>{coinName(p.symbol)}</td>
                       <td>{p.qty}</td>
                       <td>{cad(p.avgPrice)}</td>
                     </tr>
@@ -407,15 +437,15 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
         <section className="tb-ops">
           <header className="tb-mission">
             <div>
-              <small>DECK 07 · CANADA STATION · {running ? 'CYCLE' : 'NETWORK ACTIVE'}</small>
-              <h2>Operations Floor</h2>
+              <small>{running ? 'Checking the market…' : 'Practice desk · Canada'}</small>
+              <h2>The floor</h2>
               <p className="tb-muted">
-                CA${startCad} fake CAD. Wider coin hunt. HELM lets winners run (~18–22% take) toward +{goalMin}–{goalMax}% today.
+                Start with {cad(startCad)} fake money. Hunt coins. Sell winners around +20%. Aim for +{goalMin}–{goalMax}% today.
               </p>
             </div>
             <button type="button" className="tb-run" onClick={runCycle} disabled={running || !paperReady}>
-              {running ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-              {running ? 'RUNNING' : 'RUN CYCLE'}
+              {running ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+              {running ? 'Checking…' : 'Check market'}
             </button>
           </header>
 
@@ -434,7 +464,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
               <button
                 key={a.id}
                 type="button"
-                aria-label={`Inspect ${a.name}`}
+                aria-label={`Show ${a.name}`}
                 className={`tb-desk${selected === a.id ? ' sel' : ''}${phase === a.id ? ' work' : ''}`}
                 style={{ ['--agent' as string]: a.color, left: a.x, top: a.y }}
                 onClick={() => setSelected(a.id)}
@@ -448,23 +478,23 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
             <div className="tb-inspect" style={{ ['--agent' as string]: agent.color }}>
               <span className="tb-bot" />
               <div>
-                <small>SELECTED AGENT</small>
+                <small>You picked</small>
                 <b>{agent.name}</b>
                 <em>{agent.role}</em>
                 <p>{inspectorTask}</p>
               </div>
             </div>
             <div className="tb-legend">
-              <span><i className="w" />WORKING</span>
-              <span><i className="h" />LIVE HANDOFF</span>
-              <span><i className="r" />REVIEW</span>
+              <span><i className="w" />Busy</span>
+              <span><i className="h" />Done</span>
+              <span><i className="r" />Waiting</span>
             </div>
           </div>
 
-          {cycle?.halted ? <p className="tb-err">{cycle.haltReason}</p> : null}
+          {cycle?.halted ? <p className="tb-err">{plainNote(cycle.haltReason)}</p> : null}
           {cycle?.profitLocked || status?.profitLocked ? (
             <p className="tb-muted" style={{ marginTop: 8 }}>
-              Daily profit lock — book is at or above +{goalMax}%. New buys are off until Toronto tomorrow.
+              We already hit today’s +{goalMax}% goal. No new buys until tomorrow.
             </p>
           ) : null}
         </section>
@@ -472,8 +502,8 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
         <aside className="tb-rail tb-right">
           <section className="tb-panel">
             <header className="tb-heading">
-              <span>AGENT COUNCIL</span>
-              <b>06 ONLINE</b>
+              <span>Helpers</span>
+              <b>6</b>
             </header>
             {AGENTS.map((a) => (
               <button
@@ -495,8 +525,8 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
 
           <section className="tb-panel" style={{ flex: 1 }}>
             <header className="tb-heading">
-              <span>LIVE AGENT HANDOFFS</span>
-              <b>{running ? 'STREAMING' : cycle ? 'LAST CYCLE' : 'IDLE'}</b>
+              <span>What just happened</span>
+              <b>{running ? 'Working' : cycle ? 'Last check' : 'Waiting'}</b>
             </header>
             <div className="tb-feed">
               {feed.map((item, i) => (
@@ -516,25 +546,25 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
       {fills.length > 0 ? (
         <section className="tb-panel" style={{ margin: 10, position: 'relative', zIndex: 2 }}>
           <header className="tb-heading">
-            <span>PAPER FILLS</span>
-            <b>CAD LEDGER</b>
+            <span>Fake trades</span>
+            <b>Practice log</b>
           </header>
           <table className="tb-table">
             <thead>
               <tr>
-                <th>WHEN</th>
-                <th>SIDE</th>
-                <th>SYM</th>
-                <th>QTY</th>
-                <th>PX</th>
+                <th>When</th>
+                <th>Buy or sell</th>
+                <th>Coin</th>
+                <th>How many</th>
+                <th>Price</th>
               </tr>
             </thead>
             <tbody>
               {fills.slice(0, 8).map((f) => (
                 <tr key={`${f.at}-${f.symbol}-${f.side}`}>
                   <td>{f.at ? new Date(f.at).toLocaleString() : '—'}</td>
-                  <td>{f.side}</td>
-                  <td>{f.symbol}</td>
+                  <td>{actionWord(f.side)}</td>
+                  <td>{coinName(f.symbol)}</td>
                   <td>{f.qty}</td>
                   <td>{cad(f.price)}</td>
                 </tr>
@@ -545,9 +575,9 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
       ) : null}
 
       <div className="tb-dev" style={{ position: 'relative', zIndex: 2 }}>
-        <b>OPERATOR NOTE</b> — Paper CAD {cad(startCad)}. Daily goal +{goalMin}–{goalMax}%. Hourly cron + Run cycle. Set TRADEBOT_PAPER=true.
+        <b>Note</b> — You start with {cad(startCad)} fake money. Daily goal is +{goalMin}–{goalMax}%. Practice must be turned on.
         <button type="button" className="tb-copy" style={{ marginLeft: 10 }} onClick={() => setShowVars((v) => !v)}>
-          {showVars ? 'HIDE ENV' : 'SHOW ENV'}
+          {showVars ? 'Hide settings' : 'Show settings'}
         </button>
         {showVars ? (
           <>
@@ -561,7 +591,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
                 setTimeout(() => setCopied(false), 2000)
               }}
             >
-              {copied ? 'COPIED' : 'COPY'}
+              {copied ? 'Copied' : 'Copy'}
             </button>
             <pre>{ENV_SNIPPET}</pre>
           </>
