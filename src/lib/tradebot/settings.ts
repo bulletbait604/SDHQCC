@@ -70,6 +70,28 @@ export function isPlacingLiveOrders(ledger: { liveMode?: boolean }): boolean {
   }).placingLive
 }
 
+/** UI Fake/Real follows liveMode. paper means not placing Kraken orders (TRADEBOT_PAPER can still be on). */
+export function deskUiFlags(ledger: { liveMode?: boolean } | null | undefined) {
+  const liveMode = Boolean(ledger?.liveMode)
+  const krakenLive = isPlacingLiveOrders(ledger || { liveMode: false })
+  return {
+    liveMode,
+    krakenLive,
+    paper: !krakenLive,
+    paperOnly: !krakenLive,
+  }
+}
+
+/** Fake book follows TRADEBOT_STARTING_CAD. Real book is Kraken cash — never wipe it. */
+export function paperStartMismatchShouldReset(
+  liveMode: boolean,
+  startingEquity: number,
+  startingCad: number
+): boolean {
+  if (liveMode) return false
+  return startingEquity !== startingCad
+}
+
 /** @deprecated Use isKrakenLiveAllowed — does not mean the UI is on Real. */
 export function isKrakenLiveActive(): boolean {
   return isKrakenLiveAllowed()
@@ -105,12 +127,12 @@ export function getTradebotSettings() {
     paper: isTradebotPaperEnabled(),
     startingCad: configuredStart === 100_000 ? 100 : configuredStart,
     maxDrawdownPct: Math.min(25, Math.max(1, numEnv('TRADEBOT_MAX_DRAWDOWN_PCT', 8))),
-    maxAssetWeightPct: numEnv('TRADEBOT_MAX_ASSET_WEIGHT', 45),
+    maxAssetWeightPct: numEnv('TRADEBOT_MAX_ASSET_WEIGHT', 75),
     riskPct: numEnv('TRADEBOT_RISK_PCT', 2),
     stopPct: Math.min(8, Math.max(0.5, numEnv('TRADEBOT_STOP_PCT', 2))) / 100,
     takePct: Math.max(
       minTakePct(numEnv('TRADEBOT_KRAKEN_MAKER_BPS', KRAKEN_MAKER_BPS_DEFAULT)),
-      Math.min(20, Math.max(1, numEnv('TRADEBOT_TAKE_PCT', 6))) / 100
+      Math.min(20, Math.max(1, numEnv('TRADEBOT_TAKE_PCT', 9))) / 100
     ),
     atrMultiplier: numEnv('TRADEBOT_ATR_MULTIPLIER', 2),
     tsxFeeBps: numEnv('TRADEBOT_TSX_FEE_BPS', 10),

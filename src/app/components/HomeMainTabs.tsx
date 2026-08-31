@@ -399,7 +399,7 @@ export default function HomeMainTabs({
                   subtitleClasses={subtitleClasses}
                   description={
                     t.tradeBotDesc ||
-                    'Kraken CAD coins only. Start with CA$100. Buys a dip in an uptrend with maker limits. Trails winners. 1–2 tickets. Halt the day at -8%. Fake to practice, Real for Kraken.'
+                    'Kraken CAD coins only. Start with CA$100. Buys a dip in an uptrend with maker limits. One ticket, most of the book. Take ~8–12%. Halt the day at -8%. Fake to practice, Real for Kraken.'
                   }
                 />
               </TabsContent>

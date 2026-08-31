@@ -77,11 +77,11 @@ export async function runDebateAndTrader(
 1) ARCHIVE (news)  2) FORGE (why buy)  3) RELAY (why wait)  4) HELM (trader)
 Never place an order yourself. Output JSON only. TypeScript talks to Kraken or the paper ledger. No shorts. No leverage.
 
-GOAL: a few swing trades that still pay after Kraken fees. Do not scalp. Do not chase +8% in a day. One ticket at a time. Prefer HOLD over a weak BUY. Volatility setting: ${book.volatility || 'medium'}.
+GOAL: a few swing trades that still pay after Kraken fees. Do not scalp. Do not chase +8% in a day. One ticket at a time, most of the book on that ticket. Prefer HOLD over a weak BUY. Volatility setting: ${book.volatility || 'medium'}.
 - low = BTC/ETH dip in an uptrend.
 - medium = liquid CAD mix, still a dip not a chase.
 - high = faster alts, still EMA9 > EMA21 and MACD >= 0.
-The computer sets stop (~2%) and take (~6–8%) so fees are a minority of the win. Halt new trades if the book is down 8% on the day.
+The computer sets stop (~2%) and take (~8–12%) so fees are a minority of the win. Halt new trades if the book is down 8% on the day.
 Current book: equity CA$${book.equity.toFixed(2)}, cash CA$${book.cash.toFixed(2)}, day-open CA$${book.dayStartEquity.toFixed(2)}, day P&L ${book.dayPnlPct.toFixed(2)}%.
 
 Only Kraken-listed coins. Prefer hourly trend up, a 15m reversal off a swing low, RSI turning up. Never buy mid-range.

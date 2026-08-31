@@ -18,8 +18,10 @@ test('high hunts more names and wider moves than low', () => {
   assert.ok(!low.symbols.includes('DOGE-CAD'))
   assert.equal(low.maxOpen, 1)
   assert.equal(high.maxOpen, 1)
-  assert.ok(low.takePct >= 0.056)
-  assert.ok(high.takePct >= 0.1)
+  assert.ok(low.takePct >= 0.08)
+  assert.ok(high.takePct >= 0.12)
+  assert.ok(low.maxAssetWeightPct >= 70)
+  assert.ok(high.maxAssetWeightPct >= 70)
 })
 
 test('rejects an extended spike on every tab', () => {

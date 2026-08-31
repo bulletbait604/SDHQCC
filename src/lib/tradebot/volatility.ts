@@ -40,7 +40,7 @@ export function volatilityProfile(level: VolatilityLevel) {
     return {
       level,
       label: 'Low',
-      hint: 'BTC/ETH swing — one ticket off the hourly trend',
+      hint: 'BTC/ETH swing — most of the book on one ticket, 8% take',
       symbols: [...LOW_SYMBOLS] as string[],
       maxPairs: 4,
       fillNativeCadAlts: false,
@@ -53,17 +53,17 @@ export function volatilityProfile(level: VolatilityLevel) {
       moveScoreBoost: 0.15,
       maxOpen: 1,
       stopPct: 0.018,
-      takePct: Math.max(0.07, floorTake),
-      trailPct: 0.015,
+      takePct: Math.max(0.08, floorTake),
+      trailPct: 0.018,
       maxSpreadPct: 0.25,
-      maxAssetWeightPct: 55,
+      maxAssetWeightPct: 80,
     }
   }
   if (level === 'high') {
     return {
       level,
       label: 'High',
-      hint: 'Faster coins — one swing ticket off structure, 10% take',
+      hint: 'Faster coins — most of the book on one swing, 12% take',
       symbols: [...HIGH_SYMBOLS] as string[],
       maxPairs: 18,
       fillNativeCadAlts: true,
@@ -76,19 +76,19 @@ export function volatilityProfile(level: VolatilityLevel) {
       moveScoreBoost: 0.25,
       maxOpen: 1,
       stopPct: 0.025,
-      takePct: Math.max(0.1, floorTake),
-      trailPct: 0.022,
+      takePct: Math.max(0.12, floorTake),
+      trailPct: 0.025,
       maxSpreadPct: 0.45,
-      maxAssetWeightPct: 50,
+      maxAssetWeightPct: 70,
     }
   }
   return {
     level: 'medium' as const,
     label: 'Medium',
-    hint: 'Liquid Kraken CAD — one swing ticket off structure',
+    hint: 'Liquid Kraken CAD — most of the book on one swing, 9% take',
     symbols: [...MEDIUM_SYMBOLS] as string[],
     maxPairs: 10,
-    fillNativeCadAlts: false,
+    fillNativeCadAlts: true,
     minDayChangePct: -1,
     maxDayChangePct: 8,
     rsiMin: 26,
@@ -98,10 +98,10 @@ export function volatilityProfile(level: VolatilityLevel) {
     moveScoreBoost: 0.2,
     maxOpen: 1,
     stopPct: 0.02,
-    takePct: Math.max(0.075, floorTake),
-    trailPct: 0.016,
+    takePct: Math.max(0.09, floorTake),
+    trailPct: 0.02,
     maxSpreadPct: 0.35,
-    maxAssetWeightPct: 50,
+    maxAssetWeightPct: 75,
   }
 }
 

@@ -149,7 +149,7 @@ export function swingEntry(input: {
   let takePct = floorTake
   if (swingHigh && swingHigh > px) {
     const toHigh = (swingHigh - px) / px
-    if (toHigh >= floorTake * 0.9) takePct = Math.min(Math.max(toHigh, floorTake), vol.takePct * 1.35)
+    if (toHigh >= floorTake * 0.9) takePct = Math.min(Math.max(toHigh, floorTake), vol.takePct * 1.5)
   }
 
   const rr = afterFeeRR(takePct, stopPct)

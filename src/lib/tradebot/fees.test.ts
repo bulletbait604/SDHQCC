@@ -6,6 +6,7 @@ import {
   minTakePct,
   roundTripPct,
   trailActivatePct,
+  swingTrailActivatePct,
   spreadPct,
 } from '@/lib/tradebot/fees'
 
@@ -26,6 +27,12 @@ test('min take is 7× maker round-trip (5.6%)', () => {
 test('trail waits until a 1.6% trail still locks a maker/taker round-trip', () => {
   const g = trailActivatePct(0.016)
   assert.ok(g > 0.027 && g < 0.03)
+})
+
+test('swing trail waits for half the take so winners can still hit the target', () => {
+  const g = swingTrailActivatePct(0.09, 0.02)
+  assert.ok(g >= 0.045)
+  assert.ok(g > trailActivatePct(0.02))
 })
 
 test('spread is percent of mid', () => {

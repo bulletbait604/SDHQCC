@@ -197,11 +197,20 @@ export type CryptoMarket = {
 }
 
 export async function quoteKrakenMarkets(pairs: CryptoPair[]): Promise<CryptoMarket[]> {
-  const fx = await usdCadRate().catch(() => 1)
-  const ids = Array.from(new Set(pairs.map((p) => p.krakenId).concat('ZUSDZCAD')))
+  let work = pairs
+  const needsFx = work.some((p) => !p.nativeCad)
+  let fx = 1
+  if (needsFx) {
+    try {
+      fx = await usdCadRate()
+    } catch {
+      work = work.filter((p) => p.nativeCad)
+    }
+  }
+  const ids = Array.from(new Set(work.map((p) => p.krakenId).concat('ZUSDZCAD')))
   const rows = await ticker(ids)
   const out: CryptoMarket[] = []
-  for (const pair of pairs) {
+  for (const pair of work) {
     const row = tickerRow(rows, pair.krakenId)
     const rawPx = lastPrice(row)
     if (!(rawPx > 0)) continue

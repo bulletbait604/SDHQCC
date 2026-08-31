@@ -122,7 +122,7 @@ export const TRADEBOT_ENV_CATALOG: TradebotEnvItem[] = [
       'COINGECKO_PRO_API_KEY',
       'COINGECKO_USE_PRO',
     ],
-    purpose: 'Defaults: CA$100, Kraken coins only, maker entries, one swing ticket, take at least 7× maker round-trip (~5.6%), 8% daily loss halt, live ticks every 8s plus a 1-minute server cron.',
+    purpose: 'Defaults: CA$100, Kraken coins only, maker entries, one swing ticket (~75% of the book), take ~8–12% so fees stay a minority, 8% daily loss halt, live ticks every 8s plus a 1-minute server cron.',
   },
   {
     id: 'ibkr',

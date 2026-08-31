@@ -76,3 +76,17 @@ export function recentlyStopped(
     return Number.isFinite(at) && now - at < windowMs
   })
 }
+
+/** Prefer the held coin, then BTC, then ETH — not the wildest memecoin of the day. */
+export function featuredLiveMark<T extends { symbol: string }>(
+  marks: T[],
+  held: string[] = []
+): T | undefined {
+  if (!marks.length) return undefined
+  const bySym = new Map(marks.map((m) => [m.symbol.toUpperCase(), m]))
+  for (const symbol of held) {
+    const m = bySym.get(symbol.trim().toUpperCase())
+    if (m) return m
+  }
+  return bySym.get('BTC-CAD') || bySym.get('ETH-CAD') || marks[0]
+}

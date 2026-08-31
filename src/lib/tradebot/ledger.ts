@@ -1,6 +1,6 @@
 import clientPromise from '@/lib/mongodb'
 import { TRADEBOT_BASE_CURRENCY } from '@/lib/tradebot/canada'
-import { getTradebotSettings, isKrakenLiveAllowed } from '@/lib/tradebot/settings'
+import { getTradebotSettings, isKrakenLiveAllowed, paperStartMismatchShouldReset } from '@/lib/tradebot/settings'
 import { parseVolatility, type VolatilityLevel } from '@/lib/tradebot/volatility'
 
 export type PaperPosition = {
@@ -155,7 +155,7 @@ export async function loadPaperLedger(): Promise<PaperLedger> {
     return fresh
   }
   const ledger = mapLedger(existing as Record<string, unknown>, startingCad)
-  if (ledger.startingEquity !== startingCad) {
+  if (paperStartMismatchShouldReset(ledger.liveMode, ledger.startingEquity, startingCad)) {
     const reset = freshLedger(startingCad, today)
     reset.engineOn = ledger.engineOn
     reset.liveMode = ledger.liveMode

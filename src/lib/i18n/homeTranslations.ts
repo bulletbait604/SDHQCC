@@ -24,7 +24,7 @@ export const homeTranslations = {
       'Pick a platform. We search the live web via Google and list the top 5 trends — videos and topics for YouTube and other video apps.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Kraken CAD coins only. Start with CA$100. One swing ticket: dip in an uptrend, maker limits, take ~6–8% so fees do not eat the win. Halt the day at -8%. Fake to practice, Real for Kraken.',
+      'Kraken CAD coins only. Start with CA$100. One swing ticket (~75% of the book): dip in an uptrend, maker limits, take ~8–12% so fees do not eat the win. Halt the day at -8%. Fake to practice, Real for Kraken.',
     rndPickTool: 'R&D — owner only · pick a tool below',
     backgroundRemover: 'Background Remover',
     backgroundRemoverDesc:

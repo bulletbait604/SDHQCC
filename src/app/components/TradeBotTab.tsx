@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react'
 import { parseJsonResponse } from '@/lib/http/parseJsonResponse'
 import { TRADEBOT_DEFAULT_CRYPTO_WATCHLIST_CSV } from '@/lib/tradebot/canada'
 import type { TradebotProviderStatus } from '@/lib/tradebot/envCatalog'
+import { featuredLiveMark } from '@/lib/tradebot/liveTapeRank'
 import { parseVolatility, volatilityProfile, type VolatilityLevel } from '@/lib/tradebot/volatility'
 import './TradeBotFloor.css'
 
@@ -65,7 +66,7 @@ type CycleView = {
   dayPnlPct?: number
   profitLocked?: boolean
   dayStartEquity?: number
-  ledger: { cash: number; positions: Position[]; halted?: boolean; haltReason?: string; dayStartEquity?: number }
+  ledger: { cash: number; positions: Position[]; halted?: boolean; haltReason?: string; dayStartEquity?: number; liveMode?: boolean; engineOn?: boolean }
   decisions: DecisionRow[]
   scan?: {
     universe: number
@@ -91,7 +92,7 @@ type StatusResponse = {
   universe?: { universe: number; newListings: number; offset: number }
   providers: TradebotProviderStatus[]
   equity?: number | null
-  ledger?: { cash: number; positions: Position[]; halted?: boolean; haltReason?: string; dayStartEquity?: number } | null
+  ledger?: { cash: number; positions: Position[]; halted?: boolean; haltReason?: string; dayStartEquity?: number; liveMode?: boolean; engineOn?: boolean } | null
   fills?: FillRow[]
   lastCycle?: CycleView | null
   startingCad?: number
@@ -122,8 +123,8 @@ TRADEBOT_LIVE=true
 TRADEBOT_KRAKEN_ONLY=true
 TRADEBOT_CRYPTO_ONLY=true
 TRADEBOT_STOP_PCT=2
-TRADEBOT_TAKE_PCT=6
-TRADEBOT_MAX_ASSET_WEIGHT=50
+TRADEBOT_TAKE_PCT=9
+TRADEBOT_MAX_ASSET_WEIGHT=75
 TRADEBOT_MAX_DRAWDOWN_PCT=8
 TRADEBOT_STARTING_CAD=100
 TRADEBOT_TICK_SECONDS=8
@@ -140,7 +141,7 @@ const AGENTS = [
   { id: 'forge', name: 'YES', role: 'Why we might buy', idle: 'Looking for good reasons to buy.', color: '#42cbbb', x: '82%', y: '28%' },
   { id: 'relay', name: 'NO', role: 'Why we might wait', idle: 'Looking for reasons not to buy.', color: '#58a9e8', x: '22%', y: '68%' },
   { id: 'helm', name: 'TRADER', role: 'Buys and sells', idle: 'Watching live prices. Buys and sells when the desk is ON.', color: '#ff6557', x: '50%', y: '74%' },
-  { id: 'sentinel', name: 'SAFETY', role: 'Stops big losses', idle: 'Maker buys. One swing ticket. Take ~6–8% so fees are a minority. Trails only after a locked profit. Day halt -8%.', color: '#d6a56e', x: '78%', y: '68%' },
+  { id: 'sentinel', name: 'SAFETY', role: 'Stops big losses', idle: 'Maker buys. One swing ticket, most of the book. Take ~8–12% so fees are a minority. Trails only after half the take is in. Day halt -8%.', color: '#d6a56e', x: '78%', y: '68%' },
 ] as const
 
 const STAGES = AGENTS.map((a) => a.id)
@@ -258,6 +259,8 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
       const data = await parseJsonResponse<
         CycleView & {
           live?: boolean
+          krakenLive?: boolean
+          engineOn?: boolean
           marks?: Array<{ symbol: string; price: number; dayChangePct: number }>
           fills?: FillRow[]
           error?: string
@@ -276,6 +279,11 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
               ledger: data.ledger,
               dayPnlPct: data.dayPnlPct,
               profitLocked: data.profitLocked,
+              engineOn: data.engineOn ?? prev.engineOn,
+              liveMode: data.ledger?.liveMode ?? prev.liveMode,
+              krakenLive: typeof data.krakenLive === 'boolean' ? data.krakenLive : prev.krakenLive,
+              paper: typeof data.krakenLive === 'boolean' ? !data.krakenLive : prev.paper,
+              paperOnly: typeof data.krakenLive === 'boolean' ? !data.krakenLive : prev.paperOnly,
             }
           : prev
       )
@@ -313,19 +321,6 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
     }, ms)
     return () => window.clearInterval(id)
   }, [status?.paper, status?.krakenConfigured, status?.tickSeconds, status?.engineReady, status?.liveAllowed, loading])
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- one stale-cycle kick; runCycle is guarded by runningRef
-  useEffect(() => {
-    if (loading || !status?.engineOn || (!status?.paper && !status?.krakenConfigured)) return
-    const last = status.lastCycle?.ranAt
-    const age = last ? Date.now() - Date.parse(last) : Number.POSITIVE_INFINITY
-    const maxAge = (status.cycleMinutes || 60) * 60_000
-    if (!(age >= maxAge)) return
-    const t = window.setTimeout(() => {
-      void runCycle()
-    }, 1500)
-    return () => window.clearTimeout(t)
-  }, [status?.paper, status?.krakenConfigured, status?.engineOn, loading])
 
   const setEngine = async (on: boolean) => {
     if (engineBusy || (!status?.paper && !status?.krakenConfigured && !status?.liveAllowed)) return
@@ -398,8 +393,8 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
               engineOn: Boolean(data.engineOn),
               liveMode: Boolean(data.liveMode),
               krakenLive: Boolean(data.krakenLive),
-              paper: !data.krakenLive,
-              paperOnly: !data.krakenLive,
+              paper: !data.liveMode,
+              paperOnly: !data.liveMode,
               ledger: data.ledger || prev.ledger,
               equity: typeof data.ledger?.cash === 'number' ? data.ledger.cash : prev.equity,
             }
@@ -458,6 +453,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
   const paperReady = Boolean(status?.paper || status?.krakenConfigured || status?.liveAllowed)
   const engineOn = Boolean(status?.engineOn)
   const liveAllowed = Boolean(status?.liveAllowed)
+  const liveMode = Boolean(status?.liveMode)
   const krakenLive = Boolean(status?.krakenLive)
   const vol = volatilityProfile(parseVolatility(status?.volatility))
   const startCad = status?.startingCad || 100
@@ -466,7 +462,8 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
   const dayPnl = status?.dayPnlPct ?? cycle?.dayPnlPct
   const quote = status?.quoteProbe
   const cryptoQuote = status?.cryptoProbe
-  const hotMark = [...marks].sort((a, b) => Math.abs(b.dayChangePct) - Math.abs(a.dayChangePct))[0]
+  const heldSymbols = (ledger?.positions || []).map((p) => p.symbol)
+  const hotMark = featuredLiveMark(marks, heldSymbols)
   const markOf = (symbol: string) => marks.find((m) => m.symbol === symbol)
   const universe = cycle?.scan?.universe || status?.universe?.universe || 0
   const stageIndex = running ? STAGES.indexOf(phase as (typeof STAGES)[number]) : phase === 'done' ? STAGES.length : -1
@@ -536,7 +533,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
         <div className="tb-brand">
           <span className="tb-mark" aria-hidden />
           <span>
-            <small>{krakenLive ? 'Kraken live · Canada' : 'Practice money · Canada'}</small>
+            <small>{liveMode ? 'Kraken live · Canada' : 'Practice money · Canada'}</small>
             <strong>TRADEBOT</strong>
           </span>
         </div>
@@ -547,9 +544,11 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
             <small>
               {loading
                 ? 'Loading…'
-                : krakenLive
+                : liveMode
                   ? engineOn
-                    ? 'Real Kraken buys and sells'
+                    ? krakenLive
+                      ? 'Real Kraken buys and sells'
+                      : 'Real selected · this server cannot place Kraken orders yet'
                     : 'Real selected · press ON to trade'
                   : engineOn
                     ? 'Fake buys and sells as coins move'
@@ -561,8 +560,8 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           <button
             type="button"
             role="tab"
-            aria-selected={!krakenLive}
-            className={!krakenLive ? 'on' : ''}
+            aria-selected={!liveMode}
+            className={!liveMode ? 'on' : ''}
             disabled={engineBusy || !paperReady}
             onClick={() => void setMoneyMode(false)}
           >
@@ -571,8 +570,8 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           <button
             type="button"
             role="tab"
-            aria-selected={krakenLive}
-            className={krakenLive ? 'on live' : ''}
+            aria-selected={liveMode}
+            className={liveMode ? 'on live' : ''}
             disabled={engineBusy || !liveAllowed}
             title={liveAllowed ? 'Real Kraken CAD' : 'Set TRADEBOT_LIVE=true and Kraken keys to unlock'}
             onClick={() => void setMoneyMode(true)}
@@ -602,7 +601,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
 
       <section className="tb-tickers">
         <div className="tb-ticker">
-          <small>{krakenLive ? 'Your Kraken money' : 'Your fake money'} · started with {cad(startCad)}</small>
+          <small>{liveMode ? 'Your Kraken CAD' : `Your fake money · started with ${cad(startCad)}`}</small>
           <b>{typeof equity === 'number' ? cad(equity) : '—'}</b>
           <em style={{ color: typeof dayPnl === 'number' && dayPnl < 0 ? 'var(--tb-red)' : 'var(--tb-acid)' }}>
             Cash {typeof cash === 'number' ? cad(cash) : '—'} · today{' '}
@@ -613,11 +612,11 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           <small>Kraken coins · {vol.label} vol</small>
           <b>{marks.length || universe || '—'}</b>
           <em>
-            {vol.hint}. Stop {(vol.stopPct * 100).toFixed(1)}% · take {(vol.takePct * 100).toFixed(1)}% · trail {(vol.trailPct * 100).toFixed(1)}% · max {vol.maxOpen} {vol.maxOpen === 1 ? 'coin' : 'coins'} · day halt {status?.maxDrawdownPct || 8}%
+            {vol.hint}. ~{vol.maxAssetWeightPct}% of the book · stop {(vol.stopPct * 100).toFixed(1)}% · take {(vol.takePct * 100).toFixed(1)}% · trail {(vol.trailPct * 100).toFixed(1)}% · max {vol.maxOpen} {vol.maxOpen === 1 ? 'coin' : 'coins'} · day halt {status?.maxDrawdownPct || 8}%
           </em>
         </div>
         <div className="tb-ticker">
-          <small>{watching ? 'Live coin (now)' : 'Bitcoin price (check)'}</small>
+          <small>{watching ? (hotMark ? `Live ${coinName(hotMark.symbol)}` : 'Live Kraken') : 'Bitcoin price (check)'}</small>
           <b>
             {hotMark
               ? coinName(hotMark.symbol)
@@ -673,12 +672,12 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
               <i className="tb-dot" style={{ width: 7, height: 7 }} />
               {paperReady ? (engineOn ? (watching ? 'Watching live prices' : 'System is on') : 'System is off') : 'Add TRADEBOT_PAPER or Kraken keys'}
             </span>
-            <b>{engineOn ? (krakenLive ? 'Real desk is ON' : 'Fake desk is ON') : krakenLive ? 'Real selected · OFF' : 'Fake selected · OFF'}</b>
+            <b>{engineOn ? (liveMode ? 'Real desk is ON' : 'Fake desk is ON') : liveMode ? 'Real selected · OFF' : 'Fake selected · OFF'}</b>
             <p className="tb-muted" style={{ marginTop: 6 }}>
               {engineOn
-                ? krakenLive
-                  ? 'A server tick runs every minute even if this tab is closed. Leave it open for faster 8s watches. Real CAD orders while ON.'
-                  : 'A server tick runs every minute even if this tab is closed. Leave it open for faster 8s practice fills.'
+                ? liveMode && krakenLive
+                  ? 'Leave this tab open for live Kraken prices every 8s. Real CAD orders while ON.'
+                  : 'Leave this tab open for live Kraken prices every 8s. Fake fills while ON.'
                 : 'Live prices still update. Press ON to allow buys and sells.'}
             </p>
           </section>
@@ -732,7 +731,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
               <small>{running ? 'Checking the market…' : engineOn ? (watching ? 'Watching live prices' : 'System is on') : 'System is off'}</small>
               <h2>The floor</h2>
               <p className="tb-muted">
-                Start with {cad(startCad)}. Kraken coins only. {vol.hint}. One swing ticket, maker buys, take large enough that fees are a minority. Halt the day at -{status?.maxDrawdownPct || 8}%. No shorts. Fake to test, Real for Kraken. {krakenLive ? 'Real orders while ON.' : 'Fake fills until you tap Real.'}
+                Start with {cad(startCad)}. Kraken coins only. {vol.hint}. One swing ticket (~{vol.maxAssetWeightPct}% of the book), maker buys, take large enough that fees are a minority. Halt the day at -{status?.maxDrawdownPct || 8}%. No shorts. Fake to test, Real for Kraken. {liveMode ? 'Real orders while ON.' : 'Fake fills until you tap Real.'}
               </p>
             </div>
             <div className="tb-actions">
@@ -740,8 +739,8 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
                 <button
                   type="button"
                   role="tab"
-                  aria-selected={!krakenLive}
-                  className={!krakenLive ? 'on' : ''}
+                  aria-selected={!liveMode}
+                  className={!liveMode ? 'on' : ''}
                   disabled={engineBusy || !paperReady}
                   onClick={() => void setMoneyMode(false)}
                 >
@@ -750,8 +749,8 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
                 <button
                   type="button"
                   role="tab"
-                  aria-selected={krakenLive}
-                  className={krakenLive ? 'on live' : ''}
+                  aria-selected={liveMode}
+                  className={liveMode ? 'on live' : ''}
                   disabled={engineBusy || !liveAllowed}
                   title={liveAllowed ? 'Real Kraken CAD' : 'Set TRADEBOT_LIVE=true and Kraken keys to unlock'}
                   onClick={() => void setMoneyMode(true)}
@@ -892,8 +891,8 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
       {fills.length > 0 ? (
         <section className="tb-panel" style={{ margin: 10, position: 'relative', zIndex: 2 }}>
           <header className="tb-heading">
-            <span>{krakenLive ? 'Kraken trades' : 'Fake trades'}</span>
-            <b>{krakenLive ? 'Live log' : 'Practice log'}</b>
+            <span>{liveMode ? 'Kraken trades' : 'Fake trades'}</span>
+            <b>{liveMode ? 'Live log' : 'Practice log'}</b>
           </header>
           <table className="tb-table">
             <thead>

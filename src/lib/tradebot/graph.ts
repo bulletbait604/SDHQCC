@@ -1,5 +1,6 @@
 import { runDebateAndTrader } from '@/lib/tradebot/agents'
 import { isCryptoSymbol, listKrakenCryptoPairs, listLiquidKrakenPairs, quoteKrakenMarkets } from '@/lib/tradebot/crypto'
+import { swingTrailActivatePct } from '@/lib/tradebot/fees'
 import { sizeBuyQuantity, validateTrade, dayPnlPct } from '@/lib/tradebot/guardrails'
 import {
   loadPaperLedger,
@@ -94,7 +95,12 @@ export async function runPaperCycle(): Promise<CycleResult> {
     const exited = await executeHardExits(ledger, prices, decisions, pairsBySymbol)
     ledger = exited.ledger
     decisions = exited.decisions
-    trailStops(ledger, prices, { trailPct: vol.trailPct, makerBps: settings.krakenMakerBps, takerBps: settings.krakenTakerBps })
+    trailStops(ledger, prices, {
+      activatePct: swingTrailActivatePct(vol.takePct, vol.trailPct, settings.krakenMakerBps, settings.krakenTakerBps),
+      trailPct: vol.trailPct,
+      makerBps: settings.krakenMakerBps,
+      takerBps: settings.krakenTakerBps,
+    })
   }
 
   if (!ledger.halted && signals.length) {

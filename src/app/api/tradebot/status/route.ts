@@ -5,7 +5,7 @@ import { latestCycleLog, listRecentFills, loadPaperLedger, markToMarket } from '
 import { probeCryptoQuotes } from '@/lib/tradebot/crypto'
 import { probeTsxQuotes } from '@/lib/tradebot/quotes'
 import { universeStats } from '@/lib/tradebot/universe'
-import { getTradebotSettings, isKrakenLiveAllowed, isKrakenLiveConfigured, isPlacingLiveOrders, isTradebotPaperEnabled } from '@/lib/tradebot/settings'
+import { getTradebotSettings, isKrakenLiveAllowed, isKrakenLiveConfigured, deskUiFlags, isTradebotPaperEnabled } from '@/lib/tradebot/settings'
 import {
   envKeysPresent,
   TRADEBOT_ENV_CATALOG,
@@ -73,10 +73,11 @@ export async function GET(req: NextRequest) {
       typeof equity === 'number' && dayStartEquity > 0
         ? Number((((equity - dayStartEquity) / dayStartEquity) * 100).toFixed(2))
         : 0
+    const flags = deskUiFlags(ledger)
     return NextResponse.json({
       engineReady: deskOn && quotesOk,
-      paperOnly: !isPlacingLiveOrders(ledger || { liveMode: false }),
-      paper: isTradebotPaperEnabled() || !isPlacingLiveOrders(ledger || { liveMode: false }),
+      paperOnly: flags.paperOnly,
+      paper: flags.paper,
       region: 'CA',
       baseCurrency: 'CAD',
       startingCad: settings.startingCad,
@@ -86,9 +87,9 @@ export async function GET(req: NextRequest) {
       tickSeconds: settings.tickSeconds,
       liveWatch: settings.liveWatch,
       engineOn: Boolean(ledger?.engineOn),
-      liveMode: Boolean(ledger?.liveMode),
+      liveMode: flags.liveMode,
       liveAllowed: isKrakenLiveAllowed(),
-      krakenLive: isPlacingLiveOrders(ledger || { liveMode: false }),
+      krakenLive: flags.krakenLive,
       krakenConfigured: isKrakenLiveConfigured(),
       volatility: ledger?.volatility || 'medium',
       stopPct: settings.stopPct * 100,

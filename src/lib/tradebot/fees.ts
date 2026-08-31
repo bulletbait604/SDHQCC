@@ -37,6 +37,18 @@ export function trailActivatePct(
   return (lockPct + trailPct) / (1 - trailPct)
 }
 
+/** Trail only after half the take is in, so winners can still reach the full target. */
+export function swingTrailActivatePct(
+  takePct: number,
+  trailPct: number,
+  makerBps = KRAKEN_MAKER_BPS_DEFAULT,
+  takerBps = KRAKEN_TAKER_BPS_DEFAULT
+): number {
+  const feeFloor = trailActivatePct(trailPct, makerBps, takerBps)
+  const halfTake = takePct > 0 ? takePct * 0.5 : feeFloor
+  return Math.max(feeFloor, halfTake)
+}
+
 export function spreadPct(bid: number, ask: number): number {
   if (!(bid > 0) || !(ask > 0) || ask < bid) return 999
   const mid = (ask + bid) / 2

@@ -7,7 +7,7 @@ import {
   type CryptoMarket,
   type CryptoPair,
 } from '@/lib/tradebot/crypto'
-import { trailActivatePct } from '@/lib/tradebot/fees'
+import { swingTrailActivatePct } from '@/lib/tradebot/fees'
 import { sizeBuyQuantity, validateTrade, dayPnlPct } from '@/lib/tradebot/guardrails'
 import { rsi } from '@/lib/tradebot/indicators'
 import type { DailyBar } from '@/lib/tradebot/quotes'
@@ -212,7 +212,7 @@ export async function runPaperTick(): Promise<TickResult> {
   }
   if (!ledger.halted) {
     const moved = trailStops(ledger, trailPrices, {
-      activatePct: trailActivatePct(vol.trailPct, settings.krakenMakerBps, settings.krakenTakerBps),
+      activatePct: swingTrailActivatePct(vol.takePct, vol.trailPct, settings.krakenMakerBps, settings.krakenTakerBps),
       trailPct: vol.trailPct,
       makerBps: settings.krakenMakerBps,
       takerBps: settings.krakenTakerBps,

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { liveBuyOk, liveSellFade, rankLiveBuys, recentlyBought, recentlyStopped } from '@/lib/tradebot/liveTapeRank'
+import { liveBuyOk, liveSellFade, rankLiveBuys, recentlyBought, recentlyStopped, featuredLiveMark } from '@/lib/tradebot/liveTapeRank'
 
 test('ranks scored coins and skips names already held', () => {
   const ranked = rankLiveBuys(
@@ -69,4 +69,14 @@ test('cools off a name after a recent stop-out', () => {
     ),
     false
   )
+})
+
+test('featured live mark prefers the held coin then bitcoin, not the wildest mover', () => {
+  const marks = [
+    { symbol: 'DOGE-CAD', price: 0.2, dayChangePct: 18 },
+    { symbol: 'BTC-CAD', price: 160000, dayChangePct: 0.4 },
+    { symbol: 'ETH-CAD', price: 4000, dayChangePct: 1.1 },
+  ]
+  assert.equal(featuredLiveMark(marks)?.symbol, 'BTC-CAD')
+  assert.equal(featuredLiveMark(marks, ['ETH-CAD'])?.symbol, 'ETH-CAD')
 })
