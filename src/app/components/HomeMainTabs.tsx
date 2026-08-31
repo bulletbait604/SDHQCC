@@ -399,7 +399,7 @@ export default function HomeMainTabs({
                   subtitleClasses={subtitleClasses}
                   description={
                     t.tradeBotDesc ||
-                    'Practice trading with fake Canadian dollars. You start with CA$100. Leave the tab open: it watches live prices and can buy or sell. Tries for at least 8% today, up to 200%. No real money is used.'
+                    'Kraken CAD coins only (BTC, ETH, SOL, and other liquid pairs). Start with CA$100. Leave the tab open for live prices. Press ON to trade. Stop 1.5%, take profit 3%, max 20% per coin. No shorts. Practice until you set Kraken live keys.'
                   }
                 />
               </TabsContent>

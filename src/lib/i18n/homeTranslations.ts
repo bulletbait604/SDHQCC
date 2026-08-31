@@ -24,7 +24,7 @@ export const homeTranslations = {
       'Pick a platform. We search the live web via Google and list the top 5 trends — videos and topics for YouTube and other video apps.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Practice trading with fake Canadian dollars. You start with CA$100. Leave the tab open: it watches live prices and can buy or sell. Tries for at least 8% today, up to 200%. No real money is used.',
+      'Kraken CAD coins only. Start with CA$100. Leave the tab open for live prices. Press ON to trade. Stop 1.5%, take profit 3%, max 20% per coin. Practice until you set Kraken live keys.',
     rndPickTool: 'R&D — owner only · pick a tool below',
     backgroundRemover: 'Background Remover',
     backgroundRemoverDesc:
@@ -85,7 +85,7 @@ export const homeTranslations = {
       'Elige una plataforma. Buscamos en la web en vivo con Google y listamos las 5 tendencias — vídeos y temas para YouTube y otras apps de vídeo.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Práctica con dólares canadienses falsos. Empiezas con CA$100. Intenta al menos 8% hoy y puede seguir hasta 200%. No se usa dinero real.',
+      'Solo monedas Kraken en CAD. Empiezas con CA$100. Deja la pestaña abierta para precios en vivo. Pulsa ON para operar. Stop 1,5%, take profit 3%, máximo 20% por moneda.',
     rndPickTool: 'I+D — solo propietario · elige una herramienta abajo',
     backgroundRemover: 'Eliminador de fondo',
     backgroundRemoverDesc:
@@ -146,7 +146,7 @@ export const homeTranslations = {
       'Choisissez une plateforme. On cherche le web en direct via Google et on liste les 5 tendances — vidéos et sujets pour YouTube et les autres apps vidéo.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Entraînement avec de faux dollars canadiens. Vous partez avec CA$100. Il vise au moins 8% aujourd’hui et peut aller jusqu’à 200%. Pas d’argent réel.',
+      'Uniquement des paires Kraken en CAD. Départ CA$100. Laissez l’onglet ouvert pour les prix en direct. ON pour trader. Stop 1,5 %, take profit 3 %, max 20 % par coin.',
     rndPickTool: 'R&D — propriétaire seulement · choisissez un outil ci-dessous',
     backgroundRemover: 'Suppression d’arrière-plan',
     backgroundRemoverDesc:
@@ -207,7 +207,7 @@ export const homeTranslations = {
       'Plattform wählen. Wir durchsuchen das Live-Web über Google und listen die Top 5 Trends — Videos und Themen für YouTube und andere Video-Apps.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Übung mit falschem kanadischem Geld. Start mit CA$100. Ziel mindestens 8% heute, bis zu 200%. Kein echtes Geld.',
+      'Nur Kraken-CAD-Coins. Start mit CA$100. Tab offen lassen für Live-Preise. ON zum Handeln. Stop 1,5 %, Take-Profit 3 %, max. 20 % pro Coin.',
     rndPickTool: 'F&E — nur Owner · Werkzeug unten wählen',
     backgroundRemover: 'Hintergrund entfernen',
     backgroundRemoverDesc:

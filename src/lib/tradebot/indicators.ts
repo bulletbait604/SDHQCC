@@ -11,6 +11,14 @@ function last(values: number[], n: number): number[] {
   return values.slice(-n)
 }
 
+export function ema(closes: number[], period: number): number | null {
+  if (closes.length < period) return null
+  const k = 2 / (period + 1)
+  let val = closes.slice(0, period).reduce((a, b) => a + b, 0) / period
+  for (let i = period; i < closes.length; i++) val = closes[i] * k + val * (1 - k)
+  return val
+}
+
 export function sma(closes: number[], period: number): number | null {
   if (closes.length < period) return null
   const slice = last(closes, period)
@@ -87,6 +95,8 @@ export type SignalAnalysis = {
   macd_histogram: number
   sma_20: number | null
   sma_50: number | null
+  ema_9?: number | null
+  ema_21?: number | null
   atr: number
   key_support: number
   key_resistance: number
@@ -108,13 +118,24 @@ export function analyzeCandles(ticker: string, candles: Candle[], price: number,
   const atrVal = atr(candles) ?? price * (closes.length < 20 ? 0.04 : 0.015)
   const sma20 = sma(closes, 20)
   const sma50 = sma(closes, 50)
+  const ema9 = ema(closes, 9)
+  const ema21 = ema(closes, 21)
   const recent = last(closes, Math.min(20, Math.max(1, closes.length)))
   const key_support = recent.length ? Math.min(...recent) : price
   const key_resistance = recent.length ? Math.max(...recent) : price
 
   let technical_signal: TechnicalSignal = 'NEUTRAL'
-  if (rsiVal >= 55 && macd > 0 && (!sma20 || price >= sma20)) technical_signal = 'BULLISH'
-  else if (rsiVal <= 45 && macd < 0 && (!sma20 || price <= sma20)) technical_signal = 'BEARISH'
+  if (
+    (ema9 != null && ema21 != null && ema9 > ema21 && rsiVal >= 42 && rsiVal <= 70) ||
+    (rsiVal >= 55 && macd > 0 && (!sma20 || price >= sma20))
+  ) {
+    technical_signal = 'BULLISH'
+  } else if (
+    (ema9 != null && ema21 != null && ema9 < ema21 && rsiVal <= 50) ||
+    (rsiVal <= 45 && macd < 0 && (!sma20 || price <= sma20))
+  ) {
+    technical_signal = 'BEARISH'
+  }
 
   return {
     ticker,
@@ -125,6 +146,8 @@ export function analyzeCandles(ticker: string, candles: Candle[], price: number,
     macd_histogram: Number(macd.toFixed(4)),
     sma_20: sma20 ? Number(sma20.toFixed(4)) : null,
     sma_50: sma50 ? Number(sma50.toFixed(4)) : null,
+    ema_9: ema9 ? Number(ema9.toFixed(6)) : null,
+    ema_21: ema21 ? Number(ema21.toFixed(6)) : null,
     atr: Number(atrVal.toFixed(4)),
     key_support: Number(key_support.toFixed(4)),
     key_resistance: Number(key_resistance.toFixed(4)),

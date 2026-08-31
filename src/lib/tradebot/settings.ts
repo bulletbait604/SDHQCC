@@ -13,9 +13,74 @@ function boolEnv(name: string, fallback: boolean): boolean {
   return fallback
 }
 
+export type DeskMode = {
+  deskEnabled: boolean
+  liveAllowed: boolean
+  placingLive: boolean
+}
+
+/** Pure rules: TRADEBOT_PAPER no longer blocks Real. UI liveMode does. */
+export function resolveDeskMode(input: {
+  paper: boolean
+  liveEnv: boolean
+  keys: boolean
+  liveMode: boolean
+}): DeskMode {
+  const liveAllowed = input.liveEnv && input.keys
+  return {
+    deskEnabled: input.paper || input.keys,
+    liveAllowed,
+    placingLive: liveAllowed && input.liveMode,
+  }
+}
+
 export function isTradebotPaperEnabled(): boolean {
-  const v = process.env.TRADEBOT_PAPER?.trim().toLowerCase()
-  return v === '1' || v === 'true' || v === 'yes'
+  return boolEnv('TRADEBOT_PAPER', false)
+}
+
+export function krakenApiKey(): string {
+  return (process.env.KRAKEN_API_KEY || '').trim()
+}
+
+export function krakenApiSecret(): string {
+  return (process.env.KRAKEN_API_SECRET || '').trim()
+}
+
+export function isKrakenLiveConfigured(): boolean {
+  return Boolean(krakenApiKey() && krakenApiSecret())
+}
+
+export function isKrakenLiveAllowed(): boolean {
+  return resolveDeskMode({
+    paper: isTradebotPaperEnabled(),
+    liveEnv: boolEnv('TRADEBOT_LIVE', false),
+    keys: isKrakenLiveConfigured(),
+    liveMode: false,
+  }).liveAllowed
+}
+
+/** Env + keys allow Real. Ledger liveMode must also be on. */
+export function isPlacingLiveOrders(ledger: { liveMode?: boolean }): boolean {
+  return resolveDeskMode({
+    paper: isTradebotPaperEnabled(),
+    liveEnv: boolEnv('TRADEBOT_LIVE', false),
+    keys: isKrakenLiveConfigured(),
+    liveMode: Boolean(ledger.liveMode),
+  }).placingLive
+}
+
+/** @deprecated Use isKrakenLiveAllowed — does not mean the UI is on Real. */
+export function isKrakenLiveActive(): boolean {
+  return isKrakenLiveAllowed()
+}
+
+export function isTradebotDeskEnabled(): boolean {
+  return resolveDeskMode({
+    paper: isTradebotPaperEnabled(),
+    liveEnv: boolEnv('TRADEBOT_LIVE', false),
+    keys: isKrakenLiveConfigured(),
+    liveMode: false,
+  }).deskEnabled
 }
 
 export function tradebotGeminiModel(): string {
@@ -38,18 +103,23 @@ export function getTradebotSettings() {
   return {
     paper: isTradebotPaperEnabled(),
     startingCad: configuredStart === 100_000 ? 100 : configuredStart,
-    maxDrawdownPct: numEnv('TRADEBOT_MAX_DRAWDOWN_PCT', 5),
-    maxAssetWeightPct: numEnv('TRADEBOT_MAX_ASSET_WEIGHT', 25),
+    maxDrawdownPct: Math.min(25, Math.max(1, numEnv('TRADEBOT_MAX_DRAWDOWN_PCT', 8))),
+    maxAssetWeightPct: numEnv('TRADEBOT_MAX_ASSET_WEIGHT', 20),
     riskPct: numEnv('TRADEBOT_RISK_PCT', 2),
+    stopPct: Math.min(8, Math.max(0.5, numEnv('TRADEBOT_STOP_PCT', 1.5))) / 100,
+    takePct: Math.min(20, Math.max(1, numEnv('TRADEBOT_TAKE_PCT', 3))) / 100,
     atrMultiplier: numEnv('TRADEBOT_ATR_MULTIPLIER', 2),
     tsxFeeBps: numEnv('TRADEBOT_TSX_FEE_BPS', 10),
     krakenFeeBps: numEnv('TRADEBOT_KRAKEN_FEE_BPS', 40),
     dailyProfitTargetMinPct,
     dailyProfitTargetMaxPct,
     cycleMinutes: Math.min(180, Math.max(15, numEnv('TRADEBOT_CYCLE_MINUTES', 60))),
-    tickSeconds: Math.min(60, Math.max(8, numEnv('TRADEBOT_TICK_SECONDS', 12))),
+    tickSeconds: Math.min(30, Math.max(5, numEnv('TRADEBOT_TICK_SECONDS', 8))),
     liveWatch: boolEnv('TRADEBOT_LIVE_WATCH', true),
     maxOpenPositions: Math.min(8, Math.max(1, numEnv('TRADEBOT_MAX_OPEN', 4))),
+    krakenOnly: boolEnv('TRADEBOT_KRAKEN_ONLY', true),
+    liveAllowed: isKrakenLiveAllowed(),
+    live: isKrakenLiveAllowed(),
     cryptoOnly,
     watchlist: parseWatchlist(
       cryptoOnly ? process.env.TRADEBOT_CRYPTO_WATCHLIST : process.env.TRADEBOT_WATCHLIST,

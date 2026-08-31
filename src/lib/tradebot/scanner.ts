@@ -3,6 +3,7 @@ import {
   fetchKrakenDailyBars,
   isCryptoSymbol,
   listKrakenCryptoPairs,
+  listLiquidKrakenPairs,
   quoteKrakenMarkets,
   usdCadRate,
   type CryptoMarket,
@@ -153,7 +154,7 @@ export async function scanCadBook(params: {
   let cryptoMarkets: CryptoMarket[] = []
   let newCoins: string[] = []
   let hunts: GeckoHunt[] = []
-  if (settings.cryptoEnabled) {
+  if (settings.cryptoEnabled && !settings.krakenOnly) {
     try {
       hunts = await huntNewAndMemeCoins(
         Math.max(32, settings.shortlistCrypto + 14),
@@ -167,10 +168,17 @@ export async function scanCadBook(params: {
     } catch (err) {
       console.error('[tradebot/scan] gecko hunt', err)
     }
+  }
+  if (settings.cryptoEnabled) {
     try {
-      cryptoPairs = await listKrakenCryptoPairs()
+      cryptoPairs = settings.krakenOnly ? await listLiquidKrakenPairs() : await listKrakenCryptoPairs()
       cryptoMarkets = await quoteKrakenMarkets(cryptoPairs)
       newCoins = (await rememberCryptoPairs(cryptoMarkets.map((m) => m.pair.symbol))).newCoins
+      scannedThisCycle += cryptoMarkets.length
+      if (settings.krakenOnly) {
+        universe = cryptoMarkets.length
+        newListings = newCoins.length
+      }
     } catch (err) {
       console.error('[tradebot/scan] crypto', err)
     }
@@ -193,9 +201,13 @@ export async function scanCadBook(params: {
     }
   }
   for (const h of hunts) pushJob({ symbol: h.symbol, hunt: h, kraken: krakenBySymbol.get(h.symbol) })
-  for (const m of cryptoMarkets) {
-    if (newCoinSet.has(m.pair.symbol) || (m.dayChangePct > 5 && m.pair.symbol !== 'BTC-CAD' && m.pair.symbol !== 'ETH-CAD')) {
-      pushJob({ symbol: m.pair.symbol, hunt: huntBySymbol.get(m.pair.symbol), kraken: m })
+  if (settings.krakenOnly) {
+    for (const m of cryptoMarkets) pushJob({ symbol: m.pair.symbol, hunt: huntBySymbol.get(m.pair.symbol), kraken: m })
+  } else {
+    for (const m of cryptoMarkets) {
+      if (newCoinSet.has(m.pair.symbol) || (m.dayChangePct > 5 && m.pair.symbol !== 'BTC-CAD' && m.pair.symbol !== 'ETH-CAD')) {
+        pushJob({ symbol: m.pair.symbol, hunt: huntBySymbol.get(m.pair.symbol), kraken: m })
+      }
     }
   }
   for (const pos of params.positions) {

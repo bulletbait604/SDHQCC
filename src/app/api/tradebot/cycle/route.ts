@@ -4,17 +4,17 @@ import { verifyOwnerUser } from '@/lib/auth/staffAccess'
 import { isValidCronRequest, isValidInternalApiSecret, INTERNAL_API_SECRET_HEADER } from '@/lib/internalApi'
 import { loadPaperLedger } from '@/lib/tradebot/ledger'
 import { runPaperCycle } from '@/lib/tradebot/graph'
-import { isTradebotPaperEnabled } from '@/lib/tradebot/settings'
+import { isTradebotDeskEnabled } from '@/lib/tradebot/settings'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
 async function runCycle(): Promise<Response> {
-  if (!isTradebotPaperEnabled()) {
+  if (!isTradebotDeskEnabled()) {
     return NextResponse.json(
       {
-        error: 'TRADEBOT_PAPER must be true. Live brokers are disabled.',
-        userMessage: 'Set TRADEBOT_PAPER=true and redeploy. Live trading is off.',
+        error: 'Desk is not enabled.',
+        userMessage: 'Set TRADEBOT_PAPER=true for fake money, or TRADEBOT_LIVE=true with Kraken keys.',
       },
       { status: 503 }
     )
@@ -37,8 +37,8 @@ function failCycle(err: unknown) {
   return NextResponse.json(
     {
       error: message,
-      userMessage: message.includes('TRADEBOT_PAPER')
-        ? 'Set TRADEBOT_PAPER=true and redeploy. Live trading is off.'
+      userMessage: message.includes('TRADEBOT_PAPER') || message.includes('TRADEBOT_LIVE')
+        ? 'Set TRADEBOT_PAPER=true for fake money, or TRADEBOT_LIVE=true with Kraken keys.'
         : message.includes('OFF')
           ? 'Turn the system ON first.'
           : 'Paper cycle failed. Check Gemini and quote sources, then retry.',
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** Owner-only R&D: one Canada CAD paper cycle. Never hits a live broker. */
+/** Owner-only R&D: one Canada CAD Gemini cycle. Live Kraken only when TRADEBOT_LIVE is set. */
 export async function POST(req: NextRequest) {
   try {
     await verifyOwnerUser(req)

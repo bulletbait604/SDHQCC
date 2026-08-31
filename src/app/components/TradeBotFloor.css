@@ -130,6 +130,33 @@
   line-height: 1.15;
 }
 .tb-ticker em { display: block; margin-top: 4px; color: var(--tb-amber); font-size: 14px; font-style: normal; letter-spacing: 0.02em; }
+.tb-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--tb-line);
+  position: relative;
+  z-index: 2;
+  background: #0a0d0bfa;
+}
+.tb-pills span {
+  border: 1px solid var(--tb-line);
+  padding: 6px 10px;
+  font-size: 14px;
+  color: var(--tb-text);
+}
+.tb-pills span.up { border-color: #b9e65a66; color: var(--tb-acid); }
+.tb-pills span.down { border-color: #dc645866; color: #f0a8a2; }
+.tb-pills b { margin-right: 6px; }
+.tb-setup {
+  margin: 8px 0 6px 18px;
+  padding: 0;
+  color: var(--tb-text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.tb-setup li { margin-bottom: 4px; }
 
 .tb-workspace {
   display: grid;
@@ -197,7 +224,33 @@
 }
 .tb-run:disabled { opacity: 0.35; cursor: not-allowed; }
 .tb-run:not(:disabled):hover { filter: brightness(1.08); }
-.tb-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex: 0 0 auto; }
+.tb-mode {
+  display: inline-flex;
+  border: 1px solid var(--tb-line);
+  background: #0c110f;
+}
+.tb-mode button {
+  min-height: 40px;
+  min-width: 72px;
+  border: 0;
+  background: transparent;
+  color: var(--tb-muted);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0 14px;
+}
+.tb-mode button.on {
+  background: #1a2420;
+  color: var(--tb-acid);
+}
+.tb-mode button.on.live {
+  background: #2a1412;
+  color: #f0c4be;
+}
+.tb-mode button:disabled { opacity: 0.35; cursor: not-allowed; }
 .tb-power {
   min-height: 48px;
   min-width: 96px;

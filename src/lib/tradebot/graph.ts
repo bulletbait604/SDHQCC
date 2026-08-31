@@ -1,8 +1,7 @@
 import { runDebateAndTrader } from '@/lib/tradebot/agents'
-import { isCryptoSymbol, listKrakenCryptoPairs, quoteKrakenMarkets } from '@/lib/tradebot/crypto'
+import { isCryptoSymbol, listKrakenCryptoPairs, listLiquidKrakenPairs, quoteKrakenMarkets } from '@/lib/tradebot/crypto'
 import { sizeBuyQuantity, validateTrade, dayPnlPct } from '@/lib/tradebot/guardrails'
 import {
-  applyFill,
   loadPaperLedger,
   markToMarket,
   saveCycleLog,
@@ -11,13 +10,15 @@ import {
 } from '@/lib/tradebot/ledger'
 import type { CycleDecision, TradeOrderProposal } from '@/lib/tradebot/models'
 import { fetchDailyBars } from '@/lib/tradebot/quotes'
-import { executeHardExits, rollTorontoDay, swingLevels, trailAndLiftTakes } from '@/lib/tradebot/runtime'
+import { executeHardExits, pinStopsTakes, rollTorontoDay, swingLevels } from '@/lib/tradebot/runtime'
 import { scanCadBook, type ScanSummary } from '@/lib/tradebot/scanner'
-import { getTradebotSettings, isTradebotPaperEnabled } from '@/lib/tradebot/settings'
+import { getTradebotSettings, isPlacingLiveOrders, isTradebotDeskEnabled } from '@/lib/tradebot/settings'
+import { placeManagedFill, syncLiveCash } from '@/lib/tradebot/venue'
 
 export type CycleResult = {
   ranAt: string
-  paper: true
+  paper: boolean
+  krakenLive: boolean
   region: 'CA'
   currency: 'CAD'
   halted: boolean
@@ -34,14 +35,17 @@ export type CycleResult = {
 }
 
 export async function runPaperCycle(): Promise<CycleResult> {
-  if (!isTradebotPaperEnabled()) {
-    throw new Error('TRADEBOT_PAPER must be true. Live brokers are disabled.')
+  if (!isTradebotDeskEnabled()) {
+    throw new Error('Set TRADEBOT_PAPER=true for fake money, or TRADEBOT_LIVE=true with Kraken keys.')
   }
   const settings = getTradebotSettings()
   let ledger = await loadPaperLedger()
   if (!ledger.engineOn) {
     throw new Error('TradeBot is OFF. Turn it ON to run.')
   }
+  ledger = await syncLiveCash(ledger)
+  const pairList = settings.krakenOnly ? await listLiquidKrakenPairs() : await listKrakenCryptoPairs()
+  const pairsBySymbol = new Map(pairList.map((p) => [p.symbol, p]))
 
   const { market, scan } = await scanCadBook({
     positions: ledger.positions.map((p) => p.symbol),
@@ -53,7 +57,7 @@ export async function runPaperCycle(): Promise<CycleResult> {
     if (!prices[pos.symbol]) {
       try {
         if (isCryptoSymbol(pos.symbol)) {
-          const pair = (await listKrakenCryptoPairs()).find((p) => p.symbol === pos.symbol)
+          const pair = pairsBySymbol.get(pos.symbol)
           if (!pair) throw new Error('missing crypto pair')
           const [m] = await quoteKrakenMarkets([pair])
           prices[pos.symbol] = m?.quote.price || pos.avgPrice
@@ -83,8 +87,8 @@ export async function runPaperCycle(): Promise<CycleResult> {
   let decisions: CycleDecision[] = []
 
   if (!ledger.halted) {
-    trailAndLiftTakes(ledger, prices)
-    const exited = await executeHardExits(ledger, prices, decisions)
+    pinStopsTakes(ledger)
+    const exited = await executeHardExits(ledger, prices, decisions, pairsBySymbol)
     ledger = exited.ledger
     decisions = exited.decisions
   }
@@ -118,8 +122,7 @@ export async function runPaperCycle(): Promise<CycleResult> {
       ) {
         action = 'HOLD'
       }
-      const aggressive = Boolean(signal.isMeme || signal.highPotential || signal.isNewListing)
-      const levels = swingLevels(signal.price, signal.atr, aggressive)
+      const levels = swingLevels(signal.price)
       const stop = action === 'BUY' ? levels.stopBuy : levels.stopSell
       const take = action === 'BUY' ? levels.takeBuy : levels.takeSell
 
@@ -172,25 +175,36 @@ export async function runPaperCycle(): Promise<CycleResult> {
 
       let fill: CycleDecision['fill'] = null
       if (checked.ok && checked.proposal.action !== 'HOLD' && checked.proposal.quantity > 0) {
-        const applied = await applyFill({
-          ledger,
-          side: checked.proposal.action,
-          symbol: signal.ticker,
-          qty: checked.proposal.quantity,
-          price: signal.price,
-          feeBps: isCryptoSymbol(signal.ticker) ? settings.krakenFeeBps : settings.tsxFeeBps,
-          stopLoss: checked.proposal.stop_loss,
-          takeProfit: checked.proposal.take_profit,
-          reason: checked.proposal.reasoning_summary,
-        })
-        ledger = applied.ledger
-        fill = {
-          filled: true,
-          side: checked.proposal.action,
-          quantity: applied.fill.qty,
-          price: applied.fill.price,
-          notionalCad: applied.fill.notionalCad,
-          note: `Paper CAD fill · fee CA$${applied.fill.feeCad.toFixed(2)}`,
+        try {
+          const applied = await placeManagedFill({
+            ledger,
+            side: checked.proposal.action,
+            symbol: signal.ticker,
+            qty: checked.proposal.quantity,
+            price: signal.price,
+            stopLoss: checked.proposal.stop_loss,
+            takeProfit: checked.proposal.take_profit,
+            reason: checked.proposal.reasoning_summary,
+            pair: pairsBySymbol.get(signal.ticker),
+          })
+          ledger = applied.ledger
+          fill = {
+            filled: true,
+            side: checked.proposal.action,
+            quantity: applied.fill.qty,
+            price: applied.fill.price,
+            notionalCad: applied.fill.notionalCad,
+            note: `${applied.venue === 'kraken' ? 'Kraken' : 'Practice'} · fee CA$${applied.fill.feeCad.toFixed(2)}`,
+          }
+        } catch (err) {
+          fill = {
+            filled: false,
+            side: checked.proposal.action,
+            quantity: 0,
+            price: signal.price,
+            notionalCad: 0,
+            note: err instanceof Error ? err.message : 'Order failed',
+          }
         }
       } else if (checked.proposal.action === 'HOLD') {
         fill = {
@@ -228,7 +242,8 @@ export async function runPaperCycle(): Promise<CycleResult> {
   await savePaperLedger(ledger)
   const result: CycleResult = {
     ranAt: new Date().toISOString(),
-    paper: true,
+    paper: !isPlacingLiveOrders(ledger),
+    krakenLive: isPlacingLiveOrders(ledger),
     region: 'CA',
     currency: 'CAD',
     halted: ledger.halted,

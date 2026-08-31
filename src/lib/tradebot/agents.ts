@@ -72,38 +72,33 @@ export async function runDebateAndTrader(
       : 0,
   }))
 
-  const prompt = `You are four desks on a Canadian CAD paper book of CA$${book.startingCad.toFixed(2)} fake currency:
-1) ARCHIVE (news + industry)  2) FORGE (bull)  3) RELAY (bear)  4) HELM (trader)
-Never place an order yourself. Output JSON only. This is paper P&L only — no live broker.
+  const prompt = `You are four desks on a Canadian CAD Kraken book of CA$${book.startingCad.toFixed(2)}:
+1) ARCHIVE (news)  2) FORGE (why buy)  3) RELAY (why wait)  4) HELM (trader)
+Never place an order yourself. Output JSON only. TypeScript talks to Kraken or the paper ledger. No shorts. No leverage.
 
-GOAL: make at least +${book.targetMinPct}% CAD profit TODAY vs Toronto day-open NAV. Keep going if it is working. Hard ceiling is +${book.targetMaxPct}% — then no new buys.
+GOAL: take small, frequent profits on liquid Kraken CAD coins (BTC, ETH, SOL, XRP, DOGE, ADA, LTC). Stop-loss 1.5% from entry. Take-profit 3% from entry. Never more than 20% of the book in one coin. Halt new trades if the book is down 8% on the day.
 Current book: equity CA$${book.equity.toFixed(2)}, cash CA$${book.cash.toFixed(2)}, day-open CA$${book.dayStartEquity.toFixed(2)}, day P&L ${book.dayPnlPct.toFixed(2)}%.
 
-Hunt NEW coins and MEME coins across a WIDE set of names — not just BTC/ETH/PEPE.
-Let winners RUN. Do not scalp out a few percent. Paper take-profit ceiling is ~+${book.targetMaxPct}% from entry (3x).
-Cross-reference 1h/24h tape with headlines AND live web search.
-Do not invent headlines. Rugs, hacks, honeypots, exploits = never BUY.
+Only Kraken-listed coins. Prefer EMA 9 above EMA 21, RSI 38-70, MACD not dumping.
+Cross-check headlines AND live web search. Rugs/hacks = never BUY.
 
-Open paper longs (let these run unless the thesis broke):
+Open longs:
 ${JSON.stringify(book.openPositions.slice(0, 12))}
 
 Rules:
 - SELL only exits a long. No shorts.
-- BUY more names that look like high-potential memes/new coins when 1h or 24h is still up AND news is not negative. Quiet news is OK on a trending meme with strong volume; still say why.
-- newsTone negative (rug, hack, exploit, scam, halt) = HOLD or SELL, never BUY.
-- BTC/ETH are hedges, not the hunt.
-- Open longs that are still up on 1h/24h with non-negative news: HOLD. Do not SELL just because they are green.
-- SELL an open long only if news flipped negative or the move clearly failed (broke down vs the 1h tape).
-- If day P&L is already >= ${book.targetMinPct}%, HOLD winners rather than dumping them. If day P&L is >= ${book.targetMaxPct}%, action must be HOLD or SELL — never BUY.
-- Aim for continuation into a larger pop, not a tiny scalp.
+- BUY when the short average is above the long one and news is not negative.
+- newsTone negative = HOLD or SELL, never BUY.
+- SELL if news flipped or the 3% take / 1.5% stop hit (the computer also exits those).
+- If day P&L is >= ${book.targetMaxPct}%, never BUY.
 
 Industry tape:
 ${JSON.stringify(industryTape.slice(0, 8))}
 
 Return:
-{"decisions":[{"ticker":"PEPE-CAD","sentiment_score":0.1,"confidence":0.5,"bull_points":[""],"bear_points":[""],"consensus_rating":0,"action":"HOLD","reasoning_summary":""}]}
+{"decisions":[{"ticker":"SOL-CAD","sentiment_score":0.1,"confidence":0.5,"bull_points":[""],"bear_points":[""],"consensus_rating":0,"action":"HOLD","reasoning_summary":""}]}
 
-sentiment_score is -1 to 1. consensus_rating is -10 to 10. reasoning_summary must mention the news/industry cross-check in one sentence.
+reasoning_summary must be one simple English sentence.
 Tickers, technicals, and news:
 ${JSON.stringify(payload)}`
 

@@ -50,13 +50,13 @@ test('rejects buy over 15% book weight', () => {
   assert.ok(r.reasons.some((x) => /15%/i.test(x)))
 })
 
-test('halts when daily drawdown is 5%+', () => {
+test('halts when daily drawdown is 8%+', () => {
   const p = baseProposal()
   const r = validateTrade(p, {
-    equity: 94_000,
-    cash: 94_000,
+    equity: 91_500,
+    cash: 91_500,
     dayStartEquity: 100_000,
-    maxDrawdownPct: 5,
+    maxDrawdownPct: 8,
     maxAssetWeightPct: 15,
     dailyProfitLockPct: 10,
     positionQty: 0,

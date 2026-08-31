@@ -5,7 +5,7 @@ import { latestCycleLog, listRecentFills, loadPaperLedger, markToMarket } from '
 import { probeCryptoQuotes } from '@/lib/tradebot/crypto'
 import { probeTsxQuotes } from '@/lib/tradebot/quotes'
 import { universeStats } from '@/lib/tradebot/universe'
-import { getTradebotSettings, isTradebotPaperEnabled, tradebotGeminiKey } from '@/lib/tradebot/settings'
+import { getTradebotSettings, isKrakenLiveAllowed, isKrakenLiveConfigured, isPlacingLiveOrders, isTradebotPaperEnabled } from '@/lib/tradebot/settings'
 import {
   envKeysPresent,
   TRADEBOT_ENV_CATALOG,
@@ -36,13 +36,14 @@ export async function GET(req: NextRequest) {
     const cryptoProbe = await probeCryptoQuotes()
     const quoteProbe = settings.cryptoOnly ? cryptoProbe : await probeTsxQuotes()
     const paper = isTradebotPaperEnabled()
+    const deskOn = paper || isKrakenLiveConfigured()
     let ledger = null
     let fills: Awaited<ReturnType<typeof listRecentFills>> = []
     let lastCycle: Record<string, unknown> | null = null
     let equity: number | null = null
     let universe = { universe: 0, newListings: 0, offset: 0 }
 
-    if (paper) {
+    if (deskOn) {
       try {
         ledger = await loadPaperLedger()
         fills = await listRecentFills(12)
@@ -73,9 +74,9 @@ export async function GET(req: NextRequest) {
         ? Number((((equity - dayStartEquity) / dayStartEquity) * 100).toFixed(2))
         : 0
     return NextResponse.json({
-      engineReady: paper && Boolean(tradebotGeminiKey()) && quotesOk,
-      paperOnly: true,
-      paper,
+      engineReady: deskOn && quotesOk,
+      paperOnly: !isPlacingLiveOrders(ledger || { liveMode: false }),
+      paper: isTradebotPaperEnabled() || !isPlacingLiveOrders(ledger || { liveMode: false }),
       region: 'CA',
       baseCurrency: 'CAD',
       startingCad: settings.startingCad,
@@ -85,6 +86,13 @@ export async function GET(req: NextRequest) {
       tickSeconds: settings.tickSeconds,
       liveWatch: settings.liveWatch,
       engineOn: Boolean(ledger?.engineOn),
+      liveMode: Boolean(ledger?.liveMode),
+      liveAllowed: isKrakenLiveAllowed(),
+      krakenLive: isPlacingLiveOrders(ledger || { liveMode: false }),
+      krakenConfigured: isKrakenLiveConfigured(),
+      stopPct: settings.stopPct * 100,
+      takePct: settings.takePct * 100,
+      maxDrawdownPct: settings.maxDrawdownPct,
       dayPnlPct,
       profitLocked: dayPnlPct >= settings.dailyProfitTargetMaxPct,
       quoteProvider: settings.cryptoOnly ? cryptoProbe.source || 'kraken' : quoteProbe.source || 'yahoo',

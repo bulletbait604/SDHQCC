@@ -1,6 +1,6 @@
 import clientPromise from '@/lib/mongodb'
 import { TRADEBOT_BASE_CURRENCY } from '@/lib/tradebot/canada'
-import { getTradebotSettings } from '@/lib/tradebot/settings'
+import { getTradebotSettings, isKrakenLiveAllowed } from '@/lib/tradebot/settings'
 
 export type PaperPosition = {
   symbol: string
@@ -21,6 +21,7 @@ export type PaperLedger = {
   haltReason: string
   positions: PaperPosition[]
   engineOn: boolean
+  liveMode: boolean
   updatedAt: string
 }
 
@@ -70,6 +71,7 @@ function mapLedger(r: Record<string, unknown>, startingCad: number): PaperLedger
     halted: Boolean(r.halted),
     haltReason: String(r.haltReason || ''),
     engineOn: Boolean(r.engineOn),
+    liveMode: Boolean(r.liveMode),
     positions: positionsRaw.map((item) => {
       const rec = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
       return {
@@ -100,6 +102,7 @@ function freshLedger(startingCad: number, dayStartDate: string): PaperLedger {
     halted: false,
     haltReason: '',
     engineOn: false,
+    liveMode: false,
     positions: [],
     updatedAt: new Date().toISOString(),
   }
@@ -119,6 +122,7 @@ export async function loadPaperLedger(): Promise<PaperLedger> {
   if (ledger.startingEquity !== startingCad) {
     const reset = freshLedger(startingCad, today)
     reset.engineOn = ledger.engineOn
+    reset.liveMode = ledger.liveMode
     await col.replaceOne({ id: LEDGER_ID }, reset, { upsert: true })
     return reset
   }
@@ -137,8 +141,19 @@ export async function savePaperLedger(ledger: PaperLedger): Promise<void> {
 }
 
 export async function setPaperEngine(on: boolean): Promise<PaperLedger> {
+  return setDeskControls({ on })
+}
+
+export async function setDeskControls(patch: { on?: boolean; liveMode?: boolean }): Promise<PaperLedger> {
   const ledger = await loadPaperLedger()
-  ledger.engineOn = Boolean(on)
+  if (typeof patch.on === 'boolean') ledger.engineOn = Boolean(patch.on)
+  if (typeof patch.liveMode === 'boolean') {
+    if (patch.liveMode && !isKrakenLiveAllowed()) {
+      throw new Error('Set TRADEBOT_LIVE=true and Kraken API keys before switching to Real money.')
+    }
+    ledger.liveMode = Boolean(patch.liveMode)
+    if (patch.liveMode) ledger.engineOn = false
+  }
   await savePaperLedger(ledger)
   return ledger
 }
@@ -163,7 +178,11 @@ export async function applyFill(params: {
   let cash = params.ledger.cash
 
   if (params.side === 'BUY') {
-    cash -= notional + feeCad
+    const cost = notional + feeCad
+    if (params.ledger.cash + 0.01 < cost) {
+      throw new Error(`Not enough CAD cash for this buy (need about CA$${cost.toFixed(2)}).`)
+    }
+    cash -= cost
     if (idx >= 0) {
       const prev = positions[idx]
       const newQty = prev.qty + qty

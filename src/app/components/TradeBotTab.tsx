@@ -100,37 +100,43 @@ type StatusResponse = {
   tickSeconds?: number
   liveWatch?: boolean
   engineOn?: boolean
+  liveMode?: boolean
+  liveAllowed?: boolean
+  krakenLive?: boolean
+  krakenConfigured?: boolean
+  stopPct?: number
+  takePct?: number
+  maxDrawdownPct?: number
   dayPnlPct?: number
   profitLocked?: boolean
   error?: string
   userMessage?: string
 }
 
-const ENV_SNIPPET = `TRADEBOT_PAPER=true
-TRADEBOT_GEMINI_MODEL=gemini-2.5-flash
-TRADEBOT_MAX_DRAWDOWN_PCT=5
-TRADEBOT_MAX_ASSET_WEIGHT=25
-TRADEBOT_RISK_PCT=2
-TRADEBOT_STARTING_CAD=100
-TRADEBOT_DAILY_PROFIT_MIN_PCT=8
-TRADEBOT_DAILY_PROFIT_MAX_PCT=200
+const ENV_SNIPPET = `GEMINI_API=
+MONGODB_URI=
+TRADEBOT_PAPER=true
+TRADEBOT_LIVE=true
+TRADEBOT_KRAKEN_ONLY=true
 TRADEBOT_CRYPTO_ONLY=true
-TRADEBOT_CRYPTO=true
-TRADEBOT_CRYPTO_WATCHLIST=${TRADEBOT_DEFAULT_CRYPTO_WATCHLIST_CSV}
-TRADEBOT_SHORTLIST_CRYPTO=20
-TRADEBOT_CYCLE_MINUTES=60
-TRADEBOT_LIVE_WATCH=true
-TRADEBOT_TICK_SECONDS=12
+TRADEBOT_STOP_PCT=1.5
+TRADEBOT_TAKE_PCT=3
+TRADEBOT_MAX_ASSET_WEIGHT=20
+TRADEBOT_MAX_DRAWDOWN_PCT=8
+TRADEBOT_STARTING_CAD=100
+TRADEBOT_TICK_SECONDS=8
 TRADEBOT_MAX_OPEN=4
-COINGECKO_DEMO_API_KEY=`
+TRADEBOT_CRYPTO_WATCHLIST=${TRADEBOT_DEFAULT_CRYPTO_WATCHLIST_CSV}
+KRAKEN_API_KEY=
+KRAKEN_API_SECRET=`
 
 const AGENTS = [
-  { id: 'scout', name: 'FINDER', role: 'Looks for coins', idle: 'Looking for coins that might go up today.', color: '#9ddd55', x: '18%', y: '28%' },
+  { id: 'scout', name: 'FINDER', role: 'Looks for coins', idle: 'Watching Kraken CAD coins.', color: '#9ddd55', x: '18%', y: '28%' },
   { id: 'archive', name: 'NEWS', role: 'Reads the news', idle: 'Checking the news for scams.', color: '#be91ff', x: '50%', y: '22%' },
   { id: 'forge', name: 'YES', role: 'Why we might buy', idle: 'Looking for good reasons to buy.', color: '#42cbbb', x: '82%', y: '28%' },
   { id: 'relay', name: 'NO', role: 'Why we might wait', idle: 'Looking for reasons not to buy.', color: '#58a9e8', x: '22%', y: '68%' },
-  { id: 'helm', name: 'TRADER', role: 'Buys and sells', idle: 'Watching live prices. Buys and sells fake money as coins move.', color: '#ff6557', x: '50%', y: '74%' },
-  { id: 'sentinel', name: 'SAFETY', role: 'Stops big losses', idle: 'Stops new buys if we lose 5% or already made 200% today.', color: '#d6a56e', x: '78%', y: '68%' },
+  { id: 'helm', name: 'TRADER', role: 'Buys and sells', idle: 'Watching live prices. Buys and sells when the desk is ON.', color: '#ff6557', x: '50%', y: '74%' },
+  { id: 'sentinel', name: 'SAFETY', role: 'Stops big losses', idle: 'Sells if a coin drops 1.5%. Takes profit at +3%. Caps each coin at 20%. Stops the day at -8%.', color: '#d6a56e', x: '78%', y: '68%' },
 ] as const
 
 const STAGES = AGENTS.map((a) => a.id)
@@ -155,7 +161,7 @@ function plainNote(text: string): string {
   if (/Paper CAD fill/i.test(t)) return t.replace(/Paper CAD fill · /i, 'Fee ')
   if (/HOLD — no order/i.test(t) || /HOLD - no order/i.test(t)) return 'Did not buy or sell.'
   if (/Blocked by guardrails/i.test(t)) return 'Safety said no.'
-  if (/drawdown/i.test(t)) return 'Stopped for today: fake money dropped about 5%.'
+  if (/drawdown/i.test(t)) return 'Stopped for today: the book dropped about 8%.'
   if (/profit lock/i.test(t)) return 'Already hit today’s profit goal. No new buys until tomorrow.'
   if (/Hard exit/i.test(t)) return t.replace(/Hard exit · /i, 'Sold because: ')
   return t
@@ -171,7 +177,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
   const [fills, setFills] = useState<FillRow[]>([])
   const [selected, setSelected] = useState<(typeof AGENTS)[number]['id']>('helm')
   const [phase, setPhase] = useState<(typeof AGENTS)[number]['id'] | 'idle' | 'done'>('idle')
-  const [showVars, setShowVars] = useState(false)
+  const [showVars, setShowVars] = useState(true)
   const [watching, setWatching] = useState(false)
   const [engineBusy, setEngineBusy] = useState(false)
   const [marks, setMarks] = useState<Array<{ symbol: string; price: number; dayChangePct: number }>>([])
@@ -256,7 +262,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
       >(res)
       if (!res.ok) throw new Error(data.userMessage || data.error || 'Could not watch prices.')
       setWatching(true)
-      setMarks(data.marks || [])
+      if (data.marks?.length) setMarks(data.marks)
       if (data.fills) setFills(data.fills)
       setStatus((prev) =>
         prev
@@ -287,29 +293,26 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
         }))
       }
     } catch {
-      setWatching(false)
+      /* keep last prices on a failed tick */
     } finally {
       tickRef.current = false
     }
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- live tape while this tab is open and ON
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- live prices while this tab is open
   useEffect(() => {
-    if (!status?.paper || loading || status.liveWatch === false || !status.engineOn) {
-      setWatching(false)
-      return
-    }
-    const ms = Math.max(8000, (status.tickSeconds || 12) * 1000)
+    if (loading || (!status?.paper && !status?.krakenConfigured && !status?.engineReady && !status?.liveAllowed)) return
+    const ms = Math.max(5000, (status?.tickSeconds || 8) * 1000)
     void runTick()
     const id = window.setInterval(() => {
       void runTick()
     }, ms)
     return () => window.clearInterval(id)
-  }, [status?.paper, status?.liveWatch, status?.tickSeconds, status?.engineOn, loading])
+  }, [status?.paper, status?.krakenConfigured, status?.tickSeconds, status?.engineReady, status?.liveAllowed, loading])
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- one stale-cycle kick; runCycle is guarded by runningRef
   useEffect(() => {
-    if (!status?.paper || loading || !status.engineOn) return
+    if (loading || !status?.engineOn || (!status?.paper && !status?.krakenConfigured)) return
     const last = status.lastCycle?.ranAt
     const age = last ? Date.now() - Date.parse(last) : Number.POSITIVE_INFINITY
     const maxAge = (status.cycleMinutes || 60) * 60_000
@@ -318,10 +321,10 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
       void runCycle()
     }, 1500)
     return () => window.clearTimeout(t)
-  }, [status?.paper, status?.engineOn, loading])
+  }, [status?.paper, status?.krakenConfigured, status?.engineOn, loading])
 
   const setEngine = async (on: boolean) => {
-    if (engineBusy || !status?.paper) return
+    if (engineBusy || (!status?.paper && !status?.krakenConfigured && !status?.liveAllowed)) return
     setEngineBusy(true)
     setError('')
     if (!on) setWatching(false)
@@ -332,13 +335,21 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ on }),
       })
-      const data = await parseJsonResponse<{ engineOn?: boolean; ledger?: StatusResponse['ledger']; error?: string }>(res)
+      const data = await parseJsonResponse<{
+        engineOn?: boolean
+        liveMode?: boolean
+        krakenLive?: boolean
+        ledger?: StatusResponse['ledger']
+        error?: string
+      }>(res)
       if (!res.ok) throw new Error(data.error || 'Could not change ON/OFF.')
       setStatus((prev) =>
         prev
           ? {
               ...prev,
               engineOn: Boolean(data.engineOn),
+              liveMode: Boolean(data.liveMode),
+              krakenLive: Boolean(data.krakenLive),
               ledger: data.ledger || prev.ledger,
             }
           : prev
@@ -350,12 +361,61 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
     }
   }
 
+  const setMoneyMode = async (live: boolean) => {
+    if (engineBusy) return
+    if (live && !status?.liveAllowed) {
+      setError('Set TRADEBOT_LIVE=true and Kraken API keys, then redeploy, to unlock Real money.')
+      return
+    }
+    if (live && !window.confirm('Switch to REAL Kraken money? Press ON after this to place real CAD orders. Fake never talks to Kraken.')) {
+      return
+    }
+    setEngineBusy(true)
+    setError('')
+    try {
+      const res = await fetch('/api/tradebot/engine', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ liveMode: live }),
+      })
+      const data = await parseJsonResponse<{
+        engineOn?: boolean
+        liveMode?: boolean
+        krakenLive?: boolean
+        ledger?: StatusResponse['ledger']
+        error?: string
+      }>(res)
+      if (!res.ok) throw new Error(data.error || 'Could not switch Fake/Real.')
+      setStatus((prev) =>
+        prev
+          ? {
+              ...prev,
+              engineOn: Boolean(data.engineOn),
+              liveMode: Boolean(data.liveMode),
+              krakenLive: Boolean(data.krakenLive),
+              paper: !data.krakenLive,
+              paperOnly: !data.krakenLive,
+              ledger: data.ledger || prev.ledger,
+              equity: typeof data.ledger?.cash === 'number' ? data.ledger.cash : prev.equity,
+            }
+          : prev
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not switch Fake/Real.')
+    } finally {
+      setEngineBusy(false)
+    }
+  }
+
   const agent = AGENTS.find((a) => a.id === selected) || AGENTS[4]
   const ledger = status?.ledger || cycle?.ledger
   const equity = typeof status?.equity === 'number' ? status.equity : cycle?.equity
   const cash = status?.ledger?.cash ?? cycle?.cash ?? ledger?.cash
-  const paperReady = Boolean(status?.paper)
+  const paperReady = Boolean(status?.paper || status?.krakenConfigured || status?.liveAllowed)
   const engineOn = Boolean(status?.engineOn)
+  const liveAllowed = Boolean(status?.liveAllowed)
+  const krakenLive = Boolean(status?.krakenLive)
   const startCad = status?.startingCad || 100
   const goalMin = status?.dailyProfitTargetMinPct || 8
   const goalMax = status?.dailyProfitTargetMaxPct || 200
@@ -365,8 +425,6 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
   const hotMark = [...marks].sort((a, b) => Math.abs(b.dayChangePct) - Math.abs(a.dayChangePct))[0]
   const markOf = (symbol: string) => marks.find((m) => m.symbol === symbol)
   const universe = cycle?.scan?.universe || status?.universe?.universe || 0
-  const newListings = cycle?.scan?.newListings ?? status?.universe?.newListings ?? 0
-  const cryptoPairs = cycle?.scan?.cryptoPairs || 0
   const stageIndex = running ? STAGES.indexOf(phase as (typeof STAGES)[number]) : phase === 'done' ? STAGES.length : -1
 
   const inspectorTask = useMemo(() => {
@@ -396,13 +454,13 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
 
   const feed = useMemo(() => {
     if (!cycle?.decisions?.length) {
-      return [{ who: 'NEWS', color: '#be91ff', text: engineOn ? 'Watching live prices. Fake buys and sells as coins move.' : 'System is OFF. Press ON to start watching and trading fake money.', at: '' }]
+      return [{ who: 'NEWS', color: '#be91ff', text: engineOn ? 'Watching live prices. Buys and sells as coins move.' : 'System is OFF. Live prices still update. Press ON to trade.', at: '' }]
     }
     const items = cycle.decisions.map((d) => ({
       who: coinName(d.ticker),
       color: d.fill?.filled ? '#9ddd55' : d.proposal.action === 'HOLD' ? '#58a9e8' : '#d6a56e',
       text: d.fill?.filled
-        ? `${actionWord(d.fill.side)} at ${cad(d.fill.price)}`
+        ? `${actionWord(d.fill.side)} at ${cad(d.fill.price)}. ${plainNote(d.proposal.reasoning_summary || d.fill.note)}`
         : d.proposal.action === 'HOLD'
           ? 'Did not buy or sell.'
           : plainNote(d.fill?.note || d.proposal.reasoning_summary || actionWord(d.proposal.action)),
@@ -434,28 +492,49 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
         <div className="tb-brand">
           <span className="tb-mark" aria-hidden />
           <span>
-            <small>Practice money · Canada</small>
+            <small>{krakenLive ? 'Kraken live · Canada' : 'Practice money · Canada'}</small>
             <strong>TRADEBOT</strong>
           </span>
         </div>
         <div className={`tb-connect ${paperReady ? 'ok' : ''}`}>
           <span className="tb-dot" />
           <span>
-            <b>{paperReady ? (engineOn ? (watching ? 'Watching live prices' : 'ON') : 'OFF') : 'Practice is off'}</b>
+            <b>{paperReady ? (engineOn ? (watching ? 'Watching live prices' : 'ON') : 'OFF') : 'Desk is off'}</b>
             <small>
               {loading
                 ? 'Loading…'
-                : engineOn
-                  ? watching
+                : krakenLive
+                  ? engineOn
+                    ? 'Real Kraken buys and sells'
+                    : 'Real selected · press ON to trade'
+                  : engineOn
                     ? 'Fake buys and sells as coins move'
-                    : 'System is on · starting watch…'
-                  : 'System is off · nothing is trading'}
+                    : 'Fake selected. Live prices still update. Trades stay off until ON.'}
             </small>
           </span>
         </div>
-        <div className="tb-link" style={{ background: 'linear-gradient(135deg, #5da5d82b, #5da5d80a)', boxShadow: 'inset 0 2px #5da5d8, inset 0 -1px #5da5d840' }}>
-          <small>Money type</small>
-          <b>Canadian dollars</b>
+        <div className="tb-mode" role="tablist" aria-label="Fake or real money">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!krakenLive}
+            className={!krakenLive ? 'on' : ''}
+            disabled={engineBusy || !paperReady}
+            onClick={() => void setMoneyMode(false)}
+          >
+            Fake
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={krakenLive}
+            className={krakenLive ? 'on live' : ''}
+            disabled={engineBusy || !liveAllowed}
+            title={liveAllowed ? 'Real Kraken CAD' : 'Set TRADEBOT_LIVE=true and Kraken keys to unlock'}
+            onClick={() => void setMoneyMode(true)}
+          >
+            Real
+          </button>
         </div>
       </header>
 
@@ -463,20 +542,17 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
 
       <section className="tb-tickers">
         <div className="tb-ticker">
-          <small>Your fake money · started with {cad(startCad)}</small>
+          <small>{krakenLive ? 'Your Kraken money' : 'Your fake money'} · started with {cad(startCad)}</small>
           <b>{typeof equity === 'number' ? cad(equity) : '—'}</b>
-          <em>
-            Cash left {typeof cash === 'number' ? cad(cash) : '—'} · today{' '}
-            {typeof dayPnl === 'number'
-              ? `${dayPnl >= 0 ? '+' : ''}${dayPnl.toFixed(1)}%`
-              : '—'}{' '}
-            · try +{goalMin}% · max +{goalMax}%
+          <em style={{ color: typeof dayPnl === 'number' && dayPnl < 0 ? 'var(--tb-red)' : 'var(--tb-acid)' }}>
+            Cash {typeof cash === 'number' ? cad(cash) : '—'} · today{' '}
+            {typeof dayPnl === 'number' ? `${dayPnl >= 0 ? '+' : ''}${dayPnl.toFixed(2)}%` : '—'}
           </em>
         </div>
         <div className="tb-ticker">
-          <small>Coins checked</small>
-          <b>{universe ? universe.toLocaleString('en-CA') : '—'}</b>
-          <em>{newListings} new · {cryptoPairs || (cryptoQuote?.ok ? 'crypto on' : 'waiting')}</em>
+          <small>Kraken coins</small>
+          <b>{marks.length || universe || '—'}</b>
+          <em>Stop {status?.stopPct || 1.5}% · take profit {status?.takePct || 3}% · max 20% each · day loss halt {status?.maxDrawdownPct || 8}%</em>
         </div>
         <div className="tb-ticker">
           <small>{watching ? 'Live coin (now)' : 'Bitcoin price (check)'}</small>
@@ -501,6 +577,17 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
         </div>
       </section>
 
+      {marks.length > 0 ? (
+        <div className="tb-pills" aria-label="Live Kraken prices">
+          {marks.map((m) => (
+            <span key={m.symbol} className={m.dayChangePct >= 0 ? 'up' : 'down'}>
+              <b>{coinName(m.symbol)}</b> {cad(m.price)} {m.dayChangePct >= 0 ? '+' : ''}
+              {m.dayChangePct.toFixed(1)}%
+            </span>
+          ))}
+        </div>
+      ) : null}
+
       <div className="tb-workspace">
         <aside className="tb-rail tb-left">
           <section className="tb-panel">
@@ -522,21 +609,24 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           <section className="tb-health">
             <span>
               <i className="tb-dot" style={{ width: 7, height: 7 }} />
-              {paperReady ? (engineOn ? (watching ? 'Watching live prices' : 'System is on') : 'System is off') : 'Turn on practice in settings'}
+              {paperReady ? (engineOn ? (watching ? 'Watching live prices' : 'System is on') : 'System is off') : 'Add TRADEBOT_PAPER or Kraken keys'}
             </span>
-            <b>{engineOn ? 'Live desk is ON' : 'Live desk is OFF'}</b>
+            <b>{engineOn ? (krakenLive ? 'Real desk is ON' : 'Fake desk is ON') : krakenLive ? 'Real selected · OFF' : 'Fake selected · OFF'}</b>
             <p className="tb-muted" style={{ marginTop: 6 }}>
               {engineOn
-                ? 'Leave this tab open. It watches live prices and makes fake buys and sells. Nothing real is bought.'
-                : 'Press ON to start. While off, it does not watch or trade.'}
+                ? krakenLive
+                  ? 'Leave this tab open. It watches live Kraken prices and can place real CAD orders.'
+                  : 'Leave this tab open. It watches live Kraken prices and makes practice buys and sells.'
+                : 'Live prices still update. Press ON to allow buys and sells.'}
             </p>
           </section>
-          {ledger && ledger.positions.length > 0 ? (
+          {ledger ? (
             <section className="tb-panel">
               <header className="tb-heading">
                 <span>Coins you hold</span>
                 <b>{ledger.positions.length}</b>
               </header>
+              {ledger.positions.length > 0 ? (
               <table className="tb-table">
                 <thead>
                   <tr>
@@ -544,22 +634,32 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
                     <th>How many</th>
                     <th>Avg price</th>
                     <th>Now</th>
+                    <th>Gain / loss</th>
                   </tr>
                 </thead>
                 <tbody>
                   {ledger.positions.map((p) => {
                     const now = markOf(p.symbol)
+                    const pnl = now && p.avgPrice > 0 ? ((now.price - p.avgPrice) / p.avgPrice) * 100 : null
                     return (
                       <tr key={p.symbol}>
                         <td>{coinName(p.symbol)}</td>
                         <td>{p.qty}</td>
                         <td>{cad(p.avgPrice)}</td>
                         <td>{now ? cad(now.price) : '—'}</td>
+                        <td style={{ color: pnl == null ? undefined : pnl >= 0 ? 'var(--tb-acid)' : 'var(--tb-red)' }}>
+                          {pnl == null ? '—' : `${pnl >= 0 ? '+' : ''}${pnl.toFixed(1)}%`}
+                        </td>
                       </tr>
                     )
                   })}
                 </tbody>
               </table>
+              ) : (
+                <div className="tb-body">
+                  <p>None yet. Press ON and leave this tab open — it buys when a coin looks strong.</p>
+                </div>
+              )}
             </section>
           ) : null}
         </aside>
@@ -570,10 +670,33 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
               <small>{running ? 'Checking the market…' : engineOn ? (watching ? 'Watching live prices' : 'System is on') : 'System is off'}</small>
               <h2>The floor</h2>
               <p className="tb-muted">
-                Start with {cad(startCad)} fake money. Turn it ON to watch live prices and trade. Try for at least +{goalMin}% today. Let winners run up to +{goalMax}%.
+                Start with {cad(startCad)}. Kraken coins only. Stop 1.5%, take profit 3%, max 20% per coin, halt the day at -{status?.maxDrawdownPct || 8}%. No shorts. Use Fake to test, Real for Kraken. {krakenLive ? 'Real Kraken orders while ON.' : 'Fake fills only until you tap Real.'}
               </p>
             </div>
             <div className="tb-actions">
+              <div className="tb-mode" role="tablist" aria-label="Fake or real money">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={!krakenLive}
+                  className={!krakenLive ? 'on' : ''}
+                  disabled={engineBusy || !paperReady}
+                  onClick={() => void setMoneyMode(false)}
+                >
+                  Fake
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={krakenLive}
+                  className={krakenLive ? 'on live' : ''}
+                  disabled={engineBusy || !liveAllowed}
+                  title={liveAllowed ? 'Real Kraken CAD' : 'Set TRADEBOT_LIVE=true and Kraken keys to unlock'}
+                  onClick={() => void setMoneyMode(true)}
+                >
+                  Real
+                </button>
+              </div>
               <button
                 type="button"
                 className={`tb-power${engineOn ? ' on' : ''}`}
@@ -691,8 +814,8 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
       {fills.length > 0 ? (
         <section className="tb-panel" style={{ margin: 10, position: 'relative', zIndex: 2 }}>
           <header className="tb-heading">
-            <span>Fake trades</span>
-            <b>Practice log</b>
+            <span>{krakenLive ? 'Kraken trades' : 'Fake trades'}</span>
+            <b>{krakenLive ? 'Live log' : 'Practice log'}</b>
           </header>
           <table className="tb-table">
             <thead>
@@ -702,6 +825,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
                 <th>Coin</th>
                 <th>How many</th>
                 <th>Price</th>
+                <th>Why</th>
               </tr>
             </thead>
             <tbody>
@@ -712,6 +836,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
                   <td>{coinName(f.symbol)}</td>
                   <td>{f.qty}</td>
                   <td>{cad(f.price)}</td>
+                  <td>{plainNote(f.reason)}</td>
                 </tr>
               ))}
             </tbody>
@@ -720,7 +845,13 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
       ) : null}
 
       <div className="tb-dev" style={{ position: 'relative', zIndex: 2 }}>
-        <b>Note</b> — {engineOn ? 'System is ON. Leave this tab open.' : 'System is OFF.'} Fake money only. Try for at least +{goalMin}% today. Ceiling +{goalMax}%.
+        <b>Setup</b>
+        <ol className="tb-setup">
+          <li>Fake: tap Fake, press ON, leave this tab open. No Kraken orders.</li>
+          <li>Unlock Real: KRAKEN_API_KEY, KRAKEN_API_SECRET, TRADEBOT_LIVE=true, then redeploy.</li>
+          <li>Real: tap Real (confirms), then press ON. Switching to Real turns trading OFF until you press ON again.</li>
+          <li>Already used: GEMINI_API (or GOOGLE_API_KEY), MONGODB_URI.</li>
+        </ol>
         <button type="button" className="tb-copy" style={{ marginLeft: 10 }} onClick={() => setShowVars((v) => !v)}>
           {showVars ? 'Hide settings' : 'Show settings'}
         </button>

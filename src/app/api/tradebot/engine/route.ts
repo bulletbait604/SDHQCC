@@ -1,28 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { verifyOwnerUser } from '@/lib/auth/staffAccess'
-import { setPaperEngine } from '@/lib/tradebot/ledger'
-import { isTradebotPaperEnabled } from '@/lib/tradebot/settings'
+import { setDeskControls } from '@/lib/tradebot/ledger'
+import { isKrakenLiveAllowed, isPlacingLiveOrders, isTradebotDeskEnabled } from '@/lib/tradebot/settings'
+import { syncLiveCash } from '@/lib/tradebot/venue'
 
 export const dynamic = 'force-dynamic'
 
-/** Owner-only: turn the paper desk on or off. Never hits a live broker. */
+/** Owner-only: ON/OFF and Fake/Real money. Live Kraken orders only when Real is selected. */
 export async function POST(req: NextRequest) {
   try {
     await verifyOwnerUser(req)
-    if (!isTradebotPaperEnabled()) {
+    if (!isTradebotDeskEnabled()) {
       return NextResponse.json(
-        { error: 'TRADEBOT_PAPER must be true.', engineOn: false },
+        { error: 'Set TRADEBOT_PAPER=true or add Kraken keys.', engineOn: false },
         { status: 503 }
       )
     }
-    const body = (await req.json().catch(() => ({}))) as { on?: unknown }
-    const ledger = await setPaperEngine(Boolean(body.on))
-    return NextResponse.json({ engineOn: ledger.engineOn, ledger })
+    const body = (await req.json().catch(() => ({}))) as { on?: unknown; liveMode?: unknown }
+    const patch: { on?: boolean; liveMode?: boolean } = {}
+    if (typeof body.on === 'boolean') patch.on = body.on
+    if (typeof body.liveMode === 'boolean') patch.liveMode = body.liveMode
+    let ledger = await setDeskControls(patch)
+    if (isPlacingLiveOrders(ledger)) {
+      ledger = await syncLiveCash(ledger)
+    }
+    return NextResponse.json({
+      engineOn: ledger.engineOn,
+      liveMode: ledger.liveMode,
+      krakenLive: isPlacingLiveOrders(ledger),
+      liveAllowed: isKrakenLiveAllowed(),
+      ledger,
+    })
   } catch (err: unknown) {
     if (err instanceof AuthError) return createAuthErrorResponse(err)
     console.error('[tradebot/engine]', err)
-    return NextResponse.json({ error: 'Could not change ON/OFF.' }, { status: 503 })
+    const message = err instanceof Error ? err.message : 'Could not change ON/OFF.'
+    return NextResponse.json({ error: message }, { status: 503 })
   }
 }
-

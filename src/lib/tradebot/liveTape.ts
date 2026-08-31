@@ -1,18 +1,24 @@
-import { listKrakenCryptoPairs, quoteKrakenMarkets, type CryptoMarket } from '@/lib/tradebot/crypto'
-import { sizeBuyQuantity, validateTrade, dayPnlPct } from '@/lib/tradebot/guardrails'
 import {
-  applyFill,
-  latestCycleLog,
+  fetchKrakenOhlc,
+  listLiquidKrakenPairs,
+  quoteKrakenMarkets,
+  usdCadRate,
+  type CryptoMarket,
+  type CryptoPair,
+} from '@/lib/tradebot/crypto'
+import { sizeBuyQuantity, validateTrade, dayPnlPct } from '@/lib/tradebot/guardrails'
+import { ema, macdHistogram, rsi } from '@/lib/tradebot/indicators'
+import {
   listRecentFills,
   loadPaperLedger,
   markToMarket,
   savePaperLedger,
 } from '@/lib/tradebot/ledger'
 import type { CycleDecision, TradeOrderProposal } from '@/lib/tradebot/models'
-import { isMemeTicker } from '@/lib/tradebot/opportunity'
-import { rankLiveBuys } from '@/lib/tradebot/liveTapeRank'
-import { executeHardExits, rollTorontoDay, swingLevels, trailAndLiftTakes } from '@/lib/tradebot/runtime'
-import { getTradebotSettings, isTradebotPaperEnabled } from '@/lib/tradebot/settings'
+import { liveBuyOk, liveSellFade, rankLiveBuys } from '@/lib/tradebot/liveTapeRank'
+import { executeHardExits, pinStopsTakes, rollTorontoDay, swingLevels } from '@/lib/tradebot/runtime'
+import { getTradebotSettings, isPlacingLiveOrders, isTradebotDeskEnabled } from '@/lib/tradebot/settings'
+import { placeManagedFill, syncLiveCash } from '@/lib/tradebot/venue'
 
 export { rankLiveBuys } from '@/lib/tradebot/liveTapeRank'
 
@@ -24,8 +30,9 @@ export type LiveMark = {
 
 export type TickResult = {
   ranAt: string
-  paper: true
-  live: true
+  paper: boolean
+  live: boolean
+  krakenLive: boolean
   region: 'CA'
   currency: 'CAD'
   halted: boolean
@@ -41,28 +48,40 @@ export type TickResult = {
   fills: Awaited<ReturnType<typeof listRecentFills>>
   marks: LiveMark[]
   tickSeconds: number
+  engineOn: boolean
 }
 
-async function quoteWatch(symbols: string[]): Promise<CryptoMarket[]> {
-  const want = new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean))
-  if (!want.size) return []
-  const pairs = (await listKrakenCryptoPairs()).filter((p) => want.has(p.symbol))
-  if (!pairs.length) return []
-  return quoteKrakenMarkets(pairs)
+let ohlcCache: { at: number; closes: Record<string, number[]> } | null = null
+
+async function loadCloses(pairs: CryptoPair[]): Promise<Record<string, number[]>> {
+  if (ohlcCache && Date.now() - ohlcCache.at < 90_000) return ohlcCache.closes
+  const fx = pairs.some((p) => !p.nativeCad) ? await usdCadRate().catch(() => 1) : 1
+  const closes: Record<string, number[]> = {}
+  for (const pair of pairs) {
+    try {
+      const { bars } = await fetchKrakenOhlc(pair, fx, 15)
+      closes[pair.symbol] = bars.map((b) => b.c)
+    } catch {
+      /* skip pair */
+    }
+  }
+  ohlcCache = { at: Date.now(), closes }
+  return closes
 }
 
-function filledBuy(
+function filledRow(
   ticker: string,
   price: number,
   proposal: TradeOrderProposal,
   qty: number,
   fillPrice: number,
   notionalCad: number,
-  note: string
+  note: string,
+  signal: 'BULLISH' | 'BEARISH'
 ): CycleDecision {
   return {
     ticker,
-    signal: 'BULLISH',
+    signal,
     price,
     proposal,
     risk: {
@@ -74,7 +93,7 @@ function filledBuy(
     },
     fill: {
       filled: true,
-      side: 'BUY',
+      side: proposal.action,
       quantity: qty,
       price: fillPrice,
       notionalCad,
@@ -84,49 +103,61 @@ function filledBuy(
 }
 
 export async function runPaperTick(): Promise<TickResult> {
-  if (!isTradebotPaperEnabled()) {
-    throw new Error('TRADEBOT_PAPER must be true. Live brokers are disabled.')
+  if (!isTradebotDeskEnabled()) {
+    throw new Error('Set TRADEBOT_PAPER=true for fake money, or TRADEBOT_LIVE=true with Kraken keys.')
   }
   const settings = getTradebotSettings()
   let ledger = await loadPaperLedger()
-  if (!ledger.engineOn) {
-    return {
-      ranAt: new Date().toISOString(),
-      paper: true,
-      live: true,
-      region: 'CA',
-      currency: 'CAD',
-      halted: ledger.halted,
-      haltReason: ledger.haltReason,
-      equity: Number(markToMarket(ledger, {}).toFixed(2)),
-      cash: Number(ledger.cash.toFixed(2)),
-      dayStartEquity: Number(ledger.dayStartEquity.toFixed(2)),
-      drawdownPct: 0,
-      dayPnlPct: 0,
-      profitLocked: false,
-      ledger,
-      decisions: [],
-      fills: await listRecentFills(12),
-      marks: [],
-      tickSeconds: settings.tickSeconds,
-    }
-  }
-  const lastCycle = await latestCycleLog()
-  const scan = lastCycle?.scan as { shortlist?: string[] } | undefined
-  const shortlist = Array.isArray(scan?.shortlist) ? scan.shortlist : []
-  const symbols = Array.from(
-    new Set([...ledger.positions.map((p) => p.symbol), ...settings.watchlist, ...shortlist])
-  ).slice(0, 24)
-
-  const markets = await quoteWatch(symbols)
+  const pairs = await listLiquidKrakenPairs()
+  const markets: CryptoMarket[] = pairs.length ? await quoteKrakenMarkets(pairs) : []
+  const pairsBySymbol = new Map(pairs.map((p) => [p.symbol, p]))
   const prices: Record<string, number> = {}
   for (const m of markets) prices[m.pair.symbol] = m.quote.price
   for (const pos of ledger.positions) {
     if (!(prices[pos.symbol] > 0)) prices[pos.symbol] = pos.avgPrice
   }
 
+  const marks: LiveMark[] = markets.map((m) => ({
+    symbol: m.pair.symbol,
+    price: Number(m.quote.price.toFixed(6)),
+    dayChangePct: Number(m.dayChangePct.toFixed(2)),
+  }))
+
+  const placingLive = isPlacingLiveOrders(ledger)
+
+  if (!ledger.engineOn) {
+    if (placingLive) {
+      ledger = await syncLiveCash(ledger)
+      await savePaperLedger(ledger)
+    }
+    return {
+      ranAt: new Date().toISOString(),
+      paper: !placingLive,
+      live: true,
+      krakenLive: placingLive,
+      region: 'CA',
+      currency: 'CAD',
+      halted: ledger.halted,
+      haltReason: ledger.haltReason,
+      equity: Number(markToMarket(ledger, prices).toFixed(2)),
+      cash: Number(ledger.cash.toFixed(2)),
+      dayStartEquity: Number((ledger.dayStartEquity || settings.startingCad).toFixed(2)),
+      drawdownPct: 0,
+      dayPnlPct: Number(dayPnlPct(markToMarket(ledger, prices), ledger.dayStartEquity || settings.startingCad).toFixed(2)),
+      profitLocked: false,
+      ledger,
+      decisions: [],
+      fills: await listRecentFills(12),
+      marks,
+      tickSeconds: settings.tickSeconds,
+      engineOn: false,
+    }
+  }
+
+  ledger = await syncLiveCash(ledger)
   let equity = markToMarket(ledger, prices)
   ledger = rollTorontoDay(ledger, equity)
+  pinStopsTakes(ledger)
   equity = markToMarket(ledger, prices)
   const drawdownPct =
     ledger.dayStartEquity > 0 ? ((ledger.dayStartEquity - equity) / ledger.dayStartEquity) * 100 : 0
@@ -137,14 +168,69 @@ export async function runPaperTick(): Promise<TickResult> {
 
   let decisions: CycleDecision[] = []
   if (!ledger.halted) {
-    trailAndLiftTakes(ledger, prices)
-    const exited = await executeHardExits(ledger, prices, decisions)
+    const exited = await executeHardExits(ledger, prices, decisions, pairsBySymbol)
     ledger = exited.ledger
     decisions = exited.decisions
   }
 
+  const closes = await loadCloses(pairs)
   const liveEquity = markToMarket(ledger, prices)
   const livePnl = dayPnlPct(liveEquity, ledger.dayStartEquity)
+
+  if (!ledger.halted) {
+    for (const pos of [...ledger.positions]) {
+      const series = closes[pos.symbol] || []
+      const fade = liveSellFade({
+        rsi: rsi(series) ?? 50,
+        ema9: ema(series, 9),
+        ema21: ema(series, 21),
+      })
+      const px = prices[pos.symbol]
+      if (!fade || !(px > 0)) continue
+      const reason = 'Momentum slowed (short average dropped under the long one).'
+      let applied: Awaited<ReturnType<typeof placeManagedFill>>
+      try {
+        applied = await placeManagedFill({
+          ledger,
+          side: 'SELL',
+          symbol: pos.symbol,
+          qty: pos.qty,
+          price: px,
+          stopLoss: pos.stopLoss,
+          takeProfit: pos.takeProfit,
+          reason,
+          pair: pairsBySymbol.get(pos.symbol),
+        })
+      } catch (err) {
+        console.error('[tradebot] fade sell', pos.symbol, err)
+        continue
+      }
+      ledger = applied.ledger
+      const levels = swingLevels(px)
+      decisions.push(
+        filledRow(
+          pos.symbol,
+          px,
+          {
+            ticker: pos.symbol,
+            action: 'SELL',
+            order_type: 'MARKET',
+            quantity: applied.fill.qty,
+            limit_price: px,
+            stop_loss: levels.stopBuy,
+            take_profit: levels.takeBuy,
+            reasoning_summary: reason,
+          },
+          applied.fill.qty,
+          applied.fill.price,
+          applied.fill.notionalCad,
+          applied.venue === 'kraken' ? 'Sold on Kraken' : 'Sold (practice)',
+          'BEARISH'
+        )
+      )
+    }
+  }
+
   const held = new Set(ledger.positions.map((p) => p.symbol))
   const canBuy =
     !ledger.halted &&
@@ -153,29 +239,37 @@ export async function runPaperTick(): Promise<TickResult> {
     ledger.cash >= 5
 
   if (canBuy) {
-    const ranked = rankLiveBuys(
-      markets.map((m) => ({
+    const scored = markets.map((m) => {
+      const series = closes[m.pair.symbol] || []
+      const ok = liveBuyOk({
+        rsi: rsi(series) ?? 52,
+        ema9: ema(series, 9),
+        ema21: ema(series, 21),
+        macd: macdHistogram(series) ?? 0,
+        dayChangePct: m.dayChangePct,
+      })
+      return {
         symbol: m.pair.symbol,
         dayChangePct: m.dayChangePct,
         volume24h: m.volume24h,
-      })),
-      held
-    )
-    const pick = ranked[0]
+        score: ok ? m.dayChangePct + Math.log10(m.volume24h + 10) : 0,
+      }
+    })
+    const pick = rankLiveBuys(scored, held)[0]
     const market = pick ? markets.find((m) => m.pair.symbol === pick.symbol) : undefined
     if (market && pick) {
       const price = market.quote.price
-      const aggressive = isMemeTicker(pick.symbol)
-      const atr = Math.max(price * 0.04, 0.000001)
-      const levels = swingLevels(price, atr, aggressive)
+      const levels = swingLevels(price)
+      const atr = Math.max(price * settings.stopPct, 0.000001)
       const quantity = sizeBuyQuantity({
         equity: liveEquity,
         riskPct: settings.riskPct,
         atr,
-        atrMultiplier: settings.atrMultiplier,
+        atrMultiplier: 1,
         price,
         maxAssetWeightPct: settings.maxAssetWeightPct,
       })
+      const reason = `Up ${pick.dayChangePct.toFixed(1)}% and the short average is above the long one.`
       const proposal: TradeOrderProposal = {
         ticker: pick.symbol,
         action: 'BUY',
@@ -184,7 +278,7 @@ export async function runPaperTick(): Promise<TickResult> {
         limit_price: price,
         stop_loss: levels.stopBuy,
         take_profit: levels.takeBuy,
-        reasoning_summary: `Live tape +${pick.dayChangePct.toFixed(1)}% today`,
+        reasoning_summary: reason,
       }
       const checked = validateTrade(proposal, {
         equity: liveEquity,
@@ -198,29 +292,34 @@ export async function runPaperTick(): Promise<TickResult> {
         lastPrice: price,
       })
       if (checked.ok && checked.proposal.quantity > 0) {
-        const applied = await applyFill({
-          ledger,
-          side: 'BUY',
-          symbol: pick.symbol,
-          qty: checked.proposal.quantity,
-          price,
-          feeBps: settings.krakenFeeBps,
-          stopLoss: checked.proposal.stop_loss,
-          takeProfit: checked.proposal.take_profit,
-          reason: checked.proposal.reasoning_summary,
-        })
-        ledger = applied.ledger
-        decisions.push(
-          filledBuy(
-            pick.symbol,
+        try {
+          const applied = await placeManagedFill({
+            ledger,
+            side: 'BUY',
+            symbol: pick.symbol,
+            qty: checked.proposal.quantity,
             price,
-            checked.proposal,
-            applied.fill.qty,
-            applied.fill.price,
-            applied.fill.notionalCad,
-            `Paper CAD fill · fee CA$${applied.fill.feeCad.toFixed(2)}`
+            stopLoss: checked.proposal.stop_loss,
+            takeProfit: checked.proposal.take_profit,
+            reason,
+            pair: pairsBySymbol.get(pick.symbol),
+          })
+          ledger = applied.ledger
+          decisions.push(
+            filledRow(
+              pick.symbol,
+              price,
+              checked.proposal,
+              applied.fill.qty,
+              applied.fill.price,
+              applied.fill.notionalCad,
+              applied.venue === 'kraken' ? `Bought on Kraken · fee CA$${applied.fill.feeCad.toFixed(2)}` : `Practice buy · fee CA$${applied.fill.feeCad.toFixed(2)}`,
+              'BULLISH'
+            )
           )
-        )
+        } catch (err) {
+          console.error('[tradebot] live buy', pick.symbol, err)
+        }
       }
     }
   }
@@ -228,11 +327,11 @@ export async function runPaperTick(): Promise<TickResult> {
   const finalEquity = markToMarket(ledger, prices)
   const finalPnl = dayPnlPct(finalEquity, ledger.dayStartEquity)
   await savePaperLedger(ledger)
-  const fills = await listRecentFills(12)
   return {
     ranAt: new Date().toISOString(),
-    paper: true,
+    paper: !isPlacingLiveOrders(ledger),
     live: true,
+    krakenLive: isPlacingLiveOrders(ledger),
     region: 'CA',
     currency: 'CAD',
     halted: ledger.halted,
@@ -245,12 +344,9 @@ export async function runPaperTick(): Promise<TickResult> {
     profitLocked: finalPnl >= settings.dailyProfitTargetMaxPct,
     ledger,
     decisions,
-    fills,
-    marks: markets.map((m) => ({
-      symbol: m.pair.symbol,
-      price: Number(m.quote.price.toFixed(6)),
-      dayChangePct: Number(m.dayChangePct.toFixed(2)),
-    })),
+    fills: await listRecentFills(12),
+    marks,
     tickSeconds: settings.tickSeconds,
+    engineOn: true,
   }
 }

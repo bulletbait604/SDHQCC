@@ -8,6 +8,7 @@ export type CryptoPair = {
   wsname: string
   quote: 'CAD' | 'USD'
   nativeCad: boolean
+  ordermin: number
 }
 
 function krakenJson(body: unknown): Record<string, unknown> {
@@ -81,10 +82,11 @@ export async function listKrakenCryptoPairs(): Promise<CryptoPair[]> {
     const display = displayCryptoSymbol(wsname)
     if (!display) continue
     const base = display.replace(/-CAD$/, '')
+    const ordermin = Number(p.ordermin || 0)
     if (quote === 'ZCAD' || wsname.endsWith('/CAD')) {
-      cad.push({ symbol: display, krakenId: id, wsname, quote: 'CAD', nativeCad: true })
+      cad.push({ symbol: display, krakenId: id, wsname, quote: 'CAD', nativeCad: true, ordermin })
     } else if ((quote === 'ZUSD' || wsname.endsWith('/USD')) && usdExtra.has(base)) {
-      usd.push({ symbol: display, krakenId: id, wsname, quote: 'USD', nativeCad: false })
+      usd.push({ symbol: display, krakenId: id, wsname, quote: 'USD', nativeCad: false, ordermin })
     }
   }
   const native = new Set(cad.map((p) => p.symbol))
@@ -93,6 +95,39 @@ export async function listKrakenCryptoPairs(): Promise<CryptoPair[]> {
   const pairs = [...cad, ...extras]
   pairCache = { at: Date.now(), pairs }
   return pairs
+}
+
+/** Liquid names the $100 CAD desk actually trades. CAD pair when Kraken has one. */
+export const KRAKEN_LIQUID_SYMBOLS = [
+  'BTC-CAD',
+  'ETH-CAD',
+  'SOL-CAD',
+  'XRP-CAD',
+  'DOGE-CAD',
+  'ADA-CAD',
+  'LTC-CAD',
+  'LINK-CAD',
+  'DOT-CAD',
+  'AVAX-CAD',
+] as const
+
+export async function listLiquidKrakenPairs(): Promise<CryptoPair[]> {
+  const all = await listKrakenCryptoPairs()
+  const want = new Set<string>(KRAKEN_LIQUID_SYMBOLS)
+  const picked: CryptoPair[] = []
+  for (const symbol of KRAKEN_LIQUID_SYMBOLS) {
+    const native = all.find((p) => p.symbol === symbol && p.nativeCad)
+    const any = all.find((p) => p.symbol === symbol)
+    if (native) picked.push(native)
+    else if (any) picked.push(any)
+  }
+  for (const p of all) {
+    if (picked.length >= 10) break
+    if (!want.has(p.symbol) && p.nativeCad && !picked.some((x) => x.symbol === p.symbol)) {
+      picked.push(p)
+    }
+  }
+  return picked
 }
 
 async function ticker(ids: string[]): Promise<Record<string, Record<string, unknown>>> {
@@ -174,8 +209,12 @@ export async function quoteKrakenMarkets(pairs: CryptoPair[]): Promise<CryptoMar
   return out
 }
 
-export async function fetchKrakenDailyBars(pair: CryptoPair, usdCad = 1): Promise<{ quote: EquityQuote; bars: DailyBar[] }> {
-  const res = await fetch(`${KRAKEN}/OHLC?pair=${encodeURIComponent(pair.krakenId)}&interval=1440`, {
+export async function fetchKrakenOhlc(
+  pair: CryptoPair,
+  usdCad = 1,
+  interval = 1440
+): Promise<{ quote: EquityQuote; bars: DailyBar[] }> {
+  const res = await fetch(`${KRAKEN}/OHLC?pair=${encodeURIComponent(pair.krakenId)}&interval=${interval}`, {
     signal: AbortSignal.timeout(12_000),
     cache: 'no-store',
   })
@@ -208,6 +247,10 @@ export async function fetchKrakenDailyBars(pair: CryptoPair, usdCad = 1): Promis
     },
     bars,
   }
+}
+
+export async function fetchKrakenDailyBars(pair: CryptoPair, usdCad = 1): Promise<{ quote: EquityQuote; bars: DailyBar[] }> {
+  return fetchKrakenOhlc(pair, usdCad, 1440)
 }
 
 export function rankCrypto(markets: CryptoMarket[], limit: number): CryptoMarket[] {

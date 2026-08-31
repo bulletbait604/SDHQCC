@@ -2,20 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { verifyOwnerUser } from '@/lib/auth/staffAccess'
 import { runPaperTick } from '@/lib/tradebot/liveTape'
-import { isTradebotPaperEnabled } from '@/lib/tradebot/settings'
+import { isTradebotDeskEnabled } from '@/lib/tradebot/settings'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
-/** Owner-only: watch live CAD crypto prints and paper-trade. Never hits a live broker. */
+/** Owner-only: live Kraken CAD quotes. Trades only when the desk is ON (paper or live keys). */
 export async function POST(req: NextRequest) {
   try {
     await verifyOwnerUser(req)
-    if (!isTradebotPaperEnabled()) {
+    if (!isTradebotDeskEnabled()) {
       return NextResponse.json(
         {
-          error: 'TRADEBOT_PAPER must be true. Live brokers are disabled.',
-          userMessage: 'Set TRADEBOT_PAPER=true and redeploy. Live trading is off.',
+          error: 'Desk is not enabled.',
+          userMessage: 'Set TRADEBOT_PAPER=true for fake money, or TRADEBOT_LIVE=true with Kraken keys.',
         },
         { status: 503 }
       )
