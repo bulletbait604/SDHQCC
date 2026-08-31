@@ -250,6 +250,10 @@
   background: #2a1412;
   color: #f0c4be;
 }
+.tb-mode button.on.hot {
+  background: #2a2212;
+  color: var(--tb-amber);
+}
 .tb-mode button:disabled { opacity: 0.35; cursor: not-allowed; }
 .tb-power {
   min-height: 48px;

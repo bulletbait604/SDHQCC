@@ -83,6 +83,7 @@ function attachNews(signal: SignalAnalysis | null, news: NameNews | undefined, i
 
 export async function scanCadBook(params: {
   positions: string[]
+  volatility?: string
 }): Promise<{ market: MarketRow[]; scan: ScanSummary }> {
   const settings = getTradebotSettings()
   let universe = 0
@@ -171,7 +172,7 @@ export async function scanCadBook(params: {
   }
   if (settings.cryptoEnabled) {
     try {
-      cryptoPairs = settings.krakenOnly ? await listLiquidKrakenPairs() : await listKrakenCryptoPairs()
+      cryptoPairs = settings.krakenOnly ? await listLiquidKrakenPairs(params.volatility) : await listKrakenCryptoPairs()
       cryptoMarkets = await quoteKrakenMarkets(cryptoPairs)
       newCoins = (await rememberCryptoPairs(cryptoMarkets.map((m) => m.pair.symbol))).newCoins
       scannedThisCycle += cryptoMarkets.length

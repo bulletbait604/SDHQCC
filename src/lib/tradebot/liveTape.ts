@@ -15,9 +15,10 @@ import {
   savePaperLedger,
 } from '@/lib/tradebot/ledger'
 import type { CycleDecision, TradeOrderProposal } from '@/lib/tradebot/models'
-import { liveBuyOk, liveSellFade, rankLiveBuys } from '@/lib/tradebot/liveTapeRank'
+import { liveBuyOk, liveEntryScore, liveSellFade, rankLiveBuys } from '@/lib/tradebot/liveTapeRank'
 import { executeHardExits, pinStopsTakes, rollTorontoDay, swingLevels } from '@/lib/tradebot/runtime'
 import { getTradebotSettings, isPlacingLiveOrders, isTradebotDeskEnabled } from '@/lib/tradebot/settings'
+import { parseVolatility, volatilityProfile } from '@/lib/tradebot/volatility'
 import { placeManagedFill, syncLiveCash } from '@/lib/tradebot/venue'
 
 export { rankLiveBuys } from '@/lib/tradebot/liveTapeRank'
@@ -108,7 +109,8 @@ export async function runPaperTick(): Promise<TickResult> {
   }
   const settings = getTradebotSettings()
   let ledger = await loadPaperLedger()
-  const pairs = await listLiquidKrakenPairs()
+  const vol = volatilityProfile(parseVolatility(ledger.volatility))
+  const pairs = await listLiquidKrakenPairs(vol.level)
   const markets: CryptoMarket[] = pairs.length ? await quoteKrakenMarkets(pairs) : []
   const pairsBySymbol = new Map(pairs.map((p) => [p.symbol, p]))
   const prices: Record<string, number> = {}
@@ -235,7 +237,7 @@ export async function runPaperTick(): Promise<TickResult> {
   const canBuy =
     !ledger.halted &&
     livePnl < settings.dailyProfitTargetMaxPct &&
-    ledger.positions.length < settings.maxOpenPositions &&
+    ledger.positions.length < vol.maxOpen &&
     ledger.cash >= 5
 
   if (canBuy) {
@@ -247,29 +249,35 @@ export async function runPaperTick(): Promise<TickResult> {
         ema21: ema(series, 21),
         macd: macdHistogram(series) ?? 0,
         dayChangePct: m.dayChangePct,
+        volatility: vol.level,
       })
       return {
         symbol: m.pair.symbol,
         dayChangePct: m.dayChangePct,
         volume24h: m.volume24h,
-        score: ok ? m.dayChangePct + Math.log10(m.volume24h + 10) : 0,
+        score: ok ? liveEntryScore({ symbol: m.pair.symbol, dayChangePct: m.dayChangePct, volume24h: m.volume24h }, vol.level) : 0,
       }
     })
     const pick = rankLiveBuys(scored, held)[0]
     const market = pick ? markets.find((m) => m.pair.symbol === pick.symbol) : undefined
     if (market && pick) {
       const price = market.quote.price
-      const levels = swingLevels(price)
-      const atr = Math.max(price * settings.stopPct, 0.000001)
+      const levels = swingLevels(price, { stopPct: vol.stopPct, takePct: vol.takePct })
+      const atr = Math.max(price * vol.stopPct, 0.000001)
       const quantity = sizeBuyQuantity({
         equity: liveEquity,
         riskPct: settings.riskPct,
         atr,
         atrMultiplier: 1,
         price,
-        maxAssetWeightPct: settings.maxAssetWeightPct,
+        maxAssetWeightPct: vol.maxAssetWeightPct,
       })
-      const reason = `Up ${pick.dayChangePct.toFixed(1)}% and the short average is above the long one.`
+      const reason =
+        vol.level === 'high'
+          ? `High vol: ${pick.symbol.replace(/-CAD$/, '')} is up ${pick.dayChangePct.toFixed(1)}% — chasing a faster move.`
+          : vol.level === 'low'
+            ? `Low vol: ${pick.symbol.replace(/-CAD$/, '')} is up ${pick.dayChangePct.toFixed(1)}% among calmer coins.`
+            : `Up ${pick.dayChangePct.toFixed(1)}% and the short average is above the long one.`
       const proposal: TradeOrderProposal = {
         ticker: pick.symbol,
         action: 'BUY',
@@ -285,7 +293,7 @@ export async function runPaperTick(): Promise<TickResult> {
         cash: ledger.cash,
         dayStartEquity: ledger.dayStartEquity,
         maxDrawdownPct: settings.maxDrawdownPct,
-        maxAssetWeightPct: settings.maxAssetWeightPct,
+        maxAssetWeightPct: vol.maxAssetWeightPct,
         dailyProfitLockPct: settings.dailyProfitTargetMaxPct,
         positionQty: 0,
         positionAvg: 0,

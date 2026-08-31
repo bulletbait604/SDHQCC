@@ -13,6 +13,7 @@ import { fetchDailyBars } from '@/lib/tradebot/quotes'
 import { executeHardExits, pinStopsTakes, rollTorontoDay, swingLevels } from '@/lib/tradebot/runtime'
 import { scanCadBook, type ScanSummary } from '@/lib/tradebot/scanner'
 import { getTradebotSettings, isPlacingLiveOrders, isTradebotDeskEnabled } from '@/lib/tradebot/settings'
+import { parseVolatility, volatilityProfile } from '@/lib/tradebot/volatility'
 import { placeManagedFill, syncLiveCash } from '@/lib/tradebot/venue'
 
 export type CycleResult = {
@@ -44,11 +45,13 @@ export async function runPaperCycle(): Promise<CycleResult> {
     throw new Error('TradeBot is OFF. Turn it ON to run.')
   }
   ledger = await syncLiveCash(ledger)
-  const pairList = settings.krakenOnly ? await listLiquidKrakenPairs() : await listKrakenCryptoPairs()
+  const vol = volatilityProfile(parseVolatility(ledger.volatility))
+  const pairList = settings.krakenOnly ? await listLiquidKrakenPairs(vol.level) : await listKrakenCryptoPairs()
   const pairsBySymbol = new Map(pairList.map((p) => [p.symbol, p]))
 
   const { market, scan } = await scanCadBook({
     positions: ledger.positions.map((p) => p.symbol),
+    volatility: vol.level,
   })
 
   const prices: Record<string, number> = {}
@@ -104,6 +107,7 @@ export async function runPaperCycle(): Promise<CycleResult> {
       startingCad: settings.startingCad,
       targetMinPct: settings.dailyProfitTargetMinPct,
       targetMaxPct: settings.dailyProfitTargetMaxPct,
+      volatility: vol.level,
       openPositions: ledger.positions.map((p) => ({
         symbol: p.symbol,
         qty: p.qty,
@@ -122,7 +126,10 @@ export async function runPaperCycle(): Promise<CycleResult> {
       ) {
         action = 'HOLD'
       }
-      const levels = swingLevels(signal.price)
+      if (action === 'BUY' && ledger.positions.length >= vol.maxOpen) {
+        action = 'HOLD'
+      }
+      const levels = swingLevels(signal.price, { stopPct: vol.stopPct, takePct: vol.takePct })
       const stop = action === 'BUY' ? levels.stopBuy : levels.stopSell
       const take = action === 'BUY' ? levels.takeBuy : levels.takeSell
 
@@ -134,7 +141,7 @@ export async function runPaperCycle(): Promise<CycleResult> {
           atr: signal.atr,
           atrMultiplier: settings.atrMultiplier,
           price: signal.price,
-          maxAssetWeightPct: settings.maxAssetWeightPct,
+          maxAssetWeightPct: vol.maxAssetWeightPct,
         })
       } else if (action === 'SELL') {
         quantity = pos?.qty || 0
@@ -157,7 +164,7 @@ export async function runPaperCycle(): Promise<CycleResult> {
         cash: ledger.cash,
         dayStartEquity: ledger.dayStartEquity,
         maxDrawdownPct: settings.maxDrawdownPct,
-        maxAssetWeightPct: settings.maxAssetWeightPct,
+        maxAssetWeightPct: vol.maxAssetWeightPct,
         dailyProfitLockPct: settings.dailyProfitTargetMaxPct,
         positionQty: pos?.qty || 0,
         positionAvg: pos?.avgPrice || 0,

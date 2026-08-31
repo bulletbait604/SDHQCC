@@ -39,6 +39,7 @@ export async function runDebateAndTrader(
     startingCad: number
     targetMinPct: number
     targetMaxPct: number
+    volatility?: 'low' | 'medium' | 'high'
     openPositions: Array<{ symbol: string; qty: number; avgPrice: number }>
   }
 ): Promise<AgentDecision[]> {
@@ -76,7 +77,11 @@ export async function runDebateAndTrader(
 1) ARCHIVE (news)  2) FORGE (why buy)  3) RELAY (why wait)  4) HELM (trader)
 Never place an order yourself. Output JSON only. TypeScript talks to Kraken or the paper ledger. No shorts. No leverage.
 
-GOAL: take small, frequent profits on liquid Kraken CAD coins (BTC, ETH, SOL, XRP, DOGE, ADA, LTC). Stop-loss 1.5% from entry. Take-profit 3% from entry. Never more than 20% of the book in one coin. Halt new trades if the book is down 8% on the day.
+GOAL: take small, frequent profits on liquid Kraken CAD coins. Volatility setting: ${book.volatility || 'medium'}.
+- low = prefer BTC/ETH and calmer names, skip wild spikes.
+- medium = liquid mix (SOL, ADA, and similar).
+- high = prefer faster alts and bigger day moves (still Kraken only, no shorts).
+Stop and take-profit are set by the computer from that setting. Never more than 20% of the book in one coin. Halt new trades if the book is down 8% on the day.
 Current book: equity CA$${book.equity.toFixed(2)}, cash CA$${book.cash.toFixed(2)}, day-open CA$${book.dayStartEquity.toFixed(2)}, day P&L ${book.dayPnlPct.toFixed(2)}%.
 
 Only Kraken-listed coins. Prefer EMA 9 above EMA 21, RSI 38-70, MACD not dumping.

@@ -4,10 +4,10 @@ import type { CycleDecision } from '@/lib/tradebot/models'
 import { getTradebotSettings } from '@/lib/tradebot/settings'
 import { placeManagedFill } from '@/lib/tradebot/venue'
 
-export function swingLevels(price: number) {
+export function swingLevels(price: number, pct?: { stopPct: number; takePct: number }) {
   const settings = getTradebotSettings()
-  const stopPct = settings.stopPct
-  const takePct = settings.takePct
+  const stopPct = pct?.stopPct ?? settings.stopPct
+  const takePct = pct?.takePct ?? settings.takePct
   return {
     stopBuy: Number((price * (1 - stopPct)).toFixed(6)),
     takeBuy: Number((price * (1 + takePct)).toFixed(6)),

@@ -1,6 +1,7 @@
 import clientPromise from '@/lib/mongodb'
 import { TRADEBOT_BASE_CURRENCY } from '@/lib/tradebot/canada'
 import { getTradebotSettings, isKrakenLiveAllowed } from '@/lib/tradebot/settings'
+import { parseVolatility, type VolatilityLevel } from '@/lib/tradebot/volatility'
 
 export type PaperPosition = {
   symbol: string
@@ -22,6 +23,7 @@ export type PaperLedger = {
   positions: PaperPosition[]
   engineOn: boolean
   liveMode: boolean
+  volatility: VolatilityLevel
   updatedAt: string
 }
 
@@ -72,6 +74,7 @@ function mapLedger(r: Record<string, unknown>, startingCad: number): PaperLedger
     haltReason: String(r.haltReason || ''),
     engineOn: Boolean(r.engineOn),
     liveMode: Boolean(r.liveMode),
+    volatility: parseVolatility(r.volatility),
     positions: positionsRaw.map((item) => {
       const rec = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
       return {
@@ -103,6 +106,7 @@ function freshLedger(startingCad: number, dayStartDate: string): PaperLedger {
     haltReason: '',
     engineOn: false,
     liveMode: false,
+    volatility: 'medium',
     positions: [],
     updatedAt: new Date().toISOString(),
   }
@@ -123,6 +127,7 @@ export async function loadPaperLedger(): Promise<PaperLedger> {
     const reset = freshLedger(startingCad, today)
     reset.engineOn = ledger.engineOn
     reset.liveMode = ledger.liveMode
+    reset.volatility = ledger.volatility
     await col.replaceOne({ id: LEDGER_ID }, reset, { upsert: true })
     return reset
   }
@@ -144,7 +149,11 @@ export async function setPaperEngine(on: boolean): Promise<PaperLedger> {
   return setDeskControls({ on })
 }
 
-export async function setDeskControls(patch: { on?: boolean; liveMode?: boolean }): Promise<PaperLedger> {
+export async function setDeskControls(patch: {
+  on?: boolean
+  liveMode?: boolean
+  volatility?: VolatilityLevel
+}): Promise<PaperLedger> {
   const ledger = await loadPaperLedger()
   if (typeof patch.on === 'boolean') ledger.engineOn = Boolean(patch.on)
   if (typeof patch.liveMode === 'boolean') {
@@ -154,6 +163,7 @@ export async function setDeskControls(patch: { on?: boolean; liveMode?: boolean 
     ledger.liveMode = Boolean(patch.liveMode)
     if (patch.liveMode) ledger.engineOn = false
   }
+  if (patch.volatility) ledger.volatility = parseVolatility(patch.volatility)
   await savePaperLedger(ledger)
   return ledger
 }

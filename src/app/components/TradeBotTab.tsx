@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react'
 import { parseJsonResponse } from '@/lib/http/parseJsonResponse'
 import { TRADEBOT_DEFAULT_CRYPTO_WATCHLIST_CSV } from '@/lib/tradebot/canada'
 import type { TradebotProviderStatus } from '@/lib/tradebot/envCatalog'
+import { parseVolatility, volatilityProfile, type VolatilityLevel } from '@/lib/tradebot/volatility'
 import './TradeBotFloor.css'
 
 export interface TradeBotTabProps {
@@ -104,6 +105,7 @@ type StatusResponse = {
   liveAllowed?: boolean
   krakenLive?: boolean
   krakenConfigured?: boolean
+  volatility?: VolatilityLevel
   stopPct?: number
   takePct?: number
   maxDrawdownPct?: number
@@ -131,7 +133,7 @@ KRAKEN_API_KEY=
 KRAKEN_API_SECRET=`
 
 const AGENTS = [
-  { id: 'scout', name: 'FINDER', role: 'Looks for coins', idle: 'Watching Kraken CAD coins.', color: '#9ddd55', x: '18%', y: '28%' },
+  { id: 'scout', name: 'FINDER', role: 'Looks for coins', idle: 'Watching Kraken CAD coins at your Low / Medium / High setting.', color: '#9ddd55', x: '18%', y: '28%' },
   { id: 'archive', name: 'NEWS', role: 'Reads the news', idle: 'Checking the news for scams.', color: '#be91ff', x: '50%', y: '22%' },
   { id: 'forge', name: 'YES', role: 'Why we might buy', idle: 'Looking for good reasons to buy.', color: '#42cbbb', x: '82%', y: '28%' },
   { id: 'relay', name: 'NO', role: 'Why we might wait', idle: 'Looking for reasons not to buy.', color: '#58a9e8', x: '22%', y: '68%' },
@@ -408,6 +410,45 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
     }
   }
 
+  const setVolatility = async (level: VolatilityLevel) => {
+    if (engineBusy) return
+    setEngineBusy(true)
+    setError('')
+    try {
+      const res = await fetch('/api/tradebot/engine', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ volatility: level }),
+      })
+      const data = await parseJsonResponse<{
+        volatility?: VolatilityLevel
+        engineOn?: boolean
+        liveMode?: boolean
+        krakenLive?: boolean
+        ledger?: StatusResponse['ledger']
+        error?: string
+      }>(res)
+      if (!res.ok) throw new Error(data.error || 'Could not change volatility.')
+      setStatus((prev) =>
+        prev
+          ? {
+              ...prev,
+              volatility: parseVolatility(data.volatility),
+              engineOn: data.engineOn ?? prev.engineOn,
+              liveMode: data.liveMode ?? prev.liveMode,
+              krakenLive: data.krakenLive ?? prev.krakenLive,
+              ledger: data.ledger || prev.ledger,
+            }
+          : prev
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not change volatility.')
+    } finally {
+      setEngineBusy(false)
+    }
+  }
+
   const agent = AGENTS.find((a) => a.id === selected) || AGENTS[4]
   const ledger = status?.ledger || cycle?.ledger
   const equity = typeof status?.equity === 'number' ? status.equity : cycle?.equity
@@ -416,6 +457,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
   const engineOn = Boolean(status?.engineOn)
   const liveAllowed = Boolean(status?.liveAllowed)
   const krakenLive = Boolean(status?.krakenLive)
+  const vol = volatilityProfile(parseVolatility(status?.volatility))
   const startCad = status?.startingCad || 100
   const goalMin = status?.dailyProfitTargetMinPct || 8
   const goalMax = status?.dailyProfitTargetMaxPct || 200
@@ -536,6 +578,22 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
             Real
           </button>
         </div>
+        <div className="tb-mode" role="tablist" aria-label="Volatility">
+          {(['low', 'medium', 'high'] as const).map((level) => (
+            <button
+              key={level}
+              type="button"
+              role="tab"
+              aria-selected={vol.level === level}
+              className={vol.level === level ? (level === 'high' ? 'on hot' : 'on') : ''}
+              disabled={engineBusy || !paperReady}
+              title={volatilityProfile(level).hint}
+              onClick={() => void setVolatility(level)}
+            >
+              {level === 'low' ? 'Low' : level === 'high' ? 'High' : 'Med'}
+            </button>
+          ))}
+        </div>
       </header>
 
       {error ? <p className="tb-err">{error}</p> : null}
@@ -550,9 +608,11 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           </em>
         </div>
         <div className="tb-ticker">
-          <small>Kraken coins</small>
+          <small>Kraken coins · {vol.label} vol</small>
           <b>{marks.length || universe || '—'}</b>
-          <em>Stop {status?.stopPct || 1.5}% · take profit {status?.takePct || 3}% · max 20% each · day loss halt {status?.maxDrawdownPct || 8}%</em>
+          <em>
+            {vol.hint}. Stop {(vol.stopPct * 100).toFixed(1)}% · take {(vol.takePct * 100).toFixed(1)}% · max {vol.maxOpen} coins · day halt {status?.maxDrawdownPct || 8}%
+          </em>
         </div>
         <div className="tb-ticker">
           <small>{watching ? 'Live coin (now)' : 'Bitcoin price (check)'}</small>
@@ -670,7 +730,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
               <small>{running ? 'Checking the market…' : engineOn ? (watching ? 'Watching live prices' : 'System is on') : 'System is off'}</small>
               <h2>The floor</h2>
               <p className="tb-muted">
-                Start with {cad(startCad)}. Kraken coins only. Stop 1.5%, take profit 3%, max 20% per coin, halt the day at -{status?.maxDrawdownPct || 8}%. No shorts. Use Fake to test, Real for Kraken. {krakenLive ? 'Real Kraken orders while ON.' : 'Fake fills only until you tap Real.'}
+                Start with {cad(startCad)}. Kraken coins only. {vol.hint}. Stop {(vol.stopPct * 100).toFixed(1)}%, take {(vol.takePct * 100).toFixed(1)}%, halt the day at -{status?.maxDrawdownPct || 8}%. No shorts. Fake to test, Real for Kraken. {krakenLive ? 'Real orders while ON.' : 'Fake fills until you tap Real.'}
               </p>
             </div>
             <div className="tb-actions">
@@ -696,6 +756,22 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
                 >
                   Real
                 </button>
+              </div>
+              <div className="tb-mode" role="tablist" aria-label="Volatility">
+                {(['low', 'medium', 'high'] as const).map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    role="tab"
+                    aria-selected={vol.level === level}
+                    className={vol.level === level ? (level === 'high' ? 'on hot' : 'on') : ''}
+                    disabled={engineBusy || !paperReady}
+                    title={volatilityProfile(level).hint}
+                    onClick={() => void setVolatility(level)}
+                  >
+                    {level === 'low' ? 'Low' : level === 'high' ? 'High' : 'Med'}
+                  </button>
+                ))}
               </div>
               <button
                 type="button"
@@ -850,6 +926,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           <li>Fake: tap Fake, press ON, leave this tab open. No Kraken orders.</li>
           <li>Unlock Real: KRAKEN_API_KEY, KRAKEN_API_SECRET, TRADEBOT_LIVE=true, then redeploy.</li>
           <li>Real: tap Real (confirms), then press ON. Switching to Real turns trading OFF until you press ON again.</li>
+          <li>Volatility: Low = calmer coins (BTC/ETH). Med = liquid mix. High = faster, riskier names with bigger swings.</li>
           <li>Already used: GEMINI_API (or GOOGLE_API_KEY), MONGODB_URI.</li>
         </ol>
         <button type="button" className="tb-copy" style={{ marginLeft: 10 }} onClick={() => setShowVars((v) => !v)}>

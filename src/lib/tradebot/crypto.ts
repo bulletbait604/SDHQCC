@@ -1,4 +1,5 @@
 import type { DailyBar, EquityQuote } from '@/lib/tradebot/quotes'
+import { parseVolatility, volatilityProfile, type VolatilityLevel } from '@/lib/tradebot/volatility'
 
 const KRAKEN = 'https://api.kraken.com/0/public'
 
@@ -111,20 +112,21 @@ export const KRAKEN_LIQUID_SYMBOLS = [
   'AVAX-CAD',
 ] as const
 
-export async function listLiquidKrakenPairs(): Promise<CryptoPair[]> {
+export async function listLiquidKrakenPairs(level: VolatilityLevel | string = 'medium'): Promise<CryptoPair[]> {
   const all = await listKrakenCryptoPairs()
-  const want = new Set<string>(KRAKEN_LIQUID_SYMBOLS)
+  const profile = volatilityProfile(parseVolatility(level))
   const picked: CryptoPair[] = []
-  for (const symbol of KRAKEN_LIQUID_SYMBOLS) {
+  for (const symbol of profile.symbols) {
     const native = all.find((p) => p.symbol === symbol && p.nativeCad)
     const any = all.find((p) => p.symbol === symbol)
     if (native) picked.push(native)
     else if (any) picked.push(any)
+    if (picked.length >= profile.maxPairs) return picked
   }
-  for (const p of all) {
-    if (picked.length >= 10) break
-    if (!want.has(p.symbol) && p.nativeCad && !picked.some((x) => x.symbol === p.symbol)) {
-      picked.push(p)
+  if (profile.fillNativeCadAlts) {
+    for (const p of all) {
+      if (picked.length >= profile.maxPairs) break
+      if (p.nativeCad && !picked.some((x) => x.symbol === p.symbol)) picked.push(p)
     }
   }
   return picked

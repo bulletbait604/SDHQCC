@@ -90,6 +90,7 @@ export async function GET(req: NextRequest) {
       liveAllowed: isKrakenLiveAllowed(),
       krakenLive: isPlacingLiveOrders(ledger || { liveMode: false }),
       krakenConfigured: isKrakenLiveConfigured(),
+      volatility: ledger?.volatility || 'medium',
       stopPct: settings.stopPct * 100,
       takePct: settings.takePct * 100,
       maxDrawdownPct: settings.maxDrawdownPct,
