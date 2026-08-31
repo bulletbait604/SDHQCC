@@ -6,6 +6,14 @@ export function bookIdForMode(liveMode: boolean): string {
   return liveMode ? LIVE_LEDGER_ID : PAPER_LEDGER_ID
 }
 
+/** Save only the book this ledger came from. Never retarget Fake cash onto Real. */
+export function bookIdToSave(ledger: { id?: string; liveMode: boolean }): string | null {
+  const expected = bookIdForMode(ledger.liveMode)
+  const id = ledger.id === LIVE_LEDGER_ID || ledger.id === PAPER_LEDGER_ID ? ledger.id : expected
+  if (id !== expected) return null
+  return id
+}
+
 /** Kraken CAD is ZCAD. Sum leftover *CAD keys if the named field is missing. */
 export function cadFromKrakenBalance(result: Record<string, unknown>): number {
   const named = Number(result.ZCAD ?? result.CAD ?? 0)
@@ -20,13 +28,26 @@ export function cadFromKrakenBalance(result: Record<string, unknown>): number {
   return Number.isFinite(named) && named >= 0 ? named : 0
 }
 
-export function applyKrakenCash<T extends { cash: number; startingEquity: number; dayStartEquity: number; dayStartDate: string }>(
-  ledger: T,
-  cad: number,
-  today: string
-): T {
+export function applyKrakenCash<
+  T extends {
+    cash: number
+    startingEquity: number
+    dayStartEquity: number
+    dayStartDate: string
+    positions?: unknown[]
+    openOrders?: unknown[]
+    krakenSyncedAt?: string
+  },
+>(ledger: T, cad: number, today: string): T {
+  if (!ledger.krakenSyncedAt) {
+    ledger.positions = []
+    ledger.openOrders = []
+    ledger.startingEquity = 0
+    ledger.dayStartEquity = 0
+  }
   const cash = cad >= 0 ? cad : 0
   ledger.cash = cash
+  ledger.krakenSyncedAt = today
   if (!(ledger.startingEquity > 0)) {
     ledger.startingEquity = cash
     ledger.dayStartEquity = cash

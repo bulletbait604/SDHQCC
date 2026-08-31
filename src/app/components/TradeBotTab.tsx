@@ -6,6 +6,7 @@ import { parseJsonResponse } from '@/lib/http/parseJsonResponse'
 import { TRADEBOT_DEFAULT_CRYPTO_WATCHLIST_CSV } from '@/lib/tradebot/canada'
 import type { TradebotProviderStatus } from '@/lib/tradebot/envCatalog'
 import { featuredLiveMark } from '@/lib/tradebot/liveTapeRank'
+import { LIVE_LEDGER_ID, PAPER_LEDGER_ID } from '@/lib/tradebot/deskBooks'
 import { parseVolatility, volatilityProfile, type VolatilityLevel } from '@/lib/tradebot/volatility'
 import './TradeBotFloor.css'
 
@@ -66,7 +67,7 @@ type CycleView = {
   dayPnlPct?: number
   profitLocked?: boolean
   dayStartEquity?: number
-  ledger: { cash: number; positions: Position[]; halted?: boolean; haltReason?: string; dayStartEquity?: number; startingEquity?: number; liveMode?: boolean; engineOn?: boolean }
+  ledger: { id?: string; cash: number; positions: Position[]; halted?: boolean; haltReason?: string; dayStartEquity?: number; startingEquity?: number; liveMode?: boolean; engineOn?: boolean }
   decisions: DecisionRow[]
   scan?: {
     universe: number
@@ -92,7 +93,7 @@ type StatusResponse = {
   universe?: { universe: number; newListings: number; offset: number }
   providers: TradebotProviderStatus[]
   equity?: number | null
-  ledger?: { cash: number; positions: Position[]; halted?: boolean; haltReason?: string; dayStartEquity?: number; startingEquity?: number; liveMode?: boolean; engineOn?: boolean } | null
+  ledger?: { id?: string; cash: number; positions: Position[]; halted?: boolean; haltReason?: string; dayStartEquity?: number; startingEquity?: number; liveMode?: boolean; engineOn?: boolean } | null
   fills?: FillRow[]
   lastCycle?: CycleView | null
   startingCad?: number
@@ -106,6 +107,7 @@ type StatusResponse = {
   liveAllowed?: boolean
   krakenLive?: boolean
   krakenConfigured?: boolean
+  krakenSyncError?: string
   volatility?: VolatilityLevel
   stopPct?: number
   takePct?: number
@@ -188,9 +190,10 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
   const [marks, setMarks] = useState<Array<{ symbol: string; price: number; dayChangePct: number }>>([])
   const runningRef = useRef(false)
   const tickRef = useRef(false)
+  const liveModeRef = useRef(false)
 
   const loadStatus = async () => {
-    const res = await fetch('/api/tradebot/status', { credentials: 'include' })
+    const res = await fetch('/api/tradebot/status', { credentials: 'include', cache: 'no-store' })
     const data = await parseJsonResponse<StatusResponse>(res)
     if (!res.ok) throw new Error(data.error || 'Could not load the practice desk.')
     return data
@@ -203,7 +206,10 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
         const data = await loadStatus()
         if (cancelled) return
         setStatus(data)
+        liveModeRef.current = Boolean(data.liveMode)
+        if (data.krakenSyncError) setError(data.krakenSyncError)
         if (data.lastCycle?.decisions) setCycle(data.lastCycle)
+        else if (data.liveMode) setCycle(null)
         if (data.fills) setFills(data.fills)
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load the practice desk.')
@@ -255,7 +261,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
     if (runningRef.current || tickRef.current) return
     tickRef.current = true
     try {
-      const res = await fetch('/api/tradebot/tick', { method: 'POST', credentials: 'include' })
+      const res = await fetch('/api/tradebot/tick', { method: 'POST', credentials: 'include', cache: 'no-store' })
       const data = await parseJsonResponse<
         CycleView & {
           live?: boolean
@@ -270,25 +276,32 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
       if (!res.ok) throw new Error(data.userMessage || data.error || 'Could not watch prices.')
       setWatching(true)
       if (data.marks?.length) setMarks(data.marks)
-      if (data.fills) setFills(data.fills)
-      setStatus((prev) =>
-        prev
-          ? {
-              ...prev,
-              equity: data.equity,
-              ledger: data.ledger,
-              dayPnlPct: data.dayPnlPct,
-              profitLocked: data.profitLocked,
-              engineOn: data.engineOn ?? prev.engineOn,
-              liveMode: data.ledger?.liveMode ?? prev.liveMode,
-              krakenLive: typeof data.krakenLive === 'boolean' ? data.krakenLive : prev.krakenLive,
-              paper: typeof data.krakenLive === 'boolean' ? !data.krakenLive : prev.paper,
-              paperOnly: typeof data.krakenLive === 'boolean' ? !data.krakenLive : prev.paperOnly,
-            }
-          : prev
-      )
+      const tickBook = data.ledger?.id
+      const skipFakeOntoReal =
+        liveModeRef.current && (tickBook === PAPER_LEDGER_ID || data.ledger?.liveMode === false)
+      const skipLiveOntoFake = !liveModeRef.current && tickBook === LIVE_LEDGER_ID
+      if (!skipFakeOntoReal && !skipLiveOntoFake) {
+        liveModeRef.current = Boolean(data.ledger?.liveMode ?? liveModeRef.current)
+      }
+      setStatus((prev) => {
+        if (!prev) return prev
+        if (skipFakeOntoReal || skipLiveOntoFake) return prev
+        return {
+          ...prev,
+          equity: data.equity,
+          ledger: data.ledger,
+          dayPnlPct: data.dayPnlPct,
+          profitLocked: data.profitLocked,
+          engineOn: data.engineOn ?? prev.engineOn,
+          liveMode: data.ledger?.liveMode ?? prev.liveMode,
+          krakenLive: typeof data.krakenLive === 'boolean' ? data.krakenLive : prev.krakenLive,
+          paper: typeof data.krakenLive === 'boolean' ? !data.krakenLive : prev.paper,
+          paperOnly: typeof data.krakenLive === 'boolean' ? !data.krakenLive : prev.paperOnly,
+        }
+      })
+      if (data.fills && !skipFakeOntoReal && !skipLiveOntoFake) setFills(data.fills)
       const filled = (data.decisions || []).filter((d) => d.fill?.filled)
-      if (filled.length) {
+      if (filled.length && !skipFakeOntoReal && !skipLiveOntoFake) {
         setCycle((prev) => ({
           ranAt: data.ranAt,
           halted: data.halted,
@@ -377,6 +390,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ liveMode: live }),
+        cache: 'no-store',
       })
       const data = await parseJsonResponse<{
         engineOn?: boolean
@@ -388,8 +402,10 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
       if (!res.ok) throw new Error(data.error || 'Could not switch Fake/Real.')
       if (data.error) setError(data.error)
       const next = await loadStatus()
+      liveModeRef.current = Boolean(next.liveMode)
       setStatus(next)
       if (next.fills) setFills(next.fills)
+      if (next.krakenSyncError) setError(next.krakenSyncError)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not switch Fake/Real.')
     } finally {
@@ -437,13 +453,21 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
   }
 
   const agent = AGENTS.find((a) => a.id === selected) || AGENTS[4]
-  const ledger = status?.ledger || cycle?.ledger
-  const equity = typeof status?.equity === 'number' ? status.equity : cycle?.equity
-  const cash = status?.ledger?.cash ?? cycle?.cash ?? ledger?.cash
+  const liveMode = Boolean(status?.liveMode)
+  const ledger = liveMode ? status?.ledger : status?.ledger || cycle?.ledger
+  const equity = liveMode
+    ? typeof status?.equity === 'number'
+      ? status.equity
+      : typeof status?.ledger?.cash === 'number'
+        ? status.ledger.cash
+        : undefined
+    : typeof status?.equity === 'number'
+      ? status.equity
+      : cycle?.equity
+  const cash = liveMode ? status?.ledger?.cash : status?.ledger?.cash ?? cycle?.cash ?? ledger?.cash
   const paperReady = Boolean(status?.paper || status?.krakenConfigured || status?.liveAllowed)
   const engineOn = Boolean(status?.engineOn)
   const liveAllowed = Boolean(status?.liveAllowed)
-  const liveMode = Boolean(status?.liveMode)
   const krakenLive = Boolean(status?.krakenLive)
   const vol = volatilityProfile(parseVolatility(status?.volatility))
   const startCad = liveMode

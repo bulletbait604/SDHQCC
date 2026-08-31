@@ -1,6 +1,6 @@
 import clientPromise from '@/lib/mongodb'
 import { TRADEBOT_BASE_CURRENCY } from '@/lib/tradebot/canada'
-import { bookIdForMode, DESK_ID, LIVE_LEDGER_ID, PAPER_LEDGER_ID } from '@/lib/tradebot/deskBooks'
+import { bookIdForMode, bookIdToSave, DESK_ID, LIVE_LEDGER_ID, PAPER_LEDGER_ID } from '@/lib/tradebot/deskBooks'
 import { getTradebotSettings, isKrakenLiveAllowed, paperStartMismatchShouldReset } from '@/lib/tradebot/settings'
 import { parseVolatility, type VolatilityLevel } from '@/lib/tradebot/volatility'
 
@@ -38,6 +38,7 @@ export type PaperLedger = {
   engineOn: boolean
   liveMode: boolean
   volatility: VolatilityLevel
+  krakenSyncedAt?: string
   updatedAt: string
 }
 
@@ -90,6 +91,7 @@ function mapLedger(r: Record<string, unknown>, startingCad: number, id: string):
     engineOn: Boolean(r.engineOn),
     liveMode: Boolean(r.liveMode),
     volatility: parseVolatility(r.volatility),
+    krakenSyncedAt: typeof r.krakenSyncedAt === 'string' ? r.krakenSyncedAt : undefined,
     positions: positionsRaw.map((item) => {
       const rec = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
       return {
@@ -156,7 +158,6 @@ function overlayDesk(book: PaperLedger, desk: DeskState): PaperLedger {
   book.liveMode = desk.liveMode
   book.engineOn = desk.engineOn
   book.volatility = desk.volatility
-  book.id = bookIdForMode(desk.liveMode)
   return book
 }
 
@@ -205,6 +206,13 @@ async function loadBook(
     return fresh
   }
   const ledger = mapLedger(existing as Record<string, unknown>, start, id)
+  if (id === LIVE_LEDGER_ID && !ledger.krakenSyncedAt) {
+    ledger.cash = 0
+    ledger.positions = []
+    ledger.openOrders = []
+    ledger.startingEquity = 0
+    ledger.dayStartEquity = 0
+  }
   if (id === PAPER_LEDGER_ID && paperStartMismatchShouldReset(false, ledger.startingEquity, startingCad)) {
     const reset = freshLedger(id, startingCad, today)
     await col.replaceOne({ id }, reset, { upsert: true })
@@ -230,14 +238,13 @@ export async function loadPaperLedger(): Promise<PaperLedger> {
 
 export async function savePaperLedger(ledger: PaperLedger): Promise<void> {
   ledger.updatedAt = new Date().toISOString()
-  const col = await ledgerCol()
-  const id = bookIdForMode(ledger.liveMode)
+  const id = bookIdToSave(ledger)
+  if (!id) {
+    console.error('[tradebot] refused to save', ledger.id, 'as', ledger.liveMode ? 'Real' : 'Fake')
+    return
+  }
   ledger.id = id
-  await saveDesk(col, {
-    liveMode: ledger.liveMode,
-    engineOn: ledger.engineOn,
-    volatility: ledger.volatility,
-  })
+  const col = await ledgerCol()
   const { engineOn: _e, liveMode: _l, volatility: _v, ...book } = ledger
   await col.updateOne({ id }, { $set: { ...book, id } }, { upsert: true })
 }
@@ -255,6 +262,7 @@ export async function setDeskControls(patch: {
   const col = await ledgerCol()
   const today = torontoDate()
   const desk = await loadDesk(col)
+  const wasLive = desk.liveMode
   if (typeof patch.on === 'boolean') desk.engineOn = Boolean(patch.on)
   if (typeof patch.liveMode === 'boolean') {
     if (patch.liveMode && !isKrakenLiveAllowed()) {
@@ -262,6 +270,13 @@ export async function setDeskControls(patch: {
     }
     desk.liveMode = Boolean(patch.liveMode)
     if (patch.liveMode) desk.engineOn = false
+    if (patch.liveMode && !wasLive) {
+      await col.replaceOne(
+        { id: LIVE_LEDGER_ID },
+        freshLedger(LIVE_LEDGER_ID, 0, today),
+        { upsert: true }
+      )
+    }
   }
   if (patch.volatility) desk.volatility = parseVolatility(patch.volatility)
   await saveDesk(col, desk)

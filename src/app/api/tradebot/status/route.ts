@@ -43,6 +43,7 @@ export async function GET(req: NextRequest) {
     let lastCycle: Record<string, unknown> | null = null
     let equity: number | null = null
     let universe = { universe: 0, newListings: 0, offset: 0 }
+    let krakenSyncError: string | undefined
 
     if (deskOn) {
       try {
@@ -52,6 +53,12 @@ export async function GET(req: NextRequest) {
             ledger = await syncLiveCash(ledger)
           } catch (err) {
             console.error('[tradebot/status] Kraken CAD', err)
+            krakenSyncError = err instanceof Error ? err.message : 'Could not read Kraken CAD.'
+            if (!ledger.krakenSyncedAt) {
+              ledger.cash = 0
+              ledger.positions = []
+              ledger.openOrders = []
+            }
           }
         }
         fills = await listRecentFills(12, ledger.id)
@@ -76,7 +83,12 @@ export async function GET(req: NextRequest) {
     }
 
     const quotesOk = settings.cryptoOnly ? cryptoProbe.ok : quoteProbe.ok
-    const dayStartEquity = ledger?.dayStartEquity || settings.startingCad
+    const dayStartEquity =
+      ledger?.dayStartEquity && ledger.dayStartEquity > 0
+        ? ledger.dayStartEquity
+        : ledger?.liveMode
+          ? ledger.cash
+          : settings.startingCad
     const dayPnlPct =
       typeof equity === 'number' && dayStartEquity > 0
         ? Number((((equity - dayStartEquity) / dayStartEquity) * 100).toFixed(2))
@@ -117,6 +129,7 @@ export async function GET(req: NextRequest) {
       ledger,
       fills,
       lastCycle,
+      krakenSyncError,
     })
   } catch (err: unknown) {
     if (err instanceof AuthError) return createAuthErrorResponse(err)

@@ -4,6 +4,7 @@ import {
   PAPER_LEDGER_ID,
   LIVE_LEDGER_ID,
   bookIdForMode,
+  bookIdToSave,
   cadFromKrakenBalance,
   applyKrakenCash,
 } from '@/lib/tradebot/deskBooks'
@@ -29,8 +30,35 @@ test('first Real sync stamps starting equity from Kraken cash', () => {
 })
 
 test('later Real syncs update cash only, not the Fake 135 start', () => {
-  const book = { cash: 50, startingEquity: 50, dayStartEquity: 50, dayStartDate: '2026-08-31' }
+  const book = {
+    cash: 50,
+    startingEquity: 50,
+    dayStartEquity: 50,
+    dayStartDate: '2026-08-31',
+    krakenSyncedAt: '2026-08-31',
+  }
   applyKrakenCash(book, 48.2, '2026-08-31')
   assert.equal(book.cash, 48.2)
   assert.equal(book.startingEquity, 50)
+})
+
+test('unsynced Real book drops cloned Fake positions before applying Kraken CAD', () => {
+  const book = {
+    cash: 135,
+    startingEquity: 100,
+    dayStartEquity: 100,
+    dayStartDate: '2026-08-30',
+    positions: [{ symbol: 'ETH-CAD' }],
+    openOrders: [{ txid: 'x' }],
+  }
+  applyKrakenCash(book, 50, '2026-08-31')
+  assert.equal(book.cash, 50)
+  assert.equal(book.positions.length, 0)
+  assert.equal(book.startingEquity, 50)
+})
+
+test('refuses to save the Fake book as Real', () => {
+  assert.equal(bookIdToSave({ id: PAPER_LEDGER_ID, liveMode: true }), null)
+  assert.equal(bookIdToSave({ id: LIVE_LEDGER_ID, liveMode: true }), LIVE_LEDGER_ID)
+  assert.equal(bookIdToSave({ id: PAPER_LEDGER_ID, liveMode: false }), PAPER_LEDGER_ID)
 })
