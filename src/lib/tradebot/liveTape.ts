@@ -18,7 +18,7 @@ import {
   savePaperLedger,
 } from '@/lib/tradebot/ledger'
 import type { CycleDecision, TradeOrderProposal } from '@/lib/tradebot/models'
-import { liveEntryScore, rankLiveBuys, recentlyBought, recentlyStopped } from '@/lib/tradebot/liveTapeRank'
+import { liveEntryScore, rankLiveBuys, recentlyBought, recentlyStopped, deskWaitNote } from '@/lib/tradebot/liveTapeRank'
 import { barsToHourly, swingEntry } from '@/lib/tradebot/swingSetup'
 import { executeHardExits, pinStopsTakes, rollTorontoDay, swingLevels, trailStops } from '@/lib/tradebot/runtime'
 import { getTradebotSettings, isPlacingLiveOrders, isTradebotDeskEnabled } from '@/lib/tradebot/settings'
@@ -54,6 +54,7 @@ export type TickResult = {
   marks: LiveMark[]
   tickSeconds: number
   engineOn: boolean
+  huntNote: string
 }
 
 let ohlcCache: { at: number; bars: Record<string, DailyBar[]> } | null = null
@@ -129,6 +130,34 @@ function filledRow(
   }
 }
 
+function qtyNotional(qty: number, price: number): number {
+  return Number((qty * price).toFixed(2))
+}
+
+function restingRow(ticker: string, price: number, proposal: TradeOrderProposal, note: string): CycleDecision {
+  return {
+    ticker,
+    signal: 'BULLISH',
+    price,
+    proposal,
+    risk: {
+      approved: true,
+      risk_score: 0.2,
+      max_portfolio_impact_pct: 0,
+      rejection_reasons: [],
+      adjusted_proposal: proposal,
+    },
+    fill: {
+      filled: false,
+      side: proposal.action,
+      quantity: proposal.quantity,
+      price,
+      notionalCad: qtyNotional(proposal.quantity, price),
+      note,
+    },
+  }
+}
+
 export async function runPaperTick(): Promise<TickResult> {
   if (!isTradebotDeskEnabled()) {
     throw new Error('Set TRADEBOT_PAPER=true for fake money, or TRADEBOT_LIVE=true with Kraken keys.')
@@ -182,6 +211,19 @@ export async function runPaperTick(): Promise<TickResult> {
       marks,
       tickSeconds: settings.tickSeconds,
       engineOn: false,
+      huntNote: deskWaitNote({
+        engineOn: false,
+        liveMode: Boolean(ledger.liveMode),
+        halted: ledger.halted,
+        haltReason: ledger.haltReason,
+        profitLocked: false,
+        holding: ledger.positions.length,
+        maxOpen: vol.maxOpen,
+        cash: ledger.cash,
+        pendingSymbols: [],
+        cooldown: false,
+        skipReasons: [],
+      }),
     }
   }
 
@@ -245,14 +287,17 @@ export async function runPaperTick(): Promise<TickResult> {
   const btcHourCloses = barsToHourly(huntBars['BTC-CAD'] || []).map((b) => b.c)
 
   const held = new Set(ledger.positions.map((p) => p.symbol))
+  const cooldown = recentlyBought(recentFills)
   const canBuy =
     !ledger.halted &&
     livePnl < settings.dailyProfitTargetMaxPct &&
     ledger.positions.length < vol.maxOpen &&
     ledger.cash >= 5 &&
     pendingEntry.size + ledger.positions.length < vol.maxOpen &&
-    !recentlyBought(recentFills)
+    !cooldown
 
+  const skipReasons: string[] = []
+  let buyError = ''
   if (canBuy) {
     const scored = markets.map((m) => {
       const bars15 = huntBars[m.pair.symbol] || []
@@ -268,13 +313,19 @@ export async function runPaperTick(): Promise<TickResult> {
         volatility: vol.level,
       })
       const blocked = recentlyStopped(recentFills, m.pair.symbol) || pendingEntry.has(m.pair.symbol)
+      const reason = blocked
+        ? recentlyStopped(recentFills, m.pair.symbol)
+          ? 'Cooldown after a stop on this coin.'
+          : 'Maker buy already resting.'
+        : setup.reason
+      skipReasons.push(reason)
       return {
         symbol: m.pair.symbol,
         dayChangePct: m.dayChangePct,
         volume24h: m.volume24h,
         stopPct: setup.stopPct,
         takePct: setup.takePct,
-        reason: setup.reason,
+        reason,
         score:
           setup.ok && !blocked
             ? liveEntryScore(
@@ -354,12 +405,48 @@ export async function runPaperTick(): Promise<TickResult> {
                 'BULLISH'
               )
             )
+          } else {
+            decisions.push(
+              restingRow(
+                pick.symbol,
+                price,
+                checked.proposal,
+                applied.venue === 'kraken'
+                  ? 'Maker buy posted on Kraken — waiting for a fill at the bid.'
+                  : 'Practice maker buy posted — waiting for a fill at the bid.'
+              )
+            )
           }
         } catch (err) {
+          buyError = err instanceof Error ? err.message : 'Could not place the buy.'
           console.error('[tradebot] live buy', pick.symbol, err)
         }
+      } else {
+        buyError = (checked.reasons || []).join(' ') || 'Safety blocked the ticket size.'
       }
     }
+  }
+
+  const pendingNow = (ledger.openOrders || [])
+    .filter((o) => o.kind === 'entry' && o.side === 'BUY')
+    .map((o) => o.symbol)
+  let huntNote = deskWaitNote({
+    engineOn: true,
+    liveMode: Boolean(ledger.liveMode),
+    halted: ledger.halted,
+    haltReason: ledger.haltReason,
+    profitLocked: livePnl >= settings.dailyProfitTargetMaxPct,
+    holding: ledger.positions.length,
+    maxOpen: vol.maxOpen,
+    cash: ledger.cash,
+    pendingSymbols: pendingNow,
+    cooldown,
+    skipReasons,
+    buyError,
+  })
+  const bought = decisions.find((d) => d.fill?.filled && d.fill.side === 'BUY')
+  if (bought) {
+    huntNote = `Bought ${bought.ticker.replace(/-CAD$/i, '')}. Waiting for take or stop.`
   }
 
   const finalEquity = markToMarket(ledger, prices)
@@ -386,5 +473,6 @@ export async function runPaperTick(): Promise<TickResult> {
     marks,
     tickSeconds: settings.tickSeconds,
     engineOn: true,
+    huntNote,
   }
 }

@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import type { DailyBar } from '@/lib/tradebot/quotes'
+import { ema } from '@/lib/tradebot/indicators'
 import {
   afterFeeRR,
   barsToHourly,
@@ -114,4 +115,36 @@ test('alts stay flat when bitcoin hourly trend is down', () => {
 test('after-fee reward/risk on a 7.5% take / 2% stop is at least 2R', () => {
   assert.ok(afterFeeRR(0.075, 0.02) >= 2)
   assert.ok(afterFeeRR(0.024, 0.018) < 2)
+})
+
+test('still buys the dip when the 15m EMA has already rolled over', () => {
+  const bars: DailyBar[] = []
+  let px = 100
+  for (let i = 0; i < 240; i++) {
+    const n = px * 1.0014
+    bars.push(bar(i, px, n * 1.0006, px * 0.9996, n))
+    px = n
+  }
+  for (let i = 0; i < 10; i++) {
+    const n = px * 0.998
+    bars.push(bar(240 + i, px, px * 1.0003, n * 0.9996, n))
+    px = n
+  }
+  const low = Math.min(...bars.slice(-14).map((b) => b.l), px * 0.9988)
+  const close = px * 1.0032
+  bars.push(bar(250, px * 0.999, close * 1.0004, Math.min(low, px * 0.9988), close))
+  const closes = bars.map((b) => b.c)
+  const e9 = ema(closes, 9)
+  const e21 = ema(closes, 21)
+  assert.ok(e9 != null && e21 != null && e9 < e21, '15m EMA9 should be below EMA21 at the dip')
+  const last = bars[bars.length - 1]
+  const got = swingEntry({
+    symbol: 'ETH-CAD',
+    bars15: bars,
+    price: last.c,
+    dayChangePct: 0.4,
+    spreadPct: 0.08,
+    volatility: 'medium',
+  })
+  assert.equal(got.ok, true, got.reason)
 })

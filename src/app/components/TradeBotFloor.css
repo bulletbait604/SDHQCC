@@ -195,6 +195,7 @@
 .tb-health { padding: 10px 11px; border: 1px solid var(--tb-line); }
 .tb-health span { display: flex; align-items: center; gap: 8px; color: var(--tb-mint); font-size: 14px; letter-spacing: 0.03em; }
 .tb-health b { display: block; margin: 6px 0 4px; font-size: 16px; letter-spacing: 0.02em; }
+.tb-wait { margin: 0; color: var(--tb-acid); font-size: 15px; line-height: 1.5; }
 
 .tb-mission {
   display: flex;

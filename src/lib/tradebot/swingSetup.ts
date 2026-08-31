@@ -1,7 +1,6 @@
 import type { DailyBar } from '@/lib/tradebot/quotes'
 import { KRAKEN_MAKER_BPS_DEFAULT, KRAKEN_TAKER_BPS_DEFAULT, minTakePct, roundTripPct } from '@/lib/tradebot/fees'
-import { ema, macdHistogram, rsi } from '@/lib/tradebot/indicators'
-import { liveBuyOk } from '@/lib/tradebot/liveTapeRank'
+import { ema, rsi } from '@/lib/tradebot/indicators'
 import { parseVolatility, type VolatilityLevel, volatilityProfile } from '@/lib/tradebot/volatility'
 
 const HOUR_MS = 60 * 60 * 1000
@@ -40,7 +39,7 @@ export function higherTfUptrend(closes: number[]): boolean {
 export function bullishReversal(bar: { o: number; h: number; l: number; c: number }): boolean {
   if (!(bar.c > 0) || !(bar.h > bar.l) || !(bar.o > 0)) return false
   const closeLoc = (bar.c - bar.l) / (bar.h - bar.l)
-  return bar.c >= bar.o && closeLoc >= 0.55
+  return bar.c >= bar.o && closeLoc >= 0.45
 }
 
 export function recentSwingLow(bars: DailyBar[], lookback = 16): number | null {
@@ -79,9 +78,9 @@ export type SwingEntry = {
 }
 
 function nearSwingPct(level: VolatilityLevel): number {
-  if (level === 'low') return 0.012
-  if (level === 'high') return 0.022
-  return 0.016
+  if (level === 'low') return 0.018
+  if (level === 'high') return 0.032
+  return 0.024
 }
 
 export function swingEntry(input: {
@@ -101,24 +100,17 @@ export function swingEntry(input: {
   const lastBar = bars[bars.length - 1]
   const rsiNow = rsi(closes) ?? 52
   const rsiPrev = rsi(closes.slice(0, -1)) ?? rsiNow
-  const macdNow = macdHistogram(closes) ?? 0
-  const macdPrev = macdHistogram(closes.slice(0, -1)) ?? macdNow
+  const rsiLo = vol.rsiMin - 8
+  const rsiHi = vol.rsiMax + 8
+  const rsiOk = rsiNow >= rsiLo && rsiNow <= rsiHi
+  const moveOk = input.dayChangePct >= vol.minDayChangePct && input.dayChangePct <= vol.maxDayChangePct
+  const spreadOk = input.spreadPct == null || input.spreadPct <= vol.maxSpreadPct
 
-  if (
-    !liveBuyOk({
-      rsi: rsiNow,
-      ema9: ema(closes, 9),
-      ema21: ema(closes, 21),
-      macd: 0,
-      dayChangePct: input.dayChangePct,
-      spreadPct: input.spreadPct,
-      volatility: vol.level,
-    })
-  ) {
-    return fail('15m trend, RSI pullback, or spread is not a buy.')
-  }
-  if (!(rsiNow > rsiPrev + 0.4)) return fail('RSI is still falling — wait for the dip to turn.')
-  if (macdNow + 1e-9 < macdPrev && macdNow < 0.02) return fail('MACD is still rolling over.')
+  // Hourly EMA is the trend. 15m EMA9>EMA21 is often already down at the dip we want.
+  if (!rsiOk) return fail('RSI is not in a pullback zone.')
+  if (!moveOk) return fail('Day move is a spike or a dump, not a swing dip.')
+  if (!spreadOk) return fail('Spread is too wide for a maker buy.')
+  if (rsiNow + 0.05 < rsiPrev) return fail('RSI is still falling — wait for the dip to turn.')
   if (!bullishReversal(lastBar)) return fail('No bullish reversal bar off the pullback.')
 
   const hourly = barsToHourly(bars)

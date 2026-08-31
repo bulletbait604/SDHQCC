@@ -93,7 +93,26 @@ type StatusResponse = {
   universe?: { universe: number; newListings: number; offset: number }
   providers: TradebotProviderStatus[]
   equity?: number | null
-  ledger?: { id?: string; cash: number; positions: Position[]; halted?: boolean; haltReason?: string; dayStartEquity?: number; startingEquity?: number; liveMode?: boolean; engineOn?: boolean } | null
+  ledger?: {
+    id?: string
+    cash: number
+    positions: Position[]
+    openOrders?: Array<{
+      txid: string
+      symbol: string
+      side: 'BUY' | 'SELL'
+      kind: 'entry' | 'stop' | 'take'
+      qty: number
+      price: number
+      placedAt: string
+    }>
+    halted?: boolean
+    haltReason?: string
+    dayStartEquity?: number
+    startingEquity?: number
+    liveMode?: boolean
+    engineOn?: boolean
+  } | null
   fills?: FillRow[]
   lastCycle?: CycleView | null
   startingCad?: number
@@ -114,6 +133,7 @@ type StatusResponse = {
   maxDrawdownPct?: number
   dayPnlPct?: number
   profitLocked?: boolean
+  huntNote?: string
   error?: string
   userMessage?: string
 }
@@ -161,6 +181,13 @@ function actionWord(action: string): string {
 
 function coinName(symbol: string): string {
   return symbol.replace(/-CAD$/i, '')
+}
+
+function openOrderLabel(kind: string, side: string): string {
+  if (kind === 'entry') return side === 'SELL' ? 'Maker sell' : 'Maker buy'
+  if (kind === 'stop') return 'Stop'
+  if (kind === 'take') return 'Take'
+  return kind
 }
 
 function plainNote(text: string): string {
@@ -267,6 +294,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           live?: boolean
           krakenLive?: boolean
           engineOn?: boolean
+          huntNote?: string
           marks?: Array<{ symbol: string; price: number; dayChangePct: number }>
           fills?: FillRow[]
           error?: string
@@ -297,11 +325,12 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           krakenLive: typeof data.krakenLive === 'boolean' ? data.krakenLive : prev.krakenLive,
           paper: typeof data.krakenLive === 'boolean' ? !data.krakenLive : prev.paper,
           paperOnly: typeof data.krakenLive === 'boolean' ? !data.krakenLive : prev.paperOnly,
+          huntNote: data.huntNote ?? prev.huntNote,
         }
       })
       if (data.fills && !skipFakeOntoReal && !skipLiveOntoFake) setFills(data.fills)
-      const filled = (data.decisions || []).filter((d) => d.fill?.filled)
-      if (filled.length && !skipFakeOntoReal && !skipLiveOntoFake) {
+      const acted = (data.decisions || []).filter((d) => d.fill)
+      if (acted.length && !skipFakeOntoReal && !skipLiveOntoFake) {
         setCycle((prev) => ({
           ranAt: data.ranAt,
           halted: data.halted,
@@ -313,7 +342,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           profitLocked: data.profitLocked,
           dayStartEquity: data.dayStartEquity,
           ledger: data.ledger,
-          decisions: [...filled, ...(prev?.decisions || [])].slice(0, 24),
+          decisions: [...acted, ...(prev?.decisions || [])].slice(0, 24),
           scan: prev?.scan || data.scan,
         }))
       }
@@ -479,6 +508,8 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
   const quote = status?.quoteProbe
   const cryptoQuote = status?.cryptoProbe
   const heldSymbols = (ledger?.positions || []).map((p) => p.symbol)
+  const openOrders = ledger?.openOrders || []
+  const huntNote = status?.huntNote || ''
   const hotMark = featuredLiveMark(marks, heldSymbols)
   const markOf = (symbol: string) => marks.find((m) => m.symbol === symbol)
   const universe = cycle?.scan?.universe || status?.universe?.universe || 0
@@ -511,7 +542,14 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
 
   const feed = useMemo(() => {
     if (!cycle?.decisions?.length) {
-      return [{ who: 'NEWS', color: '#be91ff', text: engineOn ? 'Watching live prices. Buys and sells as coins move.' : 'System is OFF. Live prices still update. Press ON to trade.', at: '' }]
+      return [
+        {
+          who: 'TRADER',
+          color: '#ff6557',
+          text: status?.huntNote || (engineOn ? 'Watching live prices. Buys a dip when the hourly trend is still up.' : 'System is OFF. Live prices still update. Press ON to trade.'),
+          at: '',
+        },
+      ]
     }
     const items = cycle.decisions.map((d) => ({
       who: coinName(d.ticker),
@@ -540,7 +578,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
       })
     }
     return items
-  }, [cycle, engineOn])
+  }, [cycle, engineOn, status?.huntNote])
 
   return (
     <div className="tradebot-floor">
@@ -688,13 +726,14 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
               <i className="tb-dot" style={{ width: 7, height: 7 }} />
               {paperReady ? (engineOn ? (watching ? 'Watching live prices' : 'System is on') : 'System is off') : 'Add TRADEBOT_PAPER or Kraken keys'}
             </span>
-            <b>{engineOn ? (liveMode ? 'Real desk is ON' : 'Fake desk is ON') : liveMode ? 'Real selected · OFF' : 'Fake selected · OFF'}</b>
-            <p className="tb-muted" style={{ marginTop: 6 }}>
-              {engineOn
-                ? liveMode && krakenLive
-                  ? 'Leave this tab open for live Kraken prices every 8s. Real CAD orders while ON.'
-                  : 'Leave this tab open for live Kraken prices every 8s. Fake fills while ON.'
-                : 'Live prices still update. Press ON to allow buys and sells.'}
+            <b>{engineOn ? (liveMode ? 'Real desk is ON' : 'Fake desk is ON') : liveMode ? 'Real selected · OFF — press ON to trade' : 'Fake selected · OFF'}</b>
+            <p className={engineOn && !liveMode ? 'tb-muted' : 'tb-wait'} style={{ marginTop: 6 }}>
+              {huntNote ||
+                (engineOn
+                  ? liveMode && krakenLive
+                    ? 'Leave this tab open for live Kraken prices every 8s. Real CAD orders while ON.'
+                    : 'Leave this tab open for live Kraken prices every 8s. Fake fills while ON.'
+                  : 'Live prices still update. Press ON to allow buys and sells.')}
             </p>
           </section>
           {ledger ? (
@@ -734,9 +773,41 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
               </table>
               ) : (
                 <div className="tb-body">
-                  <p>None yet. Press ON — it buys a dip while the trend is still up (not a green spike).</p>
+                  <p>
+                    {engineOn
+                      ? 'None yet. Waiting for a 15m bounce off a swing low while the hourly trend is still up.'
+                      : 'None yet. Switching to Real turns the desk OFF on purpose. Press ON to allow Kraken buys.'}
+                  </p>
                 </div>
               )}
+            </section>
+          ) : null}
+          {openOrders.length > 0 ? (
+            <section className="tb-panel">
+              <header className="tb-heading">
+                <span>Open on Kraken</span>
+                <b>{openOrders.length}</b>
+              </header>
+              <table className="tb-table">
+                <thead>
+                  <tr>
+                    <th>Kind</th>
+                    <th>Coin</th>
+                    <th>How many</th>
+                    <th>Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {openOrders.map((o) => (
+                    <tr key={o.txid}>
+                      <td>{openOrderLabel(o.kind, o.side)}</td>
+                      <td>{coinName(o.symbol)}</td>
+                      <td>{o.qty}</td>
+                      <td>{cad(o.price)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </section>
           ) : null}
         </aside>

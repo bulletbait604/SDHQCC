@@ -90,3 +90,57 @@ export function featuredLiveMark<T extends { symbol: string }>(
   }
   return bySym.get('BTC-CAD') || bySym.get('ETH-CAD') || marks[0]
 }
+
+function mostCommonReason(reasons: string[]): string {
+  const counts = new Map<string, number>()
+  for (const reason of reasons) {
+    const key = reason.trim()
+    if (!key) continue
+    counts.set(key, (counts.get(key) || 0) + 1)
+  }
+  let best = ''
+  let n = 0
+  for (const [reason, count] of counts) {
+    if (count > n) {
+      best = reason
+      n = count
+    }
+  }
+  return best
+}
+
+function coinLabel(symbol: string): string {
+  return symbol.replace(/-CAD$/i, '')
+}
+
+/** Plain-language why this tick did not buy. */
+export function deskWaitNote(input: {
+  engineOn: boolean
+  liveMode: boolean
+  halted: boolean
+  haltReason: string
+  profitLocked: boolean
+  holding: number
+  maxOpen: number
+  cash: number
+  pendingSymbols: string[]
+  cooldown: boolean
+  skipReasons: string[]
+  buyError?: string
+}): string {
+  if (!input.engineOn) {
+    return input.liveMode
+      ? 'Real is selected but OFF. Press ON to place Kraken orders — switching to Real always turns the desk off first.'
+      : 'Fake is selected but OFF. Press ON to allow practice buys.'
+  }
+  if (input.buyError) return input.buyError
+  if (input.halted) return input.haltReason || 'Day halt. No new trades.'
+  if (input.profitLocked) return 'Hit the daily profit ceiling. No new buys until tomorrow.'
+  if (input.pendingSymbols.length) {
+    return `Maker buy resting for ${input.pendingSymbols.map(coinLabel).join(', ')}. Waiting for a fill — that is a trade in progress.`
+  }
+  if (input.holding >= input.maxOpen) return 'Already in one swing. Waiting for take or stop.'
+  if (input.cooldown) return '20-minute cooldown after the last buy.'
+  if (input.cash < 5) return 'Not enough CAD cash to size a ticket.'
+  return mostCommonReason(input.skipReasons) || 'Hunting — waiting for a 15m bounce off a swing low while the hourly trend is up.'
+}

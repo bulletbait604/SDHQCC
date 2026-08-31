@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { liveBuyOk, liveSellFade, rankLiveBuys, recentlyBought, recentlyStopped, featuredLiveMark } from '@/lib/tradebot/liveTapeRank'
+import { liveBuyOk, liveSellFade, rankLiveBuys, recentlyBought, recentlyStopped, featuredLiveMark, deskWaitNote } from '@/lib/tradebot/liveTapeRank'
 
 test('ranks scored coins and skips names already held', () => {
   const ranked = rankLiveBuys(
@@ -79,4 +79,42 @@ test('featured live mark prefers the held coin then bitcoin, not the wildest mov
   ]
   assert.equal(featuredLiveMark(marks)?.symbol, 'BTC-CAD')
   assert.equal(featuredLiveMark(marks, ['ETH-CAD'])?.symbol, 'ETH-CAD')
+})
+
+test('wait note tells you to press ON after switching to Real', () => {
+  assert.match(
+    deskWaitNote({
+      engineOn: false,
+      liveMode: true,
+      halted: false,
+      haltReason: '',
+      profitLocked: false,
+      holding: 0,
+      maxOpen: 1,
+      cash: 50,
+      pendingSymbols: [],
+      cooldown: false,
+      skipReasons: [],
+    }),
+    /Press ON/
+  )
+})
+
+test('wait note shows a resting maker buy as a trade in progress', () => {
+  assert.match(
+    deskWaitNote({
+      engineOn: true,
+      liveMode: true,
+      halted: false,
+      haltReason: '',
+      profitLocked: false,
+      holding: 0,
+      maxOpen: 1,
+      cash: 50,
+      pendingSymbols: ['ETH-CAD'],
+      cooldown: false,
+      skipReasons: ['Price is mid-range, not at the dip.'],
+    }),
+    /resting/
+  )
 })
