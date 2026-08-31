@@ -29,10 +29,11 @@ export function tradebotGeminiKey(): string {
 export function getTradebotSettings() {
   const configuredStart = numEnv('TRADEBOT_STARTING_CAD', 100)
   const cryptoOnly = boolEnv('TRADEBOT_CRYPTO_ONLY', true)
-  const dailyProfitTargetMinPct = Math.min(20, Math.max(1, numEnv('TRADEBOT_DAILY_PROFIT_MIN_PCT', 8)))
+  const dailyProfitTargetMinPct = Math.min(200, Math.max(1, numEnv('TRADEBOT_DAILY_PROFIT_MIN_PCT', 8)))
+  const configuredMax = numEnv('TRADEBOT_DAILY_PROFIT_MAX_PCT', 200)
   const dailyProfitTargetMaxPct = Math.max(
     dailyProfitTargetMinPct,
-    Math.min(25, numEnv('TRADEBOT_DAILY_PROFIT_MAX_PCT', 10))
+    Math.min(200, configuredMax === 10 ? 200 : configuredMax)
   )
   return {
     paper: isTradebotPaperEnabled(),
@@ -46,6 +47,9 @@ export function getTradebotSettings() {
     dailyProfitTargetMinPct,
     dailyProfitTargetMaxPct,
     cycleMinutes: Math.min(180, Math.max(15, numEnv('TRADEBOT_CYCLE_MINUTES', 60))),
+    tickSeconds: Math.min(60, Math.max(8, numEnv('TRADEBOT_TICK_SECONDS', 12))),
+    liveWatch: boolEnv('TRADEBOT_LIVE_WATCH', true),
+    maxOpenPositions: Math.min(8, Math.max(1, numEnv('TRADEBOT_MAX_OPEN', 4))),
     cryptoOnly,
     watchlist: parseWatchlist(
       cryptoOnly ? process.env.TRADEBOT_CRYPTO_WATCHLIST : process.env.TRADEBOT_WATCHLIST,

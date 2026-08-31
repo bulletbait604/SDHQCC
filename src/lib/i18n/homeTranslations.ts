@@ -24,7 +24,7 @@ export const homeTranslations = {
       'Pick a platform. We search the live web via Google and list the top 5 trends — videos and topics for YouTube and other video apps.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Practice trading with fake Canadian dollars. You start with CA$100. It looks for new coins that might go up 8–10% today. No real money is used.',
+      'Practice trading with fake Canadian dollars. You start with CA$100. Leave the tab open: it watches live prices and can buy or sell. Tries for at least 8% today, up to 200%. No real money is used.',
     rndPickTool: 'R&D — owner only · pick a tool below',
     backgroundRemover: 'Background Remover',
     backgroundRemoverDesc:
@@ -85,7 +85,7 @@ export const homeTranslations = {
       'Elige una plataforma. Buscamos en la web en vivo con Google y listamos las 5 tendencias — vídeos y temas para YouTube y otras apps de vídeo.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Práctica con dólares canadienses falsos. Empiezas con CA$100. Busca monedas nuevas que puedan subir 8–10% hoy. No se usa dinero real.',
+      'Práctica con dólares canadienses falsos. Empiezas con CA$100. Intenta al menos 8% hoy y puede seguir hasta 200%. No se usa dinero real.',
     rndPickTool: 'I+D — solo propietario · elige una herramienta abajo',
     backgroundRemover: 'Eliminador de fondo',
     backgroundRemoverDesc:
@@ -146,7 +146,7 @@ export const homeTranslations = {
       'Choisissez une plateforme. On cherche le web en direct via Google et on liste les 5 tendances — vidéos et sujets pour YouTube et les autres apps vidéo.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Entraînement avec de faux dollars canadiens. Vous partez avec CA$100. Il cherche de nouvelles pièces qui pourraient monter de 8–10% aujourd’hui. Pas d’argent réel.',
+      'Entraînement avec de faux dollars canadiens. Vous partez avec CA$100. Il vise au moins 8% aujourd’hui et peut aller jusqu’à 200%. Pas d’argent réel.',
     rndPickTool: 'R&D — propriétaire seulement · choisissez un outil ci-dessous',
     backgroundRemover: 'Suppression d’arrière-plan',
     backgroundRemoverDesc:
@@ -207,7 +207,7 @@ export const homeTranslations = {
       'Plattform wählen. Wir durchsuchen das Live-Web über Google und listen die Top 5 Trends — Videos und Themen für YouTube und andere Video-Apps.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Übung mit falschem kanadischem Geld. Start mit CA$100. Sucht neue Coins, die heute 8–10% steigen könnten. Kein echtes Geld.',
+      'Übung mit falschem kanadischem Geld. Start mit CA$100. Ziel mindestens 8% heute, bis zu 200%. Kein echtes Geld.',
     rndPickTool: 'F&E — nur Owner · Werkzeug unten wählen',
     backgroundRemover: 'Hintergrund entfernen',
     backgroundRemoverDesc:

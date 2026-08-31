@@ -20,6 +20,7 @@ export type PaperLedger = {
   halted: boolean
   haltReason: string
   positions: PaperPosition[]
+  engineOn: boolean
   updatedAt: string
 }
 
@@ -68,6 +69,7 @@ function mapLedger(r: Record<string, unknown>, startingCad: number): PaperLedger
     dayStartDate: String(r.dayStartDate || torontoDate()),
     halted: Boolean(r.halted),
     haltReason: String(r.haltReason || ''),
+    engineOn: Boolean(r.engineOn),
     positions: positionsRaw.map((item) => {
       const rec = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
       return {
@@ -97,6 +99,7 @@ function freshLedger(startingCad: number, dayStartDate: string): PaperLedger {
     dayStartDate,
     halted: false,
     haltReason: '',
+    engineOn: false,
     positions: [],
     updatedAt: new Date().toISOString(),
   }
@@ -115,6 +118,7 @@ export async function loadPaperLedger(): Promise<PaperLedger> {
   const ledger = mapLedger(existing as Record<string, unknown>, startingCad)
   if (ledger.startingEquity !== startingCad) {
     const reset = freshLedger(startingCad, today)
+    reset.engineOn = ledger.engineOn
     await col.replaceOne({ id: LEDGER_ID }, reset, { upsert: true })
     return reset
   }
@@ -130,6 +134,13 @@ export async function loadPaperLedger(): Promise<PaperLedger> {
 export async function savePaperLedger(ledger: PaperLedger): Promise<void> {
   ledger.updatedAt = new Date().toISOString()
   await (await ledgerCol()).updateOne({ id: LEDGER_ID }, { $set: ledger }, { upsert: true })
+}
+
+export async function setPaperEngine(on: boolean): Promise<PaperLedger> {
+  const ledger = await loadPaperLedger()
+  ledger.engineOn = Boolean(on)
+  await savePaperLedger(ledger)
+  return ledger
 }
 
 export async function applyFill(params: {

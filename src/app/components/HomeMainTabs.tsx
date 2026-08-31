@@ -399,7 +399,7 @@ export default function HomeMainTabs({
                   subtitleClasses={subtitleClasses}
                   description={
                     t.tradeBotDesc ||
-                    'Practice trading with fake Canadian dollars. You start with CA$100. It looks for new coins that might go up 8–10% today. No real money is used.'
+                    'Practice trading with fake Canadian dollars. You start with CA$100. Leave the tab open: it watches live prices and can buy or sell. Tries for at least 8% today, up to 200%. No real money is used.'
                   }
                 />
               </TabsContent>

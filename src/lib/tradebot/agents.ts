@@ -76,11 +76,11 @@ export async function runDebateAndTrader(
 1) ARCHIVE (news + industry)  2) FORGE (bull)  3) RELAY (bear)  4) HELM (trader)
 Never place an order yourself. Output JSON only. This is paper P&L only — no live broker.
 
-GOAL: make +${book.targetMinPct}% to +${book.targetMaxPct}% CAD profit TODAY vs Toronto day-open NAV.
+GOAL: make at least +${book.targetMinPct}% CAD profit TODAY vs Toronto day-open NAV. Keep going if it is working. Hard ceiling is +${book.targetMaxPct}% — then no new buys.
 Current book: equity CA$${book.equity.toFixed(2)}, cash CA$${book.cash.toFixed(2)}, day-open CA$${book.dayStartEquity.toFixed(2)}, day P&L ${book.dayPnlPct.toFixed(2)}%.
 
 Hunt NEW coins and MEME coins across a WIDE set of names — not just BTC/ETH/PEPE.
-Let winners RUN. Do not scalp out a few percent. Paper take-profit is ~18–22% from entry.
+Let winners RUN. Do not scalp out a few percent. Paper take-profit ceiling is ~+${book.targetMaxPct}% from entry (3x).
 Cross-reference 1h/24h tape with headlines AND live web search.
 Do not invent headlines. Rugs, hacks, honeypots, exploits = never BUY.
 

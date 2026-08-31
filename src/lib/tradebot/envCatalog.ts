@@ -101,6 +101,9 @@ export const TRADEBOT_ENV_CATALOG: TradebotEnvItem[] = [
       'TRADEBOT_WATCHLIST',
       'TRADEBOT_CRYPTO_WATCHLIST',
       'TRADEBOT_CYCLE_MINUTES',
+      'TRADEBOT_TICK_SECONDS',
+      'TRADEBOT_LIVE_WATCH',
+      'TRADEBOT_MAX_OPEN',
       'TRADEBOT_STARTING_CAD',
       'TRADEBOT_DAILY_PROFIT_MIN_PCT',
       'TRADEBOT_DAILY_PROFIT_MAX_PCT',
@@ -115,7 +118,7 @@ export const TRADEBOT_ENV_CATALOG: TradebotEnvItem[] = [
       'COINGECKO_PRO_API_KEY',
       'COINGECKO_USE_PRO',
     ],
-    purpose: 'Defaults: CA$100 paper, 8–10% daily profit goal, 5% daily loss halt, 25% max per name.',
+    purpose: 'Defaults: CA$100 paper, live price watch, at least +8% daily with a +200% ceiling, 5% daily loss halt, 25% max per name.',
   },
   {
     id: 'ibkr',

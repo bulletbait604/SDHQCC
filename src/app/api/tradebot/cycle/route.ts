@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { verifyOwnerUser } from '@/lib/auth/staffAccess'
 import { isValidCronRequest, isValidInternalApiSecret, INTERNAL_API_SECRET_HEADER } from '@/lib/internalApi'
+import { loadPaperLedger } from '@/lib/tradebot/ledger'
 import { runPaperCycle } from '@/lib/tradebot/graph'
 import { isTradebotPaperEnabled } from '@/lib/tradebot/settings'
 
@@ -18,6 +19,14 @@ async function runCycle(): Promise<Response> {
       { status: 503 }
     )
   }
+  const ledger = await loadPaperLedger()
+  if (!ledger.engineOn) {
+    return NextResponse.json({
+      skipped: true,
+      engineOn: false,
+      userMessage: 'TradeBot is OFF. Turn it ON to run.',
+    })
+  }
   const result = await runPaperCycle()
   return NextResponse.json(result)
 }
@@ -30,13 +39,15 @@ function failCycle(err: unknown) {
       error: message,
       userMessage: message.includes('TRADEBOT_PAPER')
         ? 'Set TRADEBOT_PAPER=true and redeploy. Live trading is off.'
-        : 'Paper cycle failed. Check Gemini and quote sources, then retry.',
+        : message.includes('OFF')
+          ? 'Turn the system ON first.'
+          : 'Paper cycle failed. Check Gemini and quote sources, then retry.',
     },
     { status: 503 }
   )
 }
 
-/** Vercel Cron / internal: paper CAD cycle toward the daily 8–10% goal. */
+/** Vercel Cron / internal: paper CAD cycle toward at least +8% today, ceiling +200%. */
 export async function GET(req: NextRequest) {
   try {
     if (isValidCronRequest(req) || isValidInternalApiSecret(req.headers.get(INTERNAL_API_SECRET_HEADER))) {

@@ -11,6 +11,7 @@ import {
 } from '@/lib/tradebot/ledger'
 import type { CycleDecision, TradeOrderProposal } from '@/lib/tradebot/models'
 import { fetchDailyBars } from '@/lib/tradebot/quotes'
+import { executeHardExits, rollTorontoDay, swingLevels, trailAndLiftTakes } from '@/lib/tradebot/runtime'
 import { scanCadBook, type ScanSummary } from '@/lib/tradebot/scanner'
 import { getTradebotSettings, isTradebotPaperEnabled } from '@/lib/tradebot/settings'
 
@@ -32,38 +33,15 @@ export type CycleResult = {
   scan: ScanSummary
 }
 
-function swingLevels(price: number, atr: number, aggressive: boolean) {
-  const stopPct = aggressive ? 0.07 : 0.08
-  const takePct = aggressive ? 0.22 : 0.18
-  const stopFromAtr = (aggressive ? 1.6 : 2.2) * atr
-  const takeFromAtr = (aggressive ? 3.8 : 4.5) * atr
-  return {
-    stopBuy: Number(Math.max(price - Math.max(stopFromAtr, price * stopPct), price * 0.5).toFixed(6)),
-    takeBuy: Number((price + Math.max(takeFromAtr, price * takePct)).toFixed(6)),
-    stopSell: Number((price + Math.max(stopFromAtr, price * stopPct)).toFixed(6)),
-    takeSell: Number(Math.max(price - Math.max(takeFromAtr, price * takePct), 0).toFixed(6)),
-  }
-}
-
-function trailStop(avgPrice: number, stopLoss: number, price: number): number {
-  if (!(price > 0) || !(avgPrice > 0)) return stopLoss
-  if (price < avgPrice * 1.06) return stopLoss
-  const trail = price * 0.88
-  const lock = avgPrice * 1.02
-  const next = Math.max(stopLoss, trail, lock)
-  return next < price ? Number(next.toFixed(6)) : stopLoss
-}
-
-function torontoDate(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto' })
-}
-
 export async function runPaperCycle(): Promise<CycleResult> {
   if (!isTradebotPaperEnabled()) {
     throw new Error('TRADEBOT_PAPER must be true. Live brokers are disabled.')
   }
   const settings = getTradebotSettings()
   let ledger = await loadPaperLedger()
+  if (!ledger.engineOn) {
+    throw new Error('TradeBot is OFF. Turn it ON to run.')
+  }
 
   const { market, scan } = await scanCadBook({
     positions: ledger.positions.map((p) => p.symbol),
@@ -90,15 +68,7 @@ export async function runPaperCycle(): Promise<CycleResult> {
   }
 
   const equity = markToMarket(ledger, prices)
-  const today = torontoDate()
-  if (ledger.dayStartDate !== today) {
-    ledger.dayStartDate = today
-    ledger.dayStartEquity = equity
-    ledger.halted = false
-    ledger.haltReason = ''
-  } else if (!ledger.dayStartEquity) {
-    ledger.dayStartEquity = equity
-  }
+  ledger = rollTorontoDay(ledger, equity)
 
   const drawdownPct =
     ledger.dayStartEquity > 0 ? ((ledger.dayStartEquity - equity) / ledger.dayStartEquity) * 100 : 0
@@ -110,70 +80,13 @@ export async function runPaperCycle(): Promise<CycleResult> {
   }
 
   const signals = market.map((m) => m.signal).filter((s): s is NonNullable<(typeof market)[number]['signal']> => Boolean(s))
-  const decisions: CycleDecision[] = []
-
-  const maybeExitStops = async () => {
-    for (const pos of [...ledger.positions]) {
-      const px = prices[pos.symbol]
-      if (!(px > 0) || pos.qty <= 0) continue
-      const hitStop = pos.stopLoss > 0 && px <= pos.stopLoss
-      const hitTp = pos.takeProfit > 0 && px >= pos.takeProfit
-      if (!hitStop && !hitTp) continue
-      const reason = hitStop ? `Stop-loss ${pos.stopLoss}` : `Take-profit ${pos.takeProfit}`
-      const applied = await applyFill({
-        ledger,
-        side: 'SELL',
-        symbol: pos.symbol,
-        qty: pos.qty,
-        price: px,
-        feeBps: isCryptoSymbol(pos.symbol) ? settings.krakenFeeBps : settings.tsxFeeBps,
-        stopLoss: pos.stopLoss,
-        takeProfit: pos.takeProfit,
-        reason,
-      })
-      ledger = applied.ledger
-      decisions.push({
-        ticker: pos.symbol,
-        signal: hitStop ? 'BEARISH' : 'BULLISH',
-        price: px,
-        proposal: {
-          ticker: pos.symbol,
-          action: 'SELL',
-          order_type: 'MARKET',
-          quantity: applied.fill.qty,
-          limit_price: px,
-          stop_loss: pos.stopLoss,
-          take_profit: pos.takeProfit,
-          reasoning_summary: reason,
-        },
-        risk: {
-          approved: true,
-          risk_score: 0.1,
-          max_portfolio_impact_pct: 0,
-          rejection_reasons: [],
-          adjusted_proposal: null,
-        },
-        fill: {
-          filled: true,
-          side: 'SELL',
-          quantity: applied.fill.qty,
-          price: applied.fill.price,
-          notionalCad: applied.fill.notionalCad,
-          note: `Hard exit · ${reason}`,
-        },
-      })
-    }
-  }
+  let decisions: CycleDecision[] = []
 
   if (!ledger.halted) {
-    for (const pos of ledger.positions) {
-      const px = prices[pos.symbol]
-      if (!(px > 0)) continue
-      pos.stopLoss = trailStop(pos.avgPrice, pos.stopLoss, px)
-      const longerTake = Number((pos.avgPrice * 1.22).toFixed(6))
-      if (pos.takeProfit > 0 && pos.takeProfit < longerTake) pos.takeProfit = longerTake
-    }
-    await maybeExitStops()
+    trailAndLiftTakes(ledger, prices)
+    const exited = await executeHardExits(ledger, prices, decisions)
+    ledger = exited.ledger
+    decisions = exited.decisions
   }
 
   if (!ledger.halted && signals.length) {

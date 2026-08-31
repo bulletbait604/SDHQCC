@@ -97,6 +97,9 @@ type StatusResponse = {
   dailyProfitTargetMinPct?: number
   dailyProfitTargetMaxPct?: number
   cycleMinutes?: number
+  tickSeconds?: number
+  liveWatch?: boolean
+  engineOn?: boolean
   dayPnlPct?: number
   profitLocked?: boolean
   error?: string
@@ -110,12 +113,15 @@ TRADEBOT_MAX_ASSET_WEIGHT=25
 TRADEBOT_RISK_PCT=2
 TRADEBOT_STARTING_CAD=100
 TRADEBOT_DAILY_PROFIT_MIN_PCT=8
-TRADEBOT_DAILY_PROFIT_MAX_PCT=10
+TRADEBOT_DAILY_PROFIT_MAX_PCT=200
 TRADEBOT_CRYPTO_ONLY=true
 TRADEBOT_CRYPTO=true
 TRADEBOT_CRYPTO_WATCHLIST=${TRADEBOT_DEFAULT_CRYPTO_WATCHLIST_CSV}
 TRADEBOT_SHORTLIST_CRYPTO=20
 TRADEBOT_CYCLE_MINUTES=60
+TRADEBOT_LIVE_WATCH=true
+TRADEBOT_TICK_SECONDS=12
+TRADEBOT_MAX_OPEN=4
 COINGECKO_DEMO_API_KEY=`
 
 const AGENTS = [
@@ -123,8 +129,8 @@ const AGENTS = [
   { id: 'archive', name: 'NEWS', role: 'Reads the news', idle: 'Checking the news for scams.', color: '#be91ff', x: '50%', y: '22%' },
   { id: 'forge', name: 'YES', role: 'Why we might buy', idle: 'Looking for good reasons to buy.', color: '#42cbbb', x: '82%', y: '28%' },
   { id: 'relay', name: 'NO', role: 'Why we might wait', idle: 'Looking for reasons not to buy.', color: '#58a9e8', x: '22%', y: '68%' },
-  { id: 'helm', name: 'TRADER', role: 'Buys and sells', idle: 'Waiting to buy or sell with fake money.', color: '#ff6557', x: '50%', y: '74%' },
-  { id: 'sentinel', name: 'SAFETY', role: 'Stops big losses', idle: 'Stops new buys if we lose 5% or already made 10% today.', color: '#d6a56e', x: '78%', y: '68%' },
+  { id: 'helm', name: 'TRADER', role: 'Buys and sells', idle: 'Watching live prices. Buys and sells fake money as coins move.', color: '#ff6557', x: '50%', y: '74%' },
+  { id: 'sentinel', name: 'SAFETY', role: 'Stops big losses', idle: 'Stops new buys if we lose 5% or already made 200% today.', color: '#d6a56e', x: '78%', y: '68%' },
 ] as const
 
 const STAGES = AGENTS.map((a) => a.id)
@@ -166,7 +172,11 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
   const [selected, setSelected] = useState<(typeof AGENTS)[number]['id']>('helm')
   const [phase, setPhase] = useState<(typeof AGENTS)[number]['id'] | 'idle' | 'done'>('idle')
   const [showVars, setShowVars] = useState(false)
+  const [watching, setWatching] = useState(false)
+  const [engineBusy, setEngineBusy] = useState(false)
+  const [marks, setMarks] = useState<Array<{ symbol: string; price: number; dayChangePct: number }>>([])
   const runningRef = useRef(false)
+  const tickRef = useRef(false)
 
   const loadStatus = async () => {
     const res = await fetch('/api/tradebot/status', { credentials: 'include' })
@@ -213,8 +223,9 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
     setError('')
     try {
       const res = await fetch('/api/tradebot/cycle', { method: 'POST', credentials: 'include' })
-      const data = await parseJsonResponse<CycleView & { error?: string; userMessage?: string }>(res)
+      const data = await parseJsonResponse<CycleView & { error?: string; userMessage?: string; skipped?: boolean }>(res)
       if (!res.ok) throw new Error(data.userMessage || data.error || 'Could not check the market.')
+      if (data.skipped) throw new Error(data.userMessage || 'Turn the system ON first.')
       setCycle(data)
       setPhase('done')
       const next = await loadStatus()
@@ -229,9 +240,76 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
     }
   }
 
+  const runTick = async () => {
+    if (runningRef.current || tickRef.current) return
+    tickRef.current = true
+    try {
+      const res = await fetch('/api/tradebot/tick', { method: 'POST', credentials: 'include' })
+      const data = await parseJsonResponse<
+        CycleView & {
+          live?: boolean
+          marks?: Array<{ symbol: string; price: number; dayChangePct: number }>
+          fills?: FillRow[]
+          error?: string
+          userMessage?: string
+        }
+      >(res)
+      if (!res.ok) throw new Error(data.userMessage || data.error || 'Could not watch prices.')
+      setWatching(true)
+      setMarks(data.marks || [])
+      if (data.fills) setFills(data.fills)
+      setStatus((prev) =>
+        prev
+          ? {
+              ...prev,
+              equity: data.equity,
+              ledger: data.ledger,
+              dayPnlPct: data.dayPnlPct,
+              profitLocked: data.profitLocked,
+            }
+          : prev
+      )
+      const filled = (data.decisions || []).filter((d) => d.fill?.filled)
+      if (filled.length) {
+        setCycle((prev) => ({
+          ranAt: data.ranAt,
+          halted: data.halted,
+          haltReason: data.haltReason,
+          equity: data.equity,
+          cash: data.cash,
+          drawdownPct: data.drawdownPct,
+          dayPnlPct: data.dayPnlPct,
+          profitLocked: data.profitLocked,
+          dayStartEquity: data.dayStartEquity,
+          ledger: data.ledger,
+          decisions: [...filled, ...(prev?.decisions || [])].slice(0, 24),
+          scan: prev?.scan || data.scan,
+        }))
+      }
+    } catch {
+      setWatching(false)
+    } finally {
+      tickRef.current = false
+    }
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- live tape while this tab is open and ON
+  useEffect(() => {
+    if (!status?.paper || loading || status.liveWatch === false || !status.engineOn) {
+      setWatching(false)
+      return
+    }
+    const ms = Math.max(8000, (status.tickSeconds || 12) * 1000)
+    void runTick()
+    const id = window.setInterval(() => {
+      void runTick()
+    }, ms)
+    return () => window.clearInterval(id)
+  }, [status?.paper, status?.liveWatch, status?.tickSeconds, status?.engineOn, loading])
+
   // eslint-disable-next-line react-hooks/exhaustive-deps -- one stale-cycle kick; runCycle is guarded by runningRef
   useEffect(() => {
-    if (!status?.paper || loading) return
+    if (!status?.paper || loading || !status.engineOn) return
     const last = status.lastCycle?.ranAt
     const age = last ? Date.now() - Date.parse(last) : Number.POSITIVE_INFINITY
     const maxAge = (status.cycleMinutes || 60) * 60_000
@@ -240,19 +318,52 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
       void runCycle()
     }, 1500)
     return () => window.clearTimeout(t)
-  }, [status?.paper, loading])
+  }, [status?.paper, status?.engineOn, loading])
+
+  const setEngine = async (on: boolean) => {
+    if (engineBusy || !status?.paper) return
+    setEngineBusy(true)
+    setError('')
+    if (!on) setWatching(false)
+    try {
+      const res = await fetch('/api/tradebot/engine', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ on }),
+      })
+      const data = await parseJsonResponse<{ engineOn?: boolean; ledger?: StatusResponse['ledger']; error?: string }>(res)
+      if (!res.ok) throw new Error(data.error || 'Could not change ON/OFF.')
+      setStatus((prev) =>
+        prev
+          ? {
+              ...prev,
+              engineOn: Boolean(data.engineOn),
+              ledger: data.ledger || prev.ledger,
+            }
+          : prev
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not change ON/OFF.')
+    } finally {
+      setEngineBusy(false)
+    }
+  }
 
   const agent = AGENTS.find((a) => a.id === selected) || AGENTS[4]
-  const ledger = cycle?.ledger || status?.ledger
-  const equity = cycle?.equity ?? status?.equity
-  const cash = cycle?.cash ?? ledger?.cash
+  const ledger = status?.ledger || cycle?.ledger
+  const equity = typeof status?.equity === 'number' ? status.equity : cycle?.equity
+  const cash = status?.ledger?.cash ?? cycle?.cash ?? ledger?.cash
   const paperReady = Boolean(status?.paper)
+  const engineOn = Boolean(status?.engineOn)
   const startCad = status?.startingCad || 100
   const goalMin = status?.dailyProfitTargetMinPct || 8
-  const goalMax = status?.dailyProfitTargetMaxPct || 10
-  const dayPnl = cycle?.dayPnlPct ?? status?.dayPnlPct
+  const goalMax = status?.dailyProfitTargetMaxPct || 200
+  const dayPnl = status?.dayPnlPct ?? cycle?.dayPnlPct
   const quote = status?.quoteProbe
   const cryptoQuote = status?.cryptoProbe
+  const hotMark = [...marks].sort((a, b) => Math.abs(b.dayChangePct) - Math.abs(a.dayChangePct))[0]
+  const markOf = (symbol: string) => marks.find((m) => m.symbol === symbol)
   const universe = cycle?.scan?.universe || status?.universe?.universe || 0
   const newListings = cycle?.scan?.newListings ?? status?.universe?.newListings ?? 0
   const cryptoPairs = cycle?.scan?.cryptoPairs || 0
@@ -285,7 +396,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
 
   const feed = useMemo(() => {
     if (!cycle?.decisions?.length) {
-      return [{ who: 'NEWS', color: '#be91ff', text: 'Press Check market to look for coins. This uses fake money, not real money.', at: '' }]
+      return [{ who: 'NEWS', color: '#be91ff', text: engineOn ? 'Watching live prices. Fake buys and sells as coins move.' : 'System is OFF. Press ON to start watching and trading fake money.', at: '' }]
     }
     const items = cycle.decisions.map((d) => ({
       who: coinName(d.ticker),
@@ -314,7 +425,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
       })
     }
     return items
-  }, [cycle])
+  }, [cycle, engineOn])
 
   return (
     <div className="tradebot-floor">
@@ -330,8 +441,16 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
         <div className={`tb-connect ${paperReady ? 'ok' : ''}`}>
           <span className="tb-dot" />
           <span>
-            <b>{paperReady ? 'Ready to practice' : 'Practice is off'}</b>
-            <small>{loading ? 'Loading…' : 'Fake money only · no real trades'}</small>
+            <b>{paperReady ? (engineOn ? (watching ? 'Watching live prices' : 'ON') : 'OFF') : 'Practice is off'}</b>
+            <small>
+              {loading
+                ? 'Loading…'
+                : engineOn
+                  ? watching
+                    ? 'Fake buys and sells as coins move'
+                    : 'System is on · starting watch…'
+                  : 'System is off · nothing is trading'}
+            </small>
           </span>
         </div>
         <div className="tb-link" style={{ background: 'linear-gradient(135deg, #5da5d82b, #5da5d80a)', boxShadow: 'inset 0 2px #5da5d8, inset 0 -1px #5da5d840' }}>
@@ -351,7 +470,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
             {typeof dayPnl === 'number'
               ? `${dayPnl >= 0 ? '+' : ''}${dayPnl.toFixed(1)}%`
               : '—'}{' '}
-            · goal +{goalMin}–{goalMax}%
+            · try +{goalMin}% · max +{goalMax}%
           </em>
         </div>
         <div className="tb-ticker">
@@ -360,20 +479,24 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           <em>{newListings} new · {cryptoPairs || (cryptoQuote?.ok ? 'crypto on' : 'waiting')}</em>
         </div>
         <div className="tb-ticker">
-          <small>Bitcoin price (check)</small>
+          <small>{watching ? 'Live coin (now)' : 'Bitcoin price (check)'}</small>
           <b>
-            {cryptoQuote?.ok
-              ? coinName(cryptoQuote.symbol)
-              : quote?.ok
-                ? coinName(quote.symbol)
-                : 'No price yet'}
+            {hotMark
+              ? coinName(hotMark.symbol)
+              : cryptoQuote?.ok
+                ? coinName(cryptoQuote.symbol)
+                : quote?.ok
+                  ? coinName(quote.symbol)
+                  : 'No price yet'}
           </b>
           <em>
-            {cryptoQuote?.ok
-              ? cad(cryptoQuote.price || 0)
-              : quote?.ok
-                ? cad(quote.price || 0)
-                : quote?.error || cryptoQuote?.error || 'Loading…'}
+            {hotMark
+              ? `${cad(hotMark.price)} · today ${hotMark.dayChangePct >= 0 ? '+' : ''}${hotMark.dayChangePct.toFixed(1)}%`
+              : cryptoQuote?.ok
+                ? cad(cryptoQuote.price || 0)
+                : quote?.ok
+                  ? cad(quote.price || 0)
+                  : quote?.error || cryptoQuote?.error || 'Loading…'}
           </em>
         </div>
       </section>
@@ -383,7 +506,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           <section className="tb-panel">
             <header className="tb-heading">
               <span>What this is</span>
-              <b>{paperReady ? 'On' : 'Off'}</b>
+              <b>{engineOn ? 'On' : 'Off'}</b>
             </header>
             <div className="tb-body">
               <p>{description}</p>
@@ -399,11 +522,13 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           <section className="tb-health">
             <span>
               <i className="tb-dot" style={{ width: 7, height: 7 }} />
-              {paperReady ? 'Fake money is on' : 'Turn on practice in settings'}
+              {paperReady ? (engineOn ? (watching ? 'Watching live prices' : 'System is on') : 'System is off') : 'Turn on practice in settings'}
             </span>
-            <b>You can look and run</b>
+            <b>{engineOn ? 'Live desk is ON' : 'Live desk is OFF'}</b>
             <p className="tb-muted" style={{ marginTop: 6 }}>
-              The AI suggests. The computer records fake buys and sells. Nothing real is bought.
+              {engineOn
+                ? 'Leave this tab open. It watches live prices and makes fake buys and sells. Nothing real is bought.'
+                : 'Press ON to start. While off, it does not watch or trade.'}
             </p>
           </section>
           {ledger && ledger.positions.length > 0 ? (
@@ -418,16 +543,21 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
                     <th>Coin</th>
                     <th>How many</th>
                     <th>Avg price</th>
+                    <th>Now</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {ledger.positions.map((p) => (
-                    <tr key={p.symbol}>
-                      <td>{coinName(p.symbol)}</td>
-                      <td>{p.qty}</td>
-                      <td>{cad(p.avgPrice)}</td>
-                    </tr>
-                  ))}
+                  {ledger.positions.map((p) => {
+                    const now = markOf(p.symbol)
+                    return (
+                      <tr key={p.symbol}>
+                        <td>{coinName(p.symbol)}</td>
+                        <td>{p.qty}</td>
+                        <td>{cad(p.avgPrice)}</td>
+                        <td>{now ? cad(now.price) : '—'}</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </section>
@@ -437,16 +567,31 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
         <section className="tb-ops">
           <header className="tb-mission">
             <div>
-              <small>{running ? 'Checking the market…' : 'Practice desk · Canada'}</small>
+              <small>{running ? 'Checking the market…' : engineOn ? (watching ? 'Watching live prices' : 'System is on') : 'System is off'}</small>
               <h2>The floor</h2>
               <p className="tb-muted">
-                Start with {cad(startCad)} fake money. Hunt coins. Sell winners around +20%. Aim for +{goalMin}–{goalMax}% today.
+                Start with {cad(startCad)} fake money. Turn it ON to watch live prices and trade. Try for at least +{goalMin}% today. Let winners run up to +{goalMax}%.
               </p>
             </div>
-            <button type="button" className="tb-run" onClick={runCycle} disabled={running || !paperReady}>
-              {running ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
-              {running ? 'Checking…' : 'Check market'}
-            </button>
+            <div className="tb-actions">
+              <button
+                type="button"
+                className={`tb-power${engineOn ? ' on' : ''}`}
+                onClick={() => void setEngine(!engineOn)}
+                disabled={!paperReady || engineBusy}
+              >
+                {engineBusy ? '…' : engineOn ? 'ON' : 'OFF'}
+              </button>
+              <button type="button" className="tb-run" onClick={runCycle} disabled={running || !paperReady || !engineOn}>
+                {running ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+                {running ? 'Checking…' : 'Check market'}
+              </button>
+              <p className="tb-cost">
+                {engineOn
+                  ? 'About CA$0.00 per minute to watch prices. AI hunt about CA$0.02 per hour (under CA$0.001 per minute). A full day on: about CA$0.50.'
+                  : 'Cost while OFF: CA$0.00 per minute.'}
+              </p>
+            </div>
           </header>
 
           <div className="tb-stages">
@@ -494,7 +639,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           {cycle?.halted ? <p className="tb-err">{plainNote(cycle.haltReason)}</p> : null}
           {cycle?.profitLocked || status?.profitLocked ? (
             <p className="tb-muted" style={{ marginTop: 8 }}>
-              We already hit today’s +{goalMax}% goal. No new buys until tomorrow.
+              We already hit the +{goalMax}% ceiling. No new buys until tomorrow.
             </p>
           ) : null}
         </section>
@@ -526,7 +671,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           <section className="tb-panel" style={{ flex: 1 }}>
             <header className="tb-heading">
               <span>What just happened</span>
-              <b>{running ? 'Working' : cycle ? 'Last check' : 'Waiting'}</b>
+              <b>{running ? 'Working' : engineOn ? (watching ? 'Live' : 'On') : 'Off'}</b>
             </header>
             <div className="tb-feed">
               {feed.map((item, i) => (
@@ -575,7 +720,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
       ) : null}
 
       <div className="tb-dev" style={{ position: 'relative', zIndex: 2 }}>
-        <b>Note</b> — You start with {cad(startCad)} fake money. Daily goal is +{goalMin}–{goalMax}%. Practice must be turned on.
+        <b>Note</b> — {engineOn ? 'System is ON. Leave this tab open.' : 'System is OFF.'} Fake money only. Try for at least +{goalMin}% today. Ceiling +{goalMax}%.
         <button type="button" className="tb-copy" style={{ marginLeft: 10 }} onClick={() => setShowVars((v) => !v)}>
           {showVars ? 'Hide settings' : 'Show settings'}
         </button>
