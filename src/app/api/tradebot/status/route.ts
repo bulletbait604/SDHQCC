@@ -5,7 +5,7 @@ import { latestCycleLog, listRecentFills, loadPaperLedger, markToMarket } from '
 import { probeCryptoQuotes } from '@/lib/tradebot/crypto'
 import { probeTsxQuotes } from '@/lib/tradebot/quotes'
 import { universeStats } from '@/lib/tradebot/universe'
-import { isTradebotPaperEnabled, tradebotGeminiKey } from '@/lib/tradebot/settings'
+import { getTradebotSettings, isTradebotPaperEnabled, tradebotGeminiKey } from '@/lib/tradebot/settings'
 import {
   envKeysPresent,
   TRADEBOT_ENV_CATALOG,
@@ -32,8 +32,9 @@ export async function GET(req: NextRequest) {
     const required = providers.filter((p) => p.group === 'required')
     const already = providers.filter((p) => p.group === 'already')
 
-    const quoteProbe = await probeTsxQuotes()
+    const settings = getTradebotSettings()
     const cryptoProbe = await probeCryptoQuotes()
+    const quoteProbe = settings.cryptoOnly ? cryptoProbe : await probeTsxQuotes()
     const paper = isTradebotPaperEnabled()
     let ledger = null
     let fills: Awaited<ReturnType<typeof listRecentFills>> = []
@@ -50,23 +51,30 @@ export async function GET(req: NextRequest) {
           delete lastCycle._id
         }
         const prices: Record<string, number> = {}
-        if (quoteProbe.ok && quoteProbe.price) prices[quoteProbe.symbol] = quoteProbe.price
+        if (!settings.cryptoOnly && quoteProbe.ok && quoteProbe.price) prices[quoteProbe.symbol] = quoteProbe.price
         if (cryptoProbe.ok && cryptoProbe.price) prices[cryptoProbe.symbol] = cryptoProbe.price
         equity = Number(markToMarket(ledger, prices).toFixed(2))
-        universe = await universeStats()
+        universe = settings.cryptoOnly
+          ? {
+              universe: Number((lastCycle?.scan as { universe?: number } | undefined)?.universe || 0),
+              newListings: Number((lastCycle?.scan as { newListings?: number } | undefined)?.newListings || 0),
+              offset: 0,
+            }
+          : await universeStats()
       } catch (err) {
         console.error('[tradebot/status] ledger', err)
       }
     }
 
+    const quotesOk = settings.cryptoOnly ? cryptoProbe.ok : quoteProbe.ok
     return NextResponse.json({
-      engineReady: paper && Boolean(tradebotGeminiKey()) && quoteProbe.ok,
+      engineReady: paper && Boolean(tradebotGeminiKey()) && quotesOk,
       paperOnly: true,
       paper,
       region: 'CA',
       baseCurrency: 'CAD',
-      quoteProvider: quoteProbe.source || 'yahoo',
-      quotesOk: quoteProbe.ok,
+      quoteProvider: settings.cryptoOnly ? cryptoProbe.source || 'kraken' : quoteProbe.source || 'yahoo',
+      quotesOk,
       quoteProbe,
       cryptoProbe,
       universe,

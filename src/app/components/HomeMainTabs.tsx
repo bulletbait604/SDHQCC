@@ -399,7 +399,7 @@ export default function HomeMainTabs({
                   subtitleClasses={subtitleClasses}
                   description={
                     t.tradeBotDesc ||
-                    'Canada paper lab in CAD. Scans every TSX/TSXV name plus Kraken CAD crypto.'
+                    'Canada CAD paper crypto desk. Hunts new coins and memes for short-term pops.'
                   }
                 />
               </TabsContent>

@@ -10,6 +10,7 @@ import {
 } from '@/lib/tradebot/crypto'
 import { fetchIndustryTape, fetchNewsForNames, type NameNews, type NewsHeadline } from '@/lib/tradebot/news'
 import { isHighPotential, opportunityScore, pickTopSymbols } from '@/lib/tradebot/opportunity'
+import { fetchGeckoDailyBars, huntNewAndMemeCoins, type GeckoHunt } from '@/lib/tradebot/gecko'
 import { fetchDailyBars, fetchSparkQuotes } from '@/lib/tradebot/quotes'
 import { getTradebotSettings } from '@/lib/tradebot/settings'
 import {
@@ -66,6 +67,9 @@ function attachNews(signal: SignalAnalysis | null, news: NameNews | undefined, i
     assetClass: signal.assetClass || 'equity',
     symbol: signal.ticker,
     newsTone,
+    change1h: signal.change1h,
+    isMeme: signal.isMeme,
+    isTrending: signal.isTrending,
   })
   return {
     ...signal,
@@ -86,7 +90,7 @@ export async function scanCadBook(params: {
   let scannedThisCycle = 0
   let freshListings: string[] = []
 
-  if (settings.scanAll) {
+  if (!settings.cryptoOnly && settings.scanAll) {
     try {
       const u = await refreshListedUniverse()
       universe = u.universe
@@ -124,8 +128,12 @@ export async function scanCadBook(params: {
     }
   }
 
-  const equityPicks = new Set<string>(settings.watchlist.concat(params.positions))
-  if (settings.scanAll) {
+  const equityPicks = new Set<string>(
+    settings.cryptoOnly
+      ? params.positions.filter((s) => !s.includes('.TO') && !s.includes('.V'))
+      : settings.watchlist.concat(params.positions)
+  )
+  if (!settings.cryptoOnly && settings.scanAll) {
     try {
       const ranked = await rankedEquityCache(24)
       const freshSet = new Set(freshListings.length ? freshListings : await listNewListingSymbols(24))
@@ -144,7 +152,21 @@ export async function scanCadBook(params: {
   let cryptoPairs: CryptoPair[] = []
   let cryptoMarkets: CryptoMarket[] = []
   let newCoins: string[] = []
+  let hunts: GeckoHunt[] = []
   if (settings.cryptoEnabled) {
+    try {
+      hunts = await huntNewAndMemeCoins(
+        Math.max(16, settings.shortlistCrypto + 8),
+        settings.watchlist.filter((s) => isCryptoSymbol(s))
+      )
+      scannedThisCycle += hunts.length
+      if (settings.cryptoOnly) {
+        universe = hunts.length
+        newListings = hunts.filter((h) => h.isNew || h.isTrending).length
+      }
+    } catch (err) {
+      console.error('[tradebot/scan] gecko hunt', err)
+    }
     try {
       cryptoPairs = await listKrakenCryptoPairs()
       cryptoMarkets = await quoteKrakenMarkets(cryptoPairs)
@@ -155,37 +177,36 @@ export async function scanCadBook(params: {
   }
 
   const newCoinSet = new Set(newCoins)
-  const scoredCrypto = cryptoMarkets.map((m) => ({
-    market: m,
-    score: opportunityScore({
-      dayChangePct: m.dayChangePct,
-      barsCount: 30,
-      isNewListing: newCoinSet.has(m.pair.symbol),
-      assetClass: 'crypto',
-      symbol: m.pair.symbol,
-    }),
-  }))
-  const freshCrypto = scoredCrypto.filter((r) => newCoinSet.has(r.market.pair.symbol) || !['BTC-CAD', 'ETH-CAD'].includes(r.market.pair.symbol))
-  const cryptoShort = pickTopSymbols(freshCrypto, (r) => r.score, Math.max(3, settings.shortlistCrypto - 2))
-    .concat(pickTopSymbols(scoredCrypto, (r) => r.score, 2))
-    .map((r) => r.market)
-  const cryptoSeen = new Set<string>()
-  const cryptoDeduped: CryptoMarket[] = []
-  for (const m of cryptoShort) {
-    if (cryptoSeen.has(m.pair.symbol)) continue
-    cryptoSeen.add(m.pair.symbol)
-    cryptoDeduped.push(m)
-    if (cryptoDeduped.length >= settings.shortlistCrypto) break
+  const krakenBySymbol = new Map(cryptoMarkets.map((m) => [m.pair.symbol, m] as const))
+  type CryptoJob = { symbol: string; hunt?: GeckoHunt; kraken?: CryptoMarket }
+  const jobs: CryptoJob[] = []
+  const seenCrypto = new Set<string>()
+  const pushJob = (job: CryptoJob) => {
+    if (seenCrypto.has(job.symbol)) return
+    seenCrypto.add(job.symbol)
+    jobs.push(job)
+  }
+  const huntBySymbol = new Map(hunts.map((h) => [h.symbol, h] as const))
+  for (const sym of settings.watchlist) {
+    if (isCryptoSymbol(sym)) {
+      pushJob({ symbol: sym, hunt: huntBySymbol.get(sym), kraken: krakenBySymbol.get(sym) })
+    }
+  }
+  for (const h of hunts) pushJob({ symbol: h.symbol, hunt: h, kraken: krakenBySymbol.get(h.symbol) })
+  for (const m of cryptoMarkets) {
+    if (newCoinSet.has(m.pair.symbol) || (m.dayChangePct > 8 && m.pair.symbol !== 'BTC-CAD' && m.pair.symbol !== 'ETH-CAD')) {
+      pushJob({ symbol: m.pair.symbol, hunt: huntBySymbol.get(m.pair.symbol), kraken: m })
+    }
   }
   for (const pos of params.positions) {
     if (isCryptoSymbol(pos)) {
-      const hit = cryptoMarkets.find((m) => m.pair.symbol === pos)
-      if (hit && !cryptoDeduped.includes(hit)) cryptoDeduped.push(hit)
+      pushJob({ symbol: pos, hunt: huntBySymbol.get(pos), kraken: krakenBySymbol.get(pos) })
     }
   }
+  const cryptoJobs = jobs.slice(0, settings.shortlistCrypto)
 
-  const fx = cryptoDeduped.some((m) => !m.pair.nativeCad) ? await usdCadRate().catch(() => 1) : 1
-  const equityList = Array.from(equityPicks)
+  const fx = cryptoJobs.some((j) => j.kraken && !j.kraken.pair.nativeCad) ? await usdCadRate().catch(() => 1) : 1
+  const equityList = settings.cryptoOnly ? [] : Array.from(equityPicks)
   const freshSet = new Set(freshListings)
   const equityRows = await mapPool(equityList, 4, async (symbol) => {
     try {
@@ -201,23 +222,46 @@ export async function scanCadBook(params: {
     }
   })
 
-  const cryptoRows = await mapPool(cryptoDeduped, 3, async (m) => {
-    const isNew = newCoinSet.has(m.pair.symbol)
+  const cryptoRows = await mapPool(cryptoJobs, 3, async (job) => {
+    const isNew = Boolean(job.hunt?.isNew || newCoinSet.has(job.symbol))
+    const isMeme = Boolean(job.hunt?.isMeme)
     try {
-      const { quote, bars } = await fetchKrakenDailyBars(m.pair, fx)
-      const signal = analyzeCandles(m.pair.symbol, bars, quote.price, quote.previousClose)
+      const fetched = job.kraken
+        ? await fetchKrakenDailyBars(job.kraken.pair, fx)
+        : job.hunt
+          ? await fetchGeckoDailyBars(job.hunt.id, job.symbol)
+          : null
+      if (!fetched) return null
+      const signal = analyzeCandles(job.symbol, fetched.bars, fetched.quote.price, fetched.quote.previousClose)
       if (signal) {
         signal.assetClass = 'crypto'
-        signal.isNewListing = isNew || bars.length < 40
+        signal.isNewListing = isNew || fetched.bars.length < 40
+        signal.isMeme = isMeme
+        signal.isTrending = Boolean(job.hunt?.isTrending)
+        signal.change1h = job.hunt?.change1h
       }
-      return { symbol: m.pair.symbol, assetClass: 'crypto' as const, quote, signal }
+      return { symbol: job.symbol, assetClass: 'crypto' as const, quote: fetched.quote, signal }
     } catch {
-      const signal = analyzeCandles(m.pair.symbol, [], m.quote.price, m.quote.previousClose)
+      const fallback = job.kraken?.quote || (job.hunt
+        ? {
+            symbol: job.symbol,
+            price: job.hunt.priceCad,
+            previousClose: job.hunt.previousClose,
+            currency: 'CAD' as const,
+            source: 'coingecko' as const,
+            asOf: new Date().toISOString(),
+          }
+        : null)
+      if (!fallback) return null
+      const signal = analyzeCandles(job.symbol, [], fallback.price, fallback.previousClose)
       if (signal) {
         signal.assetClass = 'crypto'
         signal.isNewListing = isNew
+        signal.isMeme = isMeme
+        signal.isTrending = Boolean(job.hunt?.isTrending)
+        signal.change1h = job.hunt?.change1h
       }
-      return { symbol: m.pair.symbol, assetClass: 'crypto' as const, quote: m.quote, signal }
+      return { symbol: job.symbol, assetClass: 'crypto' as const, quote: fallback, signal }
     }
   })
 

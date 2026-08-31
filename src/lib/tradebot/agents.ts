@@ -39,6 +39,9 @@ export async function runDebateAndTrader(signals: SignalAnalysis[], industryTape
     assetClass: s.assetClass || 'equity',
     highPotential: Boolean(s.highPotential),
     isNewListing: Boolean(s.isNewListing),
+    isMeme: Boolean(s.isMeme),
+    isTrending: Boolean(s.isTrending),
+    change1h: s.change1h || 0,
     newsTone: s.newsTone || 'quiet',
     headlines: (s.headlines || []).slice(0, 3),
     price: s.price,
@@ -60,22 +63,22 @@ export async function runDebateAndTrader(signals: SignalAnalysis[], industryTape
 1) ARCHIVE (news + industry)  2) FORGE (bull)  3) RELAY (bear)  4) HELM (trader)
 Never place an order yourself. Output JSON only.
 
-Hunt high potential in NEW TSX/TSXV listings and NEWER crypto (not only RY/VFV/BTC).
-Cross-reference technicals with the supplied headlines AND live web search of current industry news.
-Do not invent headlines. If search and RSS conflict, prefer the more cautious read.
+Hunt NEW coins and MEME coins for short-term CAD paper profits. Ignore TSX stocks.
+Cross-reference 1h/24h tape with headlines AND live web search.
+Do not invent headlines. Rugs, hacks, honeypots, exploits = never BUY.
 
 Rules:
 - SELL only exits a long. No shorts.
-- Prefer HOLD unless conviction is clear.
-- highPotential / isNewListing names: BUY only if newsTone is positive or mixed AND search/industry context supports a real catalyst (listing, contract, resource, product, adoption). Quiet news on a brand-new name = HOLD.
-- newsTone negative (halt, fraud, dilution, hack, lawsuit) = HOLD or SELL, never BUY.
-- Majors (VFV, BTC, ETH) are fine to HOLD; do not ignore a new name with a confirmed catalyst.
+- High-potential memes/new coins: BUY only if 1h or 24h is still up AND news is not negative. Quiet news is OK on a trending meme with strong volume; still say why.
+- newsTone negative (rug, hack, exploit, scam, halt) = HOLD or SELL, never BUY.
+- BTC/ETH are hedges, not the hunt. Prefer PEPE/DOGE/new listings/trending memes when the tape supports a squeeze.
+- Aim for short-term continuation, not long-term value.
 
 Industry tape:
 ${JSON.stringify(industryTape.slice(0, 8))}
 
 Return:
-{"decisions":[{"ticker":"VFV.TO","sentiment_score":0.1,"confidence":0.5,"bull_points":[""],"bear_points":[""],"consensus_rating":0,"action":"HOLD","reasoning_summary":""}]}
+{"decisions":[{"ticker":"PEPE-CAD","sentiment_score":0.1,"confidence":0.5,"bull_points":[""],"bear_points":[""],"consensus_rating":0,"action":"HOLD","reasoning_summary":""}]}
 
 sentiment_score is -1 to 1. consensus_rating is -10 to 10. reasoning_summary must mention the news/industry cross-check in one sentence.
 Tickers, technicals, and news:

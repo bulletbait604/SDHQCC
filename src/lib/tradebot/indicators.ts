@@ -93,6 +93,9 @@ export type SignalAnalysis = {
   assetClass?: 'equity' | 'crypto'
   highPotential?: boolean
   isNewListing?: boolean
+  isMeme?: boolean
+  isTrending?: boolean
+  change1h?: number
   newsTone?: 'positive' | 'negative' | 'mixed' | 'quiet'
   headlines?: string[]
 }
@@ -127,6 +130,8 @@ export function analyzeCandles(ticker: string, candles: Candle[], price: number,
     key_resistance: Number(key_resistance.toFixed(4)),
     highPotential: false,
     isNewListing: false,
+    isMeme: false,
+    isTrending: false,
     newsTone: 'quiet',
     headlines: [],
   }

@@ -18,7 +18,7 @@ function krakenJson(body: unknown): Record<string, unknown> {
 }
 
 export function isCryptoSymbol(symbol: string): boolean {
-  return /^[A-Z0-9]{2,12}-CAD$/.test(symbol.trim().toUpperCase())
+  return /^[A-Z0-9]{2,16}-CAD$/.test(symbol.trim().toUpperCase())
 }
 
 export function isFxOrStableWsname(wsname: string): boolean {
@@ -52,7 +52,25 @@ export async function listKrakenCryptoPairs(): Promise<CryptoPair[]> {
   const result = krakenJson(await res.json())
   const cad: CryptoPair[] = []
   const usd: CryptoPair[] = []
-  const usdExtra = new Set(['ADA', 'LINK', 'DOT', 'AVAX', 'LTC', 'UNI', 'ATOM', 'NEAR', 'APT', 'SUI', 'XLM', 'BCH'])
+  const usdExtra = new Set([
+    'ADA',
+    'LINK',
+    'DOT',
+    'AVAX',
+    'LTC',
+    'UNI',
+    'ATOM',
+    'NEAR',
+    'APT',
+    'SUI',
+    'XLM',
+    'BCH',
+    'PEPE',
+    'SHIB',
+    'BONK',
+    'WIF',
+    'FLOKI',
+  ])
   for (const [id, raw] of Object.entries(result)) {
     if (!raw || typeof raw !== 'object') continue
     const p = raw as Record<string, unknown>

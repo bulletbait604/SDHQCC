@@ -4,7 +4,8 @@ import { displayCryptoSymbol, isCryptoSymbol, isFxOrStableWsname } from '@/lib/t
 
 test('crypto paper tickers are BASE-CAD', () => {
   assert.equal(isCryptoSymbol('BTC-CAD'), true)
-  assert.equal(isCryptoSymbol('DOGE-CAD'), true)
+  assert.equal(isCryptoSymbol('FLOKI-CAD'), true)
+  assert.equal(isCryptoSymbol('PEPE-CAD'), true)
   assert.equal(isCryptoSymbol('VFV.TO'), false)
   assert.equal(isCryptoSymbol('SHOP.TO'), false)
 })

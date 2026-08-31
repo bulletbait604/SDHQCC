@@ -150,14 +150,17 @@ export async function runPaperCycle(): Promise<CycleResult> {
       const desk = byTicker.get(signal.ticker)
       const pos = ledger.positions.find((p) => p.symbol === signal.ticker)
       const action = desk?.action || 'HOLD'
+      const scalp = Boolean(signal.isMeme || signal.highPotential)
+      const stopMult = scalp ? Math.min(settings.atrMultiplier, 1.25) : settings.atrMultiplier
+      const takeMult = scalp ? 1.6 : 3
       const stop =
         action === 'BUY'
-          ? Number((signal.price - settings.atrMultiplier * signal.atr).toFixed(4))
-          : Number((signal.price + settings.atrMultiplier * signal.atr).toFixed(4))
+          ? Number((signal.price - stopMult * signal.atr).toFixed(6))
+          : Number((signal.price + stopMult * signal.atr).toFixed(6))
       const take =
         action === 'BUY'
-          ? Number((signal.price + 3 * signal.atr).toFixed(4))
-          : Number((signal.price - 3 * signal.atr).toFixed(4))
+          ? Number((signal.price + takeMult * signal.atr).toFixed(6))
+          : Number((signal.price - takeMult * signal.atr).toFixed(6))
 
       let quantity = 0
       if (action === 'BUY') {

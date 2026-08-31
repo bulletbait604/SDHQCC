@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { parseJsonResponse } from '@/lib/http/parseJsonResponse'
-import { TRADEBOT_DEFAULT_WATCHLIST_CSV } from '@/lib/tradebot/canada'
+import { TRADEBOT_DEFAULT_CRYPTO_WATCHLIST_CSV } from '@/lib/tradebot/canada'
 import type { TradebotProviderStatus } from '@/lib/tradebot/envCatalog'
 import './TradeBotFloor.css'
 
@@ -100,16 +100,15 @@ TRADEBOT_MAX_DRAWDOWN_PCT=5
 TRADEBOT_MAX_ASSET_WEIGHT=15
 TRADEBOT_RISK_PCT=1
 TRADEBOT_STARTING_CAD=100
-TRADEBOT_WATCHLIST=${TRADEBOT_DEFAULT_WATCHLIST_CSV}
-TRADEBOT_SCAN_ALL=true
+TRADEBOT_CRYPTO_ONLY=true
 TRADEBOT_CRYPTO=true
-TRADEBOT_SCAN_BATCH=180
-TRADEBOT_SHORTLIST_STOCKS=8
-TRADEBOT_SHORTLIST_CRYPTO=8
-TRADEBOT_CYCLE_MINUTES=60`
+TRADEBOT_CRYPTO_WATCHLIST=${TRADEBOT_DEFAULT_CRYPTO_WATCHLIST_CSV}
+TRADEBOT_SHORTLIST_CRYPTO=12
+TRADEBOT_CYCLE_MINUTES=60
+COINGECKO_DEMO_API_KEY=`
 
 const AGENTS = [
-  { id: 'scout', name: 'SCOUT', role: 'Market monitor', color: '#9ddd55', idle: 'Hunting new listings and new coins.', x: '18%', y: '28%' },
+  { id: 'scout', name: 'SCOUT', role: 'Market monitor', color: '#9ddd55', idle: 'Hunting new coins and memes.', x: '18%', y: '28%' },
   { id: 'archive', name: 'ARCHIVE', role: 'News desk', color: '#be91ff', idle: 'Cross-checking headlines and industry tape.', x: '50%', y: '22%' },
   { id: 'forge', name: 'FORGE', role: 'Bull desk', color: '#42cbbb', idle: 'Building the long thesis.', x: '82%', y: '28%' },
   { id: 'relay', name: 'RELAY', role: 'Bear desk', color: '#58a9e8', idle: 'Arguing the counter-risk.', x: '22%', y: '68%' },
@@ -233,7 +232,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
 
   const feed = useMemo(() => {
     if (!cycle?.decisions?.length) {
-      return [{ who: 'ARCHIVE', color: '#be91ff', text: 'Waiting for a cycle. Will hunt new listings/coins and cross-check news.', at: '' }]
+      return [{ who: 'ARCHIVE', color: '#be91ff', text: 'Waiting for a cycle. Will hunt new coins, memes, and cross-check rugs vs squeeze news.', at: '' }]
     }
     const items = cycle.decisions.map((d) => ({
       who: `${d.ticker}`,
@@ -265,7 +264,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
         <div className="tb-brand">
           <span className="tb-mark" aria-hidden />
           <span>
-            <small>CANADA CAD PAPER DESK</small>
+            <small>CAD CRYPTO PAPER DESK</small>
             <strong>TRADEBOT FLOOR</strong>
           </span>
         </div>
@@ -273,7 +272,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           <span className="tb-dot" />
           <span>
             <b>{paperReady ? 'PAPER RUNTIME ONLINE' : 'PAPER FLAG OFF'}</b>
-            <small>{loading ? 'SYNCING LEDGER' : 'TSX/TSXV · KRAKEN CAD'}</small>
+            <small>{loading ? 'SYNCING LEDGER' : 'KRAKEN · COINGECKO · CAD'}</small>
           </span>
         </div>
         <div className="tb-link" style={{ background: 'linear-gradient(135deg, #5da5d82b, #5da5d80a)', boxShadow: 'inset 0 2px #5da5d8, inset 0 -1px #5da5d840' }}>
@@ -291,18 +290,21 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           <em>CASH {typeof cash === 'number' ? cad(cash) : '—'} · START CA$100</em>
         </div>
         <div className="tb-ticker">
-          <small>CAD UNIVERSE / NEW LISTINGS</small>
+          <small>CRYPTO HUNT / NEW + MEMES</small>
           <b>{universe ? universe.toLocaleString('en-CA') : '—'}</b>
           <em>NEW {String(newListings).padStart(2, '0')} · CRYPTO {cryptoPairs || (cryptoQuote?.ok ? 'ON' : '—')}</em>
         </div>
         <div className="tb-ticker">
           <small>LIVE PRINTS</small>
           <b>
-            {quote?.ok ? quote.symbol : cryptoQuote?.ok ? cryptoQuote.symbol : 'PRICE UNAVAILABLE'}
+            {cryptoQuote?.ok ? cryptoQuote.symbol : quote?.ok ? quote.symbol : 'PRICE UNAVAILABLE'}
           </b>
           <em>
-            {quote?.ok ? `${cad(quote.price || 0)} · ${quote.source}` : quote?.error || 'FETCHING'}
-            {cryptoQuote?.ok ? ` · ${cryptoQuote.symbol} ${cad(cryptoQuote.price || 0)}` : ''}
+            {cryptoQuote?.ok
+              ? `${cad(cryptoQuote.price || 0)} · ${cryptoQuote.source || 'kraken'}`
+              : quote?.ok
+                ? `${cad(quote.price || 0)} · ${quote.source}`
+                : quote?.error || cryptoQuote?.error || 'FETCHING'}
           </em>
         </div>
       </section>
@@ -317,7 +319,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
             <div className="tb-body">
               <p>{description}</p>
               <p style={{ marginTop: 8 }}>
-                Seeds {TRADEBOT_DEFAULT_WATCHLIST_CSV.replace(/,/g, ' · ')} · Kraken CAD crypto on
+                Seeds {TRADEBOT_DEFAULT_CRYPTO_WATCHLIST_CSV.replace(/,/g, ' · ')} · CoinGecko hunt on
               </p>
             </div>
             <div className="tb-kpi">
@@ -368,7 +370,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
             <div>
               <small>DECK 07 · CANADA STATION · {running ? 'CYCLE' : 'NETWORK ACTIVE'}</small>
               <h2>Operations Floor</h2>
-              <p className="tb-muted">SCOUT hunts new listings and new coins. ARCHIVE cross-checks headlines and industry news before HELM can buy.</p>
+              <p className="tb-muted">SCOUT hunts new coins and memes for short-term CAD paper pops. ARCHIVE blocks rugs. HELM scales out fast.</p>
             </div>
             <button type="button" className="tb-run" onClick={runCycle} disabled={running || !paperReady}>
               {running ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
@@ -497,7 +499,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
       ) : null}
 
       <div className="tb-dev" style={{ position: 'relative', zIndex: 2 }}>
-        <b>OPERATOR NOTE</b> — Paper only. Full TSX/TSXV scan + Kraken CAD crypto. Set TRADEBOT_PAPER=true.
+        <b>OPERATOR NOTE</b> — Paper CAD crypto only. Hunts new coins and memes. Set TRADEBOT_PAPER=true.
         <button type="button" className="tb-copy" style={{ marginLeft: 10 }} onClick={() => setShowVars((v) => !v)}>
           {showVars ? 'HIDE ENV' : 'SHOW ENV'}
         </button>

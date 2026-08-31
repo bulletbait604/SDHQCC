@@ -17,9 +17,9 @@ export type NameNews = {
 }
 
 const POSITIVE =
-  /\b(approv|award|contract|offtake|partnership|resource|production|listing|etf|mainnet|upgrade|record|surge|breakthrough|permits?|feasibility)\b/i
+  /\b(approv|award|listing|etf|mainnet|upgrade|surge|breakout|partnership|pumped|ath|contract|offtake)\b/i
 const NEGATIVE =
-  /\b(halt|cease|fraud|dilut|investigat|bankrupt|delist|hack|lawsuit|sec charge|collapse|recall|restat)\b/i
+  /\b(halt|cease|fraud|dilut|investigat|bankrupt|delist|hack|lawsuit|rug|honeypot|exploit|scam|collapse|recall|restat)\b/i
 
 export function toneFromHeadlines(titles: string[]): NewsTone {
   let pos = 0
@@ -38,7 +38,7 @@ export function newsQueryFor(symbol: string, name?: string): string {
   if (s.endsWith('-CAD')) {
     const base = s.replace(/-CAD$/, '')
     const label = base === 'BTC' ? 'Bitcoin' : base === 'ETH' ? 'Ethereum' : base === 'DOGE' ? 'Dogecoin' : base
-    return `${label} OR ${base} crypto`
+    return `${label} OR ${base} crypto OR meme coin`
   }
   const ticker = s.replace(/\.(TO|V)$/, '')
   return name ? `${ticker} OR "${name}" TSX OR TSXV` : `${s} OR ${ticker} Canada stock`
@@ -86,9 +86,9 @@ export async function fetchGoogleNews(query: string, limit = 3): Promise<NewsHea
 
 export async function fetchIndustryTape(): Promise<NewsHeadline[]> {
   const queries = [
-    'TSX OR TSXV Canada stock market news',
-    'Canada IPO OR new listing TSX',
-    'crypto market news Bitcoin Ethereum',
+    'meme coin OR new crypto listing OR solana meme',
+    'crypto rug pull OR hack OR exploit',
+    'Bitcoin Ethereum crypto market',
   ]
   const bags = await Promise.all(
     queries.map(async (q) => {

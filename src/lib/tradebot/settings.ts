@@ -1,4 +1,4 @@
-import { parseWatchlist, TRADEBOT_DEFAULT_WATCHLIST } from '@/lib/tradebot/canada'
+import { parseWatchlist, TRADEBOT_DEFAULT_CRYPTO_WATCHLIST, TRADEBOT_DEFAULT_WATCHLIST } from '@/lib/tradebot/canada'
 
 function numEnv(name: string, fallback: number): number {
   const raw = Number(process.env[name]?.trim())
@@ -28,6 +28,7 @@ export function tradebotGeminiKey(): string {
 
 export function getTradebotSettings() {
   const configuredStart = numEnv('TRADEBOT_STARTING_CAD', 100)
+  const cryptoOnly = boolEnv('TRADEBOT_CRYPTO_ONLY', true)
   return {
     paper: isTradebotPaperEnabled(),
     startingCad: configuredStart === 100_000 ? 100 : configuredStart,
@@ -37,12 +38,16 @@ export function getTradebotSettings() {
     atrMultiplier: numEnv('TRADEBOT_ATR_MULTIPLIER', 2),
     tsxFeeBps: numEnv('TRADEBOT_TSX_FEE_BPS', 10),
     krakenFeeBps: numEnv('TRADEBOT_KRAKEN_FEE_BPS', 40),
-    watchlist: parseWatchlist(process.env.TRADEBOT_WATCHLIST),
-    scanAll: boolEnv('TRADEBOT_SCAN_ALL', true),
+    cryptoOnly,
+    watchlist: parseWatchlist(
+      cryptoOnly ? process.env.TRADEBOT_CRYPTO_WATCHLIST : process.env.TRADEBOT_WATCHLIST,
+      cryptoOnly ? TRADEBOT_DEFAULT_CRYPTO_WATCHLIST : TRADEBOT_DEFAULT_WATCHLIST
+    ),
+    scanAll: cryptoOnly ? false : boolEnv('TRADEBOT_SCAN_ALL', true),
     cryptoEnabled: boolEnv('TRADEBOT_CRYPTO', true),
     scanBatch: Math.min(400, Math.max(40, numEnv('TRADEBOT_SCAN_BATCH', 180))),
     shortlistStocks: Math.min(20, Math.max(4, numEnv('TRADEBOT_SHORTLIST_STOCKS', 8))),
-    shortlistCrypto: Math.min(16, Math.max(2, numEnv('TRADEBOT_SHORTLIST_CRYPTO', 8))),
+    shortlistCrypto: Math.min(20, Math.max(6, numEnv('TRADEBOT_SHORTLIST_CRYPTO', 12))),
     model: tradebotGeminiModel(),
   }
 }

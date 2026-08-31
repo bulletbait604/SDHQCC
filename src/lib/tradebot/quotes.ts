@@ -1,4 +1,4 @@
-export type QuoteSource = 'yahoo' | 'stooq' | 'kraken'
+export type QuoteSource = 'yahoo' | 'stooq' | 'kraken' | 'coingecko'
 
 export type EquityQuote = {
   symbol: string

@@ -1,7 +1,36 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { isHighPotential, opportunityScore } from '@/lib/tradebot/opportunity'
+import { isHighPotential, isMemeTicker, opportunityScore, shortTermScore } from '@/lib/tradebot/opportunity'
 import { parseRssItems, toneFromHeadlines } from '@/lib/tradebot/news'
+
+test('meme and 1h squeeze outrank a dumping major', () => {
+  const meme = shortTermScore({
+    change1h: 12,
+    change24h: 40,
+    volumeCad: 5_000_000,
+    isMeme: true,
+    isTrending: true,
+    isNew: true,
+    symbol: 'PEPE-CAD',
+  })
+  const btc = shortTermScore({
+    change1h: 0.4,
+    change24h: 1,
+    volumeCad: 800_000_000,
+    isMeme: false,
+    isTrending: false,
+    isNew: false,
+    symbol: 'BTC-CAD',
+  })
+  assert.ok(meme > btc)
+})
+
+test('meme tickers include PEPE, BONK, and FLOKI', () => {
+  assert.equal(isMemeTicker('PEPE-CAD'), true)
+  assert.equal(isMemeTicker('BONK-CAD', 'Bonk'), true)
+  assert.equal(isMemeTicker('FLOKI-CAD'), true)
+  assert.equal(isMemeTicker('BTC-CAD'), false)
+})
 
 test('new listings with upside outrank dumps in old majors', () => {
   const fresh = opportunityScore({
@@ -50,6 +79,7 @@ test('headline tone picks up catalysts and fraud language', () => {
   assert.equal(toneFromHeadlines(['Regulator opens fraud investigation after halt']), 'negative')
   assert.equal(toneFromHeadlines(['Pair lists on Kraken after mainnet upgrade']), 'positive')
   assert.equal(toneFromHeadlines(['Market closed for a holiday']), 'quiet')
+  assert.equal(toneFromHeadlines(['Devs rug the liquidity pool']), 'negative')
 })
 
 test('parses Google-style RSS items', () => {
