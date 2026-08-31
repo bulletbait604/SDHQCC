@@ -26,8 +26,14 @@ export async function POST(req: NextRequest) {
       if (v === 'low' || v === 'medium' || v === 'high') patch.volatility = v
     }
     let ledger = await setDeskControls(patch)
-    if (isPlacingLiveOrders(ledger)) {
-      ledger = await syncLiveCash(ledger)
+    let syncError: string | undefined
+    if (ledger.liveMode) {
+      try {
+        ledger = await syncLiveCash(ledger)
+      } catch (err) {
+        console.error('[tradebot/engine] Kraken CAD', err)
+        syncError = err instanceof Error ? err.message : 'Could not read Kraken CAD.'
+      }
     }
     return NextResponse.json({
       engineOn: ledger.engineOn,
@@ -36,6 +42,8 @@ export async function POST(req: NextRequest) {
       krakenLive: isPlacingLiveOrders(ledger),
       liveAllowed: isKrakenLiveAllowed(),
       ledger,
+      equity: Number(ledger.cash.toFixed(2)),
+      error: syncError,
     })
   } catch (err: unknown) {
     if (err instanceof AuthError) return createAuthErrorResponse(err)

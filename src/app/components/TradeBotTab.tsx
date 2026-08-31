@@ -66,7 +66,7 @@ type CycleView = {
   dayPnlPct?: number
   profitLocked?: boolean
   dayStartEquity?: number
-  ledger: { cash: number; positions: Position[]; halted?: boolean; haltReason?: string; dayStartEquity?: number; liveMode?: boolean; engineOn?: boolean }
+  ledger: { cash: number; positions: Position[]; halted?: boolean; haltReason?: string; dayStartEquity?: number; startingEquity?: number; liveMode?: boolean; engineOn?: boolean }
   decisions: DecisionRow[]
   scan?: {
     universe: number
@@ -92,7 +92,7 @@ type StatusResponse = {
   universe?: { universe: number; newListings: number; offset: number }
   providers: TradebotProviderStatus[]
   equity?: number | null
-  ledger?: { cash: number; positions: Position[]; halted?: boolean; haltReason?: string; dayStartEquity?: number; liveMode?: boolean; engineOn?: boolean } | null
+  ledger?: { cash: number; positions: Position[]; halted?: boolean; haltReason?: string; dayStartEquity?: number; startingEquity?: number; liveMode?: boolean; engineOn?: boolean } | null
   fills?: FillRow[]
   lastCycle?: CycleView | null
   startingCad?: number
@@ -386,20 +386,10 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
         error?: string
       }>(res)
       if (!res.ok) throw new Error(data.error || 'Could not switch Fake/Real.')
-      setStatus((prev) =>
-        prev
-          ? {
-              ...prev,
-              engineOn: Boolean(data.engineOn),
-              liveMode: Boolean(data.liveMode),
-              krakenLive: Boolean(data.krakenLive),
-              paper: !data.liveMode,
-              paperOnly: !data.liveMode,
-              ledger: data.ledger || prev.ledger,
-              equity: typeof data.ledger?.cash === 'number' ? data.ledger.cash : prev.equity,
-            }
-          : prev
-      )
+      if (data.error) setError(data.error)
+      const next = await loadStatus()
+      setStatus(next)
+      if (next.fills) setFills(next.fills)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not switch Fake/Real.')
     } finally {
@@ -456,7 +446,9 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
   const liveMode = Boolean(status?.liveMode)
   const krakenLive = Boolean(status?.krakenLive)
   const vol = volatilityProfile(parseVolatility(status?.volatility))
-  const startCad = status?.startingCad || 100
+  const startCad = liveMode
+    ? Number(status?.ledger?.startingEquity || status?.ledger?.cash || 0)
+    : status?.startingCad || 100
   const goalMin = status?.dailyProfitTargetMinPct || 8
   const goalMax = status?.dailyProfitTargetMaxPct || 200
   const dayPnl = status?.dayPnlPct ?? cycle?.dayPnlPct

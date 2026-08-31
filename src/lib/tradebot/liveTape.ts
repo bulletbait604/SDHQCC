@@ -154,9 +154,12 @@ export async function runPaperTick(): Promise<TickResult> {
   const placingLive = isPlacingLiveOrders(ledger)
 
   if (!ledger.engineOn) {
-    if (placingLive) {
-      ledger = await syncLiveCash(ledger)
-      await savePaperLedger(ledger)
+    if (ledger.liveMode) {
+      try {
+        ledger = await syncLiveCash(ledger)
+      } catch (err) {
+        console.error('[tradebot] Kraken CAD', err)
+      }
     }
     return {
       ranAt: new Date().toISOString(),
@@ -175,14 +178,20 @@ export async function runPaperTick(): Promise<TickResult> {
       profitLocked: false,
       ledger,
       decisions: [],
-      fills: await listRecentFills(12),
+      fills: await listRecentFills(12, ledger.id),
       marks,
       tickSeconds: settings.tickSeconds,
       engineOn: false,
     }
   }
 
-  ledger = await syncLiveCash(ledger)
+  if (ledger.liveMode) {
+    try {
+      ledger = await syncLiveCash(ledger)
+    } catch (err) {
+      console.error('[tradebot] Kraken CAD', err)
+    }
+  }
   ledger = await reconcileKrakenOrders(ledger, pairsBySymbol)
   let equity = markToMarket(ledger, prices)
   ledger = rollTorontoDay(ledger, equity)
@@ -229,7 +238,7 @@ export async function runPaperTick(): Promise<TickResult> {
   const huntBars = await loadHuntBars(pairs)
   const liveEquity = markToMarket(ledger, prices)
   const livePnl = dayPnlPct(liveEquity, ledger.dayStartEquity)
-  const recentFills = await listRecentFills(20)
+  const recentFills = await listRecentFills(20, ledger.id)
   const pendingEntry = new Set(
     (ledger.openOrders || []).filter((o) => o.kind === 'entry' && o.side === 'BUY').map((o) => o.symbol)
   )
@@ -373,7 +382,7 @@ export async function runPaperTick(): Promise<TickResult> {
     profitLocked: finalPnl >= settings.dailyProfitTargetMaxPct,
     ledger,
     decisions,
-    fills: await listRecentFills(12),
+    fills: await listRecentFills(12, ledger.id),
     marks,
     tickSeconds: settings.tickSeconds,
     engineOn: true,

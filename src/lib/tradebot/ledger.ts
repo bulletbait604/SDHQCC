@@ -1,5 +1,6 @@
 import clientPromise from '@/lib/mongodb'
 import { TRADEBOT_BASE_CURRENCY } from '@/lib/tradebot/canada'
+import { bookIdForMode, DESK_ID, LIVE_LEDGER_ID, PAPER_LEDGER_ID } from '@/lib/tradebot/deskBooks'
 import { getTradebotSettings, isKrakenLiveAllowed, paperStartMismatchShouldReset } from '@/lib/tradebot/settings'
 import { parseVolatility, type VolatilityLevel } from '@/lib/tradebot/volatility'
 
@@ -53,10 +54,11 @@ export type LedgerFill = {
   reason: string
 }
 
-const LEDGER_ID = 'cad-paper'
 const LEDGER_COL = 'tradebotLedger'
 const FILLS_COL = 'tradebotFills'
 const CYCLES_COL = 'tradebotCycles'
+
+export { PAPER_LEDGER_ID, LIVE_LEDGER_ID, bookIdForMode }
 
 function torontoDate(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto' })
@@ -74,10 +76,10 @@ async function cyclesCol() {
   return (await clientPromise).db('sdhq').collection(CYCLES_COL)
 }
 
-function mapLedger(r: Record<string, unknown>, startingCad: number): PaperLedger {
+function mapLedger(r: Record<string, unknown>, startingCad: number, id: string): PaperLedger {
   const positionsRaw = Array.isArray(r.positions) ? r.positions : []
   return {
-    id: LEDGER_ID,
+    id,
     currency: TRADEBOT_BASE_CURRENCY,
     cash: Number(r.cash ?? startingCad),
     startingEquity: Number(r.startingEquity ?? startingCad),
@@ -125,9 +127,9 @@ export function markToMarket(ledger: PaperLedger, prices: Record<string, number>
   return ledger.cash + pos
 }
 
-function freshLedger(startingCad: number, dayStartDate: string): PaperLedger {
+function freshLedger(id: string, startingCad: number, dayStartDate: string): PaperLedger {
   return {
-    id: LEDGER_ID,
+    id,
     currency: 'CAD',
     cash: startingCad,
     startingEquity: startingCad,
@@ -144,23 +146,68 @@ function freshLedger(startingCad: number, dayStartDate: string): PaperLedger {
   }
 }
 
-export async function loadPaperLedger(): Promise<PaperLedger> {
-  const { startingCad } = getTradebotSettings()
-  const col = await ledgerCol()
-  const existing = await col.findOne({ id: LEDGER_ID })
-  const today = torontoDate()
+type DeskState = {
+  liveMode: boolean
+  engineOn: boolean
+  volatility: VolatilityLevel
+}
+
+function overlayDesk(book: PaperLedger, desk: DeskState): PaperLedger {
+  book.liveMode = desk.liveMode
+  book.engineOn = desk.engineOn
+  book.volatility = desk.volatility
+  book.id = bookIdForMode(desk.liveMode)
+  return book
+}
+
+async function loadDesk(col: Awaited<ReturnType<typeof ledgerCol>>): Promise<DeskState> {
+  const desk = await col.findOne({ id: DESK_ID })
+  if (desk) {
+    return {
+      liveMode: Boolean(desk.liveMode),
+      engineOn: Boolean(desk.engineOn),
+      volatility: parseVolatility(desk.volatility),
+    }
+  }
+  const legacy = await col.findOne({ id: PAPER_LEDGER_ID })
+  const state: DeskState = {
+    liveMode: Boolean(legacy?.liveMode),
+    engineOn: Boolean(legacy?.engineOn),
+    volatility: parseVolatility(legacy?.volatility),
+  }
+  await col.updateOne(
+    { id: DESK_ID },
+    { $set: { id: DESK_ID, ...state, updatedAt: new Date().toISOString() } },
+    { upsert: true }
+  )
+  return state
+}
+
+async function saveDesk(col: Awaited<ReturnType<typeof ledgerCol>>, desk: DeskState): Promise<void> {
+  await col.updateOne(
+    { id: DESK_ID },
+    { $set: { id: DESK_ID, ...desk, updatedAt: new Date().toISOString() } },
+    { upsert: true }
+  )
+}
+
+async function loadBook(
+  col: Awaited<ReturnType<typeof ledgerCol>>,
+  id: string,
+  startingCad: number,
+  today: string
+): Promise<PaperLedger> {
+  const existing = await col.findOne({ id })
+  const start = id === LIVE_LEDGER_ID ? 0 : startingCad
   if (!existing) {
-    const fresh = freshLedger(startingCad, today)
+    const fresh = freshLedger(id, start, today)
     await col.insertOne({ ...fresh })
     return fresh
   }
-  const ledger = mapLedger(existing as Record<string, unknown>, startingCad)
-  if (paperStartMismatchShouldReset(ledger.liveMode, ledger.startingEquity, startingCad)) {
-    const reset = freshLedger(startingCad, today)
-    reset.engineOn = ledger.engineOn
-    reset.liveMode = ledger.liveMode
-    reset.volatility = ledger.volatility
-    await col.replaceOne({ id: LEDGER_ID }, reset, { upsert: true })
+  const ledger = mapLedger(existing as Record<string, unknown>, start, id)
+  if (id === PAPER_LEDGER_ID && paperStartMismatchShouldReset(false, ledger.startingEquity, startingCad)) {
+    const reset = freshLedger(id, startingCad, today)
+    await col.replaceOne({ id }, reset, { upsert: true })
     return reset
   }
   if (ledger.dayStartDate !== today) {
@@ -172,9 +219,27 @@ export async function loadPaperLedger(): Promise<PaperLedger> {
   return ledger
 }
 
+export async function loadPaperLedger(): Promise<PaperLedger> {
+  const { startingCad } = getTradebotSettings()
+  const col = await ledgerCol()
+  const today = torontoDate()
+  const desk = await loadDesk(col)
+  const book = await loadBook(col, bookIdForMode(desk.liveMode), startingCad, today)
+  return overlayDesk(book, desk)
+}
+
 export async function savePaperLedger(ledger: PaperLedger): Promise<void> {
   ledger.updatedAt = new Date().toISOString()
-  await (await ledgerCol()).updateOne({ id: LEDGER_ID }, { $set: ledger }, { upsert: true })
+  const col = await ledgerCol()
+  const id = bookIdForMode(ledger.liveMode)
+  ledger.id = id
+  await saveDesk(col, {
+    liveMode: ledger.liveMode,
+    engineOn: ledger.engineOn,
+    volatility: ledger.volatility,
+  })
+  const { engineOn: _e, liveMode: _l, volatility: _v, ...book } = ledger
+  await col.updateOne({ id }, { $set: { ...book, id } }, { upsert: true })
 }
 
 export async function setPaperEngine(on: boolean): Promise<PaperLedger> {
@@ -186,18 +251,22 @@ export async function setDeskControls(patch: {
   liveMode?: boolean
   volatility?: VolatilityLevel
 }): Promise<PaperLedger> {
-  const ledger = await loadPaperLedger()
-  if (typeof patch.on === 'boolean') ledger.engineOn = Boolean(patch.on)
+  const { startingCad } = getTradebotSettings()
+  const col = await ledgerCol()
+  const today = torontoDate()
+  const desk = await loadDesk(col)
+  if (typeof patch.on === 'boolean') desk.engineOn = Boolean(patch.on)
   if (typeof patch.liveMode === 'boolean') {
     if (patch.liveMode && !isKrakenLiveAllowed()) {
       throw new Error('Set TRADEBOT_LIVE=true and Kraken API keys before switching to Real money.')
     }
-    ledger.liveMode = Boolean(patch.liveMode)
-    if (patch.liveMode) ledger.engineOn = false
+    desk.liveMode = Boolean(patch.liveMode)
+    if (patch.liveMode) desk.engineOn = false
   }
-  if (patch.volatility) ledger.volatility = parseVolatility(patch.volatility)
-  await savePaperLedger(ledger)
-  return ledger
+  if (patch.volatility) desk.volatility = parseVolatility(patch.volatility)
+  await saveDesk(col, desk)
+  const book = await loadBook(col, bookIdForMode(desk.liveMode), startingCad, today)
+  return overlayDesk(book, desk)
 }
 
 export async function applyFill(params: {
@@ -268,12 +337,13 @@ export async function applyFill(params: {
     reason: params.reason,
   }
   await savePaperLedger(ledger)
-  await (await fillsCol()).insertOne({ ...fill, ledgerId: LEDGER_ID })
+  await (await fillsCol()).insertOne({ ...fill, ledgerId: ledger.id })
   return { ledger, fill }
 }
 
-export async function listRecentFills(limit = 20): Promise<LedgerFill[]> {
-  const rows = await (await fillsCol()).find({ ledgerId: LEDGER_ID }).sort({ at: -1 }).limit(limit).toArray()
+export async function listRecentFills(limit = 20, ledgerId?: string): Promise<LedgerFill[]> {
+  const id = ledgerId || bookIdForMode((await loadPaperLedger()).liveMode)
+  const rows = await (await fillsCol()).find({ ledgerId: id }).sort({ at: -1 }).limit(limit).toArray()
   return rows.map((r) => ({
     at: String(r.at || ''),
     symbol: String(r.symbol || ''),
@@ -292,7 +362,8 @@ export async function saveCycleLog(doc: Record<string, unknown>): Promise<void> 
   await (await cyclesCol()).insertOne({ ...doc, createdAt: new Date().toISOString() })
 }
 
-export async function latestCycleLog(): Promise<Record<string, unknown> | null> {
-  const row = await (await cyclesCol()).find({ ledgerId: LEDGER_ID }).sort({ createdAt: -1 }).limit(1).next()
+export async function latestCycleLog(ledgerId?: string): Promise<Record<string, unknown> | null> {
+  const id = ledgerId || bookIdForMode((await loadPaperLedger()).liveMode)
+  const row = await (await cyclesCol()).find({ ledgerId: id }).sort({ createdAt: -1 }).limit(1).next()
   return row ? (row as Record<string, unknown>) : null
 }

@@ -1,4 +1,5 @@
 import crypto from 'node:crypto'
+import { cadFromKrakenBalance } from '@/lib/tradebot/deskBooks'
 import { krakenApiKey, krakenApiSecret } from '@/lib/tradebot/settings'
 
 const PRIVATE = 'https://api.kraken.com'
@@ -39,8 +40,7 @@ function fmtDec(n: number, decimals: number): string {
 
 export async function krakenCadBalance(): Promise<number> {
   const result = await privateCall('Balance')
-  const cad = Number(result.ZCAD ?? result.CAD ?? 0)
-  return Number.isFinite(cad) ? cad : 0
+  return cadFromKrakenBalance(result)
 }
 
 export type KrakenOrderKind = 'market' | 'limit' | 'stop-loss' | 'take-profit'

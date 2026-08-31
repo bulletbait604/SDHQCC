@@ -1,6 +1,7 @@
 import { isCryptoSymbol, type CryptoPair } from '@/lib/tradebot/crypto'
 import { feeBpsForKind, STALE_ENTRY_MS } from '@/lib/tradebot/fees'
 import { quantityRespectingMinLot } from '@/lib/tradebot/guardrails'
+import { applyKrakenCash } from '@/lib/tradebot/deskBooks'
 import { applyFill, savePaperLedger, type OpenDeskOrder, type PaperLedger } from '@/lib/tradebot/ledger'
 import {
   krakenCadBalance,
@@ -15,13 +16,11 @@ import {
 import { getTradebotSettings, isPlacingLiveOrders } from '@/lib/tradebot/settings'
 
 export async function syncLiveCash(ledger: PaperLedger): Promise<PaperLedger> {
-  if (!isPlacingLiveOrders(ledger)) return ledger
-  try {
-    const cad = await krakenCadBalance()
-    if (cad >= 0) ledger.cash = cad
-  } catch (err) {
-    console.error('[tradebot] Kraken balance', err)
-  }
+  if (!ledger.liveMode) return ledger
+  const cad = await krakenCadBalance()
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto' })
+  applyKrakenCash(ledger, cad, today)
+  await savePaperLedger(ledger)
   return ledger
 }
 

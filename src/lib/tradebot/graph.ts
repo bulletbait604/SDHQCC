@@ -45,7 +45,10 @@ export async function runPaperCycle(): Promise<CycleResult> {
   if (!ledger.engineOn) {
     throw new Error('TradeBot is OFF. Turn it ON to run.')
   }
-  ledger = await syncLiveCash(ledger)
+  ledger = await syncLiveCash(ledger).catch((err) => {
+    console.error('[tradebot] Kraken CAD', err)
+    return ledger
+  })
   const vol = volatilityProfile(parseVolatility(ledger.volatility))
   const pairList = settings.krakenOnly ? await listLiquidKrakenPairs(vol.level) : await listKrakenCryptoPairs()
   const pairsBySymbol = new Map(pairList.map((p) => [p.symbol, p]))
@@ -283,6 +286,6 @@ export async function runPaperCycle(): Promise<CycleResult> {
     decisions,
     scan,
   }
-  await saveCycleLog({ ledgerId: 'cad-paper', ...result })
+  await saveCycleLog({ ledgerId: ledger.id, ...result })
   return result
 }

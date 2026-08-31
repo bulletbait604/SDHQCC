@@ -6,6 +6,7 @@ import { probeCryptoQuotes } from '@/lib/tradebot/crypto'
 import { probeTsxQuotes } from '@/lib/tradebot/quotes'
 import { universeStats } from '@/lib/tradebot/universe'
 import { getTradebotSettings, isKrakenLiveAllowed, isKrakenLiveConfigured, deskUiFlags, isTradebotPaperEnabled } from '@/lib/tradebot/settings'
+import { syncLiveCash } from '@/lib/tradebot/venue'
 import {
   envKeysPresent,
   TRADEBOT_ENV_CATALOG,
@@ -46,8 +47,15 @@ export async function GET(req: NextRequest) {
     if (deskOn) {
       try {
         ledger = await loadPaperLedger()
-        fills = await listRecentFills(12)
-        lastCycle = await latestCycleLog()
+        if (ledger.liveMode) {
+          try {
+            ledger = await syncLiveCash(ledger)
+          } catch (err) {
+            console.error('[tradebot/status] Kraken CAD', err)
+          }
+        }
+        fills = await listRecentFills(12, ledger.id)
+        lastCycle = await latestCycleLog(ledger.id)
         if (lastCycle) {
           delete lastCycle._id
         }
