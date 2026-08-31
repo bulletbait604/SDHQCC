@@ -1,4 +1,5 @@
 import { parseWatchlist, TRADEBOT_DEFAULT_CRYPTO_WATCHLIST, TRADEBOT_DEFAULT_WATCHLIST } from '@/lib/tradebot/canada'
+import { KRAKEN_MAKER_BPS_DEFAULT, KRAKEN_TAKER_BPS_DEFAULT, minTakePct } from '@/lib/tradebot/fees'
 
 function numEnv(name: string, fallback: number): number {
   const raw = Number(process.env[name]?.trim())
@@ -104,19 +105,25 @@ export function getTradebotSettings() {
     paper: isTradebotPaperEnabled(),
     startingCad: configuredStart === 100_000 ? 100 : configuredStart,
     maxDrawdownPct: Math.min(25, Math.max(1, numEnv('TRADEBOT_MAX_DRAWDOWN_PCT', 8))),
-    maxAssetWeightPct: numEnv('TRADEBOT_MAX_ASSET_WEIGHT', 20),
+    maxAssetWeightPct: numEnv('TRADEBOT_MAX_ASSET_WEIGHT', 45),
     riskPct: numEnv('TRADEBOT_RISK_PCT', 2),
-    stopPct: Math.min(8, Math.max(0.5, numEnv('TRADEBOT_STOP_PCT', 1.5))) / 100,
-    takePct: Math.min(20, Math.max(1, numEnv('TRADEBOT_TAKE_PCT', 3))) / 100,
+    stopPct: Math.min(8, Math.max(0.5, numEnv('TRADEBOT_STOP_PCT', 2))) / 100,
+    takePct: Math.max(
+      minTakePct(numEnv('TRADEBOT_KRAKEN_MAKER_BPS', KRAKEN_MAKER_BPS_DEFAULT)),
+      Math.min(20, Math.max(1, numEnv('TRADEBOT_TAKE_PCT', 6))) / 100
+    ),
     atrMultiplier: numEnv('TRADEBOT_ATR_MULTIPLIER', 2),
     tsxFeeBps: numEnv('TRADEBOT_TSX_FEE_BPS', 10),
-    krakenFeeBps: numEnv('TRADEBOT_KRAKEN_FEE_BPS', 40),
+    krakenTakerBps: numEnv('TRADEBOT_KRAKEN_FEE_BPS', KRAKEN_TAKER_BPS_DEFAULT),
+    krakenMakerBps: numEnv('TRADEBOT_KRAKEN_MAKER_BPS', KRAKEN_MAKER_BPS_DEFAULT),
+    /** Worst-case (taker) — used when the fill kind is unknown. */
+    krakenFeeBps: numEnv('TRADEBOT_KRAKEN_FEE_BPS', KRAKEN_TAKER_BPS_DEFAULT),
     dailyProfitTargetMinPct,
     dailyProfitTargetMaxPct,
     cycleMinutes: Math.min(180, Math.max(15, numEnv('TRADEBOT_CYCLE_MINUTES', 60))),
     tickSeconds: Math.min(30, Math.max(5, numEnv('TRADEBOT_TICK_SECONDS', 8))),
     liveWatch: boolEnv('TRADEBOT_LIVE_WATCH', true),
-    maxOpenPositions: Math.min(8, Math.max(1, numEnv('TRADEBOT_MAX_OPEN', 4))),
+    maxOpenPositions: Math.min(8, Math.max(1, numEnv('TRADEBOT_MAX_OPEN', 1))),
     krakenOnly: boolEnv('TRADEBOT_KRAKEN_ONLY', true),
     liveAllowed: isKrakenLiveAllowed(),
     live: isKrakenLiveAllowed(),

@@ -10,7 +10,7 @@ import {
 } from '@/lib/tradebot/ledger'
 import type { CycleDecision, TradeOrderProposal } from '@/lib/tradebot/models'
 import { fetchDailyBars } from '@/lib/tradebot/quotes'
-import { executeHardExits, pinStopsTakes, rollTorontoDay, swingLevels } from '@/lib/tradebot/runtime'
+import { executeHardExits, pinStopsTakes, rollTorontoDay, swingLevels, trailStops } from '@/lib/tradebot/runtime'
 import { scanCadBook, type ScanSummary } from '@/lib/tradebot/scanner'
 import { getTradebotSettings, isPlacingLiveOrders, isTradebotDeskEnabled } from '@/lib/tradebot/settings'
 import { parseVolatility, volatilityProfile } from '@/lib/tradebot/volatility'
@@ -90,10 +90,11 @@ export async function runPaperCycle(): Promise<CycleResult> {
   let decisions: CycleDecision[] = []
 
   if (!ledger.halted) {
-    pinStopsTakes(ledger)
+    pinStopsTakes(ledger, { stopPct: vol.stopPct, takePct: vol.takePct })
     const exited = await executeHardExits(ledger, prices, decisions, pairsBySymbol)
     ledger = exited.ledger
     decisions = exited.decisions
+    trailStops(ledger, prices, { trailPct: vol.trailPct, makerBps: settings.krakenMakerBps, takerBps: settings.krakenTakerBps })
   }
 
   if (!ledger.halted && signals.length) {
@@ -150,7 +151,7 @@ export async function runPaperCycle(): Promise<CycleResult> {
       const proposal: TradeOrderProposal = {
         ticker: signal.ticker,
         action,
-        order_type: 'MARKET',
+        order_type: action === 'BUY' ? 'LIMIT' : 'MARKET',
         quantity,
         limit_price: signal.price,
         stop_loss: stop,
@@ -193,16 +194,27 @@ export async function runPaperCycle(): Promise<CycleResult> {
             takeProfit: checked.proposal.take_profit,
             reason: checked.proposal.reasoning_summary,
             pair: pairsBySymbol.get(signal.ticker),
+            execution: checked.proposal.action === 'BUY' ? 'limit' : 'market',
+            equity: liveEquity,
           })
           ledger = applied.ledger
-          fill = {
-            filled: true,
-            side: checked.proposal.action,
-            quantity: applied.fill.qty,
-            price: applied.fill.price,
-            notionalCad: applied.fill.notionalCad,
-            note: `${applied.venue === 'kraken' ? 'Kraken' : 'Practice'} · fee CA$${applied.fill.feeCad.toFixed(2)}`,
-          }
+          fill = applied.fill
+            ? {
+                filled: true,
+                side: checked.proposal.action,
+                quantity: applied.fill.qty,
+                price: applied.fill.price,
+                notionalCad: applied.fill.notionalCad,
+                note: `${applied.venue === 'kraken' ? 'Kraken' : 'Practice'} · fee CA$${applied.fill.feeCad.toFixed(2)}`,
+              }
+            : {
+                filled: false,
+                side: checked.proposal.action,
+                quantity: checked.proposal.quantity,
+                price: signal.price,
+                notionalCad: 0,
+                note: 'Resting maker limit on Kraken',
+              }
         } catch (err) {
           fill = {
             filled: false,

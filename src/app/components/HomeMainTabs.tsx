@@ -399,7 +399,7 @@ export default function HomeMainTabs({
                   subtitleClasses={subtitleClasses}
                   description={
                     t.tradeBotDesc ||
-                    'Kraken CAD coins only (BTC, ETH, SOL, and other liquid pairs). Start with CA$100. Leave the tab open for live prices. Press ON to trade. Stop 1.5%, take profit 3%, max 20% per coin. No shorts. Practice until you set Kraken live keys.'
+                    'Kraken CAD coins only. Start with CA$100. Buys a dip in an uptrend with maker limits. Trails winners. 1–2 tickets. Halt the day at -8%. Fake to practice, Real for Kraken.'
                   }
                 />
               </TabsContent>

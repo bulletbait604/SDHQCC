@@ -1,3 +1,5 @@
+import { minTakePct } from '@/lib/tradebot/fees'
+
 export type VolatilityLevel = 'low' | 'medium' | 'high'
 
 export const VOLATILITY_LEVELS: VolatilityLevel[] = ['low', 'medium', 'high']
@@ -33,66 +35,73 @@ export function isMajorCad(symbol: string): boolean {
 }
 
 export function volatilityProfile(level: VolatilityLevel) {
+  const floorTake = minTakePct()
   if (level === 'low') {
     return {
       level,
       label: 'Low',
-      hint: 'BTC, ETH, and other calmer coins',
+      hint: 'BTC/ETH swing — one ticket off the hourly trend',
       symbols: [...LOW_SYMBOLS] as string[],
       maxPairs: 4,
       fillNativeCadAlts: false,
-      minDayChangePct: 0.15,
-      maxDayChangePct: 5,
-      rsiMin: 42,
-      rsiMax: 62,
+      minDayChangePct: -0.4,
+      maxDayChangePct: 3,
+      rsiMin: 30,
+      rsiMax: 52,
       requireEma: true,
       majorScoreBoost: 10,
-      moveScoreBoost: 0.6,
-      maxOpen: 2,
-      stopPct: 0.012,
-      takePct: 0.022,
-      maxAssetWeightPct: 15,
+      moveScoreBoost: 0.15,
+      maxOpen: 1,
+      stopPct: 0.018,
+      takePct: Math.max(0.07, floorTake),
+      trailPct: 0.015,
+      maxSpreadPct: 0.25,
+      maxAssetWeightPct: 55,
     }
   }
   if (level === 'high') {
     return {
       level,
       label: 'High',
-      hint: 'Faster coins with bigger swings',
+      hint: 'Faster coins — one swing ticket off structure, 10% take',
       symbols: [...HIGH_SYMBOLS] as string[],
       maxPairs: 18,
       fillNativeCadAlts: true,
-      minDayChangePct: 0.9,
-      maxDayChangePct: 40,
-      rsiMin: 32,
-      rsiMax: 82,
-      requireEma: false,
-      majorScoreBoost: -6,
-      moveScoreBoost: 1.8,
-      maxOpen: 6,
-      stopPct: 0.022,
-      takePct: 0.055,
-      maxAssetWeightPct: 20,
+      minDayChangePct: -2,
+      maxDayChangePct: 10,
+      rsiMin: 24,
+      rsiMax: 48,
+      requireEma: true,
+      majorScoreBoost: -4,
+      moveScoreBoost: 0.25,
+      maxOpen: 1,
+      stopPct: 0.025,
+      takePct: Math.max(0.1, floorTake),
+      trailPct: 0.022,
+      maxSpreadPct: 0.45,
+      maxAssetWeightPct: 50,
     }
   }
   return {
     level: 'medium' as const,
     label: 'Medium',
-    hint: 'Liquid Kraken CAD mix',
+    hint: 'Liquid Kraken CAD — one swing ticket off structure',
     symbols: [...MEDIUM_SYMBOLS] as string[],
     maxPairs: 10,
     fillNativeCadAlts: false,
-    minDayChangePct: 0.6,
-    maxDayChangePct: 18,
-    rsiMin: 38,
-    rsiMax: 70,
+    minDayChangePct: -1,
+    maxDayChangePct: 8,
+    rsiMin: 26,
+    rsiMax: 50,
     requireEma: true,
     majorScoreBoost: 2,
-    moveScoreBoost: 1,
-    maxOpen: 4,
-    stopPct: 0.015,
-    takePct: 0.03,
-    maxAssetWeightPct: 20,
+    moveScoreBoost: 0.2,
+    maxOpen: 1,
+    stopPct: 0.02,
+    takePct: Math.max(0.075, floorTake),
+    trailPct: 0.016,
+    maxSpreadPct: 0.35,
+    maxAssetWeightPct: 50,
   }
 }
 

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { sizeBuyQuantity, validateTrade } from '@/lib/tradebot/guardrails'
+import { sizeBuyQuantity, quantityRespectingMinLot, validateTrade } from '@/lib/tradebot/guardrails'
 import type { TradeOrderProposal } from '@/lib/tradebot/models'
 
 const baseProposal = (): TradeOrderProposal => ({
@@ -113,4 +113,24 @@ test('hold does not require a stop', () => {
     lastPrice: 150,
   })
   assert.equal(r.ok, true)
+})
+
+test('does not bump to the exchange minimum when that blows the cap', () => {
+  assert.equal(
+    quantityRespectingMinLot({ qty: 0.0004, minLot: 0.02, price: 4000, cash: 100, maxNotional: 45 }),
+    0
+  )
+})
+
+test('keeps sub-0.001 BTC size instead of rounding it to zero', () => {
+  const qty = sizeBuyQuantity({
+    equity: 100,
+    riskPct: 2,
+    atr: 1600,
+    atrMultiplier: 1,
+    price: 160_000,
+    maxAssetWeightPct: 45,
+  })
+  assert.ok(qty > 0)
+  assert.ok(qty * 160_000 <= 45 + 0.01)
 })

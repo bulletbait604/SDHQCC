@@ -121,24 +121,26 @@ TRADEBOT_PAPER=true
 TRADEBOT_LIVE=true
 TRADEBOT_KRAKEN_ONLY=true
 TRADEBOT_CRYPTO_ONLY=true
-TRADEBOT_STOP_PCT=1.5
-TRADEBOT_TAKE_PCT=3
-TRADEBOT_MAX_ASSET_WEIGHT=20
+TRADEBOT_STOP_PCT=2
+TRADEBOT_TAKE_PCT=6
+TRADEBOT_MAX_ASSET_WEIGHT=50
 TRADEBOT_MAX_DRAWDOWN_PCT=8
 TRADEBOT_STARTING_CAD=100
 TRADEBOT_TICK_SECONDS=8
-TRADEBOT_MAX_OPEN=4
+TRADEBOT_MAX_OPEN=1
+TRADEBOT_KRAKEN_FEE_BPS=80
+TRADEBOT_KRAKEN_MAKER_BPS=40
 TRADEBOT_CRYPTO_WATCHLIST=${TRADEBOT_DEFAULT_CRYPTO_WATCHLIST_CSV}
 KRAKEN_API_KEY=
 KRAKEN_API_SECRET=`
 
 const AGENTS = [
-  { id: 'scout', name: 'FINDER', role: 'Looks for coins', idle: 'Watching Kraken CAD coins at your Low / Medium / High setting.', color: '#9ddd55', x: '18%', y: '28%' },
+  { id: 'scout', name: 'FINDER', role: 'Looks for coins', idle: 'Hourly trend up, then a 15m reversal off the swing low.', color: '#9ddd55', x: '18%', y: '28%' },
   { id: 'archive', name: 'NEWS', role: 'Reads the news', idle: 'Checking the news for scams.', color: '#be91ff', x: '50%', y: '22%' },
   { id: 'forge', name: 'YES', role: 'Why we might buy', idle: 'Looking for good reasons to buy.', color: '#42cbbb', x: '82%', y: '28%' },
   { id: 'relay', name: 'NO', role: 'Why we might wait', idle: 'Looking for reasons not to buy.', color: '#58a9e8', x: '22%', y: '68%' },
   { id: 'helm', name: 'TRADER', role: 'Buys and sells', idle: 'Watching live prices. Buys and sells when the desk is ON.', color: '#ff6557', x: '50%', y: '74%' },
-  { id: 'sentinel', name: 'SAFETY', role: 'Stops big losses', idle: 'Sells if a coin drops 1.5%. Takes profit at +3%. Caps each coin at 20%. Stops the day at -8%.', color: '#d6a56e', x: '78%', y: '68%' },
+  { id: 'sentinel', name: 'SAFETY', role: 'Stops big losses', idle: 'Maker buys. One swing ticket. Take ~6–8% so fees are a minority. Trails only after a locked profit. Day halt -8%.', color: '#d6a56e', x: '78%', y: '68%' },
 ] as const
 
 const STAGES = AGENTS.map((a) => a.id)
@@ -611,7 +613,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           <small>Kraken coins · {vol.label} vol</small>
           <b>{marks.length || universe || '—'}</b>
           <em>
-            {vol.hint}. Stop {(vol.stopPct * 100).toFixed(1)}% · take {(vol.takePct * 100).toFixed(1)}% · max {vol.maxOpen} coins · day halt {status?.maxDrawdownPct || 8}%
+            {vol.hint}. Stop {(vol.stopPct * 100).toFixed(1)}% · take {(vol.takePct * 100).toFixed(1)}% · trail {(vol.trailPct * 100).toFixed(1)}% · max {vol.maxOpen} {vol.maxOpen === 1 ? 'coin' : 'coins'} · day halt {status?.maxDrawdownPct || 8}%
           </em>
         </div>
         <div className="tb-ticker">
@@ -675,8 +677,8 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
             <p className="tb-muted" style={{ marginTop: 6 }}>
               {engineOn
                 ? krakenLive
-                  ? 'Leave this tab open. It watches live Kraken prices and can place real CAD orders.'
-                  : 'Leave this tab open. It watches live Kraken prices and makes practice buys and sells.'
+                  ? 'A server tick runs every minute even if this tab is closed. Leave it open for faster 8s watches. Real CAD orders while ON.'
+                  : 'A server tick runs every minute even if this tab is closed. Leave it open for faster 8s practice fills.'
                 : 'Live prices still update. Press ON to allow buys and sells.'}
             </p>
           </section>
@@ -717,7 +719,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
               </table>
               ) : (
                 <div className="tb-body">
-                  <p>None yet. Press ON and leave this tab open — it buys when a coin looks strong.</p>
+                  <p>None yet. Press ON — it buys a dip while the trend is still up (not a green spike).</p>
                 </div>
               )}
             </section>
@@ -730,7 +732,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
               <small>{running ? 'Checking the market…' : engineOn ? (watching ? 'Watching live prices' : 'System is on') : 'System is off'}</small>
               <h2>The floor</h2>
               <p className="tb-muted">
-                Start with {cad(startCad)}. Kraken coins only. {vol.hint}. Stop {(vol.stopPct * 100).toFixed(1)}%, take {(vol.takePct * 100).toFixed(1)}%, halt the day at -{status?.maxDrawdownPct || 8}%. No shorts. Fake to test, Real for Kraken. {krakenLive ? 'Real orders while ON.' : 'Fake fills until you tap Real.'}
+                Start with {cad(startCad)}. Kraken coins only. {vol.hint}. One swing ticket, maker buys, take large enough that fees are a minority. Halt the day at -{status?.maxDrawdownPct || 8}%. No shorts. Fake to test, Real for Kraken. {krakenLive ? 'Real orders while ON.' : 'Fake fills until you tap Real.'}
               </p>
             </div>
             <div className="tb-actions">

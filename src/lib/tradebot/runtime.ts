@@ -2,7 +2,10 @@ import type { CryptoPair } from '@/lib/tradebot/crypto'
 import type { PaperLedger } from '@/lib/tradebot/ledger'
 import type { CycleDecision } from '@/lib/tradebot/models'
 import { getTradebotSettings } from '@/lib/tradebot/settings'
+import { trailStops } from '@/lib/tradebot/trail'
 import { placeManagedFill } from '@/lib/tradebot/venue'
+
+export { trailStops } from '@/lib/tradebot/trail'
 
 export function swingLevels(price: number, pct?: { stopPct: number; takePct: number }) {
   const settings = getTradebotSettings()
@@ -16,12 +19,14 @@ export function swingLevels(price: number, pct?: { stopPct: number; takePct: num
   }
 }
 
-export function pinStopsTakes(ledger: PaperLedger): void {
+export function pinStopsTakes(ledger: PaperLedger, pct?: { stopPct: number; takePct: number }): void {
   const settings = getTradebotSettings()
+  const stopPct = pct?.stopPct ?? settings.stopPct
+  const takePct = pct?.takePct ?? settings.takePct
   for (const pos of ledger.positions) {
     if (!(pos.avgPrice > 0)) continue
-    if (!(pos.stopLoss > 0)) pos.stopLoss = Number((pos.avgPrice * (1 - settings.stopPct)).toFixed(6))
-    if (!(pos.takeProfit > 0)) pos.takeProfit = Number((pos.avgPrice * (1 + settings.takePct)).toFixed(6))
+    if (!(pos.stopLoss > 0)) pos.stopLoss = Number((pos.avgPrice * (1 - stopPct)).toFixed(6))
+    if (!(pos.takeProfit > 0)) pos.takeProfit = Number((pos.avgPrice * (1 + takePct)).toFixed(6))
   }
 }
 
@@ -56,6 +61,11 @@ export async function executeHardExits(
     const hitStop = pos.stopLoss > 0 && px <= pos.stopLoss
     const hitTp = pos.takeProfit > 0 && px >= pos.takeProfit
     if (!hitStop && !hitTp) continue
+    const nativeKind = hitStop ? 'stop' : 'take'
+    const resting = (next.openOrders || []).some(
+      (o) => o.symbol === pos.symbol && o.kind === nativeKind && o.side === 'SELL'
+    )
+    if (resting) continue
     const reason = hitStop ? `Stop-loss ${pos.stopLoss}` : `Take-profit ${pos.takeProfit}`
     let applied: Awaited<ReturnType<typeof placeManagedFill>>
     try {
@@ -69,12 +79,14 @@ export async function executeHardExits(
         takeProfit: pos.takeProfit,
         reason,
         pair: pairsBySymbol.get(pos.symbol),
+        execution: hitStop ? 'market' : 'limit',
       })
     } catch (err) {
       console.error('[tradebot] hard exit', pos.symbol, err)
       continue
     }
     next = applied.ledger
+    if (!applied.fill) continue
     out.push({
       ticker: pos.symbol,
       signal: hitStop ? 'BEARISH' : 'BULLISH',
@@ -82,7 +94,7 @@ export async function executeHardExits(
       proposal: {
         ticker: pos.symbol,
         action: 'SELL',
-        order_type: 'MARKET',
+        order_type: hitStop ? 'MARKET' : 'LIMIT',
         quantity: applied.fill.qty,
         limit_price: px,
         stop_loss: pos.stopLoss,

@@ -7,6 +7,10 @@
     {
       "path": "/api/tradebot/cycle",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/tradebot/tick",
+      "schedule": "* * * * *"
     }
   ],
   "functions": {
@@ -35,7 +39,7 @@
       "maxDuration": 120
     },
     "src/app/api/tradebot/tick/route.ts": {
-      "maxDuration": 30
+      "maxDuration": 55
     }
   }
 }

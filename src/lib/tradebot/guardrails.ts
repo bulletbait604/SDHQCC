@@ -24,7 +24,9 @@ export function dayPnlPct(equity: number, dayStartEquity: number): number {
 }
 
 function roundQty(n: number): number {
-  return Math.floor(Math.max(0, n) * 1000) / 1000
+  if (!(n > 0)) return 0
+  if (n >= 1) return Math.floor(n * 1000) / 1000
+  return Math.floor(n * 1e8) / 1e8
 }
 
 export function sizeBuyQuantity(params: {
@@ -41,6 +43,23 @@ export function sizeBuyQuantity(params: {
   const maxCad = params.equity * (params.maxAssetWeightPct / 100)
   const fromCap = params.price > 0 ? maxCad / params.price : 0
   return roundQty(Math.min(fromRisk, fromCap))
+}
+
+export function quantityRespectingMinLot(params: {
+  qty: number
+  minLot: number
+  price: number
+  cash: number
+  maxNotional: number
+}): number {
+  const qty = Math.max(0, params.qty)
+  if (!(params.price > 0)) return 0
+  if (qty >= params.minLot) return qty
+  if (!(params.minLot > 0)) return qty
+  const cost = params.minLot * params.price
+  if (cost > params.cash + 0.01) return 0
+  if (cost > params.maxNotional + 0.01) return 0
+  return params.minLot
 }
 
 export function validateTrade(

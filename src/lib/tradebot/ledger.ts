@@ -11,6 +11,18 @@ export type PaperPosition = {
   takeProfit: number
 }
 
+export type OpenDeskOrder = {
+  txid: string
+  symbol: string
+  side: 'BUY' | 'SELL'
+  kind: 'entry' | 'stop' | 'take'
+  qty: number
+  price: number
+  placedAt: string
+  stopLoss?: number
+  takeProfit?: number
+}
+
 export type PaperLedger = {
   id: string
   currency: 'CAD'
@@ -21,6 +33,7 @@ export type PaperLedger = {
   halted: boolean
   haltReason: string
   positions: PaperPosition[]
+  openOrders: OpenDeskOrder[]
   engineOn: boolean
   liveMode: boolean
   volatility: VolatilityLevel
@@ -85,6 +98,24 @@ function mapLedger(r: Record<string, unknown>, startingCad: number): PaperLedger
         takeProfit: Number(rec.takeProfit || 0),
       }
     }).filter((p) => p.symbol && p.qty > 0),
+    openOrders: (Array.isArray(r.openOrders) ? r.openOrders : [])
+      .map((item) => {
+        const rec = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
+        const side = rec.side === 'SELL' ? 'SELL' : 'BUY'
+        const kind = rec.kind === 'stop' || rec.kind === 'take' || rec.kind === 'entry' ? rec.kind : 'entry'
+        return {
+          txid: String(rec.txid || ''),
+          symbol: String(rec.symbol || '').toUpperCase(),
+          side,
+          kind,
+          qty: Number(rec.qty || 0),
+          price: Number(rec.price || 0),
+          placedAt: String(rec.placedAt || ''),
+          stopLoss: Number(rec.stopLoss || 0) || undefined,
+          takeProfit: Number(rec.takeProfit || 0) || undefined,
+        } satisfies OpenDeskOrder
+      })
+      .filter((o) => o.txid && o.symbol),
     updatedAt: String(r.updatedAt || new Date().toISOString()),
   }
 }
@@ -108,6 +139,7 @@ function freshLedger(startingCad: number, dayStartDate: string): PaperLedger {
     liveMode: false,
     volatility: 'medium',
     positions: [],
+    openOrders: [],
     updatedAt: new Date().toISOString(),
   }
 }

@@ -77,14 +77,14 @@ export async function runDebateAndTrader(
 1) ARCHIVE (news)  2) FORGE (why buy)  3) RELAY (why wait)  4) HELM (trader)
 Never place an order yourself. Output JSON only. TypeScript talks to Kraken or the paper ledger. No shorts. No leverage.
 
-GOAL: take small, frequent profits on liquid Kraken CAD coins. Volatility setting: ${book.volatility || 'medium'}.
-- low = prefer BTC/ETH and calmer names, skip wild spikes.
-- medium = liquid mix (SOL, ADA, and similar).
-- high = prefer faster alts and bigger day moves (still Kraken only, no shorts).
-Stop and take-profit are set by the computer from that setting. Never more than 20% of the book in one coin. Halt new trades if the book is down 8% on the day.
+GOAL: a few swing trades that still pay after Kraken fees. Do not scalp. Do not chase +8% in a day. One ticket at a time. Prefer HOLD over a weak BUY. Volatility setting: ${book.volatility || 'medium'}.
+- low = BTC/ETH dip in an uptrend.
+- medium = liquid CAD mix, still a dip not a chase.
+- high = faster alts, still EMA9 > EMA21 and MACD >= 0.
+The computer sets stop (~2%) and take (~6–8%) so fees are a minority of the win. Halt new trades if the book is down 8% on the day.
 Current book: equity CA$${book.equity.toFixed(2)}, cash CA$${book.cash.toFixed(2)}, day-open CA$${book.dayStartEquity.toFixed(2)}, day P&L ${book.dayPnlPct.toFixed(2)}%.
 
-Only Kraken-listed coins. Prefer EMA 9 above EMA 21, RSI 38-70, MACD not dumping.
+Only Kraken-listed coins. Prefer hourly trend up, a 15m reversal off a swing low, RSI turning up. Never buy mid-range.
 Cross-check headlines AND live web search. Rugs/hacks = never BUY.
 
 Open longs:
@@ -92,9 +92,9 @@ ${JSON.stringify(book.openPositions.slice(0, 12))}
 
 Rules:
 - SELL only exits a long. No shorts.
-- BUY when the short average is above the long one and news is not negative.
+- BUY only a 15m reversal off a swing low while the hourly trend is up. Skip mid-range. Alts need Bitcoin hourly up too.
 - newsTone negative = HOLD or SELL, never BUY.
-- SELL if news flipped or the 3% take / 1.5% stop hit (the computer also exits those).
+- Do not BUY just because a name is up on the day.
 - If day P&L is >= ${book.targetMaxPct}%, never BUY.
 
 Industry tape:

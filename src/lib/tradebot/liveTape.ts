@@ -1,4 +1,5 @@
 import {
+  cadToVenuePrice,
   fetchKrakenOhlc,
   listLiquidKrakenPairs,
   quoteKrakenMarkets,
@@ -6,8 +7,10 @@ import {
   type CryptoMarket,
   type CryptoPair,
 } from '@/lib/tradebot/crypto'
+import { trailActivatePct } from '@/lib/tradebot/fees'
 import { sizeBuyQuantity, validateTrade, dayPnlPct } from '@/lib/tradebot/guardrails'
-import { ema, macdHistogram, rsi } from '@/lib/tradebot/indicators'
+import { rsi } from '@/lib/tradebot/indicators'
+import type { DailyBar } from '@/lib/tradebot/quotes'
 import {
   listRecentFills,
   loadPaperLedger,
@@ -15,11 +18,12 @@ import {
   savePaperLedger,
 } from '@/lib/tradebot/ledger'
 import type { CycleDecision, TradeOrderProposal } from '@/lib/tradebot/models'
-import { liveBuyOk, liveEntryScore, liveSellFade, rankLiveBuys } from '@/lib/tradebot/liveTapeRank'
-import { executeHardExits, pinStopsTakes, rollTorontoDay, swingLevels } from '@/lib/tradebot/runtime'
+import { liveEntryScore, rankLiveBuys, recentlyBought, recentlyStopped } from '@/lib/tradebot/liveTapeRank'
+import { barsToHourly, swingEntry } from '@/lib/tradebot/swingSetup'
+import { executeHardExits, pinStopsTakes, rollTorontoDay, swingLevels, trailStops } from '@/lib/tradebot/runtime'
 import { getTradebotSettings, isPlacingLiveOrders, isTradebotDeskEnabled } from '@/lib/tradebot/settings'
 import { parseVolatility, volatilityProfile } from '@/lib/tradebot/volatility'
-import { placeManagedFill, syncLiveCash } from '@/lib/tradebot/venue'
+import { placeManagedFill, reconcileKrakenOrders, replaceNativeStop, syncLiveCash } from '@/lib/tradebot/venue'
 
 export { rankLiveBuys } from '@/lib/tradebot/liveTapeRank'
 
@@ -52,21 +56,43 @@ export type TickResult = {
   engineOn: boolean
 }
 
-let ohlcCache: { at: number; closes: Record<string, number[]> } | null = null
+let ohlcCache: { at: number; bars: Record<string, DailyBar[]> } | null = null
 
-async function loadCloses(pairs: CryptoPair[]): Promise<Record<string, number[]>> {
-  if (ohlcCache && Date.now() - ohlcCache.at < 90_000) return ohlcCache.closes
+async function loadHuntBars(pairs: CryptoPair[]): Promise<Record<string, DailyBar[]>> {
+  if (ohlcCache && Date.now() - ohlcCache.at < 90_000) return ohlcCache.bars
+  const fx = pairs.some((p) => !p.nativeCad) ? await usdCadRate().catch(() => 1) : 1
+  const bars: Record<string, DailyBar[]> = {}
+  for (const pair of pairs) {
+    try {
+      const tape = await fetchKrakenOhlc(pair, fx, 15)
+      bars[pair.symbol] = tape.bars
+    } catch {
+      /* skip pair */
+    }
+  }
+  ohlcCache = { at: Date.now(), bars }
+  return bars
+}
+
+let heldOhlcCache: { at: number; key: string; closes: Record<string, number[]> } | null = null
+
+async function loadHeldCloses(pairs: CryptoPair[]): Promise<Record<string, number[]>> {
+  if (!pairs.length) return {}
+  const key = pairs.map((p) => p.symbol).sort().join(',')
+  if (heldOhlcCache && heldOhlcCache.key === key && Date.now() - heldOhlcCache.at < 25_000) {
+    return heldOhlcCache.closes
+  }
   const fx = pairs.some((p) => !p.nativeCad) ? await usdCadRate().catch(() => 1) : 1
   const closes: Record<string, number[]> = {}
   for (const pair of pairs) {
     try {
-      const { bars } = await fetchKrakenOhlc(pair, fx, 15)
+      const { bars } = await fetchKrakenOhlc(pair, fx, 5)
       closes[pair.symbol] = bars.map((b) => b.c)
     } catch {
       /* skip pair */
     }
   }
-  ohlcCache = { at: Date.now(), closes }
+  heldOhlcCache = { at: Date.now(), key, closes }
   return closes
 }
 
@@ -157,9 +183,10 @@ export async function runPaperTick(): Promise<TickResult> {
   }
 
   ledger = await syncLiveCash(ledger)
+  ledger = await reconcileKrakenOrders(ledger, pairsBySymbol)
   let equity = markToMarket(ledger, prices)
   ledger = rollTorontoDay(ledger, equity)
-  pinStopsTakes(ledger)
+  pinStopsTakes(ledger, { stopPct: vol.stopPct, takePct: vol.takePct })
   equity = markToMarket(ledger, prices)
   const drawdownPct =
     ledger.dayStartEquity > 0 ? ((ledger.dayStartEquity - equity) / ledger.dayStartEquity) * 100 : 0
@@ -175,113 +202,100 @@ export async function runPaperTick(): Promise<TickResult> {
     decisions = exited.decisions
   }
 
-  const closes = await loadCloses(pairs)
-  const liveEquity = markToMarket(ledger, prices)
-  const livePnl = dayPnlPct(liveEquity, ledger.dayStartEquity)
-
+  const heldPairs = pairs.filter((p) => ledger.positions.some((pos) => pos.symbol === p.symbol))
+  const heldCloses = await loadHeldCloses(heldPairs)
+  const trailPrices: Record<string, number> = { ...prices }
+  for (const pos of ledger.positions) {
+    const series = heldCloses[pos.symbol]
+    const last5 = series && series.length ? series[series.length - 1] : 0
+    if (last5 > 0) trailPrices[pos.symbol] = last5
+  }
   if (!ledger.halted) {
-    for (const pos of [...ledger.positions]) {
-      const series = closes[pos.symbol] || []
-      const fade = liveSellFade({
-        rsi: rsi(series) ?? 50,
-        ema9: ema(series, 9),
-        ema21: ema(series, 21),
-      })
-      const px = prices[pos.symbol]
-      if (!fade || !(px > 0)) continue
-      const reason = 'Momentum slowed (short average dropped under the long one).'
-      let applied: Awaited<ReturnType<typeof placeManagedFill>>
-      try {
-        applied = await placeManagedFill({
-          ledger,
-          side: 'SELL',
-          symbol: pos.symbol,
-          qty: pos.qty,
-          price: px,
-          stopLoss: pos.stopLoss,
-          takeProfit: pos.takeProfit,
-          reason,
-          pair: pairsBySymbol.get(pos.symbol),
-        })
-      } catch (err) {
-        console.error('[tradebot] fade sell', pos.symbol, err)
-        continue
+    const moved = trailStops(ledger, trailPrices, {
+      activatePct: trailActivatePct(vol.trailPct, settings.krakenMakerBps, settings.krakenTakerBps),
+      trailPct: vol.trailPct,
+      makerBps: settings.krakenMakerBps,
+      takerBps: settings.krakenTakerBps,
+    })
+    if (placingLive) {
+      for (const symbol of moved) {
+        const pos = ledger.positions.find((p) => p.symbol === symbol)
+        const pair = pairsBySymbol.get(symbol)
+        if (pos && pair) ledger = await replaceNativeStop(ledger, pair, symbol, pos.stopLoss)
       }
-      ledger = applied.ledger
-      const levels = swingLevels(px)
-      decisions.push(
-        filledRow(
-          pos.symbol,
-          px,
-          {
-            ticker: pos.symbol,
-            action: 'SELL',
-            order_type: 'MARKET',
-            quantity: applied.fill.qty,
-            limit_price: px,
-            stop_loss: levels.stopBuy,
-            take_profit: levels.takeBuy,
-            reasoning_summary: reason,
-          },
-          applied.fill.qty,
-          applied.fill.price,
-          applied.fill.notionalCad,
-          applied.venue === 'kraken' ? 'Sold on Kraken' : 'Sold (practice)',
-          'BEARISH'
-        )
-      )
     }
   }
+
+  const huntBars = await loadHuntBars(pairs)
+  const liveEquity = markToMarket(ledger, prices)
+  const livePnl = dayPnlPct(liveEquity, ledger.dayStartEquity)
+  const recentFills = await listRecentFills(20)
+  const pendingEntry = new Set(
+    (ledger.openOrders || []).filter((o) => o.kind === 'entry' && o.side === 'BUY').map((o) => o.symbol)
+  )
+  const btcHourCloses = barsToHourly(huntBars['BTC-CAD'] || []).map((b) => b.c)
 
   const held = new Set(ledger.positions.map((p) => p.symbol))
   const canBuy =
     !ledger.halted &&
     livePnl < settings.dailyProfitTargetMaxPct &&
     ledger.positions.length < vol.maxOpen &&
-    ledger.cash >= 5
+    ledger.cash >= 5 &&
+    pendingEntry.size + ledger.positions.length < vol.maxOpen &&
+    !recentlyBought(recentFills)
 
   if (canBuy) {
     const scored = markets.map((m) => {
-      const series = closes[m.pair.symbol] || []
-      const ok = liveBuyOk({
-        rsi: rsi(series) ?? 52,
-        ema9: ema(series, 9),
-        ema21: ema(series, 21),
-        macd: macdHistogram(series) ?? 0,
+      const bars15 = huntBars[m.pair.symbol] || []
+      const series = bars15.map((b) => b.c)
+      const rsiNow = rsi(series) ?? 52
+      const setup = swingEntry({
+        symbol: m.pair.symbol,
+        bars15,
+        price: m.bid > 0 ? m.bid : m.quote.price,
         dayChangePct: m.dayChangePct,
+        spreadPct: m.spreadPct,
+        btcHourCloses,
         volatility: vol.level,
       })
+      const blocked = recentlyStopped(recentFills, m.pair.symbol) || pendingEntry.has(m.pair.symbol)
       return {
         symbol: m.pair.symbol,
         dayChangePct: m.dayChangePct,
         volume24h: m.volume24h,
-        score: ok ? liveEntryScore({ symbol: m.pair.symbol, dayChangePct: m.dayChangePct, volume24h: m.volume24h }, vol.level) : 0,
+        stopPct: setup.stopPct,
+        takePct: setup.takePct,
+        reason: setup.reason,
+        score:
+          setup.ok && !blocked
+            ? liveEntryScore(
+                { symbol: m.pair.symbol, dayChangePct: m.dayChangePct, volume24h: m.volume24h, rsi: rsiNow },
+                vol.level
+              ) + setup.scoreBoost
+            : 0,
       }
     })
     const pick = rankLiveBuys(scored, held)[0]
     const market = pick ? markets.find((m) => m.pair.symbol === pick.symbol) : undefined
-    if (market && pick) {
-      const price = market.quote.price
-      const levels = swingLevels(price, { stopPct: vol.stopPct, takePct: vol.takePct })
-      const atr = Math.max(price * vol.stopPct, 0.000001)
+    if (market && pick && (pick.score || 0) > 0) {
+      const price = market.bid > 0 ? market.bid : market.quote.price
+      const stopPct = pick.stopPct || vol.stopPct
+      const takePct = pick.takePct || vol.takePct
+      const levels = swingLevels(price, { stopPct, takePct })
+      const atrDist = Math.max(price * stopPct, 0.000001)
       const quantity = sizeBuyQuantity({
         equity: liveEquity,
         riskPct: settings.riskPct,
-        atr,
+        atr: atrDist,
         atrMultiplier: 1,
         price,
         maxAssetWeightPct: vol.maxAssetWeightPct,
       })
-      const reason =
-        vol.level === 'high'
-          ? `High vol: ${pick.symbol.replace(/-CAD$/, '')} is up ${pick.dayChangePct.toFixed(1)}% — chasing a faster move.`
-          : vol.level === 'low'
-            ? `Low vol: ${pick.symbol.replace(/-CAD$/, '')} is up ${pick.dayChangePct.toFixed(1)}% among calmer coins.`
-            : `Up ${pick.dayChangePct.toFixed(1)}% and the short average is above the long one.`
+      const reason = pick.reason || `Swing buy ${pick.symbol.replace(/-CAD$/, '')}.`
       const proposal: TradeOrderProposal = {
         ticker: pick.symbol,
         action: 'BUY',
-        order_type: 'MARKET',
+        order_type: 'LIMIT',
         quantity,
         limit_price: price,
         stop_loss: levels.stopBuy,
@@ -311,20 +325,27 @@ export async function runPaperTick(): Promise<TickResult> {
             takeProfit: checked.proposal.take_profit,
             reason,
             pair: pairsBySymbol.get(pick.symbol),
+            execution: 'limit',
+            equity: liveEquity,
+            venuePrice: cadToVenuePrice(market.pair, price, market.bid, market.nativeBid),
           })
           ledger = applied.ledger
-          decisions.push(
-            filledRow(
-              pick.symbol,
-              price,
-              checked.proposal,
-              applied.fill.qty,
-              applied.fill.price,
-              applied.fill.notionalCad,
-              applied.venue === 'kraken' ? `Bought on Kraken · fee CA$${applied.fill.feeCad.toFixed(2)}` : `Practice buy · fee CA$${applied.fill.feeCad.toFixed(2)}`,
-              'BULLISH'
+          if (applied.fill) {
+            decisions.push(
+              filledRow(
+                pick.symbol,
+                price,
+                checked.proposal,
+                applied.fill.qty,
+                applied.fill.price,
+                applied.fill.notionalCad,
+                applied.venue === 'kraken'
+                  ? `Maker buy on Kraken · fee CA$${applied.fill.feeCad.toFixed(2)}`
+                  : `Practice maker buy · fee CA$${applied.fill.feeCad.toFixed(2)}`,
+                'BULLISH'
+              )
             )
-          )
+          }
         } catch (err) {
           console.error('[tradebot] live buy', pick.symbol, err)
         }

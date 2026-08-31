@@ -122,7 +122,7 @@ export const TRADEBOT_ENV_CATALOG: TradebotEnvItem[] = [
       'COINGECKO_PRO_API_KEY',
       'COINGECKO_USE_PRO',
     ],
-    purpose: 'Defaults: CA$100, Kraken coins only, 1.5% stop / 3% take-profit, 20% max per coin, 8% daily loss halt, live ticks every 8s.',
+    purpose: 'Defaults: CA$100, Kraken coins only, maker entries, one swing ticket, take at least 7× maker round-trip (~5.6%), 8% daily loss halt, live ticks every 8s plus a 1-minute server cron.',
   },
   {
     id: 'ibkr',
@@ -164,8 +164,8 @@ export const TRADEBOT_ENV_CATALOG: TradebotEnvItem[] = [
     id: 'fees',
     group: 'optional',
     label: 'Venue fees',
-    keys: ['TRADEBOT_KRAKEN_FEE_BPS', 'TRADEBOT_BITBUY_FEE_BPS', 'TRADEBOT_TSX_FEE_BPS'],
-    purpose: 'Taker fees in basis points for net-edge math (defaults 40 / 20 / 10).',
+    keys: ['TRADEBOT_KRAKEN_FEE_BPS', 'TRADEBOT_KRAKEN_MAKER_BPS', 'TRADEBOT_BITBUY_FEE_BPS', 'TRADEBOT_TSX_FEE_BPS'],
+    purpose: 'Kraken Pro taker 80 bps (0.80%) and maker 40 bps (0.40%) by default. Takes must clear 7× maker round-trip (~5.6%) so fees are ~14% of a winner. Stops are booked as taker.',
   },
 ]
 

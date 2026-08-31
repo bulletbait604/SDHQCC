@@ -10,6 +10,8 @@ export type CryptoPair = {
   quote: 'CAD' | 'USD'
   nativeCad: boolean
   ordermin: number
+  pairDecimals: number
+  lotDecimals: number
 }
 
 function krakenJson(body: unknown): Record<string, unknown> {
@@ -84,10 +86,12 @@ export async function listKrakenCryptoPairs(): Promise<CryptoPair[]> {
     if (!display) continue
     const base = display.replace(/-CAD$/, '')
     const ordermin = Number(p.ordermin || 0)
+    const pairDecimals = Math.min(8, Math.max(0, Number(p.pair_decimals ?? 5)))
+    const lotDecimals = Math.min(8, Math.max(0, Number(p.lot_decimals ?? 8)))
     if (quote === 'ZCAD' || wsname.endsWith('/CAD')) {
-      cad.push({ symbol: display, krakenId: id, wsname, quote: 'CAD', nativeCad: true, ordermin })
+      cad.push({ symbol: display, krakenId: id, wsname, quote: 'CAD', nativeCad: true, ordermin, pairDecimals, lotDecimals })
     } else if ((quote === 'ZUSD' || wsname.endsWith('/USD')) && usdExtra.has(base)) {
-      usd.push({ symbol: display, krakenId: id, wsname, quote: 'USD', nativeCad: false, ordermin })
+      usd.push({ symbol: display, krakenId: id, wsname, quote: 'USD', nativeCad: false, ordermin, pairDecimals, lotDecimals })
     }
   }
   const native = new Set(cad.map((p) => p.symbol))
@@ -158,6 +162,11 @@ function lastPrice(row: Record<string, unknown> | undefined): number {
   return c
 }
 
+function bookSide(row: Record<string, unknown> | undefined, key: 'a' | 'b'): number {
+  const v = Array.isArray(row?.[key]) ? Number(row[key][0]) : NaN
+  return Number.isFinite(v) && v > 0 ? v : NaN
+}
+
 function openPrice(row: Record<string, unknown> | undefined): number {
   return Number(row?.o)
 }
@@ -179,6 +188,12 @@ export type CryptoMarket = {
   quote: EquityQuote
   volume24h: number
   dayChangePct: number
+  bid: number
+  ask: number
+  spreadPct: number
+  nativeLast: number
+  nativeBid: number
+  nativeAsk: number
 }
 
 export async function quoteKrakenMarkets(pairs: CryptoPair[]): Promise<CryptoMarket[]> {
@@ -190,10 +205,17 @@ export async function quoteKrakenMarkets(pairs: CryptoPair[]): Promise<CryptoMar
     const row = tickerRow(rows, pair.krakenId)
     const rawPx = lastPrice(row)
     if (!(rawPx > 0)) continue
-    const price = pair.nativeCad ? rawPx : rawPx * fx
+    const fxUse = pair.nativeCad ? 1 : fx
+    const price = rawPx * fxUse
+    const rawBid = bookSide(row, 'b')
+    const rawAsk = bookSide(row, 'a')
+    const bid = (rawBid > 0 ? rawBid : rawPx) * fxUse
+    const ask = (rawAsk > 0 ? rawAsk : rawPx) * fxUse
     const open = openPrice(row)
     const prev = pair.nativeCad ? (open > 0 ? open : price) : (open > 0 ? open * fx : price)
     const dayChangePct = prev > 0 ? ((price - prev) / prev) * 100 : 0
+    const mid = (bid + ask) / 2
+    const spreadPct = mid > 0 && ask >= bid ? ((ask - bid) / mid) * 100 : 0
     out.push({
       pair,
       quote: {
@@ -206,6 +228,12 @@ export async function quoteKrakenMarkets(pairs: CryptoPair[]): Promise<CryptoMar
       },
       volume24h: volume24h(row),
       dayChangePct,
+      bid,
+      ask,
+      spreadPct,
+      nativeLast: rawPx,
+      nativeBid: rawBid > 0 ? rawBid : rawPx,
+      nativeAsk: rawAsk > 0 ? rawAsk : rawPx,
     })
   }
   return out
@@ -249,6 +277,11 @@ export async function fetchKrakenOhlc(
     },
     bars,
   }
+}
+
+export function cadToVenuePrice(pair: CryptoPair, cadPrice: number, cadMark: number, nativeMark: number): number {
+  if (pair.nativeCad || !(cadMark > 0) || !(nativeMark > 0)) return cadPrice
+  return cadPrice * (nativeMark / cadMark)
 }
 
 export async function fetchKrakenDailyBars(pair: CryptoPair, usdCad = 1): Promise<{ quote: EquityQuote; bars: DailyBar[] }> {

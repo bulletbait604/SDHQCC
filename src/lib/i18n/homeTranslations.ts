@@ -24,7 +24,7 @@ export const homeTranslations = {
       'Pick a platform. We search the live web via Google and list the top 5 trends — videos and topics for YouTube and other video apps.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Kraken CAD coins only. Start with CA$100. Leave the tab open for live prices. Press ON to trade. Stop 1.5%, take profit 3%, max 20% per coin. Practice until you set Kraken live keys.',
+      'Kraken CAD coins only. Start with CA$100. One swing ticket: dip in an uptrend, maker limits, take ~6–8% so fees do not eat the win. Halt the day at -8%. Fake to practice, Real for Kraken.',
     rndPickTool: 'R&D — owner only · pick a tool below',
     backgroundRemover: 'Background Remover',
     backgroundRemoverDesc:
@@ -85,7 +85,7 @@ export const homeTranslations = {
       'Elige una plataforma. Buscamos en la web en vivo con Google y listamos las 5 tendencias — vídeos y temas para YouTube y otras apps de vídeo.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Solo monedas Kraken en CAD. Empiezas con CA$100. Deja la pestaña abierta para precios en vivo. Pulsa ON para operar. Stop 1,5%, take profit 3%, máximo 20% por moneda.',
+      'Solo monedas Kraken en CAD. Empiezas con CA$100. Compra el dip en tendencia alcista con límites maker. Arrastra el stop. 1–2 posiciones. Corta el día a -8%.',
     rndPickTool: 'I+D — solo propietario · elige una herramienta abajo',
     backgroundRemover: 'Eliminador de fondo',
     backgroundRemoverDesc:
@@ -146,7 +146,7 @@ export const homeTranslations = {
       'Choisissez une plateforme. On cherche le web en direct via Google et on liste les 5 tendances — vidéos et sujets pour YouTube et les autres apps vidéo.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Uniquement des paires Kraken en CAD. Départ CA$100. Laissez l’onglet ouvert pour les prix en direct. ON pour trader. Stop 1,5 %, take profit 3 %, max 20 % par coin.',
+      'Uniquement des paires Kraken en CAD. Départ CA$100. Achat d’un dip en tendance haussière en maker. Trailing stop. 1–2 tickets. Stop journée à -8 %.',
     rndPickTool: 'R&D — propriétaire seulement · choisissez un outil ci-dessous',
     backgroundRemover: 'Suppression d’arrière-plan',
     backgroundRemoverDesc:
@@ -207,7 +207,7 @@ export const homeTranslations = {
       'Plattform wählen. Wir durchsuchen das Live-Web über Google und listen die Top 5 Trends — Videos und Themen für YouTube und andere Video-Apps.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Nur Kraken-CAD-Coins. Start mit CA$100. Tab offen lassen für Live-Preise. ON zum Handeln. Stop 1,5 %, Take-Profit 3 %, max. 20 % pro Coin.',
+      'Nur Kraken-CAD-Coins. Start mit CA$100. Kauft den Dip im Aufwärtstrend als Maker. Trailing-Stop. 1–2 Tickets. Tageshalt bei -8 %.',
     rndPickTool: 'F&E — nur Owner · Werkzeug unten wählen',
     backgroundRemover: 'Hintergrund entfernen',
     backgroundRemoverDesc:
