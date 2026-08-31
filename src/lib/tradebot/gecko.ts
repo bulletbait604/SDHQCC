@@ -1,7 +1,7 @@
 import type { DailyBar, EquityQuote } from '@/lib/tradebot/quotes'
 import { isMemeTicker, shortTermScore } from '@/lib/tradebot/opportunity'
 
-function useGeckoPro(): boolean {
+function geckoProEnabled(): boolean {
   const v = process.env.COINGECKO_USE_PRO?.trim().toLowerCase()
   return v === '1' || v === 'true' || v === 'yes' || v === 'on'
 }
@@ -17,7 +17,7 @@ function geckoKey(): string {
 }
 
 function geckoHost(): string {
-  return useGeckoPro() ? 'https://pro-api.coingecko.com/api/v3' : 'https://api.coingecko.com/api/v3'
+  return geckoProEnabled() ? 'https://pro-api.coingecko.com/api/v3' : 'https://api.coingecko.com/api/v3'
 }
 
 export type GeckoHunt = {
@@ -39,7 +39,7 @@ function geckoHeaders(): Record<string, string> {
   const headers: Record<string, string> = { Accept: 'application/json' }
   const key = geckoKey()
   if (!key) return headers
-  if (useGeckoPro()) headers['x-cg-pro-api-key'] = key
+  if (geckoProEnabled()) headers['x-cg-pro-api-key'] = key
   else headers['x-cg-demo-api-key'] = key
   return headers
 }

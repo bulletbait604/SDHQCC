@@ -6,6 +6,7 @@ export type GuardrailContext = {
   dayStartEquity: number
   maxDrawdownPct: number
   maxAssetWeightPct: number
+  dailyProfitLockPct: number
   positionQty: number
   positionAvg: number
   lastPrice: number
@@ -15,6 +16,11 @@ export type GuardrailResult = {
   ok: boolean
   reasons: string[]
   proposal: TradeOrderProposal
+}
+
+export function dayPnlPct(equity: number, dayStartEquity: number): number {
+  if (!(dayStartEquity > 0)) return 0
+  return ((equity - dayStartEquity) / dayStartEquity) * 100
 }
 
 function roundQty(n: number): number {
@@ -66,6 +72,13 @@ export function validateTrade(
     ctx.dayStartEquity > 0 ? ((ctx.dayStartEquity - ctx.equity) / ctx.dayStartEquity) * 100 : 0
   if (dayDd >= ctx.maxDrawdownPct) {
     reasons.push(`Daily drawdown halt (${dayDd.toFixed(2)}% >= ${ctx.maxDrawdownPct}%)`)
+  }
+
+  const pnl = dayPnlPct(ctx.equity, ctx.dayStartEquity)
+  if (p.action === 'BUY' && ctx.dailyProfitLockPct > 0 && pnl >= ctx.dailyProfitLockPct) {
+    reasons.push(
+      `Daily profit lock (+${pnl.toFixed(2)}% hit ${ctx.dailyProfitLockPct}% target — no new buys)`
+    )
   }
 
   if (p.action === 'BUY') {

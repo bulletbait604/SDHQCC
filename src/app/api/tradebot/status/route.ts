@@ -67,12 +67,23 @@ export async function GET(req: NextRequest) {
     }
 
     const quotesOk = settings.cryptoOnly ? cryptoProbe.ok : quoteProbe.ok
+    const dayStartEquity = ledger?.dayStartEquity || settings.startingCad
+    const dayPnlPct =
+      typeof equity === 'number' && dayStartEquity > 0
+        ? Number((((equity - dayStartEquity) / dayStartEquity) * 100).toFixed(2))
+        : 0
     return NextResponse.json({
       engineReady: paper && Boolean(tradebotGeminiKey()) && quotesOk,
       paperOnly: true,
       paper,
       region: 'CA',
       baseCurrency: 'CAD',
+      startingCad: settings.startingCad,
+      dailyProfitTargetMinPct: settings.dailyProfitTargetMinPct,
+      dailyProfitTargetMaxPct: settings.dailyProfitTargetMaxPct,
+      cycleMinutes: settings.cycleMinutes,
+      dayPnlPct,
+      profitLocked: dayPnlPct >= settings.dailyProfitTargetMaxPct,
       quoteProvider: settings.cryptoOnly ? cryptoProbe.source || 'kraken' : quoteProbe.source || 'yahoo',
       quotesOk,
       quoteProbe,

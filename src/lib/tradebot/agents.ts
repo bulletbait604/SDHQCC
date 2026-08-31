@@ -28,7 +28,19 @@ function asStringArray(value: unknown, max = 4): string[] {
     .slice(0, max)
 }
 
-export async function runDebateAndTrader(signals: SignalAnalysis[], industryTape: string[] = []): Promise<AgentDecision[]> {
+export async function runDebateAndTrader(
+  signals: SignalAnalysis[],
+  industryTape: string[] = [],
+  book: {
+    equity: number
+    cash: number
+    dayStartEquity: number
+    dayPnlPct: number
+    startingCad: number
+    targetMinPct: number
+    targetMaxPct: number
+  }
+): Promise<AgentDecision[]> {
   const apiKey = tradebotGeminiKey()
   if (!apiKey) throw new Error('GEMINI_API is not configured')
 
@@ -59,9 +71,12 @@ export async function runDebateAndTrader(signals: SignalAnalysis[], industryTape
       : 0,
   }))
 
-  const prompt = `You are four desks on a Canadian CAD paper book:
+  const prompt = `You are four desks on a Canadian CAD paper book of CA$${book.startingCad.toFixed(2)} fake currency:
 1) ARCHIVE (news + industry)  2) FORGE (bull)  3) RELAY (bear)  4) HELM (trader)
-Never place an order yourself. Output JSON only.
+Never place an order yourself. Output JSON only. This is paper P&L only — no live broker.
+
+GOAL: make +${book.targetMinPct}% to +${book.targetMaxPct}% CAD profit TODAY vs Toronto day-open NAV.
+Current book: equity CA$${book.equity.toFixed(2)}, cash CA$${book.cash.toFixed(2)}, day-open CA$${book.dayStartEquity.toFixed(2)}, day P&L ${book.dayPnlPct.toFixed(2)}%.
 
 Hunt NEW coins and MEME coins for short-term CAD paper profits. Ignore TSX stocks.
 Cross-reference 1h/24h tape with headlines AND live web search.
@@ -69,9 +84,11 @@ Do not invent headlines. Rugs, hacks, honeypots, exploits = never BUY.
 
 Rules:
 - SELL only exits a long. No shorts.
-- High-potential memes/new coins: BUY only if 1h or 24h is still up AND news is not negative. Quiet news is OK on a trending meme with strong volume; still say why.
+- Deploy cash into high-potential memes/new coins when 1h or 24h is still up AND news is not negative. Quiet news is OK on a trending meme with strong volume; still say why.
 - newsTone negative (rug, hack, exploit, scam, halt) = HOLD or SELL, never BUY.
 - BTC/ETH are hedges, not the hunt. Prefer PEPE/DOGE/new listings/trending memes when the tape supports a squeeze.
+- If day P&L is already >= ${book.targetMinPct}%, prefer SELL/HOLD to bank it. If day P&L is >= ${book.targetMaxPct}%, action must be HOLD or SELL — never BUY.
+- Size for the daily goal: a few concentrated paper longs beating +${book.targetMinPct}% NAV, then stop adding.
 - Aim for short-term continuation, not long-term value.
 
 Industry tape:

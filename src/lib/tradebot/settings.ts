@@ -29,15 +29,23 @@ export function tradebotGeminiKey(): string {
 export function getTradebotSettings() {
   const configuredStart = numEnv('TRADEBOT_STARTING_CAD', 100)
   const cryptoOnly = boolEnv('TRADEBOT_CRYPTO_ONLY', true)
+  const dailyProfitTargetMinPct = Math.min(20, Math.max(1, numEnv('TRADEBOT_DAILY_PROFIT_MIN_PCT', 8)))
+  const dailyProfitTargetMaxPct = Math.max(
+    dailyProfitTargetMinPct,
+    Math.min(25, numEnv('TRADEBOT_DAILY_PROFIT_MAX_PCT', 10))
+  )
   return {
     paper: isTradebotPaperEnabled(),
     startingCad: configuredStart === 100_000 ? 100 : configuredStart,
     maxDrawdownPct: numEnv('TRADEBOT_MAX_DRAWDOWN_PCT', 5),
-    maxAssetWeightPct: numEnv('TRADEBOT_MAX_ASSET_WEIGHT', 15),
-    riskPct: numEnv('TRADEBOT_RISK_PCT', 1),
+    maxAssetWeightPct: numEnv('TRADEBOT_MAX_ASSET_WEIGHT', 25),
+    riskPct: numEnv('TRADEBOT_RISK_PCT', 2),
     atrMultiplier: numEnv('TRADEBOT_ATR_MULTIPLIER', 2),
     tsxFeeBps: numEnv('TRADEBOT_TSX_FEE_BPS', 10),
     krakenFeeBps: numEnv('TRADEBOT_KRAKEN_FEE_BPS', 40),
+    dailyProfitTargetMinPct,
+    dailyProfitTargetMaxPct,
+    cycleMinutes: Math.min(180, Math.max(15, numEnv('TRADEBOT_CYCLE_MINUTES', 60))),
     cryptoOnly,
     watchlist: parseWatchlist(
       cryptoOnly ? process.env.TRADEBOT_CRYPTO_WATCHLIST : process.env.TRADEBOT_WATCHLIST,

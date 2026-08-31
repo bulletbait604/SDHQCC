@@ -1,6 +1,6 @@
 import { runDebateAndTrader } from '@/lib/tradebot/agents'
 import { isCryptoSymbol, listKrakenCryptoPairs, quoteKrakenMarkets } from '@/lib/tradebot/crypto'
-import { sizeBuyQuantity, validateTrade } from '@/lib/tradebot/guardrails'
+import { sizeBuyQuantity, validateTrade, dayPnlPct } from '@/lib/tradebot/guardrails'
 import {
   applyFill,
   loadPaperLedger,
@@ -25,6 +25,8 @@ export type CycleResult = {
   cash: number
   dayStartEquity: number
   drawdownPct: number
+  dayPnlPct: number
+  profitLocked: boolean
   ledger: PaperLedger
   decisions: CycleDecision[]
   scan: ScanSummary
@@ -78,6 +80,7 @@ export async function runPaperCycle(): Promise<CycleResult> {
 
   const drawdownPct =
     ledger.dayStartEquity > 0 ? ((ledger.dayStartEquity - equity) / ledger.dayStartEquity) * 100 : 0
+  let livePnl = dayPnlPct(equity, ledger.dayStartEquity)
   if (drawdownPct >= settings.maxDrawdownPct) {
     ledger.halted = true
     ledger.haltReason = `Daily CAD drawdown ${drawdownPct.toFixed(2)}% hit ${settings.maxDrawdownPct}% halt`
@@ -143,24 +146,44 @@ export async function runPaperCycle(): Promise<CycleResult> {
   if (!ledger.halted) await maybeExitStops()
 
   if (!ledger.halted && signals.length) {
-    const agent = await runDebateAndTrader(signals, scan.industryTape || [])
+    const liveEquityForDesk = markToMarket(ledger, prices)
+    livePnl = dayPnlPct(liveEquityForDesk, ledger.dayStartEquity)
+    const agent = await runDebateAndTrader(signals, scan.industryTape || [], {
+      equity: liveEquityForDesk,
+      cash: ledger.cash,
+      dayStartEquity: ledger.dayStartEquity,
+      dayPnlPct: livePnl,
+      startingCad: settings.startingCad,
+      targetMinPct: settings.dailyProfitTargetMinPct,
+      targetMaxPct: settings.dailyProfitTargetMaxPct,
+    })
     const byTicker = new Map(agent.map((d) => [d.ticker, d]))
 
     for (const signal of signals) {
       const desk = byTicker.get(signal.ticker)
       const pos = ledger.positions.find((p) => p.symbol === signal.ticker)
-      const action = desk?.action || 'HOLD'
+      let action = desk?.action || 'HOLD'
+      if (
+        dayPnlPct(markToMarket(ledger, prices), ledger.dayStartEquity) >= settings.dailyProfitTargetMaxPct &&
+        action === 'BUY'
+      ) {
+        action = 'HOLD'
+      }
       const scalp = Boolean(signal.isMeme || signal.highPotential)
+      const stopPct = scalp ? 0.045 : 0.06
+      const takePct = scalp ? 0.09 : 0.12
       const stopMult = scalp ? Math.min(settings.atrMultiplier, 1.25) : settings.atrMultiplier
-      const takeMult = scalp ? 1.6 : 3
+      const takeMult = scalp ? 1.8 : 3
+      const stopFromAtr = stopMult * signal.atr
+      const takeFromAtr = takeMult * signal.atr
       const stop =
         action === 'BUY'
-          ? Number((signal.price - stopMult * signal.atr).toFixed(6))
-          : Number((signal.price + stopMult * signal.atr).toFixed(6))
+          ? Number(Math.max(signal.price - Math.max(stopFromAtr, signal.price * stopPct), signal.price * 0.5).toFixed(6))
+          : Number((signal.price + Math.max(stopFromAtr, signal.price * stopPct)).toFixed(6))
       const take =
         action === 'BUY'
-          ? Number((signal.price + takeMult * signal.atr).toFixed(6))
-          : Number((signal.price - takeMult * signal.atr).toFixed(6))
+          ? Number((signal.price + Math.max(takeFromAtr, signal.price * takePct)).toFixed(6))
+          : Number(Math.max(signal.price - Math.max(takeFromAtr, signal.price * takePct), 0).toFixed(6))
 
       let quantity = 0
       if (action === 'BUY') {
@@ -194,6 +217,7 @@ export async function runPaperCycle(): Promise<CycleResult> {
         dayStartEquity: ledger.dayStartEquity,
         maxDrawdownPct: settings.maxDrawdownPct,
         maxAssetWeightPct: settings.maxAssetWeightPct,
+        dailyProfitLockPct: settings.dailyProfitTargetMaxPct,
         positionQty: pos?.qty || 0,
         positionAvg: pos?.avgPrice || 0,
         lastPrice: signal.price,
@@ -262,6 +286,7 @@ export async function runPaperCycle(): Promise<CycleResult> {
   }
 
   const finalEquity = markToMarket(ledger, prices)
+  const finalPnl = dayPnlPct(finalEquity, ledger.dayStartEquity)
   await savePaperLedger(ledger)
   const result: CycleResult = {
     ranAt: new Date().toISOString(),
@@ -274,6 +299,8 @@ export async function runPaperCycle(): Promise<CycleResult> {
     cash: Number(ledger.cash.toFixed(2)),
     dayStartEquity: Number(ledger.dayStartEquity.toFixed(2)),
     drawdownPct: Number(drawdownPct.toFixed(2)),
+    dayPnlPct: Number(finalPnl.toFixed(2)),
+    profitLocked: finalPnl >= settings.dailyProfitTargetMaxPct,
     ledger,
     decisions,
     scan,

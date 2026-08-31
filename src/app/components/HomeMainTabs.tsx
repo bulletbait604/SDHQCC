@@ -399,7 +399,7 @@ export default function HomeMainTabs({
                   subtitleClasses={subtitleClasses}
                   description={
                     t.tradeBotDesc ||
-                    'Canada CAD paper crypto desk. Hunts new coins and memes for short-term pops.'
+                    'Canada CAD paper crypto desk. Starts at CA$100 fake currency. Hunts new coins and memes for +8–10% daily paper profit.'
                   }
                 />
               </TabsContent>

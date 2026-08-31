@@ -24,7 +24,7 @@ export const homeTranslations = {
       'Pick a platform. We search the live web via Google and list the top 5 trends — videos and topics for YouTube and other video apps.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Canada CAD paper crypto desk. Hunts new coins and memes for short-term pops, then cross-checks news for rugs — no live broker until you enable it.',
+      'Canada CAD paper crypto desk. Starts at CA$100 fake currency. Hunts new coins and memes for +8–10% daily paper profit — no live broker until you enable it.',
     rndPickTool: 'R&D — owner only · pick a tool below',
     backgroundRemover: 'Background Remover',
     backgroundRemoverDesc:
@@ -85,7 +85,7 @@ export const homeTranslations = {
       'Elige una plataforma. Buscamos en la web en vivo con Google y listamos las 5 tendencias — vídeos y temas para YouTube y otras apps de vídeo.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Mesa paper cripto en CAD (Canadá). Caza monedas nuevas y memes para pops a corto plazo y cruza noticias por rugs — sin bróker en vivo hasta que lo actives.',
+      'Mesa paper cripto en CAD (Canadá). Empieza con CA$100 ficticios. Caza monedas nuevas y memes para +8–10% diario — sin bróker en vivo hasta que lo actives.',
     rndPickTool: 'I+D — solo propietario · elige una herramienta abajo',
     backgroundRemover: 'Eliminador de fondo',
     backgroundRemoverDesc:
@@ -146,7 +146,7 @@ export const homeTranslations = {
       'Choisissez une plateforme. On cherche le web en direct via Google et on liste les 5 tendances — vidéos et sujets pour YouTube et les autres apps vidéo.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Desk paper crypto CAD (Canada). Chasse les nouvelles coins et memes pour des pops court terme, puis croise l’actu pour les rugs — aucun courtier réel tant que vous ne l’activez pas.',
+      'Desk paper crypto CAD (Canada). Livre CA$100 fictifs. Chasse nouvelles coins et memes pour +8–10% par jour — aucun courtier réel tant que vous ne l’activez pas.',
     rndPickTool: 'R&D — propriétaire seulement · choisissez un outil ci-dessous',
     backgroundRemover: 'Suppression d’arrière-plan',
     backgroundRemoverDesc:
@@ -207,7 +207,7 @@ export const homeTranslations = {
       'Plattform wählen. Wir durchsuchen das Live-Web über Google und listen die Top 5 Trends — Videos und Themen für YouTube und andere Video-Apps.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Kanadisches CAD-Paper-Krypto-Desk. Jagt neue Coins und Memes auf Kurzfrist-Pops und prüft News auf Rugs — kein Live-Broker, bis Sie es freigeben.',
+      'Kanadisches CAD-Paper-Krypto-Desk. Startet mit CA$100 Spielgeld. Jagt neue Coins und Memes auf +8–10% am Tag — kein Live-Broker, bis Sie es freigeben.',
     rndPickTool: 'F&E — nur Owner · Werkzeug unten wählen',
     backgroundRemover: 'Hintergrund entfernen',
     backgroundRemoverDesc:

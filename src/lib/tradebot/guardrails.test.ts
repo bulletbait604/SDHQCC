@@ -23,6 +23,7 @@ test('rejects buy without stop-loss', () => {
     dayStartEquity: 100_000,
     maxDrawdownPct: 5,
     maxAssetWeightPct: 15,
+    dailyProfitLockPct: 10,
     positionQty: 0,
     positionAvg: 0,
     lastPrice: 150,
@@ -40,6 +41,7 @@ test('rejects buy over 15% book weight', () => {
     dayStartEquity: 100_000,
     maxDrawdownPct: 5,
     maxAssetWeightPct: 15,
+    dailyProfitLockPct: 10,
     positionQty: 0,
     positionAvg: 0,
     lastPrice: 150,
@@ -56,6 +58,7 @@ test('halts when daily drawdown is 5%+', () => {
     dayStartEquity: 100_000,
     maxDrawdownPct: 5,
     maxAssetWeightPct: 15,
+    dailyProfitLockPct: 10,
     positionQty: 0,
     positionAvg: 0,
     lastPrice: 150,
@@ -76,6 +79,23 @@ test('sizing respects 15% cap', () => {
   assert.ok(qty * 150 <= 15_000 + 1)
 })
 
+test('locks new buys once daily profit hits the target', () => {
+  const p = baseProposal()
+  const r = validateTrade(p, {
+    equity: 111,
+    cash: 111,
+    dayStartEquity: 100,
+    maxDrawdownPct: 5,
+    maxAssetWeightPct: 25,
+    dailyProfitLockPct: 10,
+    positionQty: 0,
+    positionAvg: 0,
+    lastPrice: 150,
+  })
+  assert.equal(r.ok, false)
+  assert.ok(r.reasons.some((x) => /profit lock/i.test(x)))
+})
+
 test('hold does not require a stop', () => {
   const p = baseProposal()
   p.action = 'HOLD'
@@ -87,6 +107,7 @@ test('hold does not require a stop', () => {
     dayStartEquity: 100_000,
     maxDrawdownPct: 5,
     maxAssetWeightPct: 15,
+    dailyProfitLockPct: 10,
     positionQty: 0,
     positionAvg: 0,
     lastPrice: 150,

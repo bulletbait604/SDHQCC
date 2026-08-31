@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { parseJsonResponse } from '@/lib/http/parseJsonResponse'
 import { TRADEBOT_DEFAULT_CRYPTO_WATCHLIST_CSV } from '@/lib/tradebot/canada'
@@ -61,7 +61,10 @@ type CycleView = {
   equity: number
   cash: number
   drawdownPct: number
-  ledger: { cash: number; positions: Position[]; halted?: boolean; haltReason?: string }
+  dayPnlPct?: number
+  profitLocked?: boolean
+  dayStartEquity?: number
+  ledger: { cash: number; positions: Position[]; halted?: boolean; haltReason?: string; dayStartEquity?: number }
   decisions: DecisionRow[]
   scan?: {
     universe: number
@@ -87,9 +90,15 @@ type StatusResponse = {
   universe?: { universe: number; newListings: number; offset: number }
   providers: TradebotProviderStatus[]
   equity?: number | null
-  ledger?: { cash: number; positions: Position[]; halted?: boolean; haltReason?: string } | null
+  ledger?: { cash: number; positions: Position[]; halted?: boolean; haltReason?: string; dayStartEquity?: number } | null
   fills?: FillRow[]
   lastCycle?: CycleView | null
+  startingCad?: number
+  dailyProfitTargetMinPct?: number
+  dailyProfitTargetMaxPct?: number
+  cycleMinutes?: number
+  dayPnlPct?: number
+  profitLocked?: boolean
   error?: string
   userMessage?: string
 }
@@ -97,9 +106,11 @@ type StatusResponse = {
 const ENV_SNIPPET = `TRADEBOT_PAPER=true
 TRADEBOT_GEMINI_MODEL=gemini-2.5-flash
 TRADEBOT_MAX_DRAWDOWN_PCT=5
-TRADEBOT_MAX_ASSET_WEIGHT=15
-TRADEBOT_RISK_PCT=1
+TRADEBOT_MAX_ASSET_WEIGHT=25
+TRADEBOT_RISK_PCT=2
 TRADEBOT_STARTING_CAD=100
+TRADEBOT_DAILY_PROFIT_MIN_PCT=8
+TRADEBOT_DAILY_PROFIT_MAX_PCT=10
 TRADEBOT_CRYPTO_ONLY=true
 TRADEBOT_CRYPTO=true
 TRADEBOT_CRYPTO_WATCHLIST=${TRADEBOT_DEFAULT_CRYPTO_WATCHLIST_CSV}
@@ -112,8 +123,8 @@ const AGENTS = [
   { id: 'archive', name: 'ARCHIVE', role: 'News desk', color: '#be91ff', idle: 'Cross-checking headlines and industry tape.', x: '50%', y: '22%' },
   { id: 'forge', name: 'FORGE', role: 'Bull desk', color: '#42cbbb', idle: 'Building the long thesis.', x: '82%', y: '28%' },
   { id: 'relay', name: 'RELAY', role: 'Bear desk', color: '#58a9e8', idle: 'Arguing the counter-risk.', x: '22%', y: '68%' },
-  { id: 'helm', name: 'HELM', role: 'Trader', color: '#ff6557', idle: 'Issuing BUY / SELL / HOLD.', x: '50%', y: '74%' },
-  { id: 'sentinel', name: 'SENTINEL', role: 'Guardrails', color: '#d6a56e', idle: '15% cap · stop · 5% halt.', x: '78%', y: '68%' },
+  { id: 'helm', name: 'HELM', role: 'Trader', color: '#ff6557', idle: 'Hunting +8–10% CAD today.', x: '50%', y: '74%' },
+  { id: 'sentinel', name: 'SENTINEL', role: 'Guardrails', color: '#d6a56e', idle: '25% cap · 5% loss halt · lock at +10%.', x: '78%', y: '68%' },
 ] as const
 
 const STAGES = AGENTS.map((a) => a.id)
@@ -133,6 +144,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
   const [selected, setSelected] = useState<(typeof AGENTS)[number]['id']>('helm')
   const [phase, setPhase] = useState<(typeof AGENTS)[number]['id'] | 'idle' | 'done'>('idle')
   const [showVars, setShowVars] = useState(false)
+  const runningRef = useRef(false)
 
   const loadStatus = async () => {
     const res = await fetch('/api/tradebot/status', { credentials: 'include' })
@@ -173,6 +185,8 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
   }, [running])
 
   const runCycle = async () => {
+    if (runningRef.current) return
+    runningRef.current = true
     setRunning(true)
     setError('')
     try {
@@ -188,15 +202,34 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
       setError(err instanceof Error ? err.message : 'Paper cycle failed.')
       setPhase('idle')
     } finally {
+      runningRef.current = false
       setRunning(false)
     }
   }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- one stale-cycle kick; runCycle is guarded by runningRef
+  useEffect(() => {
+    if (!status?.paper || loading) return
+    const last = status.lastCycle?.ranAt
+    const age = last ? Date.now() - Date.parse(last) : Number.POSITIVE_INFINITY
+    const maxAge = (status.cycleMinutes || 60) * 60_000
+    if (!(age >= maxAge)) return
+    const t = window.setTimeout(() => {
+      void runCycle()
+    }, 1500)
+    return () => window.clearTimeout(t)
+  }, [status?.paper, loading])
 
   const agent = AGENTS.find((a) => a.id === selected) || AGENTS[4]
   const ledger = cycle?.ledger || status?.ledger
   const equity = cycle?.equity ?? status?.equity
   const cash = cycle?.cash ?? ledger?.cash
   const paperReady = Boolean(status?.paper)
+  const startCad = status?.startingCad || 100
+  const goalMin = status?.dailyProfitTargetMinPct || 8
+  const goalMax = status?.dailyProfitTargetMaxPct || 10
+  const dayPnl = cycle?.dayPnlPct ?? status?.dayPnlPct
+  const dayOpen = cycle?.dayStartEquity ?? ledger?.dayStartEquity ?? startCad
   const quote = status?.quoteProbe
   const cryptoQuote = status?.cryptoProbe
   const universe = cycle?.scan?.universe || status?.universe?.universe || 0
@@ -285,9 +318,15 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
 
       <section className="tb-tickers">
         <div className="tb-ticker">
-          <small>TRADING AGENT / PAPER PNL</small>
+          <small>PAPER NAV / START {cad(startCad)}</small>
           <b>{typeof equity === 'number' ? cad(equity) : '—'}</b>
-          <em>CASH {typeof cash === 'number' ? cad(cash) : '—'} · START CA$100</em>
+          <em>
+            CASH {typeof cash === 'number' ? cad(cash) : '—'} · OPEN {cad(dayOpen)} · DAY{' '}
+            {typeof dayPnl === 'number'
+              ? `${dayPnl >= 0 ? '+' : ''}${dayPnl.toFixed(2)}%`
+              : '—'}{' '}
+            · GOAL +{goalMin}–{goalMax}%
+          </em>
         </div>
         <div className="tb-ticker">
           <small>CRYPTO HUNT / NEW + MEMES</small>
@@ -370,7 +409,9 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
             <div>
               <small>DECK 07 · CANADA STATION · {running ? 'CYCLE' : 'NETWORK ACTIVE'}</small>
               <h2>Operations Floor</h2>
-              <p className="tb-muted">SCOUT hunts new coins and memes for short-term CAD paper pops. ARCHIVE blocks rugs. HELM scales out fast.</p>
+              <p className="tb-muted">
+                CA${startCad} fake CAD. HELM targets +{goalMin}–{goalMax}% today. SENTINEL locks new buys at +{goalMax}% and halts at −5%.
+              </p>
             </div>
             <button type="button" className="tb-run" onClick={runCycle} disabled={running || !paperReady}>
               {running ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
@@ -421,6 +462,11 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           </div>
 
           {cycle?.halted ? <p className="tb-err">{cycle.haltReason}</p> : null}
+          {cycle?.profitLocked || status?.profitLocked ? (
+            <p className="tb-muted" style={{ marginTop: 8 }}>
+              Daily profit lock — book is at or above +{goalMax}%. New buys are off until Toronto tomorrow.
+            </p>
+          ) : null}
         </section>
 
         <aside className="tb-rail tb-right">
@@ -499,7 +545,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
       ) : null}
 
       <div className="tb-dev" style={{ position: 'relative', zIndex: 2 }}>
-        <b>OPERATOR NOTE</b> — Paper CAD crypto only. Hunts new coins and memes. Set TRADEBOT_PAPER=true.
+        <b>OPERATOR NOTE</b> — Paper CAD {cad(startCad)}. Daily goal +{goalMin}–{goalMax}%. Hourly cron + Run cycle. Set TRADEBOT_PAPER=true.
         <button type="button" className="tb-copy" style={{ marginLeft: 10 }} onClick={() => setShowVars((v) => !v)}>
           {showVars ? 'HIDE ENV' : 'SHOW ENV'}
         </button>

@@ -102,6 +102,8 @@ export const TRADEBOT_ENV_CATALOG: TradebotEnvItem[] = [
       'TRADEBOT_CRYPTO_WATCHLIST',
       'TRADEBOT_CYCLE_MINUTES',
       'TRADEBOT_STARTING_CAD',
+      'TRADEBOT_DAILY_PROFIT_MIN_PCT',
+      'TRADEBOT_DAILY_PROFIT_MAX_PCT',
       'TRADEBOT_SCAN_ALL',
       'TRADEBOT_CRYPTO',
       'TRADEBOT_CRYPTO_ONLY',
@@ -113,7 +115,7 @@ export const TRADEBOT_ENV_CATALOG: TradebotEnvItem[] = [
       'COINGECKO_PRO_API_KEY',
       'COINGECKO_USE_PRO',
     ],
-    purpose: 'Defaults: crypto-only CAD paper, hunt new/meme coins, 5% daily halt, 15% max per name, CA$100.',
+    purpose: 'Defaults: CA$100 paper, 8–10% daily profit goal, 5% daily loss halt, 25% max per name.',
   },
   {
     id: 'ibkr',

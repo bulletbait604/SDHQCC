@@ -3,6 +3,10 @@
     {
       "path": "/api/algorithms/update",
       "schedule": "0 8 1 * *"
+    },
+    {
+      "path": "/api/tradebot/cycle",
+      "schedule": "0 14 * * *"
     }
   ],
   "functions": {
