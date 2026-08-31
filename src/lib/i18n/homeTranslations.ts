@@ -22,6 +22,9 @@ export const homeTranslations = {
     trendingVids: 'Trending Vids',
     trendingVidsDesc:
       'Pick a platform. We search the live web via Google and list the top 5 trends — videos and topics for YouTube and other video apps.',
+    tradeBot: 'TradeBot',
+    tradeBotDesc:
+      'Canada paper lab in CAD. TSX session, CAD watchlist, setup status, and daily cost — no live broker until you enable it.',
     rndPickTool: 'R&D — owner only · pick a tool below',
     backgroundRemover: 'Background Remover',
     backgroundRemoverDesc:
@@ -80,6 +83,9 @@ export const homeTranslations = {
     trendingVids: 'Vids en tendencia',
     trendingVidsDesc:
       'Elige una plataforma. Buscamos en la web en vivo con Google y listamos las 5 tendencias — vídeos y temas para YouTube y otras apps de vídeo.',
+    tradeBot: 'TradeBot',
+    tradeBotDesc:
+      'Laboratorio paper en Canadá (CAD). Sesión TSX, lista CAD, estado de cuentas y coste diario — sin bróker en vivo hasta que lo actives.',
     rndPickTool: 'I+D — solo propietario · elige una herramienta abajo',
     backgroundRemover: 'Eliminador de fondo',
     backgroundRemoverDesc:
@@ -138,6 +144,9 @@ export const homeTranslations = {
     trendingVids: 'Vids tendances',
     trendingVidsDesc:
       'Choisissez une plateforme. On cherche le web en direct via Google et on liste les 5 tendances — vidéos et sujets pour YouTube et les autres apps vidéo.',
+    tradeBot: 'TradeBot',
+    tradeBotDesc:
+      'Labo paper Canada en CAD. Séance TSX, liste CAD, état des comptes et coût quotidien — aucun courtier réel tant que vous ne l’activez pas.',
     rndPickTool: 'R&D — propriétaire seulement · choisissez un outil ci-dessous',
     backgroundRemover: 'Suppression d’arrière-plan',
     backgroundRemoverDesc:
@@ -196,6 +205,9 @@ export const homeTranslations = {
     trendingVids: 'Trend-Vids',
     trendingVidsDesc:
       'Plattform wählen. Wir durchsuchen das Live-Web über Google und listen die Top 5 Trends — Videos und Themen für YouTube und andere Video-Apps.',
+    tradeBot: 'TradeBot',
+    tradeBotDesc:
+      'Kanada-Paper-Labor in CAD. TSX-Sitzung, CAD-Watchlist, Kontostatus und Tageskosten — kein Live-Broker, bis Sie es freigeben.',
     rndPickTool: 'F&E — nur Owner · Werkzeug unten wählen',
     backgroundRemover: 'Hintergrund entfernen',
     backgroundRemoverDesc:

@@ -14,6 +14,7 @@ import AnalyzeTab from '@/app/components/AnalyzeTab'
 import GoingLiveTab from '@/app/components/GoingLiveTab'
 import TrendingVidsTab from '@/app/components/TrendingVidsTab'
 import ViralClipGenTab from '@/app/components/ViralClipGenTab'
+import TradeBotTab from '@/app/components/TradeBotTab'
 import KickClipsComingSoon from '@/app/components/KickClipsComingSoon'
 import SettingsTab from '@/app/components/SettingsTab'
 import type { ActivityLogEntry, HomeLanguage, KickUser, Platform } from '@/lib/home/types'
@@ -332,19 +333,27 @@ export default function HomeMainTabs({
             onValueChange={(v) => onRndSubTabChange(v as RdSubTab)}
             className="space-y-4"
           >
-            <div className={`${cardClasses} p-4 sm:p-6`}>
+            <div
+              className={cn(
+                cardClasses,
+                rndSubTab === 'tradebot' ? 'overflow-hidden p-0' : 'p-4 sm:p-6'
+              )}
+            >
+              <div className={rndSubTab === 'tradebot' ? 'p-4 sm:p-6 pb-3' : undefined}>
               <RdTabHeader
                 activeSubTab={rndSubTab}
                 labels={{
                   viralClipGen: t.viralClipGen || 'Viral Clip Gen',
                   trendingVids: t.trendingVids || 'Trending Vids',
                   goingLive: t.goingLive || 'Going Live',
+                  tradeBot: t.tradeBot || 'TradeBot',
                 }}
                 pickToolLabel={t.rndPickTool}
                 darkMode={darkMode}
                 tabListClasses={createSubTabListClasses}
                 tabTriggerClasses={tabTriggerClasses}
               />
+              </div>
 
               <TabsContent value="viral-clip-gen">
                 <ViralClipGenTab
@@ -381,6 +390,17 @@ export default function HomeMainTabs({
                     'Upload references, pick platforms and a vibe, then get a stream title, social posts, and posters.'
                   }
                   user={user}
+                />
+              </TabsContent>
+
+              <TabsContent value="tradebot" className="mt-0">
+                <TradeBotTab
+                  darkMode={darkMode}
+                  subtitleClasses={subtitleClasses}
+                  description={
+                    t.tradeBotDesc ||
+                    'Canada paper lab in CAD. TSX session, CAD watchlist, setup status, and daily cost.'
+                  }
                 />
               </TabsContent>
             </div>

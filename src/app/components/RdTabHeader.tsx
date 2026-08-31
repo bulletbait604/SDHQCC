@@ -1,21 +1,23 @@
 'use client'
 
-import { Clapperboard, RadioTower, TrendingUp } from 'lucide-react'
+import { Bot, Clapperboard, RadioTower, TrendingUp } from 'lucide-react'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
-export type RdSubTab = 'going-live' | 'trending-vids' | 'viral-clip-gen'
+export type RdSubTab = 'going-live' | 'trending-vids' | 'viral-clip-gen' | 'tradebot'
 
 type RdLabels = {
   goingLive: string
   trendingVids: string
   viralClipGen: string
+  tradeBot: string
 }
 
 const SUB_TAB_META: Record<RdSubTab, { icon: typeof Clapperboard; shortLabel: string }> = {
   'viral-clip-gen': { icon: Clapperboard, shortLabel: 'Viral' },
   'trending-vids': { icon: TrendingUp, shortLabel: 'Trends' },
   'going-live': { icon: RadioTower, shortLabel: 'Live' },
+  tradebot: { icon: Bot, shortLabel: 'Bot' },
 }
 
 export function rdTabTitle(subTab: RdSubTab, labels: RdLabels): string {
@@ -26,6 +28,8 @@ export function rdTabTitle(subTab: RdSubTab, labels: RdLabels): string {
       return labels.trendingVids
     case 'going-live':
       return labels.goingLive
+    case 'tradebot':
+      return labels.tradeBot
   }
 }
 
@@ -56,6 +60,8 @@ export default function RdTabHeader({
         return labels.trendingVids
       case 'going-live':
         return labels.goingLive
+      case 'tradebot':
+        return labels.tradeBot
     }
   }
 
@@ -69,7 +75,7 @@ export default function RdTabHeader({
       </div>
       <TabsList
         className={cn(
-          'grid h-auto w-full max-w-3xl mx-auto grid-cols-3 mb-6 rounded-xl p-1',
+          'grid h-auto w-full max-w-4xl mx-auto grid-cols-2 sm:grid-cols-4 mb-6 rounded-xl p-1',
           tabListClasses
         )}
       >

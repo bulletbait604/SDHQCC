@@ -26,6 +26,9 @@
     },
     "src/app/api/viral-clip-gen/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/tradebot/cycle/route.ts": {
+      "maxDuration": 120
     }
   }
 }
