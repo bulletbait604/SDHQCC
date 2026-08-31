@@ -92,15 +92,16 @@ export function featuredLiveMark<T extends { symbol: string }>(
 }
 
 function mostCommonReason(reasons: string[]): string {
-  const counts = new Map<string, number>()
+  const counts: Record<string, number> = {}
   for (const reason of reasons) {
     const key = reason.trim()
     if (!key) continue
-    counts.set(key, (counts.get(key) || 0) + 1)
+    counts[key] = (counts[key] || 0) + 1
   }
   let best = ''
   let n = 0
-  for (const [reason, count] of counts) {
+  for (const reason of Object.keys(counts)) {
+    const count = counts[reason]
     if (count > n) {
       best = reason
       n = count

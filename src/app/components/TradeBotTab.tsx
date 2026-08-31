@@ -57,6 +57,29 @@ type DecisionRow = {
   } | null
 }
 
+type OpenOrderRow = {
+  txid: string
+  symbol: string
+  side: 'BUY' | 'SELL'
+  kind: 'entry' | 'stop' | 'take'
+  qty: number
+  price: number
+  placedAt: string
+}
+
+type LedgerView = {
+  id?: string
+  cash: number
+  positions: Position[]
+  openOrders?: OpenOrderRow[]
+  halted?: boolean
+  haltReason?: string
+  dayStartEquity?: number
+  startingEquity?: number
+  liveMode?: boolean
+  engineOn?: boolean
+}
+
 type CycleView = {
   ranAt: string
   halted: boolean
@@ -67,7 +90,7 @@ type CycleView = {
   dayPnlPct?: number
   profitLocked?: boolean
   dayStartEquity?: number
-  ledger: { id?: string; cash: number; positions: Position[]; halted?: boolean; haltReason?: string; dayStartEquity?: number; startingEquity?: number; liveMode?: boolean; engineOn?: boolean }
+  ledger: LedgerView
   decisions: DecisionRow[]
   scan?: {
     universe: number
@@ -93,26 +116,7 @@ type StatusResponse = {
   universe?: { universe: number; newListings: number; offset: number }
   providers: TradebotProviderStatus[]
   equity?: number | null
-  ledger?: {
-    id?: string
-    cash: number
-    positions: Position[]
-    openOrders?: Array<{
-      txid: string
-      symbol: string
-      side: 'BUY' | 'SELL'
-      kind: 'entry' | 'stop' | 'take'
-      qty: number
-      price: number
-      placedAt: string
-    }>
-    halted?: boolean
-    haltReason?: string
-    dayStartEquity?: number
-    startingEquity?: number
-    liveMode?: boolean
-    engineOn?: boolean
-  } | null
+  ledger?: LedgerView | null
   fills?: FillRow[]
   lastCycle?: CycleView | null
   startingCad?: number
