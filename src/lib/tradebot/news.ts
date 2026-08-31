@@ -44,6 +44,27 @@ export function newsQueryFor(symbol: string, name?: string): string {
   return name ? `${ticker} OR "${name}" TSX OR TSXV` : `${s} OR ${ticker} Canada stock`
 }
 
+const COIN_LABELS: Record<string, string> = {
+  BTC: 'bitcoin',
+  ETH: 'ethereum',
+  DOGE: 'dogecoin',
+  SOL: 'solana',
+  XRP: 'ripple',
+  ADA: 'cardano',
+  PEPE: 'pepe',
+  SHIB: 'shiba',
+  BONK: 'bonk',
+  WIF: 'dogwifhat',
+  FLOKI: 'floki',
+}
+
+export function headlinesTouchSymbol(symbol: string, titles: string[]): boolean {
+  const base = symbol.replace(/-CAD$/i, '').toUpperCase()
+  const label = COIN_LABELS[base] || base
+  const re = new RegExp(`\\b${base}\\b|\\b${label}\\b`, 'i')
+  return titles.some((t) => re.test(t))
+}
+
 function decodeXml(raw: string): string {
   return raw
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')

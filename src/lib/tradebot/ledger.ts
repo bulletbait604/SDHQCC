@@ -141,7 +141,7 @@ function freshLedger(id: string, startingCad: number, dayStartDate: string): Pap
     haltReason: '',
     engineOn: false,
     liveMode: false,
-    volatility: 'medium',
+    volatility: 'high',
     positions: [],
     openOrders: [],
     updatedAt: new Date().toISOString(),
@@ -161,24 +161,34 @@ function overlayDesk(book: PaperLedger, desk: DeskState): PaperLedger {
   return book
 }
 
+const HUNT_REV = 2
+
 async function loadDesk(col: Awaited<ReturnType<typeof ledgerCol>>): Promise<DeskState> {
   const desk = await col.findOne({ id: DESK_ID })
   if (desk) {
+    let volatility = parseVolatility(desk.volatility)
+    if (Number(desk.huntRev) !== HUNT_REV) {
+      volatility = 'high'
+      await col.updateOne(
+        { id: DESK_ID },
+        { $set: { volatility: 'high', huntRev: HUNT_REV, updatedAt: new Date().toISOString() } }
+      )
+    }
     return {
       liveMode: Boolean(desk.liveMode),
       engineOn: Boolean(desk.engineOn),
-      volatility: parseVolatility(desk.volatility),
+      volatility,
     }
   }
   const legacy = await col.findOne({ id: PAPER_LEDGER_ID })
   const state: DeskState = {
     liveMode: Boolean(legacy?.liveMode),
     engineOn: Boolean(legacy?.engineOn),
-    volatility: parseVolatility(legacy?.volatility),
+    volatility: 'high',
   }
   await col.updateOne(
     { id: DESK_ID },
-    { $set: { id: DESK_ID, ...state, updatedAt: new Date().toISOString() } },
+    { $set: { id: DESK_ID, ...state, huntRev: HUNT_REV, updatedAt: new Date().toISOString() } },
     { upsert: true }
   )
   return state

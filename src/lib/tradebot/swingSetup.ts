@@ -1,6 +1,8 @@
 import type { DailyBar } from '@/lib/tradebot/quotes'
 import { KRAKEN_MAKER_BPS_DEFAULT, KRAKEN_TAKER_BPS_DEFAULT, minTakePct, roundTripPct } from '@/lib/tradebot/fees'
 import { ema, rsi } from '@/lib/tradebot/indicators'
+import { isMemeTicker } from '@/lib/tradebot/opportunity'
+import type { NewsTone } from '@/lib/tradebot/news'
 import { parseVolatility, type VolatilityLevel, volatilityProfile } from '@/lib/tradebot/volatility'
 
 const HOUR_MS = 60 * 60 * 1000
@@ -118,7 +120,7 @@ export function swingEntry(input: {
   if (!higherTfUptrend(hourCloses)) return fail('Hourly trend is not up. No countertrend scalps.')
 
   const isBtc = input.symbol.toUpperCase() === 'BTC-CAD'
-  if (!isBtc && input.btcHourCloses && input.btcHourCloses.length >= 24) {
+  if (!isBtc && vol.level === 'low' && input.btcHourCloses && input.btcHourCloses.length >= 24) {
     if (!higherTfUptrend(input.btcHourCloses)) return fail('Bitcoin hourly trend is down — skip alts.')
   }
 
@@ -156,5 +158,70 @@ export function swingEntry(input: {
     takePct,
     scoreBoost,
     reason: `${name}: hourly trend up, 15m reversal off the swing low, RSI turning up. Stop ${(stopPct * 100).toFixed(1)}% / take ${(takePct * 100).toFixed(1)}%.`,
+  }
+}
+
+export function changeFromBars(bars: DailyBar[], barsBack: number): number {
+  if (bars.length <= barsBack) return 0
+  const now = bars[bars.length - 1].c
+  const then = bars[bars.length - 1 - barsBack].c
+  return then > 0 ? ((now - then) / then) * 100 : 0
+}
+
+/** News / fluctuation continuation — not a textbook dip. Low tab never uses this. */
+export function hotEntry(input: {
+  symbol: string
+  bars15: DailyBar[]
+  price: number
+  dayChangePct: number
+  spreadPct?: number
+  volume24h?: number
+  newsTone?: NewsTone
+  btcDayChangePct?: number
+  volatility?: VolatilityLevel
+}): SwingEntry {
+  const fail = (reason: string): SwingEntry => ({ ok: false, stopPct: 0, takePct: 0, reason, scoreBoost: 0 })
+  const vol = volatilityProfile(parseVolatility(input.volatility))
+  if (vol.level === 'low') return fail('Low tab only buys dips in BTC/ETH.')
+  const bars = input.bars15.filter((b) => b.c > 0 && b.h >= b.l)
+  if (bars.length < 8) return fail('Not enough tape to read a move.')
+  if (input.newsTone === 'negative') return fail('News is negative — skip.')
+  const lastBar = bars[bars.length - 1]
+  const closes = bars.map((b) => b.c)
+  const rsiNow = rsi(closes) ?? 52
+  const spreadOk = input.spreadPct == null || input.spreadPct <= vol.maxSpreadPct
+  const maxDay = vol.level === 'high' ? 24 : 16
+  const minDay = vol.level === 'high' ? 0.6 : 0.4
+  if (!spreadOk) return fail('Spread is too wide for a maker buy.')
+  if (input.dayChangePct < minDay) return fail('No real-world move yet — waiting for a fluctuation.')
+  if (input.dayChangePct > maxDay) return fail('Already exploded today — too late to chase.')
+  if (rsiNow < 22 || rsiNow > 85) return fail('RSI is not a continuation buy.')
+  if (lastBar.c < lastBar.o) return fail('15m is still red.')
+  const barRun = lastBar.o > 0 ? (lastBar.c - lastBar.o) / lastBar.o : 0
+  if (barRun > 0.055) return fail('Last 15m already ran too far to chase.')
+  const isBtc = input.symbol.toUpperCase() === 'BTC-CAD'
+  if (!isBtc && input.btcDayChangePct != null && input.btcDayChangePct < -4 && input.newsTone !== 'positive') {
+    return fail('Bitcoin is dumping without a coin-specific news reason.')
+  }
+  if (input.volume24h != null && input.volume24h < 5_000) return fail('Too little volume to trust the move.')
+
+  const px = input.price > 0 ? input.price : lastBar.c
+  const stopPct = vol.stopPct
+  const takePct = Math.max(vol.takePct, minTakePct())
+  const rr = afterFeeRR(takePct, stopPct)
+  if (rr < MIN_NET_RR) return fail(`After-fee reward/risk ${rr.toFixed(2)} is below ${MIN_NET_RR}.`)
+
+  const hour = changeFromBars(bars, 4)
+  const newsBoost = input.newsTone === 'positive' ? 8 : 0
+  const memeBoost = isMemeTicker(input.symbol) ? 5 : 0
+  const scoreBoost = input.dayChangePct * 0.5 + hour * 0.35 + newsBoost + memeBoost
+  const name = input.symbol.replace(/-CAD$/i, '')
+  const newsBit = input.newsTone === 'positive' ? 'positive news' : 'a live market move'
+  return {
+    ok: true,
+    stopPct,
+    takePct,
+    scoreBoost,
+    reason: `${name}: ${newsBit}, ${input.dayChangePct >= 0 ? '+' : ''}${input.dayChangePct.toFixed(1)}% on the day. Stop ${(stopPct * 100).toFixed(1)}% / take ${(takePct * 100).toFixed(1)}%.`,
   }
 }

@@ -9,6 +9,7 @@ import {
   higherTfUptrend,
   recentSwingLow,
   swingEntry,
+  hotEntry,
 } from '@/lib/tradebot/swingSetup'
 
 function bar(i: number, o: number, h: number, l: number, c: number): DailyBar {
@@ -96,7 +97,23 @@ test('rejects mid-range price even if 15m EMAs are still up', () => {
   assert.equal(got.ok, false)
 })
 
-test('alts stay flat when bitcoin hourly trend is down', () => {
+test('alts stay flat on Low when bitcoin hourly trend is down', () => {
+  const bars = swingTape()
+  const last = bars[bars.length - 1]
+  const btcDown = Array.from({ length: 40 }, (_, i) => 80_000 - i * 200)
+  const got = swingEntry({
+    symbol: 'SOL-CAD',
+    bars15: bars,
+    price: last.c,
+    dayChangePct: 0.4,
+    spreadPct: 0.08,
+    btcHourCloses: btcDown,
+    volatility: 'low',
+  })
+  assert.equal(got.ok, false)
+})
+
+test('medium still takes a swing when bitcoin hourly is down', () => {
   const bars = swingTape()
   const last = bars[bars.length - 1]
   const btcDown = Array.from({ length: 40 }, (_, i) => 80_000 - i * 200)
@@ -109,7 +126,7 @@ test('alts stay flat when bitcoin hourly trend is down', () => {
     btcHourCloses: btcDown,
     volatility: 'medium',
   })
-  assert.equal(got.ok, false)
+  assert.equal(got.ok, true, got.reason)
 })
 
 test('after-fee reward/risk on a 7.5% take / 2% stop is at least 2R', () => {
@@ -147,4 +164,45 @@ test('still buys the dip when the 15m EMA has already rolled over', () => {
     volatility: 'medium',
   })
   assert.equal(got.ok, true, got.reason)
+})
+
+test('hot entry buys a live move without an hourly uptrend', () => {
+  const bars: DailyBar[] = []
+  let px = 100
+  for (let i = 0; i < 12; i++) {
+    const n = px * 1.001
+    bars.push(bar(i, px, n * 1.0004, px * 0.9996, n))
+    px = n
+  }
+  const close = px * 1.004
+  bars.push(bar(12, px * 0.9994, close * 1.0002, px * 0.9988, close))
+  const last = bars[bars.length - 1]
+  const got = hotEntry({
+    symbol: 'PEPE-CAD',
+    bars15: bars,
+    price: last.c,
+    dayChangePct: 4.2,
+    spreadPct: 0.12,
+    volume24h: 80_000,
+    newsTone: 'positive',
+    btcDayChangePct: -0.4,
+    volatility: 'high',
+  })
+  assert.equal(got.ok, true, got.reason)
+})
+
+test('hot entry skips negative news', () => {
+  const bars = swingTape()
+  const last = bars[bars.length - 1]
+  const got = hotEntry({
+    symbol: 'PEPE-CAD',
+    bars15: bars,
+    price: last.c,
+    dayChangePct: 6,
+    spreadPct: 0.1,
+    volume24h: 90_000,
+    newsTone: 'negative',
+    volatility: 'high',
+  })
+  assert.equal(got.ok, false)
 })

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { isHighPotential, isMemeTicker, opportunityScore, shortTermScore } from '@/lib/tradebot/opportunity'
-import { parseRssItems, toneFromHeadlines } from '@/lib/tradebot/news'
+import { parseRssItems, toneFromHeadlines, headlinesTouchSymbol } from '@/lib/tradebot/news'
 
 test('meme and 1h squeeze outrank a dumping major', () => {
   const meme = shortTermScore({
@@ -80,6 +80,11 @@ test('headline tone picks up catalysts and fraud language', () => {
   assert.equal(toneFromHeadlines(['Pair lists on Kraken after mainnet upgrade']), 'positive')
   assert.equal(toneFromHeadlines(['Market closed for a holiday']), 'quiet')
   assert.equal(toneFromHeadlines(['Devs rug the liquidity pool']), 'negative')
+})
+
+test('tape headlines match a coin by ticker', () => {
+  assert.equal(headlinesTouchSymbol('PEPE-CAD', ['PEPE listing sparks meme coin rally']), true)
+  assert.equal(headlinesTouchSymbol('BTC-CAD', ['Solana meme coins jump']), false)
 })
 
 test('parses Google-style RSS items', () => {

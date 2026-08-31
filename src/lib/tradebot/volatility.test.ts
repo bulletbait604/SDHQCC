@@ -15,7 +15,9 @@ test('high hunts more names and wider moves than low', () => {
   assert.ok(high.maxDayChangePct > low.maxDayChangePct)
   assert.ok(high.takePct > low.takePct)
   assert.ok(high.symbols.includes('DOGE-CAD'))
+  assert.ok(high.symbols.includes('PEPE-CAD'))
   assert.ok(!low.symbols.includes('DOGE-CAD'))
+  assert.ok(high.maxPairs > 18)
   assert.equal(low.maxOpen, 1)
   assert.equal(high.maxOpen, 1)
   assert.ok(low.takePct >= 0.08)
@@ -25,7 +27,7 @@ test('high hunts more names and wider moves than low', () => {
 })
 
 test('rejects an extended spike on every tab', () => {
-  const spike = { rsi: 72, ema9: 2, ema21: 1.9, macd: 0.02, dayChangePct: 12 }
+  const spike = { rsi: 88, ema9: 2, ema21: 1.9, macd: 0.02, dayChangePct: 40 }
   assert.equal(liveBuyOk({ ...spike, volatility: 'low' }), false)
   assert.equal(liveBuyOk({ ...spike, volatility: 'high' }), false)
 })

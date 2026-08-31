@@ -18,11 +18,13 @@ import {
   savePaperLedger,
 } from '@/lib/tradebot/ledger'
 import type { CycleDecision, TradeOrderProposal } from '@/lib/tradebot/models'
-import { liveEntryScore, rankLiveBuys, recentlyBought, recentlyStopped, deskWaitNote } from '@/lib/tradebot/liveTapeRank'
-import { barsToHourly, swingEntry } from '@/lib/tradebot/swingSetup'
+import { liveEntryScore, liveHotScore, rankLiveBuys, recentlyBought, recentlyStopped, deskWaitNote } from '@/lib/tradebot/liveTapeRank'
+import { isMemeTicker } from '@/lib/tradebot/opportunity'
+import { fetchIndustryTape, fetchNewsForNames, headlinesTouchSymbol, type NewsTone } from '@/lib/tradebot/news'
+import { barsToHourly, changeFromBars, hotEntry, swingEntry } from '@/lib/tradebot/swingSetup'
 import { executeHardExits, pinStopsTakes, rollTorontoDay, swingLevels, trailStops } from '@/lib/tradebot/runtime'
 import { getTradebotSettings, isPlacingLiveOrders, isTradebotDeskEnabled } from '@/lib/tradebot/settings'
-import { parseVolatility, volatilityProfile } from '@/lib/tradebot/volatility'
+import { isMajorCad, parseVolatility, volatilityProfile } from '@/lib/tradebot/volatility'
 import { placeManagedFill, reconcileKrakenOrders, replaceNativeStop, syncLiveCash } from '@/lib/tradebot/venue'
 
 export { rankLiveBuys } from '@/lib/tradebot/liveTapeRank'
@@ -57,22 +59,86 @@ export type TickResult = {
   huntNote: string
 }
 
-let ohlcCache: { at: number; bars: Record<string, DailyBar[]> } | null = null
+let ohlcCache: { at: number; key: string; bars: Record<string, DailyBar[]> } | null = null
+
+async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length)
+  let i = 0
+  const worker = async () => {
+    while (i < items.length) {
+      const idx = i++
+      out[idx] = await fn(items[idx])
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) || 1 }, () => worker()))
+  return out
+}
 
 async function loadHuntBars(pairs: CryptoPair[]): Promise<Record<string, DailyBar[]>> {
-  if (ohlcCache && Date.now() - ohlcCache.at < 90_000) return ohlcCache.bars
+  const key = pairs
+    .map((p) => p.symbol)
+    .sort()
+    .join(',')
+  if (ohlcCache && ohlcCache.key === key && Date.now() - ohlcCache.at < 90_000) return ohlcCache.bars
   const fx = pairs.some((p) => !p.nativeCad) ? await usdCadRate().catch(() => 1) : 1
   const bars: Record<string, DailyBar[]> = {}
-  for (const pair of pairs) {
+  await mapPool(pairs, 5, async (pair) => {
     try {
       const tape = await fetchKrakenOhlc(pair, fx, 15)
       bars[pair.symbol] = tape.bars
     } catch {
       /* skip pair */
     }
-  }
-  ohlcCache = { at: Date.now(), bars }
+  })
+  ohlcCache = { at: Date.now(), key, bars }
   return bars
+}
+
+function pickTapeSymbols(markets: CryptoMarket[], held: string[], max = 14): string[] {
+  const ranked = [...markets].sort((a, b) => {
+    const score = (m: CryptoMarket) =>
+      Math.abs(m.dayChangePct) +
+      Math.log10(m.volume24h + 10) +
+      (isMemeTicker(m.pair.symbol) ? 6 : 0) -
+      (isMajorCad(m.pair.symbol) ? 4 : 0)
+    return score(b) - score(a)
+  })
+  const out = new Set<string>(['BTC-CAD', ...held])
+  for (const m of ranked) {
+    out.add(m.pair.symbol)
+    if (out.size >= max) break
+  }
+  return Array.from(out)
+}
+
+let newsCache: { at: number; key: string; tone: Record<string, NewsTone> } | null = null
+
+async function loadHuntNews(symbols: string[]): Promise<Record<string, NewsTone>> {
+  const key = [...symbols].sort().join(',')
+  if (newsCache && newsCache.key === key && Date.now() - newsCache.at < 180_000) return newsCache.tone
+  const tone: Record<string, NewsTone> = {}
+  try {
+    const [nameNews, tape] = await Promise.all([
+      fetchNewsForNames(symbols.slice(0, 8).map((symbol) => ({ symbol }))),
+      fetchIndustryTape().catch(() => []),
+    ])
+    const tapeTitles = tape.map((h) => h.title)
+    for (const row of nameNews) {
+      let t = row.tone
+      if (t === 'quiet' && headlinesTouchSymbol(row.symbol, tapeTitles)) {
+        t = 'mixed'
+      }
+      tone[row.symbol] = t
+    }
+    for (const symbol of symbols) {
+      if (tone[symbol]) continue
+      if (headlinesTouchSymbol(symbol, tapeTitles)) tone[symbol] = 'mixed'
+    }
+  } catch {
+    /* hunt without news */
+  }
+  newsCache = { at: Date.now(), key, tone }
+  return tone
 }
 
 let heldOhlcCache: { at: number; key: string; closes: Record<string, number[]> } | null = null
@@ -277,7 +343,14 @@ export async function runPaperTick(): Promise<TickResult> {
     }
   }
 
-  const huntBars = await loadHuntBars(pairs)
+  const huntSymbols = pickTapeSymbols(
+    markets,
+    ledger.positions.map((p) => p.symbol),
+    vol.level === 'low' ? 4 : 14
+  )
+  const huntPairs = pairs.filter((p) => huntSymbols.includes(p.symbol))
+  const huntBars = await loadHuntBars(huntPairs)
+  const newsTone = vol.level === 'low' ? {} : await loadHuntNews(huntSymbols)
   const liveEquity = markToMarket(ledger, prices)
   const livePnl = dayPnlPct(liveEquity, ledger.dayStartEquity)
   const recentFills = await listRecentFills(20, ledger.id)
@@ -285,6 +358,7 @@ export async function runPaperTick(): Promise<TickResult> {
     (ledger.openOrders || []).filter((o) => o.kind === 'entry' && o.side === 'BUY').map((o) => o.symbol)
   )
   const btcHourCloses = barsToHourly(huntBars['BTC-CAD'] || []).map((b) => b.c)
+  const btcDayChangePct = markets.find((m) => m.pair.symbol === 'BTC-CAD')?.dayChangePct
 
   const held = new Set(ledger.positions.map((p) => p.symbol))
   const cooldown = recentlyBought(recentFills)
@@ -299,11 +373,14 @@ export async function runPaperTick(): Promise<TickResult> {
   const skipReasons: string[] = []
   let buyError = ''
   if (canBuy) {
-    const scored = markets.map((m) => {
+    const scored = markets
+      .filter((m) => huntSymbols.includes(m.pair.symbol))
+      .map((m) => {
       const bars15 = huntBars[m.pair.symbol] || []
       const series = bars15.map((b) => b.c)
       const rsiNow = rsi(series) ?? 52
-      const setup = swingEntry({
+      const news = newsTone[m.pair.symbol]
+      const swing = swingEntry({
         symbol: m.pair.symbol,
         bars15,
         price: m.bid > 0 ? m.bid : m.quote.price,
@@ -312,13 +389,32 @@ export async function runPaperTick(): Promise<TickResult> {
         btcHourCloses,
         volatility: vol.level,
       })
+      const hot = hotEntry({
+        symbol: m.pair.symbol,
+        bars15,
+        price: m.bid > 0 ? m.bid : m.quote.price,
+        dayChangePct: m.dayChangePct,
+        spreadPct: m.spreadPct,
+        volume24h: m.volume24h,
+        newsTone: news,
+        btcDayChangePct,
+        volatility: vol.level,
+      })
+      const setup = [swing, hot]
+        .filter((s) => s.ok)
+        .sort((a, b) => b.scoreBoost - a.scoreBoost)[0] || swing
       const blocked = recentlyStopped(recentFills, m.pair.symbol) || pendingEntry.has(m.pair.symbol)
       const reason = blocked
         ? recentlyStopped(recentFills, m.pair.symbol)
           ? 'Cooldown after a stop on this coin.'
           : 'Maker buy already resting.'
-        : setup.reason
+        : setup.ok
+          ? setup.reason
+          : vol.level === 'low'
+            ? swing.reason
+            : hot.reason
       skipReasons.push(reason)
+      const useHot = hot.ok && (!swing.ok || hot.scoreBoost >= swing.scoreBoost)
       return {
         symbol: m.pair.symbol,
         dayChangePct: m.dayChangePct,
@@ -328,10 +424,15 @@ export async function runPaperTick(): Promise<TickResult> {
         reason,
         score:
           setup.ok && !blocked
-            ? liveEntryScore(
-                { symbol: m.pair.symbol, dayChangePct: m.dayChangePct, volume24h: m.volume24h, rsi: rsiNow },
-                vol.level
-              ) + setup.scoreBoost
+            ? (useHot
+                ? liveHotScore(
+                    { symbol: m.pair.symbol, dayChangePct: m.dayChangePct, volume24h: m.volume24h },
+                    { newsTone: news, change1h: changeFromBars(bars15, 4) }
+                  )
+                : liveEntryScore(
+                    { symbol: m.pair.symbol, dayChangePct: m.dayChangePct, volume24h: m.volume24h, rsi: rsiNow },
+                    vol.level
+                  )) + setup.scoreBoost
             : 0,
       }
     })

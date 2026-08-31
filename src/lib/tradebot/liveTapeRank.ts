@@ -1,4 +1,5 @@
 import { BUY_COOLDOWN_MS, MAX_SPREAD_PCT_DEFAULT, STOP_COOLDOWN_MS } from '@/lib/tradebot/fees'
+import { isMemeTicker } from '@/lib/tradebot/opportunity'
 import { isMajorCad, parseVolatility, type VolatilityLevel, volatilityProfile } from '@/lib/tradebot/volatility'
 
 export function liveBuyOk(input: {
@@ -18,7 +19,7 @@ export function liveBuyOk(input: {
   const moveOk = input.dayChangePct >= p.minDayChangePct && input.dayChangePct <= p.maxDayChangePct
   const maxSpread = p.maxSpreadPct ?? MAX_SPREAD_PCT_DEFAULT
   const spreadOk = input.spreadPct == null || input.spreadPct <= maxSpread
-  return trendUp && rsiOk && macdOk && moveOk && spreadOk
+  return (p.requireEma ? trendUp : true) && rsiOk && macdOk && moveOk && spreadOk
 }
 
 /** Kept for tests; the live tape no longer fade-sells open winners. */
@@ -32,12 +33,33 @@ export function liveEntryScore(
 ): number {
   const p = volatilityProfile(volatility)
   const rsi = market.rsi ?? (p.rsiMin + p.rsiMax) / 2
-  const pullback = Math.max(0, p.rsiMax - rsi)
-  let score = pullback * 0.45 + Math.log10(market.volume24h + 10)
-  if (isMajorCad(market.symbol)) score += p.majorScoreBoost
-  if (market.dayChangePct > 0 && market.dayChangePct < p.maxDayChangePct * 0.35) score += 0.4
-  if (market.dayChangePct > p.maxDayChangePct * 0.55) score -= 3
-  score += Math.max(0, -market.dayChangePct) * p.moveScoreBoost
+  let score = Math.log10(market.volume24h + 10)
+  if (p.preferMomentum) {
+    score += Math.max(0, market.dayChangePct) * p.moveScoreBoost
+    if (isMemeTicker(market.symbol)) score += 6
+    if (isMajorCad(market.symbol)) score += p.majorScoreBoost
+    if (market.dayChangePct > p.maxDayChangePct * 0.85) score -= 4
+  } else {
+    const pullback = Math.max(0, p.rsiMax - rsi)
+    score += pullback * 0.45
+    if (isMajorCad(market.symbol)) score += p.majorScoreBoost
+    if (market.dayChangePct > 0 && market.dayChangePct < p.maxDayChangePct * 0.35) score += 0.4
+    if (market.dayChangePct > p.maxDayChangePct * 0.55) score -= 3
+    score += Math.max(0, -market.dayChangePct) * p.moveScoreBoost
+  }
+  return Number(score.toFixed(3))
+}
+
+export function liveHotScore(
+  market: { symbol: string; dayChangePct: number; volume24h: number },
+  extra?: { newsTone?: string; change1h?: number }
+): number {
+  let score = Math.log10(market.volume24h + 10) + Math.max(0, market.dayChangePct) * 0.45
+  if (isMajorCad(market.symbol)) score -= 5
+  if (isMemeTicker(market.symbol)) score += 6
+  if (extra?.newsTone === 'positive') score += 8
+  if (extra?.newsTone === 'negative') score -= 20
+  if ((extra?.change1h || 0) > 0.8) score += (extra?.change1h || 0) * 0.5
   return Number(score.toFixed(3))
 }
 
@@ -77,16 +99,23 @@ export function recentlyStopped(
   })
 }
 
-/** Prefer the held coin, then BTC, then ETH — not the wildest memecoin of the day. */
-export function featuredLiveMark<T extends { symbol: string }>(
+/** Prefer the held coin, then (on High) the hottest mover, else BTC. */
+export function featuredLiveMark<T extends { symbol: string; dayChangePct?: number }>(
   marks: T[],
-  held: string[] = []
+  held: string[] = [],
+  preferHot = false
 ): T | undefined {
   if (!marks.length) return undefined
   const bySym = new Map(marks.map((m) => [m.symbol.toUpperCase(), m]))
   for (const symbol of held) {
     const m = bySym.get(symbol.trim().toUpperCase())
     if (m) return m
+  }
+  if (preferHot) {
+    const ranked = [...marks].sort((a, b) => Math.abs(b.dayChangePct || 0) - Math.abs(a.dayChangePct || 0))
+    const alt = ranked.find((m) => !isMajorCad(m.symbol))
+    if (alt) return alt
+    return ranked[0]
   }
   return bySym.get('BTC-CAD') || bySym.get('ETH-CAD') || marks[0]
 }
@@ -143,5 +172,5 @@ export function deskWaitNote(input: {
   if (input.holding >= input.maxOpen) return 'Already in one swing. Waiting for take or stop.'
   if (input.cooldown) return '20-minute cooldown after the last buy.'
   if (input.cash < 5) return 'Not enough CAD cash to size a ticket.'
-  return mostCommonReason(input.skipReasons) || 'Hunting — waiting for a 15m bounce off a swing low while the hourly trend is up.'
+  return mostCommonReason(input.skipReasons) || 'Hunting smaller Kraken names for news and live moves.'
 }

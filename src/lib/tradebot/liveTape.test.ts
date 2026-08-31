@@ -18,9 +18,9 @@ test('ranks scored coins and skips names already held', () => {
 })
 
 test('buys a dip while EMA9 is still above EMA21', () => {
-  assert.equal(liveBuyOk({ rsi: 40, ema9: 2, ema21: 1.9, macd: 0.01, dayChangePct: 0.4 }), true)
-  assert.equal(liveBuyOk({ rsi: 72, ema9: 2, ema21: 1.9, macd: 0.01, dayChangePct: 1.2 }), false)
-  assert.equal(liveBuyOk({ rsi: 44, ema9: 1.8, ema21: 1.9, macd: 0.01, dayChangePct: 0.4 }), false)
+  assert.equal(liveBuyOk({ rsi: 40, ema9: 2, ema21: 1.9, macd: 0.01, dayChangePct: 0.4, volatility: 'low' }), true)
+  assert.equal(liveBuyOk({ rsi: 72, ema9: 2, ema21: 1.9, macd: 0.01, dayChangePct: 1.2, volatility: 'low' }), false)
+  assert.equal(liveBuyOk({ rsi: 44, ema9: 1.8, ema21: 1.9, macd: 0.01, dayChangePct: 0.4, volatility: 'low' }), false)
 })
 
 test('rejects a wide bid/ask spread', () => {
@@ -36,7 +36,7 @@ test('fade helper still detects a broken short average (unused by the live tape)
 })
 
 test('rejects a dump even if the short average is still up', () => {
-  assert.equal(liveBuyOk({ rsi: 44, ema9: 2, ema21: 1.9, macd: -0.02, dayChangePct: 0.4 }), false)
+  assert.equal(liveBuyOk({ rsi: 44, ema9: 2, ema21: 1.9, macd: -0.02, dayChangePct: 0.4, volatility: 'low' }), false)
 })
 
 test('cools off the whole book for 20 minutes after a buy', () => {
@@ -79,6 +79,7 @@ test('featured live mark prefers the held coin then bitcoin, not the wildest mov
   ]
   assert.equal(featuredLiveMark(marks)?.symbol, 'BTC-CAD')
   assert.equal(featuredLiveMark(marks, ['ETH-CAD'])?.symbol, 'ETH-CAD')
+  assert.equal(featuredLiveMark(marks, [], true)?.symbol, 'DOGE-CAD')
 })
 
 test('wait note tells you to press ON after switching to Real', () => {

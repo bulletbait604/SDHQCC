@@ -162,12 +162,12 @@ KRAKEN_API_KEY=
 KRAKEN_API_SECRET=`
 
 const AGENTS = [
-  { id: 'scout', name: 'FINDER', role: 'Looks for coins', idle: 'Hourly trend up, then a 15m reversal off the swing low.', color: '#9ddd55', x: '18%', y: '28%' },
+  { id: 'scout', name: 'FINDER', role: 'Looks for coins', idle: 'Smaller Kraken names, news, and live moves — not just BTC.', color: '#9ddd55', x: '18%', y: '28%' },
   { id: 'archive', name: 'NEWS', role: 'Reads the news', idle: 'Checking the news for scams.', color: '#be91ff', x: '50%', y: '22%' },
   { id: 'forge', name: 'YES', role: 'Why we might buy', idle: 'Looking for good reasons to buy.', color: '#42cbbb', x: '82%', y: '28%' },
   { id: 'relay', name: 'NO', role: 'Why we might wait', idle: 'Looking for reasons not to buy.', color: '#58a9e8', x: '22%', y: '68%' },
   { id: 'helm', name: 'TRADER', role: 'Buys and sells', idle: 'Watching live prices. Buys and sells when the desk is ON.', color: '#ff6557', x: '50%', y: '74%' },
-  { id: 'sentinel', name: 'SAFETY', role: 'Stops big losses', idle: 'Maker buys. One swing ticket, most of the book. Take ~8–12% so fees are a minority. Trails only after half the take is in. Day halt -8%.', color: '#d6a56e', x: '78%', y: '68%' },
+  { id: 'sentinel', name: 'SAFETY', role: 'Stops big losses', idle: 'Maker buys. One ticket. News can boost a name; negative news skips it. Halt -8%.', color: '#d6a56e', x: '78%', y: '68%' },
 ] as const
 
 const STAGES = AGENTS.map((a) => a.id)
@@ -514,7 +514,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
   const heldSymbols = (ledger?.positions || []).map((p) => p.symbol)
   const openOrders = ledger?.openOrders || []
   const huntNote = status?.huntNote || ''
-  const hotMark = featuredLiveMark(marks, heldSymbols)
+  const hotMark = featuredLiveMark(marks, heldSymbols, vol.level !== 'low')
   const markOf = (symbol: string) => marks.find((m) => m.symbol === symbol)
   const universe = cycle?.scan?.universe || status?.universe?.universe || 0
   const stageIndex = running ? STAGES.indexOf(phase as (typeof STAGES)[number]) : phase === 'done' ? STAGES.length : -1
@@ -550,7 +550,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
         {
           who: 'TRADER',
           color: '#ff6557',
-          text: status?.huntNote || (engineOn ? 'Watching live prices. Buys a dip when the hourly trend is still up.' : 'System is OFF. Live prices still update. Press ON to trade.'),
+          text: status?.huntNote || (engineOn ? 'Watching smaller Kraken names, news, and live moves.' : 'System is OFF. Live prices still update. Press ON to trade.'),
           at: '',
         },
       ]
@@ -779,7 +779,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
                 <div className="tb-body">
                   <p>
                     {engineOn
-                      ? 'None yet. Waiting for a 15m bounce off a swing low while the hourly trend is still up.'
+                      ? 'None yet. Hunting smaller Kraken names for news and live moves — not waiting on BTC to lead.'
                       : 'None yet. Switching to Real turns the desk OFF on purpose. Press ON to allow Kraken buys.'}
                   </p>
                 </div>
@@ -822,7 +822,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
               <small>{running ? 'Checking the market…' : engineOn ? (watching ? 'Watching live prices' : 'System is on') : 'System is off'}</small>
               <h2>The floor</h2>
               <p className="tb-muted">
-                Start with {cad(startCad)}. Kraken coins only. {vol.hint}. One swing ticket (~{vol.maxAssetWeightPct}% of the book), maker buys, take large enough that fees are a minority. Halt the day at -{status?.maxDrawdownPct || 8}%. No shorts. Fake to test, Real for Kraken. {liveMode ? 'Real orders while ON.' : 'Fake fills until you tap Real.'}
+                Start with {cad(startCad)}. Kraken coins only. {vol.hint}. One ticket (~{vol.maxAssetWeightPct}% of the book), maker buys. Tap High for smaller names and news. Halt the day at -{status?.maxDrawdownPct || 8}%. No shorts. Fake to test, Real for Kraken. {liveMode ? 'Real orders while ON.' : 'Fake fills until you tap Real.'}
               </p>
             </div>
             <div className="tb-actions">

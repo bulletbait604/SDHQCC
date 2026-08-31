@@ -74,6 +74,23 @@ export async function listKrakenCryptoPairs(): Promise<CryptoPair[]> {
     'BONK',
     'WIF',
     'FLOKI',
+    'PENGU',
+    'TRUMP',
+    'PNUT',
+    'POPCAT',
+    'MEW',
+    'MOG',
+    'TURBO',
+    'HBAR',
+    'RENDER',
+    'TAO',
+    'ONDO',
+    'FET',
+    'INJ',
+    'TIA',
+    'SEI',
+    'JUP',
+    'WLD',
   ])
   for (const [id, raw] of Object.entries(result)) {
     if (!raw || typeof raw !== 'object') continue
@@ -125,12 +142,13 @@ export async function listLiquidKrakenPairs(level: VolatilityLevel | string = 'm
     const any = all.find((p) => p.symbol === symbol)
     if (native) picked.push(native)
     else if (any) picked.push(any)
-    if (picked.length >= profile.maxPairs) return picked
+    if (picked.length >= profile.maxPairs) break
   }
   if (profile.fillNativeCadAlts) {
     for (const p of all) {
       if (picked.length >= profile.maxPairs) break
-      if (p.nativeCad && !picked.some((x) => x.symbol === p.symbol)) picked.push(p)
+      if (picked.some((x) => x.symbol === p.symbol)) continue
+      if (p.nativeCad || profile.level === 'high') picked.push(p)
     }
   }
   return picked
