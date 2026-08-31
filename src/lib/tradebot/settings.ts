@@ -55,7 +55,7 @@ export function getTradebotSettings() {
     cryptoEnabled: boolEnv('TRADEBOT_CRYPTO', true),
     scanBatch: Math.min(400, Math.max(40, numEnv('TRADEBOT_SCAN_BATCH', 180))),
     shortlistStocks: Math.min(20, Math.max(4, numEnv('TRADEBOT_SHORTLIST_STOCKS', 8))),
-    shortlistCrypto: Math.min(20, Math.max(6, numEnv('TRADEBOT_SHORTLIST_CRYPTO', 12))),
+    shortlistCrypto: Math.min(28, Math.max(8, numEnv('TRADEBOT_SHORTLIST_CRYPTO', 20))),
     model: tradebotGeminiModel(),
   }
 }

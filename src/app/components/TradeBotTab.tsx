@@ -114,16 +114,16 @@ TRADEBOT_DAILY_PROFIT_MAX_PCT=10
 TRADEBOT_CRYPTO_ONLY=true
 TRADEBOT_CRYPTO=true
 TRADEBOT_CRYPTO_WATCHLIST=${TRADEBOT_DEFAULT_CRYPTO_WATCHLIST_CSV}
-TRADEBOT_SHORTLIST_CRYPTO=12
+TRADEBOT_SHORTLIST_CRYPTO=20
 TRADEBOT_CYCLE_MINUTES=60
 COINGECKO_DEMO_API_KEY=`
 
 const AGENTS = [
-  { id: 'scout', name: 'SCOUT', role: 'Market monitor', color: '#9ddd55', idle: 'Hunting new coins and memes.', x: '18%', y: '28%' },
+  { id: 'scout', name: 'SCOUT', role: 'Market monitor', color: '#9ddd55', idle: 'Scanning a wider meme and new-coin tape.', x: '18%', y: '28%' },
   { id: 'archive', name: 'ARCHIVE', role: 'News desk', color: '#be91ff', idle: 'Cross-checking headlines and industry tape.', x: '50%', y: '22%' },
   { id: 'forge', name: 'FORGE', role: 'Bull desk', color: '#42cbbb', idle: 'Building the long thesis.', x: '82%', y: '28%' },
   { id: 'relay', name: 'RELAY', role: 'Bear desk', color: '#58a9e8', idle: 'Arguing the counter-risk.', x: '22%', y: '68%' },
-  { id: 'helm', name: 'HELM', role: 'Trader', color: '#ff6557', idle: 'Hunting +8–10% CAD today.', x: '50%', y: '74%' },
+  { id: 'helm', name: 'HELM', role: 'Trader', color: '#ff6557', idle: 'Letting winners run toward +8–10%.', x: '50%', y: '74%' },
   { id: 'sentinel', name: 'SENTINEL', role: 'Guardrails', color: '#d6a56e', idle: '25% cap · 5% loss halt · lock at +10%.', x: '78%', y: '68%' },
 ] as const
 
@@ -410,7 +410,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
               <small>DECK 07 · CANADA STATION · {running ? 'CYCLE' : 'NETWORK ACTIVE'}</small>
               <h2>Operations Floor</h2>
               <p className="tb-muted">
-                CA${startCad} fake CAD. HELM targets +{goalMin}–{goalMax}% today. SENTINEL locks new buys at +{goalMax}% and halts at −5%.
+                CA${startCad} fake CAD. Wider coin hunt. HELM lets winners run (~18–22% take) toward +{goalMin}–{goalMax}% today.
               </p>
             </div>
             <button type="button" className="tb-run" onClick={runCycle} disabled={running || !paperReady}>

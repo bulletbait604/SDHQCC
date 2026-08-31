@@ -39,6 +39,7 @@ export async function runDebateAndTrader(
     startingCad: number
     targetMinPct: number
     targetMaxPct: number
+    openPositions: Array<{ symbol: string; qty: number; avgPrice: number }>
   }
 ): Promise<AgentDecision[]> {
   const apiKey = tradebotGeminiKey()
@@ -78,18 +79,23 @@ Never place an order yourself. Output JSON only. This is paper P&L only — no l
 GOAL: make +${book.targetMinPct}% to +${book.targetMaxPct}% CAD profit TODAY vs Toronto day-open NAV.
 Current book: equity CA$${book.equity.toFixed(2)}, cash CA$${book.cash.toFixed(2)}, day-open CA$${book.dayStartEquity.toFixed(2)}, day P&L ${book.dayPnlPct.toFixed(2)}%.
 
-Hunt NEW coins and MEME coins for short-term CAD paper profits. Ignore TSX stocks.
+Hunt NEW coins and MEME coins across a WIDE set of names — not just BTC/ETH/PEPE.
+Let winners RUN. Do not scalp out a few percent. Paper take-profit is ~18–22% from entry.
 Cross-reference 1h/24h tape with headlines AND live web search.
 Do not invent headlines. Rugs, hacks, honeypots, exploits = never BUY.
 
+Open paper longs (let these run unless the thesis broke):
+${JSON.stringify(book.openPositions.slice(0, 12))}
+
 Rules:
 - SELL only exits a long. No shorts.
-- Deploy cash into high-potential memes/new coins when 1h or 24h is still up AND news is not negative. Quiet news is OK on a trending meme with strong volume; still say why.
+- BUY more names that look like high-potential memes/new coins when 1h or 24h is still up AND news is not negative. Quiet news is OK on a trending meme with strong volume; still say why.
 - newsTone negative (rug, hack, exploit, scam, halt) = HOLD or SELL, never BUY.
-- BTC/ETH are hedges, not the hunt. Prefer PEPE/DOGE/new listings/trending memes when the tape supports a squeeze.
-- If day P&L is already >= ${book.targetMinPct}%, prefer SELL/HOLD to bank it. If day P&L is >= ${book.targetMaxPct}%, action must be HOLD or SELL — never BUY.
-- Size for the daily goal: a few concentrated paper longs beating +${book.targetMinPct}% NAV, then stop adding.
-- Aim for short-term continuation, not long-term value.
+- BTC/ETH are hedges, not the hunt.
+- Open longs that are still up on 1h/24h with non-negative news: HOLD. Do not SELL just because they are green.
+- SELL an open long only if news flipped negative or the move clearly failed (broke down vs the 1h tape).
+- If day P&L is already >= ${book.targetMinPct}%, HOLD winners rather than dumping them. If day P&L is >= ${book.targetMaxPct}%, action must be HOLD or SELL — never BUY.
+- Aim for continuation into a larger pop, not a tiny scalp.
 
 Industry tape:
 ${JSON.stringify(industryTape.slice(0, 8))}

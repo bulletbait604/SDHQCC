@@ -86,9 +86,10 @@ export async function fetchGoogleNews(query: string, limit = 3): Promise<NewsHea
 
 export async function fetchIndustryTape(): Promise<NewsHeadline[]> {
   const queries = [
-    'meme coin OR new crypto listing OR solana meme',
+    'meme coin OR new crypto listing OR solana meme OR base meme',
     'crypto rug pull OR hack OR exploit',
     'Bitcoin Ethereum crypto market',
+    'pump fun OR new token launch crypto',
   ]
   const bags = await Promise.all(
     queries.map(async (q) => {

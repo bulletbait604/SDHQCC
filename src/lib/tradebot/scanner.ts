@@ -156,7 +156,7 @@ export async function scanCadBook(params: {
   if (settings.cryptoEnabled) {
     try {
       hunts = await huntNewAndMemeCoins(
-        Math.max(16, settings.shortlistCrypto + 8),
+        Math.max(32, settings.shortlistCrypto + 14),
         settings.watchlist.filter((s) => isCryptoSymbol(s))
       )
       scannedThisCycle += hunts.length
@@ -194,7 +194,7 @@ export async function scanCadBook(params: {
   }
   for (const h of hunts) pushJob({ symbol: h.symbol, hunt: h, kraken: krakenBySymbol.get(h.symbol) })
   for (const m of cryptoMarkets) {
-    if (newCoinSet.has(m.pair.symbol) || (m.dayChangePct > 8 && m.pair.symbol !== 'BTC-CAD' && m.pair.symbol !== 'ETH-CAD')) {
+    if (newCoinSet.has(m.pair.symbol) || (m.dayChangePct > 5 && m.pair.symbol !== 'BTC-CAD' && m.pair.symbol !== 'ETH-CAD')) {
       pushJob({ symbol: m.pair.symbol, hunt: huntBySymbol.get(m.pair.symbol), kraken: m })
     }
   }
@@ -204,6 +204,11 @@ export async function scanCadBook(params: {
     }
   }
   const cryptoJobs = jobs.slice(0, settings.shortlistCrypto)
+  for (const pos of params.positions) {
+    if (!isCryptoSymbol(pos)) continue
+    if (cryptoJobs.some((j) => j.symbol === pos)) continue
+    cryptoJobs.push({ symbol: pos, hunt: huntBySymbol.get(pos), kraken: krakenBySymbol.get(pos) })
+  }
 
   const fx = cryptoJobs.some((j) => j.kraken && !j.kraken.pair.nativeCad) ? await usdCadRate().catch(() => 1) : 1
   const equityList = settings.cryptoOnly ? [] : Array.from(equityPicks)

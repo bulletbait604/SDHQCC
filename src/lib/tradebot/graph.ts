@@ -32,6 +32,28 @@ export type CycleResult = {
   scan: ScanSummary
 }
 
+function swingLevels(price: number, atr: number, aggressive: boolean) {
+  const stopPct = aggressive ? 0.07 : 0.08
+  const takePct = aggressive ? 0.22 : 0.18
+  const stopFromAtr = (aggressive ? 1.6 : 2.2) * atr
+  const takeFromAtr = (aggressive ? 3.8 : 4.5) * atr
+  return {
+    stopBuy: Number(Math.max(price - Math.max(stopFromAtr, price * stopPct), price * 0.5).toFixed(6)),
+    takeBuy: Number((price + Math.max(takeFromAtr, price * takePct)).toFixed(6)),
+    stopSell: Number((price + Math.max(stopFromAtr, price * stopPct)).toFixed(6)),
+    takeSell: Number(Math.max(price - Math.max(takeFromAtr, price * takePct), 0).toFixed(6)),
+  }
+}
+
+function trailStop(avgPrice: number, stopLoss: number, price: number): number {
+  if (!(price > 0) || !(avgPrice > 0)) return stopLoss
+  if (price < avgPrice * 1.06) return stopLoss
+  const trail = price * 0.88
+  const lock = avgPrice * 1.02
+  const next = Math.max(stopLoss, trail, lock)
+  return next < price ? Number(next.toFixed(6)) : stopLoss
+}
+
 function torontoDate(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto' })
 }
@@ -143,7 +165,16 @@ export async function runPaperCycle(): Promise<CycleResult> {
     }
   }
 
-  if (!ledger.halted) await maybeExitStops()
+  if (!ledger.halted) {
+    for (const pos of ledger.positions) {
+      const px = prices[pos.symbol]
+      if (!(px > 0)) continue
+      pos.stopLoss = trailStop(pos.avgPrice, pos.stopLoss, px)
+      const longerTake = Number((pos.avgPrice * 1.22).toFixed(6))
+      if (pos.takeProfit > 0 && pos.takeProfit < longerTake) pos.takeProfit = longerTake
+    }
+    await maybeExitStops()
+  }
 
   if (!ledger.halted && signals.length) {
     const liveEquityForDesk = markToMarket(ledger, prices)
@@ -156,6 +187,11 @@ export async function runPaperCycle(): Promise<CycleResult> {
       startingCad: settings.startingCad,
       targetMinPct: settings.dailyProfitTargetMinPct,
       targetMaxPct: settings.dailyProfitTargetMaxPct,
+      openPositions: ledger.positions.map((p) => ({
+        symbol: p.symbol,
+        qty: p.qty,
+        avgPrice: p.avgPrice,
+      })),
     })
     const byTicker = new Map(agent.map((d) => [d.ticker, d]))
 
@@ -169,21 +205,10 @@ export async function runPaperCycle(): Promise<CycleResult> {
       ) {
         action = 'HOLD'
       }
-      const scalp = Boolean(signal.isMeme || signal.highPotential)
-      const stopPct = scalp ? 0.045 : 0.06
-      const takePct = scalp ? 0.09 : 0.12
-      const stopMult = scalp ? Math.min(settings.atrMultiplier, 1.25) : settings.atrMultiplier
-      const takeMult = scalp ? 1.8 : 3
-      const stopFromAtr = stopMult * signal.atr
-      const takeFromAtr = takeMult * signal.atr
-      const stop =
-        action === 'BUY'
-          ? Number(Math.max(signal.price - Math.max(stopFromAtr, signal.price * stopPct), signal.price * 0.5).toFixed(6))
-          : Number((signal.price + Math.max(stopFromAtr, signal.price * stopPct)).toFixed(6))
-      const take =
-        action === 'BUY'
-          ? Number((signal.price + Math.max(takeFromAtr, signal.price * takePct)).toFixed(6))
-          : Number(Math.max(signal.price - Math.max(takeFromAtr, signal.price * takePct), 0).toFixed(6))
+      const aggressive = Boolean(signal.isMeme || signal.highPotential || signal.isNewListing)
+      const levels = swingLevels(signal.price, signal.atr, aggressive)
+      const stop = action === 'BUY' ? levels.stopBuy : levels.stopSell
+      const take = action === 'BUY' ? levels.takeBuy : levels.takeSell
 
       let quantity = 0
       if (action === 'BUY') {

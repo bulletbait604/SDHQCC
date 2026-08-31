@@ -197,14 +197,32 @@ export async function huntNewAndMemeCoins(limit = 12, extraSymbols: string[] = [
   })
 
   await pull('solana-meme', async () => {
-    for (const row of await markets('category=solana-meme-coins&order=volume_desc&per_page=30')) {
+    for (const row of await markets('category=solana-meme-coins&order=volume_desc&per_page=40')) {
+      add(row, { meme: true })
+    }
+  })
+
+  await pull('base-meme', async () => {
+    for (const row of await markets('category=base-meme-coins&order=volume_desc&per_page=30')) {
       add(row, { meme: true })
     }
   })
 
   await pull('gainers', async () => {
-    for (const row of await markets('order=percent_change_24h_desc&per_page=40')) {
+    for (const row of await markets('order=percent_change_24h_desc&per_page=50')) {
       add(row, {})
+    }
+  })
+
+  await pull('gainers-p2', async () => {
+    for (const row of await markets('order=percent_change_24h_desc&per_page=50&page=2')) {
+      add(row, {})
+    }
+  })
+
+  await pull('volume-movers', async () => {
+    for (const row of await markets('order=volume_desc&per_page=50')) {
+      if (num(row.price_change_percentage_24h) >= 5) add(row, {})
     }
   })
 
@@ -235,7 +253,10 @@ export async function huntNewAndMemeCoins(limit = 12, extraSymbols: string[] = [
     extraSymbols.map((s) => paperSymbol(s.trim().toUpperCase().replace(/-CAD$/, '')))
   )
   const seeds = filtered.filter((h) => seedSet.has(h.symbol))
-  const rest = filtered.filter((h) => !seedSet.has(h.symbol)).sort((a, b) => b.score - a.score)
+  const rest = filtered
+    .filter((h) => !seedSet.has(h.symbol))
+    .filter((h) => h.volumeCad >= 8_000 || h.isTrending || h.isNew || h.isMeme)
+    .sort((a, b) => b.score - a.score)
   return [...seeds, ...rest].slice(0, Math.max(limit, seeds.length))
 }
 
