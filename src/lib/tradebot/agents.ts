@@ -28,7 +28,7 @@ function asStringArray(value: unknown, max = 4): string[] {
     .slice(0, max)
 }
 
-export async function runDebateAndTrader(signals: SignalAnalysis[]): Promise<AgentDecision[]> {
+export async function runDebateAndTrader(signals: SignalAnalysis[], industryTape: string[] = []): Promise<AgentDecision[]> {
   const apiKey = tradebotGeminiKey()
   if (!apiKey) throw new Error('GEMINI_API is not configured')
 
@@ -36,6 +36,11 @@ export async function runDebateAndTrader(signals: SignalAnalysis[]): Promise<Age
   const model = tradebotGeminiModel()
   const payload = signals.map((s) => ({
     ticker: s.ticker,
+    assetClass: s.assetClass || 'equity',
+    highPotential: Boolean(s.highPotential),
+    isNewListing: Boolean(s.isNewListing),
+    newsTone: s.newsTone || 'quiet',
+    headlines: (s.headlines || []).slice(0, 3),
     price: s.price,
     previousClose: s.previousClose,
     technical_signal: s.technical_signal,
@@ -51,27 +56,51 @@ export async function runDebateAndTrader(signals: SignalAnalysis[]): Promise<Age
       : 0,
   }))
 
-  const prompt = `You are four desks on a Canadian CAD paper book (TSX names, Toronto session):
-1) Sentiment analyst  2) Bull researcher  3) Bear researcher  4) Trader
+  const prompt = `You are four desks on a Canadian CAD paper book:
+1) ARCHIVE (news + industry)  2) FORGE (bull)  3) RELAY (bear)  4) HELM (trader)
 Never place an order yourself. Output JSON only.
 
-For each ticker, do a 2-turn bull vs bear debate, then the trader picks BUY, SELL, or HOLD.
-SELL is only valid to exit an existing long (the engine will reject shorts). Prefer HOLD unless conviction is clear.
-CAD book, TSX-listed ETFs and stocks. Be conservative.
+Hunt high potential in NEW TSX/TSXV listings and NEWER crypto (not only RY/VFV/BTC).
+Cross-reference technicals with the supplied headlines AND live web search of current industry news.
+Do not invent headlines. If search and RSS conflict, prefer the more cautious read.
+
+Rules:
+- SELL only exits a long. No shorts.
+- Prefer HOLD unless conviction is clear.
+- highPotential / isNewListing names: BUY only if newsTone is positive or mixed AND search/industry context supports a real catalyst (listing, contract, resource, product, adoption). Quiet news on a brand-new name = HOLD.
+- newsTone negative (halt, fraud, dilution, hack, lawsuit) = HOLD or SELL, never BUY.
+- Majors (VFV, BTC, ETH) are fine to HOLD; do not ignore a new name with a confirmed catalyst.
+
+Industry tape:
+${JSON.stringify(industryTape.slice(0, 8))}
 
 Return:
 {"decisions":[{"ticker":"VFV.TO","sentiment_score":0.1,"confidence":0.5,"bull_points":[""],"bear_points":[""],"consensus_rating":0,"action":"HOLD","reasoning_summary":""}]}
 
-sentiment_score is -1 to 1. consensus_rating is -10 to 10.
-Tickers and technicals:
+sentiment_score is -1 to 1. consensus_rating is -10 to 10. reasoning_summary must mention the news/industry cross-check in one sentence.
+Tickers, technicals, and news:
 ${JSON.stringify(payload)}`
 
-  const response = await genAI.models.generateContent({
-    model,
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    config: { temperature: 0.3 },
-  })
-  const raw = geminiText(response as { text?: string })
+  const contents = [{ role: 'user' as const, parts: [{ text: prompt }] }]
+  let raw = ''
+  try {
+    const grounded = await genAI.models.generateContent({
+      model,
+      contents,
+      config: { temperature: 0.3, tools: [{ googleSearch: {} }] },
+    })
+    raw = geminiText(grounded as { text?: string })
+  } catch (err) {
+    console.warn('[tradebot] Google Search grounding failed, debating without search', err)
+  }
+  if (!raw.trim()) {
+    const response = await genAI.models.generateContent({
+      model,
+      contents,
+      config: { temperature: 0.3 },
+    })
+    raw = geminiText(response as { text?: string })
+  }
   const json = extractBalancedJsonObject(raw)
   if (!json) throw new Error('Gemini returned no JSON decisions')
   const parsed = JSON.parse(json) as { decisions?: unknown }

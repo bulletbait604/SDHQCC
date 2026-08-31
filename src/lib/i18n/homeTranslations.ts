@@ -24,7 +24,7 @@ export const homeTranslations = {
       'Pick a platform. We search the live web via Google and list the top 5 trends — videos and topics for YouTube and other video apps.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Canada paper lab in CAD. TSX session, CAD watchlist, setup status, and daily cost — no live broker until you enable it.',
+      'Canada paper lab in CAD. Hunts high potential in new TSX/TSXV listings and new crypto, then cross-checks news and industry context — no live broker until you enable it.',
     rndPickTool: 'R&D — owner only · pick a tool below',
     backgroundRemover: 'Background Remover',
     backgroundRemoverDesc:
@@ -85,7 +85,7 @@ export const homeTranslations = {
       'Elige una plataforma. Buscamos en la web en vivo con Google y listamos las 5 tendencias — vídeos y temas para YouTube y otras apps de vídeo.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Laboratorio paper en Canadá (CAD). Sesión TSX, lista CAD, estado de cuentas y coste diario — sin bróker en vivo hasta que lo actives.',
+      'Laboratorio paper en Canadá (CAD). Escanea todo TSX/TSXV (incluidas nuevas cotizadas) más crypto CAD de Kraken — sin bróker en vivo hasta que lo actives.',
     rndPickTool: 'I+D — solo propietario · elige una herramienta abajo',
     backgroundRemover: 'Eliminador de fondo',
     backgroundRemoverDesc:
@@ -146,7 +146,7 @@ export const homeTranslations = {
       'Choisissez une plateforme. On cherche le web en direct via Google et on liste les 5 tendances — vidéos et sujets pour YouTube et les autres apps vidéo.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Labo paper Canada en CAD. Séance TSX, liste CAD, état des comptes et coût quotidien — aucun courtier réel tant que vous ne l’activez pas.',
+      'Labo paper Canada en CAD. Balaye tout le TSX/TSXV (y compris les nouvelles inscriptions) plus la crypto CAD Kraken — aucun courtier réel tant que vous ne l’activez pas.',
     rndPickTool: 'R&D — propriétaire seulement · choisissez un outil ci-dessous',
     backgroundRemover: 'Suppression d’arrière-plan',
     backgroundRemoverDesc:
@@ -207,7 +207,7 @@ export const homeTranslations = {
       'Plattform wählen. Wir durchsuchen das Live-Web über Google und listen die Top 5 Trends — Videos und Themen für YouTube und andere Video-Apps.',
     tradeBot: 'TradeBot',
     tradeBotDesc:
-      'Kanada-Paper-Labor in CAD. TSX-Sitzung, CAD-Watchlist, Kontostatus und Tageskosten — kein Live-Broker, bis Sie es freigeben.',
+      'Kanada-Paper-Labor in CAD. Scannt jedes TSX/TSXV-Papier (inkl. Neuemissionen) plus Kraken-CAD-Krypto — kein Live-Broker, bis Sie es freigeben.',
     rndPickTool: 'F&E — nur Owner · Werkzeug unten wählen',
     backgroundRemover: 'Hintergrund entfernen',
     backgroundRemoverDesc:

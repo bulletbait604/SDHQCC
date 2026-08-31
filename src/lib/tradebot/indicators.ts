@@ -90,19 +90,24 @@ export type SignalAnalysis = {
   atr: number
   key_support: number
   key_resistance: number
+  assetClass?: 'equity' | 'crypto'
+  highPotential?: boolean
+  isNewListing?: boolean
+  newsTone?: 'positive' | 'negative' | 'mixed' | 'quiet'
+  headlines?: string[]
 }
 
 export function analyzeCandles(ticker: string, candles: Candle[], price: number, previousClose: number): SignalAnalysis | null {
+  if (!(price > 0)) return null
   const closes = candles.map((c) => c.c).filter((n) => Number.isFinite(n) && n > 0)
-  if (closes.length < 20) return null
   const rsiVal = rsi(closes) ?? 50
   const macd = macdHistogram(closes) ?? 0
-  const atrVal = atr(candles) ?? price * 0.015
+  const atrVal = atr(candles) ?? price * (closes.length < 20 ? 0.04 : 0.015)
   const sma20 = sma(closes, 20)
   const sma50 = sma(closes, 50)
-  const recent = last(closes, 20)
-  const key_support = Math.min(...recent)
-  const key_resistance = Math.max(...recent)
+  const recent = last(closes, Math.min(20, Math.max(1, closes.length)))
+  const key_support = recent.length ? Math.min(...recent) : price
+  const key_resistance = recent.length ? Math.max(...recent) : price
 
   let technical_signal: TechnicalSignal = 'NEUTRAL'
   if (rsiVal >= 55 && macd > 0 && (!sma20 || price >= sma20)) technical_signal = 'BULLISH'
@@ -120,5 +125,9 @@ export function analyzeCandles(ticker: string, candles: Candle[], price: number,
     atr: Number(atrVal.toFixed(4)),
     key_support: Number(key_support.toFixed(4)),
     key_resistance: Number(key_resistance.toFixed(4)),
+    highPotential: false,
+    isNewListing: false,
+    newsTone: 'quiet',
+    headlines: [],
   }
 }

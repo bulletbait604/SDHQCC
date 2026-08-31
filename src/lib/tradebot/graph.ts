@@ -1,5 +1,5 @@
-import { analyzeCandles, type SignalAnalysis } from '@/lib/tradebot/indicators'
 import { runDebateAndTrader } from '@/lib/tradebot/agents'
+import { isCryptoSymbol, listKrakenCryptoPairs, quoteKrakenMarkets } from '@/lib/tradebot/crypto'
 import { sizeBuyQuantity, validateTrade } from '@/lib/tradebot/guardrails'
 import {
   applyFill,
@@ -11,6 +11,7 @@ import {
 } from '@/lib/tradebot/ledger'
 import type { CycleDecision, TradeOrderProposal } from '@/lib/tradebot/models'
 import { fetchDailyBars } from '@/lib/tradebot/quotes'
+import { scanCadBook, type ScanSummary } from '@/lib/tradebot/scanner'
 import { getTradebotSettings, isTradebotPaperEnabled } from '@/lib/tradebot/settings'
 
 export type CycleResult = {
@@ -26,6 +27,7 @@ export type CycleResult = {
   drawdownPct: number
   ledger: PaperLedger
   decisions: CycleDecision[]
+  scan: ScanSummary
 }
 
 function torontoDate(): string {
@@ -39,21 +41,24 @@ export async function runPaperCycle(): Promise<CycleResult> {
   const settings = getTradebotSettings()
   let ledger = await loadPaperLedger()
 
-  const market = await Promise.all(
-    settings.watchlist.map(async (symbol) => {
-      const { quote, bars } = await fetchDailyBars(symbol)
-      const signal = bars.length >= 20 ? analyzeCandles(symbol, bars, quote.price, quote.previousClose) : null
-      return { symbol, quote, signal }
-    })
-  )
+  const { market, scan } = await scanCadBook({
+    positions: ledger.positions.map((p) => p.symbol),
+  })
 
   const prices: Record<string, number> = {}
   for (const row of market) prices[row.symbol] = row.quote.price
   for (const pos of ledger.positions) {
     if (!prices[pos.symbol]) {
       try {
-        const { quote } = await fetchDailyBars(pos.symbol)
-        prices[pos.symbol] = quote.price
+        if (isCryptoSymbol(pos.symbol)) {
+          const pair = (await listKrakenCryptoPairs()).find((p) => p.symbol === pos.symbol)
+          if (!pair) throw new Error('missing crypto pair')
+          const [m] = await quoteKrakenMarkets([pair])
+          prices[pos.symbol] = m?.quote.price || pos.avgPrice
+        } else {
+          const { quote } = await fetchDailyBars(pos.symbol)
+          prices[pos.symbol] = quote.price
+        }
       } catch {
         prices[pos.symbol] = pos.avgPrice
       }
@@ -79,7 +84,7 @@ export async function runPaperCycle(): Promise<CycleResult> {
     await savePaperLedger(ledger)
   }
 
-  const signals = market.map((m) => m.signal).filter((s): s is SignalAnalysis => Boolean(s))
+  const signals = market.map((m) => m.signal).filter((s): s is NonNullable<(typeof market)[number]['signal']> => Boolean(s))
   const decisions: CycleDecision[] = []
 
   const maybeExitStops = async () => {
@@ -96,7 +101,7 @@ export async function runPaperCycle(): Promise<CycleResult> {
         symbol: pos.symbol,
         qty: pos.qty,
         price: px,
-        feeBps: settings.tsxFeeBps,
+        feeBps: isCryptoSymbol(pos.symbol) ? settings.krakenFeeBps : settings.tsxFeeBps,
         stopLoss: pos.stopLoss,
         takeProfit: pos.takeProfit,
         reason,
@@ -138,7 +143,7 @@ export async function runPaperCycle(): Promise<CycleResult> {
   if (!ledger.halted) await maybeExitStops()
 
   if (!ledger.halted && signals.length) {
-    const agent = await runDebateAndTrader(signals)
+    const agent = await runDebateAndTrader(signals, scan.industryTape || [])
     const byTicker = new Map(agent.map((d) => [d.ticker, d]))
 
     for (const signal of signals) {
@@ -208,7 +213,7 @@ export async function runPaperCycle(): Promise<CycleResult> {
           symbol: signal.ticker,
           qty: checked.proposal.quantity,
           price: signal.price,
-          feeBps: settings.tsxFeeBps,
+          feeBps: isCryptoSymbol(signal.ticker) ? settings.krakenFeeBps : settings.tsxFeeBps,
           stopLoss: checked.proposal.stop_loss,
           takeProfit: checked.proposal.take_profit,
           reason: checked.proposal.reasoning_summary,
@@ -268,6 +273,7 @@ export async function runPaperCycle(): Promise<CycleResult> {
     drawdownPct: Number(drawdownPct.toFixed(2)),
     ledger,
     decisions,
+    scan,
   }
   await saveCycleLog({ ledgerId: 'cad-paper', ...result })
   return result

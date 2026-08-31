@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { verifyOwnerUser } from '@/lib/auth/staffAccess'
 import { latestCycleLog, listRecentFills, loadPaperLedger, markToMarket } from '@/lib/tradebot/ledger'
+import { probeCryptoQuotes } from '@/lib/tradebot/crypto'
 import { probeTsxQuotes } from '@/lib/tradebot/quotes'
+import { universeStats } from '@/lib/tradebot/universe'
 import { isTradebotPaperEnabled, tradebotGeminiKey } from '@/lib/tradebot/settings'
 import {
   envKeysPresent,
@@ -31,11 +33,13 @@ export async function GET(req: NextRequest) {
     const already = providers.filter((p) => p.group === 'already')
 
     const quoteProbe = await probeTsxQuotes()
+    const cryptoProbe = await probeCryptoQuotes()
     const paper = isTradebotPaperEnabled()
     let ledger = null
     let fills: Awaited<ReturnType<typeof listRecentFills>> = []
     let lastCycle: Record<string, unknown> | null = null
     let equity: number | null = null
+    let universe = { universe: 0, newListings: 0, offset: 0 }
 
     if (paper) {
       try {
@@ -47,7 +51,9 @@ export async function GET(req: NextRequest) {
         }
         const prices: Record<string, number> = {}
         if (quoteProbe.ok && quoteProbe.price) prices[quoteProbe.symbol] = quoteProbe.price
+        if (cryptoProbe.ok && cryptoProbe.price) prices[cryptoProbe.symbol] = cryptoProbe.price
         equity = Number(markToMarket(ledger, prices).toFixed(2))
+        universe = await universeStats()
       } catch (err) {
         console.error('[tradebot/status] ledger', err)
       }
@@ -62,6 +68,8 @@ export async function GET(req: NextRequest) {
       quoteProvider: quoteProbe.source || 'yahoo',
       quotesOk: quoteProbe.ok,
       quoteProbe,
+      cryptoProbe,
+      universe,
       requiredReady: required.every((p) => p.configured),
       reusedReady: already.every((p) => p.configured),
       providers,

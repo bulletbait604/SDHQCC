@@ -63,6 +63,16 @@ type CycleView = {
   drawdownPct: number
   ledger: { cash: number; positions: Position[]; halted?: boolean; haltReason?: string }
   decisions: DecisionRow[]
+  scan?: {
+    universe: number
+    scannedThisCycle: number
+    newListings: number
+    cryptoPairs: number
+    shortlist: string[]
+    highPotential?: string[]
+    newsItems?: number
+    industryTape?: string[]
+  }
 }
 
 type StatusResponse = {
@@ -73,6 +83,8 @@ type StatusResponse = {
   baseCurrency: 'CAD'
   quotesOk?: boolean
   quoteProbe?: { ok: boolean; source?: string; symbol: string; price?: number; error?: string }
+  cryptoProbe?: { ok: boolean; source?: string; symbol: string; price?: number; error?: string }
+  universe?: { universe: number; newListings: number; offset: number }
   providers: TradebotProviderStatus[]
   equity?: number | null
   ledger?: { cash: number; positions: Position[]; halted?: boolean; haltReason?: string } | null
@@ -89,11 +101,16 @@ TRADEBOT_MAX_ASSET_WEIGHT=15
 TRADEBOT_RISK_PCT=1
 TRADEBOT_STARTING_CAD=100
 TRADEBOT_WATCHLIST=${TRADEBOT_DEFAULT_WATCHLIST_CSV}
+TRADEBOT_SCAN_ALL=true
+TRADEBOT_CRYPTO=true
+TRADEBOT_SCAN_BATCH=180
+TRADEBOT_SHORTLIST_STOCKS=8
+TRADEBOT_SHORTLIST_CRYPTO=8
 TRADEBOT_CYCLE_MINUTES=60`
 
 const AGENTS = [
-  { id: 'scout', name: 'SCOUT', role: 'Market monitor', color: '#9ddd55', idle: 'Watching TSX prints.', x: '18%', y: '28%' },
-  { id: 'archive', name: 'ARCHIVE', role: 'Sentiment', color: '#be91ff', idle: 'Scoring tone on each name.', x: '50%', y: '22%' },
+  { id: 'scout', name: 'SCOUT', role: 'Market monitor', color: '#9ddd55', idle: 'Hunting new listings and new coins.', x: '18%', y: '28%' },
+  { id: 'archive', name: 'ARCHIVE', role: 'News desk', color: '#be91ff', idle: 'Cross-checking headlines and industry tape.', x: '50%', y: '22%' },
   { id: 'forge', name: 'FORGE', role: 'Bull desk', color: '#42cbbb', idle: 'Building the long thesis.', x: '82%', y: '28%' },
   { id: 'relay', name: 'RELAY', role: 'Bear desk', color: '#58a9e8', idle: 'Arguing the counter-risk.', x: '22%', y: '68%' },
   { id: 'helm', name: 'HELM', role: 'Trader', color: '#ff6557', idle: 'Issuing BUY / SELL / HOLD.', x: '50%', y: '74%' },
@@ -182,6 +199,10 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
   const cash = cycle?.cash ?? ledger?.cash
   const paperReady = Boolean(status?.paper)
   const quote = status?.quoteProbe
+  const cryptoQuote = status?.cryptoProbe
+  const universe = cycle?.scan?.universe || status?.universe?.universe || 0
+  const newListings = cycle?.scan?.newListings ?? status?.universe?.newListings ?? 0
+  const cryptoPairs = cycle?.scan?.cryptoPairs || 0
   const stageIndex = running ? STAGES.indexOf(phase as (typeof STAGES)[number]) : phase === 'done' ? STAGES.length : -1
 
   const inspectorTask = useMemo(() => {
@@ -193,6 +214,15 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
         ? `Blocked ${blocked.length} proposal(s) on hard rules.`
         : 'Guardrails clear. Paper fills recorded.'
     }
+    if (agent.id === 'archive') {
+      const tape = cycle.scan?.industryTape?.slice(0, 2).join(' · ')
+      const news = cycle.scan?.newsItems || 0
+      return tape ? `${news} headlines. ${tape}` : `${news} headlines on the shortlist.`
+    }
+    if (agent.id === 'scout') {
+      const hot = cycle.scan?.highPotential?.join(' · ')
+      return hot ? `High potential: ${hot}` : agent.idle
+    }
     if (agent.id === 'helm') {
       const acts = cycle.decisions.map((d) => `${d.ticker} ${d.proposal.action}`).join(' · ')
       return acts || agent.idle
@@ -203,14 +233,29 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
 
   const feed = useMemo(() => {
     if (!cycle?.decisions?.length) {
-      return [{ who: 'HELM', color: '#ff6557', text: 'Waiting for a cycle. Paper book is CAD only.', at: '' }]
+      return [{ who: 'ARCHIVE', color: '#be91ff', text: 'Waiting for a cycle. Will hunt new listings/coins and cross-check news.', at: '' }]
     }
-    return cycle.decisions.map((d) => ({
+    const items = cycle.decisions.map((d) => ({
       who: `${d.ticker}`,
       color: d.fill?.filled ? '#9ddd55' : d.proposal.action === 'HOLD' ? '#58a9e8' : '#d6a56e',
       text: d.fill?.note || d.proposal.reasoning_summary || `${d.proposal.action} ${d.signal}`,
       at: cycle.ranAt,
     }))
+    if (cycle.scan) {
+      items.unshift({
+        who: 'ARCHIVE',
+        color: '#be91ff',
+        text: `${cycle.scan.newsItems || 0} headlines · tape: ${(cycle.scan.industryTape || []).slice(0, 2).join(' · ') || 'quiet'}`,
+        at: cycle.ranAt,
+      })
+      items.unshift({
+        who: 'SCOUT',
+        color: '#9ddd55',
+        text: `Universe ${cycle.scan.universe} · new ${cycle.scan.newListings} · high potential ${(cycle.scan.highPotential || []).join(' · ') || 'none'} · shortlist ${cycle.scan.shortlist.join(' · ') || 'none'}`,
+        at: cycle.ranAt,
+      })
+    }
+    return items
   }, [cycle])
 
   return (
@@ -228,7 +273,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           <span className="tb-dot" />
           <span>
             <b>{paperReady ? 'PAPER RUNTIME ONLINE' : 'PAPER FLAG OFF'}</b>
-            <small>{loading ? 'SYNCING LEDGER' : 'TSX · AMERICA/TORONTO'}</small>
+            <small>{loading ? 'SYNCING LEDGER' : 'TSX/TSXV · KRAKEN CAD'}</small>
           </span>
         </div>
         <div className="tb-link" style={{ background: 'linear-gradient(135deg, #5da5d82b, #5da5d80a)', boxShadow: 'inset 0 2px #5da5d8, inset 0 -1px #5da5d840' }}>
@@ -246,16 +291,19 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
           <em>CASH {typeof cash === 'number' ? cad(cash) : '—'} · START CA$100</em>
         </div>
         <div className="tb-ticker">
-          <small>TSX LIVE PRINT</small>
-          <b>
-            {quote?.ok ? `${quote.symbol}` : 'PRICE UNAVAILABLE'}
-          </b>
-          <em>{quote?.ok ? `${cad(quote.price || 0)} · ${quote.source}` : quote?.error || 'FETCHING'}</em>
+          <small>CAD UNIVERSE / NEW LISTINGS</small>
+          <b>{universe ? universe.toLocaleString('en-CA') : '—'}</b>
+          <em>NEW {String(newListings).padStart(2, '0')} · CRYPTO {cryptoPairs || (cryptoQuote?.ok ? 'ON' : '—')}</em>
         </div>
         <div className="tb-ticker">
-          <small>SEPARATE PAPER SYSTEM</small>
-          <b>{running ? 'CYCLE LIVE' : paperReady ? 'STANDBY' : 'OFFLINE'}</b>
-          <em>NO LIVE BROKER · GUARDRAILS ON</em>
+          <small>LIVE PRINTS</small>
+          <b>
+            {quote?.ok ? quote.symbol : cryptoQuote?.ok ? cryptoQuote.symbol : 'PRICE UNAVAILABLE'}
+          </b>
+          <em>
+            {quote?.ok ? `${cad(quote.price || 0)} · ${quote.source}` : quote?.error || 'FETCHING'}
+            {cryptoQuote?.ok ? ` · ${cryptoQuote.symbol} ${cad(cryptoQuote.price || 0)}` : ''}
+          </em>
         </div>
       </section>
 
@@ -268,10 +316,12 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
             </header>
             <div className="tb-body">
               <p>{description}</p>
-              <p style={{ marginTop: 8 }}>Watchlist {TRADEBOT_DEFAULT_WATCHLIST_CSV.replace(/,/g, ' · ')}</p>
+              <p style={{ marginTop: 8 }}>
+                Seeds {TRADEBOT_DEFAULT_WATCHLIST_CSV.replace(/,/g, ' · ')} · Kraken CAD crypto on
+              </p>
             </div>
             <div className="tb-kpi">
-              <span>NAMES <b>06</b></span>
+              <span>UNIVERSE <b>{universe ? String(universe).padStart(2, '0') : '—'}</b></span>
               <span>FILLS <b>{String(fills.length).padStart(2, '0')}</b></span>
             </div>
           </section>
@@ -318,7 +368,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
             <div>
               <small>DECK 07 · CANADA STATION · {running ? 'CYCLE' : 'NETWORK ACTIVE'}</small>
               <h2>Operations Floor</h2>
-              <p className="tb-muted">Six desks on a shared CAD paper book. Inspect a specialist, then run a cycle.</p>
+              <p className="tb-muted">SCOUT hunts new listings and new coins. ARCHIVE cross-checks headlines and industry news before HELM can buy.</p>
             </div>
             <button type="button" className="tb-run" onClick={runCycle} disabled={running || !paperReady}>
               {running ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
@@ -447,7 +497,7 @@ export default function TradeBotTab({ description }: TradeBotTabProps) {
       ) : null}
 
       <div className="tb-dev" style={{ position: 'relative', zIndex: 2 }}>
-        <b>OPERATOR NOTE</b> — Paper only. Set TRADEBOT_PAPER=true. Yahoo/Stooq quotes. No Finnhub.
+        <b>OPERATOR NOTE</b> — Paper only. Full TSX/TSXV scan + Kraken CAD crypto. Set TRADEBOT_PAPER=true.
         <button type="button" className="tb-copy" style={{ marginLeft: 10 }} onClick={() => setShowVars((v) => !v)}>
           {showVars ? 'HIDE ENV' : 'SHOW ENV'}
         </button>

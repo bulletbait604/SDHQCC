@@ -1,4 +1,4 @@
-export type QuoteSource = 'yahoo' | 'stooq'
+export type QuoteSource = 'yahoo' | 'stooq' | 'kraken'
 
 export type EquityQuote = {
   symbol: string
@@ -151,6 +151,42 @@ export async function fetchEquityQuote(symbol: string): Promise<EquityQuote> {
       throw new Error(`No quote for ${symbol}: ${msg}`)
     }
   }
+}
+
+export async function fetchSparkQuotes(symbols: string[]): Promise<
+  Array<{ symbol: string; price: number; previousClose: number; barsCount: number }>
+> {
+  const unique = Array.from(new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean)))
+  const out: Array<{ symbol: string; price: number; previousClose: number; barsCount: number }> = []
+  const chunk = 15
+  for (let i = 0; i < unique.length; i += chunk) {
+    const slice = unique.slice(i, i + chunk)
+    const yahooByOurs = new Map(slice.map((s) => [toYahooSymbol(s), s]))
+    const url = `https://query1.finance.yahoo.com/v8/finance/spark?symbols=${encodeURIComponent(
+      Array.from(yahooByOurs.keys()).join(',')
+    )}&range=1mo&interval=1d`
+    try {
+      const body = (await fetchJson(url, 10_000)) as Record<string, unknown>
+      for (const [key, raw] of Object.entries(body)) {
+        if (!raw || typeof raw !== 'object') continue
+        const rec = raw as Record<string, unknown>
+        const closes = Array.isArray(rec.close) ? rec.close.map((n) => Number(n)).filter((n) => Number.isFinite(n) && n > 0) : []
+        const price = closes.length ? closes[closes.length - 1] : Number(rec.chartPreviousClose)
+        if (!(price > 0)) continue
+        const previousClose = Number(rec.chartPreviousClose)
+        const ours = yahooByOurs.get(key) || yahooByOurs.get(String(rec.symbol || '')) || key
+        out.push({
+          symbol: String(ours).toUpperCase(),
+          price,
+          previousClose: Number.isFinite(previousClose) && previousClose > 0 ? previousClose : price,
+          barsCount: closes.length,
+        })
+      }
+    } catch (err) {
+      console.error('[tradebot/quotes] spark batch', err)
+    }
+  }
+  return out
 }
 
 export async function probeTsxQuotes(): Promise<{
