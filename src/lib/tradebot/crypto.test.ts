@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { displayCryptoSymbol, isCryptoSymbol, isFxOrStableWsname } from '@/lib/tradebot/crypto'
+import { displayCryptoSymbol, isCryptoSymbol, isFxOrStableWsname, liveBuyPairOk } from '@/lib/tradebot/crypto'
 
 test('crypto paper tickers are BASE-CAD', () => {
   assert.equal(isCryptoSymbol('BTC-CAD'), true)
@@ -22,4 +22,11 @@ test('FX and stables stay off the crypto sleeve', () => {
   assert.equal(isFxOrStableWsname('USD/CAD'), true)
   assert.equal(isFxOrStableWsname('USDT/CAD'), true)
   assert.equal(isFxOrStableWsname('ETH/CAD'), false)
+})
+
+test('live CAD cash skips USD-only Kraken pairs', () => {
+  assert.equal(liveBuyPairOk(false, { symbol: 'FLOKI-CAD', nativeCad: false }), null)
+  assert.equal(liveBuyPairOk(true, { symbol: 'DOGE-CAD', nativeCad: true }), null)
+  const blocked = liveBuyPairOk(true, { symbol: 'FLOKI-CAD', nativeCad: false })
+  assert.ok(blocked && /USD-only/i.test(blocked))
 })

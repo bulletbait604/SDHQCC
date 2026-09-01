@@ -2,13 +2,14 @@ import {
   cadToVenuePrice,
   fetchKrakenOhlc,
   listLiquidKrakenPairs,
+  liveBuyPairOk,
   quoteKrakenMarkets,
   usdCadRate,
   type CryptoMarket,
   type CryptoPair,
 } from '@/lib/tradebot/crypto'
 import { swingTrailActivatePct } from '@/lib/tradebot/fees'
-import { sizeBuyQuantity, validateTrade, dayPnlPct } from '@/lib/tradebot/guardrails'
+import { sizeBuyQuantity, validateTrade, dayPnlPct, capQtyToCash } from '@/lib/tradebot/guardrails'
 import { rsi } from '@/lib/tradebot/indicators'
 import type { DailyBar } from '@/lib/tradebot/quotes'
 import {
@@ -94,8 +95,9 @@ async function loadHuntBars(pairs: CryptoPair[]): Promise<Record<string, DailyBa
   return bars
 }
 
-function pickTapeSymbols(markets: CryptoMarket[], held: string[], max = 14): string[] {
-  const ranked = [...markets].sort((a, b) => {
+function pickTapeSymbols(markets: CryptoMarket[], held: string[], max = 14, nativeOnly = false): string[] {
+  const pool = nativeOnly ? markets.filter((m) => m.pair.nativeCad) : markets
+  const ranked = [...pool].sort((a, b) => {
     const score = (m: CryptoMarket) =>
       Math.abs(m.dayChangePct) +
       Math.log10(m.volume24h + 10) +
@@ -231,7 +233,9 @@ export async function runPaperTick(): Promise<TickResult> {
   const settings = getTradebotSettings()
   let ledger = await loadPaperLedger()
   const vol = volatilityProfile(parseVolatility(ledger.volatility))
-  const pairs = await listLiquidKrakenPairs(vol.level)
+  const placingLive = isPlacingLiveOrders(ledger)
+  let pairs = await listLiquidKrakenPairs(vol.level)
+  if (ledger.liveMode) pairs = pairs.filter((p) => p.nativeCad)
   const markets: CryptoMarket[] = pairs.length ? await quoteKrakenMarkets(pairs) : []
   const pairsBySymbol = new Map(pairs.map((p) => [p.symbol, p]))
   const prices: Record<string, number> = {}
@@ -245,8 +249,6 @@ export async function runPaperTick(): Promise<TickResult> {
     price: Number(m.quote.price.toFixed(6)),
     dayChangePct: Number(m.dayChangePct.toFixed(2)),
   }))
-
-  const placingLive = isPlacingLiveOrders(ledger)
 
   if (!ledger.engineOn) {
     if (ledger.liveMode) {
@@ -346,7 +348,8 @@ export async function runPaperTick(): Promise<TickResult> {
   const huntSymbols = pickTapeSymbols(
     markets,
     ledger.positions.map((p) => p.symbol),
-    vol.level === 'low' ? 4 : 14
+    vol.level === 'low' ? 4 : 14,
+    placingLive
   )
   const huntPairs = pairs.filter((p) => huntSymbols.includes(p.symbol))
   const huntBars = await loadHuntBars(huntPairs)
@@ -376,6 +379,19 @@ export async function runPaperTick(): Promise<TickResult> {
     const scored = markets
       .filter((m) => huntSymbols.includes(m.pair.symbol))
       .map((m) => {
+      const pairBlock = liveBuyPairOk(placingLive, m.pair)
+      if (pairBlock) {
+        skipReasons.push(pairBlock)
+        return {
+          symbol: m.pair.symbol,
+          dayChangePct: m.dayChangePct,
+          volume24h: m.volume24h,
+          stopPct: 0,
+          takePct: 0,
+          reason: pairBlock,
+          score: 0,
+        }
+      }
       const bars15 = huntBars[m.pair.symbol] || []
       const series = bars15.map((b) => b.c)
       const rsiNow = rsi(series) ?? 52
@@ -436,22 +452,37 @@ export async function runPaperTick(): Promise<TickResult> {
             : 0,
       }
     })
-    const pick = rankLiveBuys(scored, held)[0]
-    const market = pick ? markets.find((m) => m.pair.symbol === pick.symbol) : undefined
-    if (market && pick && (pick.score || 0) > 0) {
+    const ranked = rankLiveBuys(scored, held).slice(0, 5)
+    for (const pick of ranked) {
+      const market = markets.find((m) => m.pair.symbol === pick.symbol)
+      if (!market || !((pick.score || 0) > 0)) continue
+      const pairBlock = liveBuyPairOk(placingLive, market.pair)
+      if (pairBlock) {
+        buyError = pairBlock
+        continue
+      }
       const price = market.bid > 0 ? market.bid : market.quote.price
       const stopPct = pick.stopPct || vol.stopPct
       const takePct = pick.takePct || vol.takePct
       const levels = swingLevels(price, { stopPct, takePct })
       const atrDist = Math.max(price * stopPct, 0.000001)
-      const quantity = sizeBuyQuantity({
-        equity: liveEquity,
-        riskPct: settings.riskPct,
-        atr: atrDist,
-        atrMultiplier: 1,
+      const quantity = capQtyToCash(
+        sizeBuyQuantity({
+          equity: liveEquity,
+          riskPct: settings.riskPct,
+          atr: atrDist,
+          atrMultiplier: 1,
+          price,
+          maxAssetWeightPct: vol.maxAssetWeightPct,
+        }),
         price,
-        maxAssetWeightPct: vol.maxAssetWeightPct,
-      })
+        ledger.cash,
+        settings.krakenMakerBps
+      )
+      if (!(quantity > 0)) {
+        buyError = `Not enough CAD cash to size ${pick.symbol.replace(/-CAD$/i, '')}.`
+        continue
+      }
       const reason = pick.reason || `Swing buy ${pick.symbol.replace(/-CAD$/, '')}.`
       const proposal: TradeOrderProposal = {
         ticker: pick.symbol,
@@ -474,56 +505,58 @@ export async function runPaperTick(): Promise<TickResult> {
         positionAvg: 0,
         lastPrice: price,
       })
-      if (checked.ok && checked.proposal.quantity > 0) {
-        try {
-          const applied = await placeManagedFill({
-            ledger,
-            side: 'BUY',
-            symbol: pick.symbol,
-            qty: checked.proposal.quantity,
-            price,
-            stopLoss: checked.proposal.stop_loss,
-            takeProfit: checked.proposal.take_profit,
-            reason,
-            pair: pairsBySymbol.get(pick.symbol),
-            execution: 'limit',
-            equity: liveEquity,
-            venuePrice: cadToVenuePrice(market.pair, price, market.bid, market.nativeBid),
-          })
-          ledger = applied.ledger
-          if (applied.fill) {
-            decisions.push(
-              filledRow(
-                pick.symbol,
-                price,
-                checked.proposal,
-                applied.fill.qty,
-                applied.fill.price,
-                applied.fill.notionalCad,
-                applied.venue === 'kraken'
-                  ? `Maker buy on Kraken · fee CA$${applied.fill.feeCad.toFixed(2)}`
-                  : `Practice maker buy · fee CA$${applied.fill.feeCad.toFixed(2)}`,
-                'BULLISH'
-              )
-            )
-          } else {
-            decisions.push(
-              restingRow(
-                pick.symbol,
-                price,
-                checked.proposal,
-                applied.venue === 'kraken'
-                  ? 'Maker buy posted on Kraken — waiting for a fill at the bid.'
-                  : 'Practice maker buy posted — waiting for a fill at the bid.'
-              )
-            )
-          }
-        } catch (err) {
-          buyError = err instanceof Error ? err.message : 'Could not place the buy.'
-          console.error('[tradebot] live buy', pick.symbol, err)
-        }
-      } else {
+      if (!checked.ok || !(checked.proposal.quantity > 0)) {
         buyError = (checked.reasons || []).join(' ') || 'Safety blocked the ticket size.'
+        continue
+      }
+      try {
+        const applied = await placeManagedFill({
+          ledger,
+          side: 'BUY',
+          symbol: pick.symbol,
+          qty: checked.proposal.quantity,
+          price,
+          stopLoss: checked.proposal.stop_loss,
+          takeProfit: checked.proposal.take_profit,
+          reason,
+          pair: pairsBySymbol.get(pick.symbol),
+          execution: 'limit',
+          equity: liveEquity,
+          venuePrice: cadToVenuePrice(market.pair, price, market.bid, market.nativeBid),
+        })
+        ledger = applied.ledger
+        if (applied.fill) {
+          decisions.push(
+            filledRow(
+              pick.symbol,
+              price,
+              checked.proposal,
+              applied.fill.qty,
+              applied.fill.price,
+              applied.fill.notionalCad,
+              applied.venue === 'kraken'
+                ? `Maker buy on Kraken · fee CA$${applied.fill.feeCad.toFixed(2)}`
+                : `Practice maker buy · fee CA$${applied.fill.feeCad.toFixed(2)}`,
+              'BULLISH'
+            )
+          )
+        } else {
+          decisions.push(
+            restingRow(
+              pick.symbol,
+              price,
+              checked.proposal,
+              applied.venue === 'kraken'
+                ? 'Maker buy posted on Kraken — waiting for a fill at the bid.'
+                : 'Practice maker buy posted — waiting for a fill at the bid.'
+            )
+          )
+        }
+        buyError = ''
+        break
+      } catch (err) {
+        buyError = err instanceof Error ? err.message : 'Could not place the buy.'
+        console.error('[tradebot] live buy', pick.symbol, err)
       }
     }
   }

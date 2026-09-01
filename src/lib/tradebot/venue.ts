@@ -256,10 +256,15 @@ export async function placeManagedFill(params: {
     if (!params.pair || !isCryptoSymbol(params.symbol)) {
       throw new Error(`No Kraken CAD pair for ${params.symbol}. Live order skipped.`)
     }
-    const cost = qty * params.price
+    if (!params.pair.nativeCad) {
+      throw new Error(
+        `${params.symbol.replace(/-CAD$/i, '')} is USD-only on Kraken. This book is CAD cash, so it was skipped.`
+      )
+    }
+    const cost = qty * params.price * (1 + feeBps / 10_000)
     if (params.side === 'BUY' && cost > params.ledger.cash + 0.01) {
       throw new Error(
-        `Kraken minimum size for ${params.symbol} costs about CA$${cost.toFixed(2)}, more than cash CA$${params.ledger.cash.toFixed(2)}.`
+        `Kraken size for ${params.symbol} costs about CA$${cost.toFixed(2)}, more than cash CA$${params.ledger.cash.toFixed(2)}.`
       )
     }
     const sendPrice = params.venuePrice && params.venuePrice > 0 ? params.venuePrice : params.price

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { sizeBuyQuantity, quantityRespectingMinLot, validateTrade } from '@/lib/tradebot/guardrails'
+import { sizeBuyQuantity, quantityRespectingMinLot, validateTrade, capQtyToCash } from '@/lib/tradebot/guardrails'
 import type { TradeOrderProposal } from '@/lib/tradebot/models'
 
 const baseProposal = (): TradeOrderProposal => ({
@@ -133,4 +133,10 @@ test('keeps sub-0.001 BTC size instead of rounding it to zero', () => {
   })
   assert.ok(qty > 0)
   assert.ok(qty * 160_000 <= 45 + 0.01)
+})
+
+test('caps buy size to CAD cash after maker fee', () => {
+  const qty = capQtyToCash(10_000, 0.2, 50, 40)
+  assert.ok(qty * 0.2 * 1.004 <= 50 * 0.94 + 0.01)
+  assert.equal(capQtyToCash(10, 1, 0, 40), 0)
 })

@@ -101,6 +101,26 @@ test('wait note tells you to press ON after switching to Real', () => {
   )
 })
 
+test('wait note surfaces a CAD-cash / USD-pair reject', () => {
+  assert.match(
+    deskWaitNote({
+      engineOn: true,
+      liveMode: true,
+      halted: false,
+      haltReason: '',
+      profitLocked: false,
+      holding: 0,
+      maxOpen: 1,
+      cash: 50,
+      pendingSymbols: [],
+      cooldown: false,
+      skipReasons: [],
+      buyError: 'FLOKI is USD-only on Kraken. This book is CAD cash, so it was skipped.',
+    }),
+    /USD-only/
+  )
+})
+
 test('wait note shows a resting maker buy as a trade in progress', () => {
   assert.match(
     deskWaitNote({

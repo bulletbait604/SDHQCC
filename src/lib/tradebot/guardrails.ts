@@ -62,6 +62,13 @@ export function quantityRespectingMinLot(params: {
   return params.minLot
 }
 
+export function capQtyToCash(qty: number, price: number, cash: number, feeBps = 40): number {
+  if (!(price > 0) || !(cash > 0)) return 0
+  const fee = 1 + Math.max(0, feeBps) / 10_000
+  const maxQty = (cash * 0.94) / (price * fee)
+  return roundQty(Math.min(Math.max(0, qty), maxQty))
+}
+
 export function validateTrade(
   proposal: TradeOrderProposal,
   ctx: GuardrailContext

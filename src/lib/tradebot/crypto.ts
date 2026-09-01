@@ -25,6 +25,16 @@ export function isCryptoSymbol(symbol: string): boolean {
   return /^[A-Z0-9]{2,16}-CAD$/.test(symbol.trim().toUpperCase())
 }
 
+/** Real CAD cash can only buy native CAD Kraken pairs. USD-only memes need USD on Kraken. */
+export function liveBuyPairOk(live: boolean, pair?: { symbol: string; nativeCad: boolean }): string | null {
+  if (!live) return null
+  if (!pair) return 'No Kraken pair for this coin.'
+  if (!pair.nativeCad) {
+    return `${pair.symbol.replace(/-CAD$/i, '')} is USD-only on Kraken. This book is CAD cash, so it was skipped.`
+  }
+  return null
+}
+
 export function isFxOrStableWsname(wsname: string): boolean {
   const w = wsname.toUpperCase()
   return (
