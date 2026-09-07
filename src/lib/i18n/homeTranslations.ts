@@ -13,6 +13,9 @@ export const homeTranslations = {
     contentAnalyzer: 'Content Analyzer',
     kickClips: 'KICK Clips',
     rnd: 'R&D',
+    narrateMe: 'Narrate Me',
+    narrateMeDesc:
+      'Turn your gameplay into researched, timestamp-accurate narration. The video is the source of truth.',
     viralClipGen: 'Viral Clip Gen',
     viralClipGenDesc:
       'Describe a short vertical clip, add optional references, pick a length, and generate a 9:16 video.',
@@ -74,6 +77,9 @@ export const homeTranslations = {
     contentAnalyzer: 'Analizador de Contenido',
     kickClips: 'KICK Clips',
     rnd: 'I+D',
+    narrateMe: 'Narrate Me',
+    narrateMeDesc:
+      'Convierte tu gameplay en narración investigada y precisa en el tiempo. El vídeo es la fuente de verdad.',
     viralClipGen: 'Viral Clip Gen',
     viralClipGenDesc:
       'Describe un clip vertical, añade referencias opcionales, elige duración y genera un vídeo 9:16.',
@@ -135,6 +141,9 @@ export const homeTranslations = {
     contentAnalyzer: 'Analyseur de Contenu',
     kickClips: 'KICK Clips',
     rnd: 'R&D',
+    narrateMe: 'Narrate Me',
+    narrateMeDesc:
+      'Transformez votre gameplay en narration documentée et calée sur la timeline. La vidéo fait foi.',
     viralClipGen: 'Viral Clip Gen',
     viralClipGenDesc:
       'Décrivez un clip vertical, ajoutez des références optionnelles, choisissez une durée et générez une vidéo 9:16.',
@@ -196,6 +205,9 @@ export const homeTranslations = {
     contentAnalyzer: 'Content Analyzer',
     kickClips: 'KICK Clips',
     rnd: 'F&E',
+    narrateMe: 'Narrate Me',
+    narrateMeDesc:
+      'Macht aus Gameplay recherchierte, zeitgenaue Narration. Das Video ist die Quelle der Wahrheit.',
     viralClipGen: 'Viral Clip Gen',
     viralClipGenDesc:
       'Beschreiben Sie einen vertikalen Clip, fügen Sie optionale Referenzen hinzu, wählen Sie die Länge und erzeugen Sie ein 9:16-Video.',

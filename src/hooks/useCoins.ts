@@ -19,6 +19,7 @@ export const COIN_COSTS = {
   'background-remover': 0,
   'content-analyzer': 2,
   'viral-clip-gen': 4,
+  'narrate-me': 8,
 } as const
 
 export type ToolType = keyof typeof COIN_COSTS

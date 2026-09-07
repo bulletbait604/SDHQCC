@@ -39,9 +39,12 @@ function sanitizeFilename(filename: string): string {
 export type GenerateUploadUrlOpts = {
   /** Clip analyzer / thumbnail / Post4Me: `uploads/clips/<user>/…` or `uploads/thumbnail-clips/<user>/…` */
   clipUsername?: string
-  purpose?: 'clip-analyzer' | 'thumbnail-generator' | 'post4me'
+  purpose?: 'clip-analyzer' | 'thumbnail-generator' | 'post4me' | 'narrate-me'
   /** Presigned PUT lifetime in seconds (default 5 min). Large thumbnail clips need longer. */
   expiresIn?: number
+  /** Exact object key when the caller already allocated one (Narrate Me). */
+  fileKey?: string
+  jobId?: string
 }
 
 // Generate presigned URL for upload (default 5 minutes; callers can override expiresIn)
@@ -58,12 +61,16 @@ export async function generateUploadUrl(
   const timestamp = Date.now()
   const safeName = sanitizeFilename(filename)
   let fileKey: string
-  if (opts?.clipUsername) {
+  if (opts?.fileKey) {
+    fileKey = opts.fileKey
+  } else if (opts?.clipUsername) {
     const userSeg = sanitizePathSegment(opts.clipUsername)
     if (opts.purpose === 'thumbnail-generator') {
       fileKey = `uploads/thumbnail-clips/${userSeg}/${timestamp}-${safeName}`
     } else if (opts.purpose === 'post4me') {
       fileKey = `uploads/post4me-clips/${userSeg}/${timestamp}-${safeName}`
+    } else if (opts.purpose === 'narrate-me' && opts.jobId) {
+      fileKey = `narrate-me/${userSeg}/${opts.jobId}/source/${timestamp}-${safeName}`
     } else {
       fileKey = `uploads/clips/${userSeg}/${timestamp}-${safeName}`
     }

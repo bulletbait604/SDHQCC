@@ -14,6 +14,7 @@ import AnalyzeTab from '@/app/components/AnalyzeTab'
 import GoingLiveTab from '@/app/components/GoingLiveTab'
 import TrendingVidsTab from '@/app/components/TrendingVidsTab'
 import ViralClipGenTab from '@/app/components/ViralClipGenTab'
+import NarrateMeTab from '@/app/components/NarrateMeTab'
 import TradeBotTab from '@/app/components/TradeBotTab'
 import KickClipsComingSoon from '@/app/components/KickClipsComingSoon'
 import SettingsTab from '@/app/components/SettingsTab'
@@ -343,6 +344,7 @@ export default function HomeMainTabs({
               <RdTabHeader
                 activeSubTab={rndSubTab}
                 labels={{
+                  narrateMe: t.narrateMe || 'Narrate Me',
                   viralClipGen: t.viralClipGen || 'Viral Clip Gen',
                   trendingVids: t.trendingVids || 'Trending Vids',
                   goingLive: t.goingLive || 'Going Live',
@@ -354,6 +356,21 @@ export default function HomeMainTabs({
                 tabTriggerClasses={tabTriggerClasses}
               />
               </div>
+
+              <TabsContent value="narrate-me">
+                <NarrateMeTab
+                  darkMode={darkMode}
+                  subtitleClasses={subtitleClasses}
+                  description={
+                    t.narrateMeDesc ||
+                    'Turn your gameplay into researched, timestamp-accurate narration.'
+                  }
+                  hasUnlimitedAccess={hasUnlimitedAccess || isOwner}
+                  coinBalance={coinBalance}
+                  coinLoading={coinLoading}
+                  refreshBalance={refreshBalance}
+                />
+              </TabsContent>
 
               <TabsContent value="viral-clip-gen">
                 <ViralClipGenTab

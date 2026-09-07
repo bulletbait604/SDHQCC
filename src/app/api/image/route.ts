@@ -18,6 +18,11 @@ function contentTypeForKey(key: string, fromR2?: string): string {
   const lower = key.toLowerCase()
   if (lower.endsWith('.mp4')) return 'video/mp4'
   if (lower.endsWith('.webm')) return 'video/webm'
+  if (lower.endsWith('.wav')) return 'audio/wav'
+  if (lower.endsWith('.mp3')) return 'audio/mpeg'
+  if (lower.endsWith('.srt')) return 'application/x-subrip'
+  if (lower.endsWith('.vtt')) return 'text/vtt'
+  if (lower.endsWith('.zip')) return 'application/zip'
   if (lower.endsWith('.png')) return 'image/png'
   if (lower.endsWith('.webp')) return 'image/webp'
   if (lower.endsWith('.gif')) return 'image/gif'
@@ -29,7 +34,8 @@ function contentTypeForKey(key: string, fromR2?: string): string {
 function userOwnsUploadKey(key: string, username: string): boolean {
   const safeUser = username.replace(/^@/, '').toLowerCase().replace(/[^a-z0-9_-]/g, '_').slice(0, 64)
   return key.startsWith(`uploads/clips/${safeUser}/`) ||
-    key.startsWith(`uploads/viral-clip-gen/${safeUser}/`)
+    key.startsWith(`uploads/viral-clip-gen/${safeUser}/`) ||
+    key.startsWith(`narrate-me/${safeUser}/`)
 }
 
 export async function GET(request: NextRequest) {
