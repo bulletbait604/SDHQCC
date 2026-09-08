@@ -1,7 +1,6 @@
 import { randomUUID } from 'crypto'
 import { GoogleGenAI } from '@google/genai'
 import { extractBalancedJsonObject } from '@/lib/algorithmPlatformNormalize'
-import { generatePresignedReadUrl } from '@/lib/r2'
 import {
   analysisWindows,
   narrateMeGeminiApiKey,
@@ -54,12 +53,28 @@ function buildChunkPrompt(params: {
   startTime: number
   endTime: number
   durationSeconds: number
+  clipRelative: boolean
 }): string {
-  return `You are a forensic video analyst. Watch ONLY the specified span of this video.
-
-Source video duration: ${params.durationSeconds.toFixed(1)}s
+  const window = `${params.startTime.toFixed(1)}–${params.endTime.toFixed(1)}`
+  const timing = params.clipRelative
+    ? `The attached file is an 8-minute CLIP of the original.
+Original video duration: ${params.durationSeconds.toFixed(1)}s.
+This clip is original time ${window}. The first frame of THIS file is clip time 0.0.
+Report startTime/endTime in seconds from the START OF THIS CLIP (0 = first frame).
+Example: a moment 12.4s into this clip → startTime 12.4, even if that is original time ${(params.startTime + 12.4).toFixed(1)}.`
+    : `Source video duration: ${params.durationSeconds.toFixed(1)}s
 Analyze ONLY timestamps ${params.startTime.toFixed(1)}s through ${params.endTime.toFixed(1)}s.
-Use the actual video timeline. Do not invent timestamps.
+Use the actual video timeline. Do not invent timestamps.`
+
+  const exampleStart = params.clipRelative ? 12.4 : 421.2
+  const exampleEnd = params.clipRelative ? 18.1 : 438.7
+  const timeRule = params.clipRelative
+    ? `- startTime/endTime must fall inside 0.0–${(params.endTime - params.startTime).toFixed(1)} (clip time).`
+    : `- startTime/endTime must fall inside ${window}.`
+
+  return `You are a forensic video analyst. Watch ONLY this span of video.
+
+${timing}
 
 Creator focus prompt:
 """
@@ -74,8 +89,8 @@ Return ONLY JSON:
 {
   "events": [
     {
-      "startTime": 421.2,
-      "endTime": 438.7,
+      "startTime": ${exampleStart},
+      "endTime": ${exampleEnd},
       "event": "Player opens the Pal Researching Lab",
       "visibleElements": ["Researching Lab UI"],
       "actions": ["opens research interface"],
@@ -91,10 +106,19 @@ Return ONLY JSON:
 }
 
 Rules:
-- startTime/endTime must fall inside ${params.startTime.toFixed(1)}–${params.endTime.toFixed(1)}.
+${timeRule}
 - Only include meaningful events (UI opens, selections, visible requirements, player actions, spoken lines that are actually heard).
 - evidence must describe what was seen or heard, not guesses.
 - If this span has no confident events, return {"events":[]}.`
+}
+
+export function shiftTimelineEvents(events: TimelineEvent[], offsetSeconds: number): TimelineEvent[] {
+  if (!offsetSeconds) return events
+  return events.map((event) => ({
+    ...event,
+    startTime: roundTs(event.startTime + offsetSeconds),
+    endTime: roundTs(event.endTime + offsetSeconds),
+  }))
 }
 
 export function parseTimelineEvents(
@@ -166,20 +190,22 @@ export function mergeTimelineEvents(existing: TimelineEvent[], incoming: Timelin
 }
 
 export async function analyzeVideoChunk(params: {
-  fileKey: string
+  fileUri: string
   mimeType: string
   prompt: string
   startTime: number
   endTime: number
   durationSeconds: number
   chunkIndex: number
+  clipRelative?: boolean
 }): Promise<TimelineEvent[]> {
   const apiKey = narrateMeGeminiApiKey()
   if (!apiKey) throw new Error('GEMINI_API is not configured')
+  if (!params.fileUri.startsWith('https://generativelanguage.googleapis.com/')) {
+    throw new Error('Video analysis needs a Gemini Files API URI, not a storage URL.')
+  }
 
-  const readUrl = await generatePresignedReadUrl(params.fileKey, 7200)
-  if (!readUrl) throw new Error('Could not create a video read URL for analysis')
-
+  const clipRelative = Boolean(params.clipRelative)
   const mime = params.mimeType.startsWith('video/') ? params.mimeType : 'video/mp4'
   const model = narrateMeGeminiModel()
   const genAI = new GoogleGenAI({ apiKey })
@@ -188,20 +214,25 @@ export async function analyzeVideoChunk(params: {
     startTime: params.startTime,
     endTime: params.endTime,
     durationSeconds: params.durationSeconds,
+    clipRelative,
   })
 
-  const filePart = {
-    fileData: { fileUri: readUrl, mimeType: mime },
-    videoMetadata: {
-      startOffset: `${Math.max(0, Math.floor(params.startTime))}s`,
-      endOffset: `${Math.max(1, Math.ceil(params.endTime))}s`,
-    },
-  }
+  const fileData = { fileUri: params.fileUri, mimeType: mime }
+  const filePart = clipRelative
+    ? { fileData }
+    : {
+        fileData,
+        videoMetadata: {
+          startOffset: `${Math.max(0, Math.floor(params.startTime))}s`,
+          endOffset: `${Math.max(1, Math.ceil(params.endTime))}s`,
+        },
+      }
 
   const run = async (withMeta: boolean) => {
-    const parts = withMeta
-      ? [filePart, { text: prompt }]
-      : [{ fileData: { fileUri: readUrl, mimeType: mime } }, { text: prompt }]
+    const parts =
+      withMeta && !clipRelative
+        ? [filePart, { text: prompt }]
+        : [{ fileData }, { text: prompt }]
     return genAI.models.generateContent({
       model,
       contents: [{ role: 'user', parts }],
@@ -215,7 +246,7 @@ export async function analyzeVideoChunk(params: {
 
   let response
   try {
-    response = await run(true)
+    response = await run(!clipRelative)
   } catch {
     response = await run(false)
   }
@@ -223,7 +254,12 @@ export async function analyzeVideoChunk(params: {
   const raw = geminiText(response as { text?: string })
   const parsed = parseJsonObject(raw)
   if (!parsed) return []
-  return parseTimelineEvents(parsed, params.chunkIndex, params.startTime, params.endTime)
+  const parseStart = clipRelative ? 0 : params.startTime
+  const parseEnd = clipRelative
+    ? Math.max(0.5, params.endTime - params.startTime)
+    : params.endTime
+  const events = parseTimelineEvents(parsed, params.chunkIndex, parseStart, parseEnd)
+  return clipRelative ? shiftTimelineEvents(events, params.startTime) : events
 }
 
 export { analysisWindows, geminiText, parseJsonObject }

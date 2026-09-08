@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyOwnerUser } from '@/lib/auth/staffAccess'
 import { narrateMeErrorResponse } from '@/lib/narrateMe/http'
-import { getNarrateMeJobForUser, retryJob } from '@/lib/narrateMe/pipeline'
+import { getNarrateMeJobForUser, publicJob, retryJob } from '@/lib/narrateMe/pipeline'
 import { elapsedSeconds, estimateRemainingSeconds } from '@/lib/narrateMe/progress'
 import { kickNarrateMeTick } from '@/lib/narrateMe/kickoff'
 
@@ -25,7 +25,7 @@ export async function GET(
       kickNarrateMeTick(job.jobId)
     }
     return NextResponse.json({
-      job,
+      job: publicJob(job),
       elapsedSeconds: elapsedSeconds(job),
       estimateRemainingSeconds: estimateRemainingSeconds(job),
     })
@@ -43,7 +43,7 @@ export async function POST(
     const job = await getNarrateMeJobForUser(params.id, user.username)
     if (!job) return NextResponse.json({ error: 'Job not found.' }, { status: 404 })
     const saved = await retryJob(job)
-    return NextResponse.json({ job: saved })
+    return NextResponse.json({ job: publicJob(saved) })
   } catch (err) {
     return narrateMeErrorResponse(err)
   }

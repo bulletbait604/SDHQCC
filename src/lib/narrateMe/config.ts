@@ -144,16 +144,44 @@ export function isAllowedNarrateMeVideoType(mimeType: string): boolean {
   return (NARRATE_ME_ALLOWED_VIDEO_TYPES as readonly string[]).includes(mime)
 }
 
+function geminiErrorFields(message: string): { message?: string; status?: string; code?: number } | null {
+  const start = message.indexOf('{"error"')
+  const jsonText = start >= 0 ? message.slice(start) : message
+  try {
+    const parsed = JSON.parse(jsonText) as {
+      error?: { message?: string; status?: string; code?: number }
+    }
+    return parsed.error || null
+  } catch {
+    return null
+  }
+}
+
 export function userFacingNarrateMeError(err: unknown): string {
   const message = err instanceof Error ? err.message : 'Narrate Me failed'
+  const gemini = geminiErrorFields(message)
+  const combined = `${message} ${gemini?.message || ''} ${gemini?.status || ''}`
   if (/GEMINI_API|not configured/i.test(message)) {
     return 'This tool is not fully configured on the server yet. Ask staff to set the API keys.'
   }
+  if (
+    gemini?.code === 403 ||
+    /PERMISSION_DENIED|does not have permission/i.test(combined)
+  ) {
+    return 'Gemini could not read this video. Retry analysis — completed work is kept.'
+  }
+  if (/too large for analysis/i.test(message)) return message
   if (/ELEVEN_LAB|ELEVENLABS_VOICE/i.test(message)) {
     return 'Voice generation is not configured. Set ELEVEN_LABS_API and ELEVENLABS_VOICE_ID.'
   }
   if (/modal/i.test(message) && /not configured|not deployed/i.test(message)) {
     return 'Audio assembly worker is not deployed yet. Deploy the Narrate Me Modal worker.'
+  }
+  if (/FFmpeg is not installed|winget install Gyan\.FFmpeg/i.test(message)) {
+    return message
+  }
+  if (/Redeploy the Narrate Me Modal|Full-video analysis needs the Modal/i.test(message)) {
+    return message
   }
   if (/timeout|timed out/i.test(message)) return 'This step timed out. Retry — completed work is kept.'
   if (message.length > 220) return 'Something failed. Retry this step — completed work is kept.'

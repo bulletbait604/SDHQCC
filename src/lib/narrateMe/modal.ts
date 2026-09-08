@@ -107,6 +107,69 @@ export async function triggerModalAssemble(job: NarrateMeJob): Promise<{ ok: boo
   return { ok: true }
 }
 
+export async function triggerModalExtractClip(params: {
+  jobId: string
+  sourceKey: string
+  sourceUrl: string
+  startTime: number
+  endTime: number
+  outputKey: string
+}): Promise<{ ok: boolean; error?: string; clipKey?: string; sizeBytes?: number }> {
+  const url = modalAssembleUrl()
+  if (!url) {
+    return { ok: false, error: 'Full-video analysis needs the Modal FFmpeg worker. Deploy workers/narrate-me/worker.py.' }
+  }
+  const secret = workerSecret()
+  if (!secret) return { ok: false, error: 'Modal worker secret is not configured' }
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 240_000)
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${secret}`,
+      },
+      body: JSON.stringify({
+        action: 'extract-clip',
+        jobId: params.jobId,
+        sourceKey: params.sourceKey,
+        sourceUrl: params.sourceUrl,
+        startTime: params.startTime,
+        endTime: params.endTime,
+        outputKey: params.outputKey,
+      }),
+      signal: controller.signal,
+    })
+    const text = await res.text().catch(() => '')
+    let data: { ok?: boolean; error?: string; clipKey?: string; sizeBytes?: number } = {}
+    try {
+      data = JSON.parse(text) as typeof data
+    } catch {
+      /* worker returned non-JSON */
+    }
+    const err = data.error || text.slice(0, 220)
+    if (!res.ok || data.ok === false) {
+      if (/No narration audio|segments were provided/i.test(err)) {
+        return {
+          ok: false,
+          error: 'Redeploy the Narrate Me Modal worker to enable full-video analysis.',
+        }
+      }
+      return { ok: false, error: err || `Modal worker returned ${res.status}` }
+    }
+    return { ok: true, clipKey: data.clipKey || params.outputKey, sizeBytes: data.sizeBytes }
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      return { ok: false, error: 'Clip extract timed out. Retry — completed work is kept.' }
+    }
+    return { ok: false, error: err instanceof Error ? err.message : 'Clip extract failed' }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export async function assembleLocalPackage(job: NarrateMeJob): Promise<{
   wavKey: string
   mp3Key: string

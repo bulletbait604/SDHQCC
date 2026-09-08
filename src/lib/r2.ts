@@ -197,6 +197,33 @@ export async function putBufferToR2(
   }
 }
 
+/** Stream an object without buffering the whole file (Narrate Me → Gemini Files API). */
+export async function getR2ObjectStream(fileKey: string): Promise<{
+  body: AsyncIterable<Uint8Array>
+  contentLength: number
+} | null> {
+  if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
+    console.error('R2 credentials not configured')
+    return null
+  }
+  try {
+    const response = await r2Client.send(
+      new GetObjectCommand({
+        Bucket: R2_BUCKET_NAME,
+        Key: fileKey,
+      })
+    )
+    if (!response.Body) return null
+    return {
+      body: response.Body as AsyncIterable<Uint8Array>,
+      contentLength: typeof response.ContentLength === 'number' ? response.ContentLength : 0,
+    }
+  } catch (error) {
+    console.error('R2: GetObject stream failed:', error)
+    return null
+  }
+}
+
 // Get file from R2 for processing
 export async function getFileFromR2(fileKey: string): Promise<Buffer | null> {
   try {

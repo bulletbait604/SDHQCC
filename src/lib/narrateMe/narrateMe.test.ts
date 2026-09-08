@@ -1,11 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { analysisWindows, formatClock, formatSrtTime, hashNarrationText } from '@/lib/narrateMe/config'
+import { analysisWindows, formatClock, formatSrtTime, hashNarrationText, userFacingNarrateMeError } from '@/lib/narrateMe/config'
 import { alignmentFromElevenLabs, cuesFromVoiceSegments, cuesToSrt, cuesToVtt } from '@/lib/narrateMe/captions'
 import { capcutZipFiles, pcmToWav, zipStore } from '@/lib/narrateMe/assemble'
-import { parseTimelineEvents, mergeTimelineEvents } from '@/lib/narrateMe/gemini'
+import { parseTimelineEvents, mergeTimelineEvents, shiftTimelineEvents } from '@/lib/narrateMe/gemini'
 import { isSafeR2ObjectKey } from '@/lib/r2KeyValidation'
-import { sourceVideoKey } from '@/lib/narrateMe/keys'
+import { analysisClipKey, sourceVideoKey } from '@/lib/narrateMe/keys'
+import { ffmpegBinary } from '@/lib/narrateMe/ffmpegLocal'
 import type { VoiceSegment } from '@/lib/narrateMe/types'
 
 test('analysis windows cover a 2 hour video without random sampling', () => {
@@ -116,4 +117,49 @@ test('narrate-me R2 keys are accepted by the shared validator', () => {
   assert.equal(isSafeR2ObjectKey(key), true)
   assert.match(key, /^narrate-me\//)
   assert.doesNotMatch(key, /\.\./)
+})
+
+test('clip-relative Gemini times are shifted onto the source timeline', () => {
+  const events = parseTimelineEvents(
+    {
+      events: [
+        {
+          startTime: 12.4,
+          endTime: 18.1,
+          event: 'Opens lab',
+          evidence: ['UI visible'],
+          confidence: 0.9,
+        },
+      ],
+    },
+    1,
+    0,
+    480
+  )
+  const shifted = shiftTimelineEvents(events, 480)
+  assert.equal(shifted.length, 1)
+  assert.equal(shifted[0]?.startTime, 492.4)
+  assert.equal(shifted[0]?.endTime, 498.1)
+})
+
+test('analysis clip keys stay under the narrate-me prefix', () => {
+  const key = analysisClipKey('Bulletbait604', 'job-1', 3)
+  assert.equal(isSafeR2ObjectKey(key), true)
+  assert.match(key, /\/analysis\/chunk-003\.mp4$/)
+})
+
+test('Gemini PERMISSION_DENIED is mapped to a retryable user message', () => {
+  const raw = '{"error":{"code":403,"message":"The caller does not have permission","status":"PERMISSION_DENIED"}}'
+  assert.equal(
+    userFacingNarrateMeError(new Error(raw)),
+    'Gemini could not read this video. Retry analysis — completed work is kept.'
+  )
+})
+
+test('ffmpeg binary defaults to ffmpeg.exe on Windows', () => {
+  if (process.platform === 'win32') {
+    assert.match(ffmpegBinary(), /ffmpeg/i)
+  } else {
+    assert.equal(ffmpegBinary(), process.env.FFMPEG_PATH?.trim() || 'ffmpeg')
+  }
 })

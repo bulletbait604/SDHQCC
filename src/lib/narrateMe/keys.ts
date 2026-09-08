@@ -17,6 +17,11 @@ export function timelineJsonKey(username: string, jobId: string): string {
   return `${narrateMePrefix(username, jobId)}/analysis/timeline.json`
 }
 
+export function analysisClipKey(username: string, jobId: string, chunkIndex: number): string {
+  const n = Math.max(0, Math.floor(chunkIndex))
+  return `${narrateMePrefix(username, jobId)}/analysis/chunk-${String(n).padStart(3, '0')}.mp4`
+}
+
 export function scriptJsonKey(username: string, jobId: string): string {
   return `${narrateMePrefix(username, jobId)}/script/script.json`
 }

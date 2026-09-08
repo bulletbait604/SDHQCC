@@ -1,4 +1,4 @@
-"""Narrate Me cloud worker: FFmpeg audio assembly + captions + CapCut zip.
+"""Narrate Me cloud worker: FFmpeg clip extract + audio assembly + captions + CapCut zip.
 
 Deploy (from this directory):
 
@@ -9,6 +9,10 @@ Required Modal secret name: narrate-me
 Never commit credentials. Configure the secret with the same R2/Mongo values
 SDHQCC already uses on Vercel, plus INTERNAL_API_SECRET or MODAL_SECRET so
 Vercel can call this endpoint.
+
+POST body `action`:
+  extract-clip — cut one analysis window from the source video
+  assemble (default) — narration WAV/MP3 + captions zip
 """
 
 from __future__ import annotations
@@ -80,7 +84,10 @@ def _r2():
 
 
 def _run(cmd: list[str]) -> None:
-    subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.run(cmd, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if proc.returncode != 0:
+        err = (proc.stderr or b"").decode("utf-8", "replace")[-800:]
+        raise RuntimeError(f"{cmd[0]} failed ({proc.returncode}): {err or 'no stderr'}")
 
 
 def _srt_time(seconds: float) -> str:
@@ -321,6 +328,98 @@ def _assemble(payload: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def _extract_clip(payload: dict[str, Any]) -> dict[str, Any]:
+    """Cut one analysis window from the source video and store an MP4 clip on R2."""
+    client, bucket = _r2()
+    source_key = str(payload.get("sourceKey") or "")
+    source_url = str(payload.get("sourceUrl") or "")
+    output_key = str(payload.get("outputKey") or "")
+    start = max(0.0, float(payload.get("startTime") or 0))
+    end = max(start + 0.5, float(payload.get("endTime") or 0))
+    duration = end - start
+
+    if not output_key.startswith("narrate-me/") or ".." in output_key or "\\" in output_key:
+        raise RuntimeError("Invalid clip output key")
+    if not source_url and not source_key:
+        raise RuntimeError("Missing source video for clip extract")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = os.path.join(tmp, "clip.mp4")
+        src = source_url
+        if not src:
+            local_src = os.path.join(tmp, "source.bin")
+            client.download_file(bucket, source_key, local_src)
+            src = local_src
+
+        copy_cmd = [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-ss",
+            f"{start:.3f}",
+            "-i",
+            src,
+            "-t",
+            f"{duration:.3f}",
+            "-map",
+            "0:v:0",
+            "-map",
+            "0:a?",
+            "-c",
+            "copy",
+            "-avoid_negative_ts",
+            "make_zero",
+            out,
+        ]
+        encode_cmd = [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-ss",
+            f"{start:.3f}",
+            "-i",
+            src,
+            "-t",
+            f"{duration:.3f}",
+            "-map",
+            "0:v:0",
+            "-map",
+            "0:a?",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "28",
+            "-c:a",
+            "aac",
+            "-ac",
+            "1",
+            "-b:a",
+            "96k",
+            "-pix_fmt",
+            "yuv420p",
+            "-movflags",
+            "+faststart",
+            out,
+        ]
+        try:
+            _run(copy_cmd)
+        except Exception:
+            _run(encode_cmd)
+
+        size = os.path.getsize(out)
+        if size < 1000:
+            raise RuntimeError("Extracted clip was empty")
+        client.upload_file(out, bucket, output_key, ExtraArgs={"ContentType": "video/mp4"})
+
+    return {"clipKey": output_key, "sizeBytes": size, "mimeType": "video/mp4"}
+
+
 def _callback(payload: dict[str, Any], result: dict[str, str] | None, error: str | None) -> None:
     url = str(payload.get("callbackUrl") or "").strip()
     if not url:
@@ -345,6 +444,7 @@ def _callback(payload: dict[str, Any], result: dict[str, str] | None, error: str
     secrets=[modal.Secret.from_name(SECRET_NAME)],
     timeout=60 * 60,
     memory=4096,
+    ephemeral_disk=16 * 1024,
 )
 @modal.asgi_app()
 def assemble():
@@ -357,6 +457,13 @@ def assemble():
         if not _authorized(authorization):
             raise HTTPException(status_code=401, detail="Unauthorized")
         payload = await request.json()
+        action = str(payload.get("action") or "assemble").strip()
+        if action == "extract-clip":
+            try:
+                result = _extract_clip(payload)
+                return {"ok": True, **result}
+            except Exception as exc:  # noqa: BLE001
+                return {"ok": False, "error": str(exc)[:400]}
         last_error = "Assembly failed"
         for attempt in range(3):
             try:

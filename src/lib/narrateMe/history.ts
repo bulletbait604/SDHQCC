@@ -139,6 +139,7 @@ function mapChunks(raw: unknown): AnalysisChunk[] {
       status: (rec.status as StageStatus) || 'idle',
       eventCount: Number(rec.eventCount) || 0,
       error: String(rec.error || ''),
+      clipKey: String(rec.clipKey || ''),
     }
   })
 }
@@ -153,6 +154,8 @@ function emptyAnalysis(): VideoAnalysis {
     cacheKey: '',
     model: '',
     completedAt: '',
+    geminiFileUri: '',
+    geminiFileName: '',
   }
 }
 
@@ -198,6 +201,8 @@ export function mapNarrateMeJob(r: Record<string, unknown>): NarrateMeJob {
       cacheKey: String(analysis.cacheKey || ''),
       model: String(analysis.model || ''),
       completedAt: String(analysis.completedAt || ''),
+      geminiFileUri: String(analysis.geminiFileUri || ''),
+      geminiFileName: String(analysis.geminiFileName || ''),
     },
     timeline: mapTimeline(r.timeline),
     script: {

@@ -1,4 +1,4 @@
-import { putTextFileToR2 } from '@/lib/r2'
+import { deleteFileFromR2, generatePresignedReadUrl, getR2ObjectMetadata, getR2ObjectStream, putTextFileToR2 } from '@/lib/r2'
 import { spendToolCoins } from '@/lib/coins/spendToolCoins'
 import type { VerifiedUser } from '@/lib/auth/verifyAuth'
 import {
@@ -11,10 +11,12 @@ import {
   NARRATE_ME_MAX_DURATION_SECONDS,
   NARRATE_ME_TOOL,
   NARRATE_ME_VOICE_BATCH,
+  narrateMeGeminiApiKey,
   narrateMeGeminiModel,
   userFacingNarrateMeError,
 } from '@/lib/narrateMe/config'
 import {
+  analysisClipKey,
   analysisJsonKey,
   scriptJsonKey,
   sourceVideoKey,
@@ -33,13 +35,21 @@ import {
 import { analyzeVideoChunk, mergeTimelineEvents } from '@/lib/narrateMe/gemini'
 import { generateNarrationScript, regenerateNarrationSegment } from '@/lib/narrateMe/script'
 import { synthesizeNarrationSegment } from '@/lib/narrateMe/elevenlabs'
-import { assembleLocalPackage, triggerModalAssemble } from '@/lib/narrateMe/modal'
+import { cleanupLocalFfmpegJob, extractClipWithLocalFfmpeg, localFfmpegAvailable } from '@/lib/narrateMe/ffmpegLocal'
+import { assembleLocalPackage, modalAssembleUrl, triggerModalAssemble, triggerModalExtractClip } from '@/lib/narrateMe/modal'
 import { applyProgress } from '@/lib/narrateMe/progress'
 import { kickNarrateMeTick } from '@/lib/narrateMe/kickoff'
+import {
+  deleteGeminiUploadedFile,
+  GEMINI_FILES_MAX_BYTES,
+  pollGeminiFileUntilActive,
+  uploadIterableToGeminiFilesApi,
+} from '@/lib/geminiFiles'
 import type {
   AnalysisChunk,
   NarrateMeJob,
   NarrationSegment,
+  TimelineEvent,
 } from '@/lib/narrateMe/types'
 
 export { getNarrateMeJobForUser, newNarrateMeJobId }
@@ -96,6 +106,8 @@ export function emptyJob(params: {
       cacheKey: '',
       model: '',
       completedAt: '',
+      geminiFileUri: '',
+      geminiFileName: '',
     },
     timeline: [],
     script: {
@@ -159,15 +171,22 @@ export async function markUploaded(
   })
 }
 
-function initChunks(durationSeconds: number): AnalysisChunk[] {
-  return analysisWindows(durationSeconds).map((w) => ({
-    index: w.index,
-    startTime: w.startTime,
-    endTime: w.endTime,
-    status: 'idle' as const,
-    eventCount: 0,
-    error: '',
-  }))
+function initChunks(durationSeconds: number, previous: AnalysisChunk[] = []): AnalysisChunk[] {
+  const prev = new Map(
+    previous.map((c) => [`${c.index}:${c.startTime}:${c.endTime}`, c] as const)
+  )
+  return analysisWindows(durationSeconds).map((w) => {
+    const old = prev.get(`${w.index}:${w.startTime}:${w.endTime}`)
+    return {
+      index: w.index,
+      startTime: w.startTime,
+      endTime: w.endTime,
+      status: 'idle' as const,
+      eventCount: 0,
+      error: '',
+      clipKey: old?.clipKey || '',
+    }
+  })
 }
 
 export async function startAnalysis(job: NarrateMeJob, user?: VerifiedUser): Promise<NarrateMeJob> {
@@ -207,7 +226,17 @@ export async function startAnalysis(job: NarrateMeJob, user?: VerifiedUser): Pro
     })
   }
 
-  const chunks = initChunks(job.sourceVideo.durationSeconds || 1)
+  const chunks = initChunks(
+    job.sourceVideo.durationSeconds || 1,
+    job.analysis.cacheKey === cacheKey ? job.analysis.chunks : []
+  )
+  const keepGemini =
+    job.analysis.cacheKey === cacheKey && job.analysis.geminiFileUri && job.analysis.geminiFileName
+      ? {
+          geminiFileUri: job.analysis.geminiFileUri,
+          geminiFileName: job.analysis.geminiFileName,
+        }
+      : { geminiFileUri: '', geminiFileName: '' }
   const next = await persistJob(job, {
     status: 'analyzing',
     error: '',
@@ -222,6 +251,7 @@ export async function startAnalysis(job: NarrateMeJob, user?: VerifiedUser): Pro
       cacheKey,
       model: narrateMeGeminiModel(),
       completedAt: '',
+      ...keepGemini,
     },
     timeline: [],
     script: { status: 'idle', segments: [], version: 0, approved: false, updatedAt: '' },
@@ -234,6 +264,133 @@ export async function startAnalysis(job: NarrateMeJob, user?: VerifiedUser): Pro
   return next
 }
 
+async function ensureGeminiVideoFile(job: NarrateMeJob): Promise<NarrateMeJob> {
+  if (job.analysis.geminiFileUri && job.analysis.geminiFileName) return job
+  const apiKey = narrateMeGeminiApiKey()
+  if (!apiKey) throw new Error('GEMINI_API is not configured')
+
+  const meta = await getR2ObjectMetadata(job.sourceVideo.fileKey)
+  const sizeBytes = meta?.contentLength || job.sourceVideo.sizeBytes
+  if (sizeBytes > GEMINI_FILES_MAX_BYTES) {
+    throw new Error(
+      'This video is larger than 2 GB. Deploy the Narrate Me Modal worker (extract-clip) to analyze it on the live site.'
+    )
+  }
+
+  const stream = await getR2ObjectStream(job.sourceVideo.fileKey)
+  if (!stream) throw new Error('Could not load the uploaded video for analysis')
+
+  const mime = job.sourceVideo.mimeType.startsWith('video/')
+    ? job.sourceVideo.mimeType
+    : 'video/mp4'
+  const uploaded = await uploadIterableToGeminiFilesApi({
+    apiKey,
+    body: stream.body,
+    sizeBytes: stream.contentLength || sizeBytes,
+    mimeType: mime,
+    displayName: `narrate-me-${job.jobId}`,
+  })
+  await pollGeminiFileUntilActive(apiKey, uploaded.uri, { maxRetries: 90, retryDelayMs: 2000 })
+  return persistJob(job, {
+    analysis: {
+      ...job.analysis,
+      geminiFileUri: uploaded.uri,
+      geminiFileName: uploaded.name,
+    },
+    sourceVideo: {
+      ...job.sourceVideo,
+      sizeBytes: job.sourceVideo.sizeBytes || sizeBytes,
+    },
+  })
+}
+
+async function releaseGeminiVideoFile(job: NarrateMeJob): Promise<void> {
+  const apiKey = narrateMeGeminiApiKey()
+  if (!apiKey || !job.analysis.geminiFileName) return
+  await deleteGeminiUploadedFile(apiKey, job.analysis.geminiFileName).catch(() => undefined)
+}
+
+async function cleanupAnalysisClips(job: NarrateMeJob): Promise<void> {
+  for (const chunk of job.analysis.chunks) {
+    if (chunk.clipKey) await deleteFileFromR2(chunk.clipKey).catch(() => undefined)
+  }
+  await cleanupLocalFfmpegJob(job.jobId)
+}
+
+async function ensureAnalysisClip(job: NarrateMeJob, chunk: AnalysisChunk): Promise<string> {
+  const clipKey = chunk.clipKey || analysisClipKey(job.username, job.jobId, chunk.index)
+  const existing = await getR2ObjectMetadata(clipKey)
+  if (existing && existing.contentLength > 1000) return clipKey
+
+  if (await localFfmpegAvailable()) {
+    await extractClipWithLocalFfmpeg({
+      jobId: job.jobId,
+      sourceKey: job.sourceVideo.fileKey,
+      startTime: chunk.startTime,
+      endTime: chunk.endTime,
+      outputKey: clipKey,
+    })
+    return clipKey
+  }
+
+  const sourceUrl = await generatePresignedReadUrl(job.sourceVideo.fileKey, 7200)
+  if (!sourceUrl) throw new Error('Could not create a video read URL for clip extract')
+
+  const result = await triggerModalExtractClip({
+    jobId: job.jobId,
+    sourceKey: job.sourceVideo.fileKey,
+    sourceUrl,
+    startTime: chunk.startTime,
+    endTime: chunk.endTime,
+    outputKey: clipKey,
+  })
+  if (!result.ok) {
+    throw new Error(result.error || 'Clip extract failed')
+  }
+  return result.clipKey || clipKey
+}
+
+async function analyzeChunkFromClip(
+  job: NarrateMeJob,
+  chunk: AnalysisChunk
+): Promise<TimelineEvent[]> {
+  const apiKey = narrateMeGeminiApiKey()
+  if (!apiKey) throw new Error('GEMINI_API is not configured')
+  if (!chunk.clipKey) throw new Error('Analysis clip is missing')
+
+  const meta = await getR2ObjectMetadata(chunk.clipKey)
+  if (!meta) throw new Error('Analysis clip missing from storage')
+  if (meta.contentLength > GEMINI_FILES_MAX_BYTES) {
+    throw new Error('This video span is too large for analysis. Retry this step.')
+  }
+
+  const stream = await getR2ObjectStream(chunk.clipKey)
+  if (!stream) throw new Error('Could not load the analysis clip')
+
+  const uploaded = await uploadIterableToGeminiFilesApi({
+    apiKey,
+    body: stream.body,
+    sizeBytes: stream.contentLength || meta.contentLength,
+    mimeType: 'video/mp4',
+    displayName: `narrate-me-${job.jobId}-c${chunk.index}`,
+  })
+  try {
+    await pollGeminiFileUntilActive(apiKey, uploaded.uri, { maxRetries: 60, retryDelayMs: 2000 })
+    return analyzeVideoChunk({
+      fileUri: uploaded.uri,
+      mimeType: 'video/mp4',
+      prompt: job.prompt,
+      startTime: chunk.startTime,
+      endTime: chunk.endTime,
+      durationSeconds: job.sourceVideo.durationSeconds,
+      chunkIndex: chunk.index,
+      clipRelative: true,
+    })
+  } finally {
+    await deleteGeminiUploadedFile(apiKey, uploaded.name).catch(() => undefined)
+  }
+}
+
 async function runNextAnalysisChunk(job: NarrateMeJob): Promise<NarrateMeJob> {
   const chunks = [...job.analysis.chunks]
   const running = chunks.find((c) => c.status === 'running')
@@ -243,14 +400,46 @@ async function runNextAnalysisChunk(job: NarrateMeJob): Promise<NarrateMeJob> {
     running.status = 'failed'
     running.error = running.error || 'Analysis timed out. Retrying this span.'
   }
+
+  const hasLocalFfmpeg = await localFfmpegAvailable()
+  const sizeBytes = job.sourceVideo.sizeBytes || 0
+  const tooBigForWholeFile = sizeBytes > GEMINI_FILES_MAX_BYTES
+  // Local: FFmpeg clips. Production: whole-file Gemini under 2 GB; Modal clips only above that
+  // so Vercel does not depend on a new extract-clip worker for normal uploads.
+  const clipMode = hasLocalFfmpeg || (tooBigForWholeFile && Boolean(modalAssembleUrl()))
+
   const nextChunk = chunks.find((c) => c.status === 'idle' || c.status === 'failed')
   if (!nextChunk) {
+    await releaseGeminiVideoFile(job)
+    await cleanupAnalysisClips(job)
     return persistJob(job, {
       status: 'awaiting_script_approval',
       script: { ...job.script, status: job.script.status === 'complete' ? 'complete' : 'running' },
-      analysis: { ...job.analysis, status: 'complete', progress: 100, completedAt: job.analysis.completedAt || nowIso() },
+      analysis: {
+        ...job.analysis,
+        status: 'complete',
+        progress: 100,
+        completedAt: job.analysis.completedAt || nowIso(),
+        geminiFileUri: '',
+        geminiFileName: '',
+        chunks: chunks.map((c) => ({ ...c, clipKey: '' })),
+      },
     })
   }
+
+  if (!clipMode && (!job.analysis.geminiFileUri || !job.analysis.geminiFileName)) {
+    try {
+      return await ensureGeminiVideoFile(job)
+    } catch (err) {
+      return persistJob(job, {
+        analysis: { ...job.analysis, chunks, status: 'failed' },
+        status: 'failed',
+        error: userFacingNarrateMeError(err),
+        retryable: true,
+      })
+    }
+  }
+
   nextChunk.status = 'running'
   nextChunk.error = ''
   await persistJob(job, {
@@ -260,15 +449,26 @@ async function runNextAnalysisChunk(job: NarrateMeJob): Promise<NarrateMeJob> {
   })
 
   try {
-    const events = await analyzeVideoChunk({
-      fileKey: job.sourceVideo.fileKey,
-      mimeType: job.sourceVideo.mimeType,
-      prompt: job.prompt,
-      startTime: nextChunk.startTime,
-      endTime: nextChunk.endTime,
-      durationSeconds: job.sourceVideo.durationSeconds,
-      chunkIndex: nextChunk.index,
-    })
+    let events: TimelineEvent[]
+    if (clipMode) {
+      nextChunk.clipKey = await ensureAnalysisClip(job, nextChunk)
+      await persistJob(job, {
+        analysis: { ...job.analysis, chunks, status: 'running' },
+        status: 'analyzing',
+        error: '',
+      })
+      events = await analyzeChunkFromClip(job, nextChunk)
+    } else {
+      events = await analyzeVideoChunk({
+        fileUri: job.analysis.geminiFileUri,
+        mimeType: job.sourceVideo.mimeType,
+        prompt: job.prompt,
+        startTime: nextChunk.startTime,
+        endTime: nextChunk.endTime,
+        durationSeconds: job.sourceVideo.durationSeconds,
+        chunkIndex: nextChunk.index,
+      })
+    }
     const timeline = mergeTimelineEvents(job.timeline, events)
     nextChunk.status = 'complete'
     nextChunk.eventCount = events.length
@@ -283,10 +483,20 @@ async function runNextAnalysisChunk(job: NarrateMeJob): Promise<NarrateMeJob> {
     const saved = await persistJob(job, { timeline, analysis, status: 'analyzing', error: '' })
     await cacheJson(timelineJsonKey(job.username, job.jobId), timeline)
     if (analysis.status === 'complete') {
+      await releaseGeminiVideoFile(saved)
+      await cleanupAnalysisClips(saved)
       return persistJob(saved, {
         status: 'awaiting_script_approval',
         script: { ...saved.script, status: 'running' },
-        analysis: { ...saved.analysis, status: 'complete', progress: 100, completedAt: nowIso() },
+        analysis: {
+          ...saved.analysis,
+          status: 'complete',
+          progress: 100,
+          completedAt: nowIso(),
+          geminiFileUri: '',
+          geminiFileName: '',
+          chunks: saved.analysis.chunks.map((c) => ({ ...c, clipKey: '' })),
+        },
       })
     }
     return saved
@@ -669,5 +879,13 @@ export async function tickActiveJobs(limit = 4): Promise<number> {
 }
 
 export function publicJob(job: NarrateMeJob): NarrateMeJob {
-  return job
+  if (!job.analysis.geminiFileUri && !job.analysis.geminiFileName) return job
+  return {
+    ...job,
+    analysis: {
+      ...job.analysis,
+      geminiFileUri: '',
+      geminiFileName: '',
+    },
+  }
 }

@@ -50,6 +50,9 @@ export interface VideoAnalysis {
   cacheKey: string
   model: string
   completedAt: string
+  /** Gemini Files API URI. Never pass R2 signed URLs as fileUri. */
+  geminiFileUri: string
+  geminiFileName: string
 }
 
 export interface AnalysisChunk {
@@ -59,6 +62,8 @@ export interface AnalysisChunk {
   status: StageStatus
   eventCount: number
   error: string
+  /** R2 key for the 8-minute FFmpeg clip of this window. */
+  clipKey: string
 }
 
 export interface NarrationSegment {

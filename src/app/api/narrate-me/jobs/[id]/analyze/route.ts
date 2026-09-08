@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyOwnerUser } from '@/lib/auth/staffAccess'
 import { narrateMeErrorResponse } from '@/lib/narrateMe/http'
-import { getNarrateMeJobForUser, startAnalysis } from '@/lib/narrateMe/pipeline'
+import { getNarrateMeJobForUser, markUploaded, publicJob, startAnalysis } from '@/lib/narrateMe/pipeline'
 import { getR2ObjectMetadata } from '@/lib/r2'
-import { markUploaded } from '@/lib/narrateMe/pipeline'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -24,7 +23,7 @@ export async function POST(
       job = await markUploaded(job, meta.contentLength)
     }
     const saved = await startAnalysis(job, user)
-    return NextResponse.json({ job: saved })
+    return NextResponse.json({ job: publicJob(saved) })
   } catch (err) {
     return narrateMeErrorResponse(err)
   }
