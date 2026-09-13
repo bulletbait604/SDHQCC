@@ -25,7 +25,7 @@ import {
   type ProtoFilter,
   type StatusFilter,
 } from '@/lib/virusesPortScanner/ports'
-import { formatProcessLabel, formatProcessList } from '@/lib/virusesPortScanner/processInfo'
+import { formatProcessLabel, formatProcessList } from '@/lib/virusesPortScanner/processLabel'
 import type { PortConnection, PortScanResult } from '@/lib/virusesPortScanner/types'
 
 export interface VirusesPortScannerTabProps {

@@ -3,6 +3,8 @@ import { readFile, readlink } from 'node:fs/promises'
 import { promisify } from 'node:util'
 import type { ProcessInfo } from './types'
 
+export { formatProcessLabel, formatProcessList } from './processLabel'
+
 const execFileAsync = promisify(execFile)
 
 function clean(value: unknown): string | null {
@@ -162,20 +164,4 @@ export function processesForPids(pids: readonly number[], byPid: Map<number, Pro
     if (info) out.push(info)
   }
   return out
-}
-
-export function formatProcessLabel(info: ProcessInfo | null | undefined): string {
-  if (!info) return '—'
-  const version = info.version || info.product
-  if (version && info.description && info.description !== info.name) {
-    return `${info.name} ${version} (${info.description})`
-  }
-  if (version) return `${info.name} ${version}`
-  if (info.description && info.description !== info.name) return `${info.name} (${info.description})`
-  return info.name
-}
-
-export function formatProcessList(processes: readonly ProcessInfo[]): string {
-  if (!processes.length) return '—'
-  return processes.map((info) => formatProcessLabel(info)).join(' · ')
 }
