@@ -119,10 +119,12 @@ test('parseWindowsNetstatSnapshot reads listeners, UDP, and traffic', () => {
   ].join('\r\n')
 
   const snapshot = parseWindowsNetstatSnapshot(stdout)
-  assert.deepEqual(snapshot.listeningTcp.get(135), ['0.0.0.0'])
-  assert.deepEqual(snapshot.listeningTcp.get(3000), ['127.0.0.1'])
-  assert.deepEqual(snapshot.listeningTcp.get(445), ['::'])
-  assert.deepEqual(snapshot.listeningUdp.get(53), ['0.0.0.0'])
+  assert.deepEqual(snapshot.listeningTcp.get(135)?.addresses, ['0.0.0.0'])
+  assert.deepEqual(snapshot.listeningTcp.get(135)?.pids, [888])
+  assert.deepEqual(snapshot.listeningTcp.get(3000)?.addresses, ['127.0.0.1'])
+  assert.deepEqual(snapshot.listeningTcp.get(445)?.addresses, ['::'])
+  assert.deepEqual(snapshot.listeningUdp.get(53)?.addresses, ['0.0.0.0'])
+  assert.deepEqual(snapshot.listeningUdp.get(53)?.pids, [456])
   assert.equal(snapshot.connections.length, 2)
 
   const inbound = classifyConnectionDirection(snapshot.connections[0], snapshot.listeningTcp)
@@ -131,6 +133,7 @@ test('parseWindowsNetstatSnapshot reads listeners, UDP, and traffic', () => {
   assert.equal(outbound.direction, 'outbound')
   assert.equal(outbound.remotePort, 443)
   assert.equal(outbound.pid, 99)
+  assert.equal(outbound.process, null)
 
   const map = parseWindowsNetstat(stdout)
   assert.equal(map.has(53), false)
@@ -173,4 +176,31 @@ test('vercelScanNote only warns on hosted builds', () => {
 
 test('inbound page size stays practical for the UI', () => {
   assert.equal(INBOUND_PAGE_SIZE, 200)
+})
+
+test('buildInboundPage keeps process and version details on open ports', () => {
+  const row = openRow(3000, 'tcp', ['127.0.0.1'], {
+    pids: [1234],
+    processes: [
+      {
+        pid: 1234,
+        name: 'node',
+        version: '22.11.0',
+        product: 'Node.js',
+        description: 'Node.js JavaScript Runtime',
+        path: 'C:\\Program Files\\nodejs\\node.exe',
+      },
+    ],
+  })
+  const page = buildInboundPage({
+    tcpBinds: new Map([[3000, ['127.0.0.1']]]),
+    udpBinds: new Map(),
+    details: new Map([['tcp:3000', row]]),
+    filter: 'Open',
+    proto: 'tcp',
+    query: 'node',
+    page: 1,
+  })
+  assert.equal(page.matched, 1)
+  assert.equal(page.rows[0]?.processes[0]?.version, '22.11.0')
 })

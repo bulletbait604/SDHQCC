@@ -1,4 +1,4 @@
-import type { PortProto, PortScanRow, PortStatus } from './types'
+import type { PortProto, PortScanRow, PortStatus, ProcessInfo } from './types'
 
 export const PORT_MIN = 1
 export const PORT_MAX = 65535
@@ -128,13 +128,30 @@ export function uniqueBinds(binds: string[] | undefined): string[] {
   return Array.from(new Set(binds)).sort()
 }
 
-export function openRow(port: number, proto: PortProto, binds: string[]): PortScanRow {
+export function uniquePids(pids: number[] | undefined): number[] {
+  if (!pids || pids.length === 0) return []
+  const out: number[] = []
+  for (let i = 0; i < pids.length; i += 1) {
+    const pid = pids[i]
+    if (Number.isInteger(pid) && pid >= 0 && out.indexOf(pid) === -1) out.push(pid)
+  }
+  return out
+}
+
+export function openRow(
+  port: number,
+  proto: PortProto,
+  binds: string[],
+  extras?: { pids?: number[]; processes?: ProcessInfo[] }
+): PortScanRow {
   return {
     port,
     proto,
     service: serviceNameForPort(port),
     status: 'Open',
     binds: uniqueBinds(binds),
+    pids: uniquePids(extras?.pids),
+    processes: extras?.processes ? extras.processes.slice() : [],
   }
 }
 
@@ -145,13 +162,33 @@ export function closedRow(port: number, proto: PortProto): PortScanRow {
     service: serviceNameForPort(port),
     status: 'Closed',
     binds: [],
+    pids: [],
+    processes: [],
   }
 }
 
-export function rowsFromListenMap(listening: Map<number, string[]>, proto: PortProto): PortScanRow[] {
+export type ListenEntry = {
+  addresses: string[]
+  pids: number[]
+}
+
+export function rowsFromListenMap(
+  listening: Map<number, ListenEntry | string[]>,
+  proto: PortProto,
+  byPid?: Map<number, ProcessInfo>
+): PortScanRow[] {
   const rows: PortScanRow[] = []
-  listening.forEach((binds, port) => {
-    rows.push(openRow(port, proto, binds))
+  listening.forEach((entry, port) => {
+    const binds = Array.isArray(entry) ? entry : entry.addresses
+    const pids = Array.isArray(entry) ? [] : uniquePids(entry.pids)
+    const processes: ProcessInfo[] = []
+    if (byPid) {
+      for (let i = 0; i < pids.length; i += 1) {
+        const info = byPid.get(pids[i])
+        if (info) processes.push(info)
+      }
+    }
+    rows.push(openRow(port, proto, binds, { pids, processes }))
   })
   rows.sort((a, b) => a.port - b.port)
   return rows
@@ -168,6 +205,17 @@ function rowMatchesQuery(row: PortScanRow, query: string): boolean {
   if (row.proto.includes(query)) return true
   for (let i = 0; i < row.binds.length; i += 1) {
     if (row.binds[i].toLowerCase().includes(query)) return true
+  }
+  for (let i = 0; i < row.pids.length; i += 1) {
+    if (String(row.pids[i]).includes(query)) return true
+  }
+  for (let i = 0; i < row.processes.length; i += 1) {
+    const proc = row.processes[i]
+    const hay = [proc.name, proc.version, proc.product, proc.description, proc.path]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    if (hay.includes(query)) return true
   }
   return false
 }
@@ -186,9 +234,29 @@ export function bindMapFromOpenRows(rows: readonly PortScanRow[], proto: PortPro
   return map
 }
 
+export function detailKey(proto: PortProto, port: number): string {
+  return `${proto}:${port}`
+}
+
+export function openDetailLookup(rows: readonly PortScanRow[]): Map<string, PortScanRow> {
+  const map = new Map<string, PortScanRow>()
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = rows[i]
+    if (row.status === 'Open') map.set(detailKey(row.proto, row.port), row)
+  }
+  return map
+}
+
+function hydrateOpen(port: number, proto: PortProto, binds: string[], details: Map<string, PortScanRow>): PortScanRow {
+  const existing = details.get(detailKey(proto, port))
+  if (existing) return existing
+  return openRow(port, proto, binds)
+}
+
 export function buildInboundPage(params: {
   tcpBinds: Map<number, string[]>
   udpBinds: Map<number, string[]>
+  details?: Map<string, PortScanRow>
   filter: StatusFilter
   proto: ProtoFilter
   query: string
@@ -199,6 +267,7 @@ export function buildInboundPage(params: {
   const query = params.query.trim().toLowerCase()
   const protos = protosFor(params.proto)
   const bindsFor = (proto: PortProto) => (proto === 'tcp' ? params.tcpBinds : params.udpBinds)
+  const details = params.details || new Map<string, PortScanRow>()
 
   const collect = (page: number) => {
     const rows: PortScanRow[] = []
@@ -221,7 +290,7 @@ export function buildInboundPage(params: {
         })
         ports.sort((a, b) => a - b)
         for (let i = 0; i < ports.length; i += 1) {
-          openRows.push(openRow(ports[i], proto, map.get(ports[i]) || []))
+          openRows.push(hydrateOpen(ports[i], proto, map.get(ports[i]) || [], details))
         }
       }
       if (params.proto === 'both') {
@@ -235,7 +304,7 @@ export function buildInboundPage(params: {
           const binds = uniqueBinds(bindsFor(proto).get(port))
           const isOpen = binds.length > 0
           if (params.filter === 'Closed' && isOpen) continue
-          take(isOpen ? openRow(port, proto, binds) : closedRow(port, proto))
+          take(isOpen ? hydrateOpen(port, proto, binds, details) : closedRow(port, proto))
         }
       }
     }

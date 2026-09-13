@@ -7,6 +7,7 @@ import {
   Bug,
   ChevronLeft,
   ChevronRight,
+  Globe,
   Loader2,
   RefreshCw,
   Search,
@@ -19,10 +20,12 @@ import {
   bindMapFromOpenRows,
   buildInboundPage,
   INBOUND_PAGE_SIZE,
+  openDetailLookup,
   PORT_MAX,
   type ProtoFilter,
   type StatusFilter,
 } from '@/lib/virusesPortScanner/ports'
+import { formatProcessLabel, formatProcessList } from '@/lib/virusesPortScanner/processInfo'
 import type { PortConnection, PortScanResult } from '@/lib/virusesPortScanner/types'
 
 export interface VirusesPortScannerTabProps {
@@ -55,7 +58,7 @@ export default function VirusesPortScannerTab({
   const [isWorking, setIsWorking] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<PortScanResult | null>(null)
-  const [filter, setFilter] = useState<StatusFilter>('all')
+  const [filter, setFilter] = useState<StatusFilter>('Open')
   const [proto, setProto] = useState<ProtoFilter>('tcp')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
@@ -118,6 +121,8 @@ export default function VirusesPortScannerTab({
     [result]
   )
 
+  const details = useMemo(() => (result ? openDetailLookup(result.ports) : new Map()), [result])
+
   const inboundPage = useMemo(() => {
     if (!result) {
       return { rows: [], matched: 0, page: 1, pages: 1 }
@@ -125,13 +130,14 @@ export default function VirusesPortScannerTab({
     return buildInboundPage({
       tcpBinds,
       udpBinds,
+      details,
       filter,
       proto,
       query,
       page,
       pageSize: INBOUND_PAGE_SIZE,
     })
-  }, [result, tcpBinds, udpBinds, filter, proto, query, page])
+  }, [result, tcpBinds, udpBinds, details, filter, proto, query, page])
 
   useEffect(() => {
     if (inboundPage.page !== page) setPage(inboundPage.page)
@@ -151,6 +157,10 @@ export default function VirusesPortScannerTab({
         conn.remoteAddress,
         conn.remotePort == null ? '' : String(conn.remotePort),
         conn.pid == null ? '' : String(conn.pid),
+        conn.process?.name || '',
+        conn.process?.version || '',
+        conn.process?.product || '',
+        conn.process?.description || '',
       ]
         .join(' ')
         .toLowerCase()
@@ -187,6 +197,27 @@ export default function VirusesPortScannerTab({
               </p>
               <h4 className={`text-xl font-bold font-mono ${textMain}`}>Viruses Port Scanner</h4>
               <p className={`text-sm mt-1 max-w-2xl ${subtitleClasses}`}>{description}</p>
+              <label className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2 max-w-xl">
+                <span className={`text-xs font-semibold uppercase tracking-wide shrink-0 ${accent}`}>
+                  IP Address
+                </span>
+                <span className="relative flex-1">
+                  <Globe className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${accent}`} />
+                  <input
+                    readOnly
+                    value={
+                      result?.publicIp ||
+                      (isWorking ? 'Detecting…' : 'Unavailable')
+                    }
+                    className={`w-full rounded-xl border pl-9 pr-3 py-2 text-sm font-mono outline-none ${inputShell}`}
+                  />
+                </span>
+              </label>
+              {result?.lanIps?.length ? (
+                <p className={`text-xs font-mono mt-1 ${subtitleClasses}`}>
+                  LAN: {result.lanIps.join(' · ')}
+                </p>
+              ) : null}
             </div>
           </div>
           <Button
@@ -313,7 +344,7 @@ export default function VirusesPortScannerTab({
                 setQuery(e.target.value)
                 setPage(1)
               }}
-              placeholder="Jump by port, service, or bind…"
+              placeholder="Jump by port, process, version, or bind…"
               className={`w-full rounded-xl border pl-9 pr-3 py-2 text-sm outline-none ${inputShell}`}
             />
           </label>
@@ -332,13 +363,15 @@ export default function VirusesPortScannerTab({
                   <th className="px-3 py-2 font-semibold">Proto</th>
                   <th className="px-3 py-2 font-semibold">Service</th>
                   <th className="px-3 py-2 font-semibold">Status</th>
+                  <th className="px-3 py-2 font-semibold">Process</th>
+                  <th className="px-3 py-2 font-semibold">Version</th>
                   <th className="px-3 py-2 font-semibold">Bind</th>
                 </tr>
               </thead>
               <tbody>
                 {isWorking && !result ? (
                   <tr>
-                    <td colSpan={5} className={`px-3 py-8 text-center ${subtitleClasses}`}>
+                    <td colSpan={7} className={`px-3 py-8 text-center ${subtitleClasses}`}>
                       <span className="inline-flex items-center gap-2">
                         <Loader2 className="w-4 h-4 animate-spin" />
                         Reading every local TCP/UDP socket…
@@ -347,7 +380,7 @@ export default function VirusesPortScannerTab({
                   </tr>
                 ) : inboundPage.rows.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className={`px-3 py-8 text-center ${subtitleClasses}`}>
+                    <td colSpan={7} className={`px-3 py-8 text-center ${subtitleClasses}`}>
                       No ports match this filter.
                     </td>
                   </tr>
@@ -374,6 +407,12 @@ export default function VirusesPortScannerTab({
                         >
                           {row.status}
                         </span>
+                      </td>
+                      <td className={`px-3 py-1.5 text-xs ${textMain}`}>
+                        {row.status === 'Open' ? formatProcessList(row.processes) : '—'}
+                      </td>
+                      <td className={`px-3 py-1.5 font-mono text-xs ${subtitleClasses}`}>
+                        {row.processes[0]?.version || row.processes[0]?.product || '—'}
                       </td>
                       <td className={`px-3 py-1.5 font-mono text-xs ${subtitleClasses}`}>
                         {formatBinds(row.binds)}
@@ -445,6 +484,8 @@ export default function VirusesPortScannerTab({
                   <th className="px-3 py-2 font-semibold">Dir</th>
                   <th className="px-3 py-2 font-semibold">Local</th>
                   <th className="px-3 py-2 font-semibold">Remote</th>
+                  <th className="px-3 py-2 font-semibold">Process</th>
+                  <th className="px-3 py-2 font-semibold">Version</th>
                   <th className="px-3 py-2 font-semibold">State</th>
                   <th className="px-3 py-2 font-semibold">PID</th>
                 </tr>
@@ -452,7 +493,7 @@ export default function VirusesPortScannerTab({
               <tbody>
                 {!result || trafficRows.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className={`px-3 py-8 text-center ${subtitleClasses}`}>
+                    <td colSpan={7} className={`px-3 py-8 text-center ${subtitleClasses}`}>
                       {result ? 'No active TCP sessions match.' : 'Waiting for sweep…'}
                     </td>
                   </tr>
@@ -485,6 +526,12 @@ export default function VirusesPortScannerTab({
                       </td>
                       <td className={`px-3 py-1.5 font-mono text-xs ${subtitleClasses}`}>
                         {formatRemote(conn)}
+                      </td>
+                      <td className={`px-3 py-1.5 text-xs ${textMain}`}>
+                        {formatProcessLabel(conn.process)}
+                      </td>
+                      <td className={`px-3 py-1.5 font-mono text-xs ${subtitleClasses}`}>
+                        {conn.process?.version || conn.process?.product || '—'}
                       </td>
                       <td className={`px-3 py-1.5 font-mono text-xs uppercase ${subtitleClasses}`}>
                         {conn.state}

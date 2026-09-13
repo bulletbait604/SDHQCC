@@ -1,8 +1,11 @@
 import { createConnection } from 'node:net'
 import os from 'node:os'
+import { localIpv4Addresses, resolvePublicIpv4 } from './hostIps'
 import { PORT_MAX, PORT_MIN, resolveScanHost, rowsFromListenMap, vercelScanNote } from './ports'
-import { classifyConnectionDirection, readLocalPortSnapshot } from './listenTable'
-import type { PortScanResult } from './types'
+import { classifyConnectionDirection, collectSnapshotPids, readLocalPortSnapshot } from './listenTable'
+import { readProcessMap } from './processInfo'
+import type { ListenEntry } from './ports'
+import type { PortScanResult, ProcessInfo } from './types'
 
 const TCP_TIMEOUT_MS = 120
 const TCP_CONCURRENCY = 256
@@ -47,32 +50,36 @@ async function mapPool<T, R>(
   return results
 }
 
-async function tcpProbeAllLocalPorts(host: string): Promise<Map<number, string[]>> {
-  const listening = new Map<number, string[]>()
+async function tcpProbeAllLocalPorts(host: string): Promise<Map<number, ListenEntry>> {
+  const listening = new Map<number, ListenEntry>()
   const ports: number[] = new Array(PORT_MAX)
   for (let port = PORT_MIN; port <= PORT_MAX; port += 1) {
     ports[port - 1] = port
   }
   await mapPool(ports, TCP_CONCURRENCY, async (port) => {
     const open = await probeTcpPort(host, port, TCP_TIMEOUT_MS)
-    if (open) listening.set(port, [host])
+    if (open) listening.set(port, { addresses: [host], pids: [] })
   })
   return listening
 }
 
-function summarize(
-  listeningTcp: Map<number, string[]>,
-  listeningUdp: Map<number, string[]>,
+async function summarize(
+  listeningTcp: Map<number, ListenEntry>,
+  listeningUdp: Map<number, ListenEntry>,
   rawConnections: Parameters<typeof classifyConnectionDirection>[0][],
   method: PortScanResult['method'],
   startedAt: number,
-  host: string
-): PortScanResult {
+  host: string,
+  byPid: Map<number, ProcessInfo>,
+  publicIp: string | null
+): Promise<PortScanResult> {
   const hostedOnVercel = Boolean(process.env.VERCEL)
-  const tcpRows = rowsFromListenMap(listeningTcp, 'tcp')
-  const udpRows = rowsFromListenMap(listeningUdp, 'udp')
+  const tcpRows = rowsFromListenMap(listeningTcp, 'tcp', byPid)
+  const udpRows = rowsFromListenMap(listeningUdp, 'udp', byPid)
   const ports = tcpRows.concat(udpRows)
-  const connections = rawConnections.map((conn) => classifyConnectionDirection(conn, listeningTcp))
+  const connections = rawConnections.map((conn) =>
+    classifyConnectionDirection(conn, listeningTcp, conn.pid == null ? null : byPid.get(conn.pid) || null)
+  )
   let outboundCount = 0
   let inboundSessionCount = 0
   for (let i = 0; i < connections.length; i += 1) {
@@ -85,6 +92,8 @@ function summarize(
     host,
     hostname: os.hostname(),
     platform: os.platform(),
+    publicIp,
+    lanIps: localIpv4Addresses(),
     hostedOnVercel,
     scannedAt: new Date().toISOString(),
     durationMs: Date.now() - startedAt,
@@ -107,22 +116,28 @@ function summarize(
 export async function scanAllLocalPorts(): Promise<PortScanResult> {
   const startedAt = Date.now()
   const host = envScanHost()
+  const publicIpPromise = resolvePublicIpv4()
   try {
     const snapshot = await readLocalPortSnapshot()
+    const byPid = await readProcessMap(collectSnapshotPids(snapshot))
+    const publicIp = await publicIpPromise
     return summarize(
       snapshot.listeningTcp,
       snapshot.listeningUdp,
       snapshot.connections,
       'os-listen-table',
       startedAt,
-      host
+      host,
+      byPid,
+      publicIp
     )
   } catch {
+    const publicIp = await publicIpPromise
     if (process.env.VERCEL) {
-      return summarize(new Map(), new Map(), [], 'os-listen-table', startedAt, host)
+      return summarize(new Map(), new Map(), [], 'os-listen-table', startedAt, host, new Map(), publicIp)
     }
     const listening = await tcpProbeAllLocalPorts(host)
-    return summarize(listening, new Map(), [], 'tcp-connect', startedAt, host)
+    return summarize(listening, new Map(), [], 'tcp-connect', startedAt, host, new Map(), publicIp)
   }
 }
 
