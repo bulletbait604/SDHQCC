@@ -18,6 +18,7 @@ import {
   INTERNAL_API_SECRET_HEADER,
   isValidInternalApiSecret,
 } from '@/lib/internalApi'
+import { setAlgorithmRefreshImpl, type AlgorithmRefreshOpts } from '@/lib/algorithms/refreshRunner'
 
 export const dynamic = 'force-dynamic'
 
@@ -582,14 +583,7 @@ async function logAlgorithmRefreshActivity(params: {
 }
 
 /** Shared research runner used by staff POST and monthly cron (no CRON_SECRET needed). */
-export async function runAlgorithmRefresh(opts?: {
-  platformId?: string
-  /** Cron skips if already refreshed this UTC month; staff passes force: true */
-  force?: boolean
-  /** Who/what triggered the run (shown in activity log). */
-  source?: 'monthly-cron' | 'staff' | 'internal'
-  actorUsername?: string
-}): Promise<NextResponse> {
+async function runAlgorithmRefresh(opts?: AlgorithmRefreshOpts): Promise<NextResponse> {
   const platformId = opts?.platformId
   const force = opts?.force === true
   const source = opts?.source || (force ? 'staff' : 'monthly-cron')
@@ -812,6 +806,8 @@ export async function runAlgorithmRefresh(opts?: {
 
   return NextResponse.json(data)
 }
+
+setAlgorithmRefreshImpl(runAlgorithmRefresh)
 
 export async function POST(request: NextRequest) {
   const internalSecret = request.headers.get(INTERNAL_API_SECRET_HEADER)

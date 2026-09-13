@@ -6,15 +6,13 @@ import {
 } from '@/lib/internalApi'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { verifyStaffUser } from '@/lib/auth/staffAccess'
+import { runAlgorithmRefresh } from '@/lib/algorithms/refreshRunner'
 
 export const dynamic = 'force-dynamic'
 /** Full multi-platform research can exceed default serverless limits. */
 export const maxDuration = 300
 
 async function runAlgorithmsUpdate(): Promise<Response> {
-  // Dynamic import avoids static circular coupling between route modules.
-  // On failure, prior Mongo snapshot is preserved — app keeps working.
-  const { runAlgorithmRefresh } = await import('@/app/api/algorithms/route')
   const response = await runAlgorithmRefresh({
     force: false,
     source: 'monthly-cron',
