@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { expansionFromChallengeId, heroPointTitle, nearestLandmarkName } from './skillChallenges'
 import { collectMapResources, collectSkillChallenges } from './mapResources'
+import { BUNDLED_TYRIA_SNAPSHOT } from './tyriaSnapshot'
 import { filterAchievements } from './achievementFilter'
 import { filterHeroPoints, filterMapResources, parseHeroPointIdList, parseMasteryUnlocked, unionHeroPointIds } from './progress'
 import type { Gw2ResourceKind, HeroPoint } from './types'
@@ -60,6 +61,17 @@ test('collectSkillChallenges keeps challenges that have coordinates but no API i
   assert.equal(points.length, 1)
   assert.match(points[0].id, /^coord-1442-/)
   assert.equal(points[0].expansion, 'End of Dragons')
+})
+
+test('bundled Tyria snapshot has markers for every tracked resource kind', () => {
+  const kinds = new Set(BUNDLED_TYRIA_SNAPSHOT.points.map((p) => p.kind))
+  assert.ok(BUNDLED_TYRIA_SNAPSHOT.points.length > 1500)
+  assert.deepEqual(BUNDLED_TYRIA_SNAPSHOT.continent.dims, [81920, 114688])
+  assert.ok(kinds.has('hero_point'))
+  assert.ok(kinds.has('mastery'))
+  assert.ok(kinds.has('vista'))
+  assert.ok(kinds.has('waypoint'))
+  assert.ok(kinds.has('heart'))
 })
 
 test('collectMapResources includes vistas, waypoints, hearts, and mastery insights', () => {

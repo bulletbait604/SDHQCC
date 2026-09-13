@@ -10,8 +10,13 @@ export const maxDuration = 60
 export async function GET(req: NextRequest) {
   try {
     const user = await verifyAuth(req)
-    const resolved = await resolveGw2KeyForUser(user)
-    const payload = await loadAchievementTracker(resolved.key)
+    let key: string | null = null
+    try {
+      key = (await resolveGw2KeyForUser(user)).key
+    } catch (err) {
+      console.error('[vi-guys-gw-map/achievements] stored key lookup failed; serving catalog only', err)
+    }
+    const payload = await loadAchievementTracker(key)
     return NextResponse.json(payload)
   } catch (err: unknown) {
     if (err instanceof AuthError) return createAuthErrorResponse(err)

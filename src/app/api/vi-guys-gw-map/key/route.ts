@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AuthError, createAuthErrorResponse, verifyAuth } from '@/lib/auth/verifyAuth'
-import { Gw2ApiError } from '@/lib/gw2/client'
+import { Gw2ApiError, gw2AuthUserMessage } from '@/lib/gw2/client'
 import { gw2KeyEncryptionReady } from '@/lib/gw2/keyCrypto'
+import { normalizeGw2ApiKey } from '@/lib/gw2/normalizeKey'
 import { resolveGw2KeyForUser } from '@/lib/gw2/resolveKey'
 import { Gw2KeyValidationError, inspectGw2ApiKey } from '@/lib/gw2/tracker'
 import { deleteUserGw2Key, saveUserGw2Key } from '@/lib/gw2/userKeys'
@@ -41,8 +42,8 @@ export async function PUT(req: NextRequest) {
     if (!gw2KeyEncryptionReady()) return encryptionUnavailable()
 
     const body = (await req.json().catch(() => null)) as { apiKey?: unknown } | null
-    const apiKey = typeof body?.apiKey === 'string' ? body.apiKey.trim() : ''
-    if (apiKey.length < 20 || apiKey.length > 200) {
+    const apiKey = normalizeGw2ApiKey(typeof body?.apiKey === 'string' ? body.apiKey : '')
+    if (apiKey.length < 20 || apiKey.length > 2048) {
       return NextResponse.json(
         {
           error: 'invalid_key',
@@ -66,10 +67,7 @@ export async function PUT(req: NextRequest) {
     }
     console.error('[vi-guys-gw-map/key PUT]', err)
     const message = err instanceof Error ? err.message : 'Could not save GW2 API key'
-    const userMessage =
-      err instanceof Gw2ApiError && (err.status === 401 || err.status === 403)
-        ? 'GW2 rejected that API key. Copy a new one from ArenaNet with account, characters, and progression.'
-        : message
+    const userMessage = err instanceof Gw2ApiError ? gw2AuthUserMessage(err) : message
     return NextResponse.json({ error: message, userMessage }, { status: 502 })
   }
 }

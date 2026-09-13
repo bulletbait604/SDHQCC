@@ -1,4 +1,4 @@
-import { gw2Get, gw2GetOk } from './client'
+import { gw2Get, gw2GetOk, gw2GetSafe, gw2AuthUserMessage, Gw2ApiError } from './client'
 import { TYRIA_CONTINENT_ID, TYRIA_FLOOR_ID } from './mapConstants'
 import { collectMapResources } from './mapResources'
 import { poolMap } from './pool'
@@ -8,6 +8,7 @@ import {
   parseMasteryUnlocked,
   unionHeroPointIds,
 } from './progress'
+import { BUNDLED_TYRIA_SNAPSHOT } from './tyriaSnapshot'
 import type { Gw2ContinentInfo, Gw2ResourceKind, HeroPointTrackerPayload } from './types'
 import { GW2_RESOURCE_KINDS } from './types'
 
@@ -43,17 +44,9 @@ function encodeCharacterName(name: string): string {
   return encodeURIComponent(name)
 }
 
-async function loadContinentAndPoints(): Promise<{
-  continent: Gw2ContinentInfo
-  points: HeroPointTrackerPayload['points']
-}> {
-  const now = Date.now()
-  if (floorCache && floorCache.v === 2 && now - floorCache.at < FLOOR_TTL_MS) {
-    return { continent: floorCache.continent, points: floorCache.points }
-  }
-  const continentJson = await gw2Get<ContinentJson>(`/continents/${TYRIA_CONTINENT_ID}`)
-  const dims = continentJson.continent_dims || [81920, 114688]
-  const continent: Gw2ContinentInfo = {
+function continentFromJson(continentJson: ContinentJson): Gw2ContinentInfo {
+  const dims = continentJson.continent_dims || BUNDLED_TYRIA_SNAPSHOT.continent.dims
+  return {
     id: TYRIA_CONTINENT_ID,
     name: typeof continentJson.name === 'string' ? continentJson.name : 'Tyria',
     floor: TYRIA_FLOOR_ID,
@@ -61,9 +54,30 @@ async function loadContinentAndPoints(): Promise<{
     minZoom: typeof continentJson.min_zoom === 'number' ? continentJson.min_zoom : 0,
     maxZoom: typeof continentJson.max_zoom === 'number' ? continentJson.max_zoom : 7,
   }
-  const floor = await gw2Get<unknown>(`/continents/${TYRIA_CONTINENT_ID}/floors/${TYRIA_FLOOR_ID}`)
-  const points = collectMapResources(floor)
-  floorCache = { at: now, v: 2, points, continent }
+}
+
+async function loadContinentAndPoints(): Promise<{
+  continent: Gw2ContinentInfo
+  points: HeroPointTrackerPayload['points']
+}> {
+  const now = Date.now()
+  if (floorCache && floorCache.v === 3 && now - floorCache.at < FLOOR_TTL_MS) {
+    return { continent: floorCache.continent, points: floorCache.points }
+  }
+  try {
+    const continentJson = await gw2Get<ContinentJson>(`/continents/${TYRIA_CONTINENT_ID}`, null, 12000)
+    const continent = continentFromJson(continentJson)
+    const floor = await gw2Get<unknown>(`/continents/${TYRIA_CONTINENT_ID}/floors/${TYRIA_FLOOR_ID}`, null, 25000)
+    const points = collectMapResources(floor)
+    if (points.length >= 100) {
+      floorCache = { at: now, v: 3, points, continent }
+      return { continent, points }
+    }
+  } catch (err) {
+    console.error('[gw2] live Tyria floor unavailable, using bundled snapshot', err)
+  }
+  const { continent, points } = BUNDLED_TYRIA_SNAPSHOT
+  floorCache = { at: now, v: 3, points, continent }
   return { continent, points }
 }
 
@@ -74,10 +88,10 @@ async function completedResourceIds(key: string): Promise<{
   progressAvailable: boolean
   note?: string
 }> {
-  const token = await gw2Get<TokenInfo>('/tokeninfo', key)
+  const token = await gw2Get<TokenInfo>('/tokeninfo', key, 12000)
   const perms = new Set((token.permissions || []).map((p) => p.toLowerCase()))
   const missing = GW2_REQUIRED_SCOPES.filter((p) => !perms.has(p))
-  const account = await gw2GetOk<AccountInfo>('/account', key)
+  const account = await gw2GetOk<AccountInfo>('/account', key, 12000)
   const accountName = account && typeof account.name === 'string' ? account.name : null
 
   if (missing.length) {
@@ -91,14 +105,14 @@ async function completedResourceIds(key: string): Promise<{
   }
 
   const notes: string[] = []
-  const names = await gw2Get<string[]>('/characters', key)
+  const names = await gw2Get<string[]>('/characters', key, 15000)
   const list = Array.isArray(names) ? names.filter((n) => typeof n === 'string' && n.trim()) : []
   let heroIds: string[] = []
   if (!list.length) {
     notes.push('No characters found on this ArenaNet API key, so hero-point progress is empty.')
   } else {
-    const lists = await poolMap(list, 4, async (name) => {
-      const raw = await gw2GetOk<unknown>(`/characters/${encodeCharacterName(name)}/heropoints`, key)
+    const lists = await poolMap(list, 6, async (name) => {
+      const raw = await gw2GetSafe<unknown>(`/characters/${encodeCharacterName(name)}/heropoints`, key, 12000)
       return parseHeroPointIdList(raw)
     })
     heroIds = unionHeroPointIds(lists)
@@ -109,7 +123,7 @@ async function completedResourceIds(key: string): Promise<{
     }
   }
 
-  const masteryRaw = await gw2GetOk<unknown>('/account/mastery/points', key)
+  const masteryRaw = await gw2GetSafe<unknown>('/account/mastery/points', key, 12000)
   const masteryIds = parseMasteryUnlocked(masteryRaw)
   if (!masteryIds.length) {
     notes.push('No unlocked mastery insights were returned for this account.')
@@ -125,6 +139,26 @@ async function completedResourceIds(key: string): Promise<{
   }
 }
 
+function mapOnlyPayload(
+  continent: Gw2ContinentInfo,
+  points: HeroPointTrackerPayload['points'],
+  extra: Partial<HeroPointTrackerPayload> & Pick<HeroPointTrackerPayload, 'keyConfigured' | 'keySource'>
+): HeroPointTrackerPayload {
+  return {
+    continent,
+    points,
+    completedIds: [],
+    completedCount: 0,
+    totalCount: points.length,
+    countsByKind: countByKind(points, new Set()),
+    accountName: null,
+    characterCount: 0,
+    linkedKey: null,
+    progressAvailable: false,
+    ...extra,
+  }
+}
+
 export async function loadHeroPointTracker(
   apiKey: string | null,
   keySource: HeroPointTrackerPayload['keySource'] = apiKey ? 'user' : 'none'
@@ -132,44 +166,43 @@ export async function loadHeroPointTracker(
   const { continent, points } = await loadContinentAndPoints()
   const key = (apiKey || '').trim() || null
   if (!key) {
+    return mapOnlyPayload(continent, points, {
+      keyConfigured: false,
+      keySource: 'none',
+      note: 'Paste your ArenaNet API here to track hero points, mastery insights, and achievements for this Kick account. The key is encrypted and never shown to anyone else.',
+    })
+  }
+
+  try {
+    const progress = await completedResourceIds(key)
+    const done = new Set(progress.ids)
+    const countsByKind = countByKind(points, done)
+    let completedCount = 0
+    for (let i = 0; i < GW2_RESOURCE_KINDS.length; i += 1) {
+      completedCount += countsByKind[GW2_RESOURCE_KINDS[i] as Gw2ResourceKind].completed
+    }
     return {
       continent,
       points,
-      completedIds: [],
-      completedCount: 0,
+      completedIds: progress.ids,
+      completedCount,
       totalCount: points.length,
-      countsByKind: countByKind(points, new Set()),
-      accountName: null,
-      characterCount: 0,
-      keyConfigured: false,
-      keySource: 'none',
+      countsByKind,
+      accountName: progress.accountName,
+      characterCount: progress.characterCount,
+      keyConfigured: true,
+      keySource,
       linkedKey: null,
-      progressAvailable: false,
-      note: 'Paste your ArenaNet API here to track hero points, mastery insights, and achievements for this Kick account. The key is encrypted and never shown to anyone else.',
+      progressAvailable: progress.progressAvailable,
+      note: progress.note,
     }
-  }
-
-  const progress = await completedResourceIds(key)
-  const done = new Set(progress.ids)
-  const countsByKind = countByKind(points, done)
-  let completedCount = 0
-  for (let i = 0; i < GW2_RESOURCE_KINDS.length; i += 1) {
-    completedCount += countsByKind[GW2_RESOURCE_KINDS[i] as Gw2ResourceKind].completed
-  }
-  return {
-    continent,
-    points,
-    completedIds: progress.ids,
-    completedCount,
-    totalCount: points.length,
-    countsByKind,
-    accountName: progress.accountName,
-    characterCount: progress.characterCount,
-    keyConfigured: true,
-    keySource,
-    linkedKey: null,
-    progressAvailable: progress.progressAvailable,
-    note: progress.note,
+  } catch (err) {
+    console.error('[gw2] account progress failed; returning public map', err)
+    return mapOnlyPayload(continent, points, {
+      keyConfigured: true,
+      keySource,
+      note: gw2AuthUserMessage(err),
+    })
   }
 }
 
@@ -178,7 +211,17 @@ export async function inspectGw2ApiKey(key: string): Promise<{
   accountName: string | null
   permissions: string[]
 }> {
-  const token = await gw2Get<TokenInfo>('/tokeninfo', key)
+  let token: TokenInfo
+  try {
+    token = await gw2Get<TokenInfo>('/tokeninfo', key, 12000)
+  } catch (err) {
+    if (err instanceof Gw2ApiError && (err.status === 400 || err.status === 401 || err.status === 403)) {
+      throw new Gw2KeyValidationError(
+        'GW2 rejected that API key. Copy a new one from account.arena.net/applications with account, characters, and progression.'
+      )
+    }
+    throw err
+  }
   const permissions = Array.isArray(token.permissions)
     ? token.permissions.filter((p): p is string => typeof p === 'string')
     : []
@@ -189,7 +232,7 @@ export async function inspectGw2ApiKey(key: string): Promise<{
       `This key is missing scopes: ${missing.join(', ')}. Create a key with account, characters, and progression.`
     )
   }
-  const account = await gw2GetOk<AccountInfo>('/account', key)
+  const account = await gw2GetOk<AccountInfo>('/account', key, 12000)
   return {
     tokenName: typeof token.name === 'string' ? token.name : null,
     accountName: account && typeof account.name === 'string' ? account.name : null,

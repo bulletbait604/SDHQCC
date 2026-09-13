@@ -1,4 +1,4 @@
-import { gw2Get, gw2GetOk } from './client'
+import { gw2Get, gw2GetSafe } from './client'
 import { gw2GetMany } from './pool'
 import type { Gw2AchievementGroup, Gw2AchievementPayload, Gw2AchievementRow } from './types'
 
@@ -155,7 +155,7 @@ export async function loadAchievementTracker(apiKey: string | null): Promise<Gw2
   let note: string | undefined
 
   if (key) {
-    const raw = await gw2GetOk<AccountAchievement[]>('/account/achievements', key)
+    const raw = await gw2GetSafe<AccountAchievement[]>('/account/achievements', key)
     if (Array.isArray(raw)) {
       progressAvailable = true
       for (let i = 0; i < raw.length; i += 1) {

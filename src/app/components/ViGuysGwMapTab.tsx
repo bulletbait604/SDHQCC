@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { parseJsonResponse } from '@/lib/http/parseJsonResponse'
 import { filterAchievements } from '@/lib/gw2/achievementFilter'
 import { resourceTitle } from '@/lib/gw2/mapResources'
+import { normalizeGw2ApiKey } from '@/lib/gw2/normalizeKey'
 import { completedSet, filterMapResources, uniqueExpansions } from '@/lib/gw2/progress'
 import {
   GW2_RESOURCE_KINDS,
@@ -46,6 +47,7 @@ export default function ViGuysGwMapTab({
   const [achievementsWorking, setAchievementsWorking] = useState(false)
   const [keyBusy, setKeyBusy] = useState(false)
   const [error, setError] = useState('')
+  const [achievementError, setAchievementError] = useState('')
   const [apiKeyDraft, setApiKeyDraft] = useState('')
   const [payload, setPayload] = useState<HeroPointTrackerPayload | null>(null)
   const [achievements, setAchievements] = useState<Gw2AchievementPayload | null>(null)
@@ -78,6 +80,7 @@ export default function ViGuysGwMapTab({
 
   const loadAchievements = useCallback(async () => {
     setAchievementsWorking(true)
+    setAchievementError('')
     try {
       const res = await fetch('/api/vi-guys-gw-map/achievements', {
         method: 'GET',
@@ -89,7 +92,7 @@ export default function ViGuysGwMapTab({
       setAchievements(data)
     } catch (err) {
       setAchievements(null)
-      setError(err instanceof Error ? err.message : 'Failed to load achievements')
+      setAchievementError(err instanceof Error ? err.message : 'Failed to load achievements')
     } finally {
       setAchievementsWorking(false)
     }
@@ -104,8 +107,8 @@ export default function ViGuysGwMapTab({
         res
       )
       if (!res.ok) throw new Error(data.userMessage || data.error || 'Failed to load GW2 map')
-      if (!Array.isArray(data.points)) throw new Error('GW2 map returned no locations.')
-      setPayload(data)
+      if (!data.continent) throw new Error('GW2 map returned no continent.')
+      setPayload({ ...data, points: Array.isArray(data.points) ? data.points : [] })
       setSelected(null)
       void loadAchievements()
     } catch (err) {
@@ -285,7 +288,7 @@ export default function ViGuysGwMapTab({
             />
             <Button
               type="submit"
-              disabled={keyBusy || apiKeyDraft.trim().length < 20}
+              disabled={keyBusy || normalizeGw2ApiKey(apiKeyDraft).length < 20}
               className="bg-sdhq-green-500 hover:bg-sdhq-green-400 text-black"
             >
               {keyBusy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Key className="w-4 h-4 mr-2" />}
@@ -308,6 +311,11 @@ export default function ViGuysGwMapTab({
           }`}
         >
           {payload.note}
+        </p>
+      )}
+      {payload && payload.points.length === 0 && (
+        <p className={`text-xs ${subtitleClasses}`}>
+          Tyria tiles loaded, but no resource markers were returned. Refresh in a moment.
         </p>
       )}
 
@@ -448,6 +456,11 @@ export default function ViGuysGwMapTab({
             </p>
           </div>
         </div>
+        {achievementError && (
+          <p className="text-sm text-rose-400" role="status">
+            {achievementError}
+          </p>
+        )}
         {achievements?.note && (
           <p className={`text-xs ${subtitleClasses}`}>{achievements.note}</p>
         )}
