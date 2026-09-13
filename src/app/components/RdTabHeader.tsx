@@ -1,10 +1,16 @@
 'use client'
 
-import { Bot, Clapperboard, Mic, RadioTower, TrendingUp } from 'lucide-react'
+import { Bot, Bug, Clapperboard, Mic, RadioTower, TrendingUp } from 'lucide-react'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
-export type RdSubTab = 'going-live' | 'trending-vids' | 'viral-clip-gen' | 'tradebot' | 'narrate-me'
+export type RdSubTab =
+  | 'going-live'
+  | 'trending-vids'
+  | 'viral-clip-gen'
+  | 'tradebot'
+  | 'narrate-me'
+  | 'viruses-port-scanner'
 
 type RdLabels = {
   goingLive: string
@@ -12,6 +18,7 @@ type RdLabels = {
   viralClipGen: string
   tradeBot: string
   narrateMe: string
+  virusesPortScanner: string
 }
 
 const SUB_TAB_META: Record<RdSubTab, { icon: typeof Clapperboard; shortLabel: string }> = {
@@ -20,6 +27,7 @@ const SUB_TAB_META: Record<RdSubTab, { icon: typeof Clapperboard; shortLabel: st
   'trending-vids': { icon: TrendingUp, shortLabel: 'Trends' },
   'going-live': { icon: RadioTower, shortLabel: 'Live' },
   tradebot: { icon: Bot, shortLabel: 'Bot' },
+  'viruses-port-scanner': { icon: Bug, shortLabel: 'Viruses' },
 }
 
 export function rdTabTitle(subTab: RdSubTab, labels: RdLabels): string {
@@ -34,6 +42,8 @@ export function rdTabTitle(subTab: RdSubTab, labels: RdLabels): string {
       return labels.tradeBot
     case 'narrate-me':
       return labels.narrateMe
+    case 'viruses-port-scanner':
+      return labels.virusesPortScanner
   }
 }
 
@@ -68,6 +78,8 @@ export default function RdTabHeader({
         return labels.tradeBot
       case 'narrate-me':
         return labels.narrateMe
+      case 'viruses-port-scanner':
+        return labels.virusesPortScanner
     }
   }
 
@@ -81,7 +93,7 @@ export default function RdTabHeader({
       </div>
       <TabsList
         className={cn(
-          'grid h-auto w-full max-w-5xl mx-auto grid-cols-2 sm:grid-cols-5 mb-6 rounded-xl p-1',
+          'grid h-auto w-full max-w-6xl mx-auto grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 mb-6 rounded-xl p-1',
           tabListClasses
         )}
       >

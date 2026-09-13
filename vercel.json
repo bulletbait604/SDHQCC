@@ -59,6 +59,9 @@
     },
     "src/app/api/tradebot/tick/route.ts": {
       "maxDuration": 55
+    },
+    "src/app/api/viruses-port-scanner/route.ts": {
+      "maxDuration": 60
     }
   }
 }

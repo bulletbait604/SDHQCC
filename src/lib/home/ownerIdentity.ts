@@ -23,14 +23,16 @@ export function capOwnerRole(username: string, role: Role): Role {
   return role
 }
 
-/** Tab access — R&D (Viral Clip Gen, Trending Vids, Going Live, TradeBot) is site-owner only. */
+/** Tab access — R&D (Viral Clip Gen, Trending Vids, Going Live, TradeBot, Narrate Me, Viruses Port Scanner) is site-owner only. */
 export function hasTabAccessForUser(userRole: Role, tabId: string, username: string | null | undefined): boolean {
   if (
     tabId === 'rnd' ||
     tabId === 'viral-clip-gen' ||
     tabId === 'trending-vids' ||
     tabId === 'going-live' ||
-    tabId === 'tradebot'
+    tabId === 'tradebot' ||
+    tabId === 'narrate-me' ||
+    tabId === 'viruses-port-scanner'
   ) {
     return canAccessRnd(userRole, username)
   }

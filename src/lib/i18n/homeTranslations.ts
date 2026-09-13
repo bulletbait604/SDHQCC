@@ -28,6 +28,9 @@ export const homeTranslations = {
     tradeBot: 'TradeBot',
     tradeBotDesc:
       'Kraken CAD coins only. High hunts smaller names and news movers, not just BTC. One ticket, maker limits, take ~8–12% so fees do not eat the win. Halt the day at -8%. Fake to practice, Real for Kraken. Switching to Real turns the desk OFF — press ON to trade.',
+    virusesPortScanner: 'Viruses Port Scanner',
+    virusesPortScannerDesc:
+      'Sweep well-known TCP ports on this PC and list each as Open or Closed. Refresh anytime to rescan.',
     rndPickTool: 'R&D — owner only · pick a tool below',
     backgroundRemover: 'Background Remover',
     backgroundRemoverDesc:
@@ -92,6 +95,9 @@ export const homeTranslations = {
     tradeBot: 'TradeBot',
     tradeBotDesc:
       'Solo monedas Kraken en CAD. Empiezas con CA$100. Compra el dip en tendencia alcista con límites maker. Arrastra el stop. 1–2 posiciones. Corta el día a -8%.',
+    virusesPortScanner: 'Viruses Port Scanner',
+    virusesPortScannerDesc:
+      'Explora los puertos TCP conocidos de este PC y lista cada uno como Open o Closed. Actualiza cuando quieras.',
     rndPickTool: 'I+D — solo propietario · elige una herramienta abajo',
     backgroundRemover: 'Eliminador de fondo',
     backgroundRemoverDesc:
@@ -156,6 +162,9 @@ export const homeTranslations = {
     tradeBot: 'TradeBot',
     tradeBotDesc:
       'Uniquement des paires Kraken en CAD. Départ CA$100. Achat d’un dip en tendance haussière en maker. Trailing stop. 1–2 tickets. Stop journée à -8 %.',
+    virusesPortScanner: 'Viruses Port Scanner',
+    virusesPortScannerDesc:
+      'Balaye les ports TCP connus de ce PC et liste chacun comme Open ou Closed. Actualisez pour rescanner.',
     rndPickTool: 'R&D — propriétaire seulement · choisissez un outil ci-dessous',
     backgroundRemover: 'Suppression d’arrière-plan',
     backgroundRemoverDesc:
@@ -220,6 +229,9 @@ export const homeTranslations = {
     tradeBot: 'TradeBot',
     tradeBotDesc:
       'Nur Kraken-CAD-Coins. Start mit CA$100. Kauft den Dip im Aufwärtstrend als Maker. Trailing-Stop. 1–2 Tickets. Tageshalt bei -8 %.',
+    virusesPortScanner: 'Viruses Port Scanner',
+    virusesPortScannerDesc:
+      'Scannt bekannte TCP-Ports auf diesem PC und listet jeden als Open oder Closed. Jederzeit aktualisieren.',
     rndPickTool: 'F&E — nur Owner · Werkzeug unten wählen',
     backgroundRemover: 'Hintergrund entfernen',
     backgroundRemoverDesc:

@@ -20,10 +20,9 @@ export function ffmpegBinary(): string {
 
 export async function localFfmpegAvailable(): Promise<boolean> {
   if (ffmpegOk !== null) return ffmpegOk
-  ffmpegOk = await new Promise((resolve) => {
+  const available = await new Promise<boolean>((resolve) => {
     const child = spawn(ffmpegBinary(), ['-version'], { windowsHide: true })
     const done = (ok: boolean) => {
-      ffmpegOk = ok
       resolve(ok)
     }
     const timer = setTimeout(() => {
@@ -39,7 +38,8 @@ export async function localFfmpegAvailable(): Promise<boolean> {
       done(code === 0)
     })
   })
-  return ffmpegOk
+  ffmpegOk = available
+  return available
 }
 
 function jobTempDir(jobId: string): string {

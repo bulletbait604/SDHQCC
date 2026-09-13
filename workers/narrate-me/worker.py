@@ -23,7 +23,6 @@ import tempfile
 import zipfile
 from typing import Any
 
-import boto3
 import modal
 
 APP_NAME = "narrate-me"
@@ -67,6 +66,8 @@ def _authorized(authorization: str | None) -> bool:
 
 
 def _r2():
+    import boto3
+
     account = _env("R2_ACCOUNT_ID")
     key = _env("R2_ACCESS_KEY_ID")
     secret = _env("R2_SECRET_ACCESS_KEY")

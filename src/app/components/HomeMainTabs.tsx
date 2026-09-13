@@ -16,6 +16,7 @@ import TrendingVidsTab from '@/app/components/TrendingVidsTab'
 import ViralClipGenTab from '@/app/components/ViralClipGenTab'
 import NarrateMeTab from '@/app/components/NarrateMeTab'
 import TradeBotTab from '@/app/components/TradeBotTab'
+import VirusesPortScannerTab from '@/app/components/VirusesPortScannerTab'
 import KickClipsComingSoon from '@/app/components/KickClipsComingSoon'
 import SettingsTab from '@/app/components/SettingsTab'
 import type { ActivityLogEntry, HomeLanguage, KickUser, Platform } from '@/lib/home/types'
@@ -349,6 +350,7 @@ export default function HomeMainTabs({
                   trendingVids: t.trendingVids || 'Trending Vids',
                   goingLive: t.goingLive || 'Going Live',
                   tradeBot: t.tradeBot || 'TradeBot',
+                  virusesPortScanner: t.virusesPortScanner || 'Viruses Port Scanner',
                 }}
                 pickToolLabel={t.rndPickTool}
                 darkMode={darkMode}
@@ -417,6 +419,17 @@ export default function HomeMainTabs({
                   description={
                     t.tradeBotDesc ||
                     'Kraken CAD coins only. Start with CA$100. Buys a dip in an uptrend with maker limits. One ticket, most of the book. Take ~8–12%. Halt the day at -8%. Fake to practice, Real for Kraken.'
+                  }
+                />
+              </TabsContent>
+
+              <TabsContent value="viruses-port-scanner">
+                <VirusesPortScannerTab
+                  darkMode={darkMode}
+                  subtitleClasses={subtitleClasses}
+                  description={
+                    t.virusesPortScannerDesc ||
+                    'Sweep well-known TCP ports on this machine and list each as Open or Closed. Refresh anytime.'
                   }
                 />
               </TabsContent>
