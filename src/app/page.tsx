@@ -5,6 +5,7 @@ import CoinPurchase from '@/app/components/CoinPurchase'
 import BannedUserScreen from '@/app/components/BannedUserScreen'
 import { type CreateSubTab } from '@/app/components/CreateTabHeader'
 import { type RdSubTab } from '@/app/components/RdTabHeader'
+import { type UserAppSubTab } from '@/app/components/UserAppsTabHeader'
 import { useClipAnalyzer } from '@/hooks/useClipAnalyzer'
 import { useHomeRoles } from '@/hooks/useHomeRoles'
 import { useHomeSession } from '@/hooks/useHomeSession'
@@ -41,6 +42,7 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState('educate')
   const [createSubTab, setCreateSubTab] = useState<CreateSubTab>('thumbnail')
   const [rndSubTab, setRndSubTab] = useState<RdSubTab>('viral-clip-gen')
+  const [userAppSubTab, setUserAppSubTab] = useState<UserAppSubTab>('vi-guys-gw-map')
   const [showSettings, setShowSettings] = useState(false)
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false)
   const [showTerms, setShowTerms] = useState(false)
@@ -81,6 +83,7 @@ export default function HomePage() {
     setIsVerified,
     isLifetime,
     setIsLifetime,
+    rndTabs,
     handleLanguageChange,
     toggleDarkMode,
     handleLogout: sessionLogout,
@@ -92,9 +95,11 @@ export default function HomePage() {
     activeTab,
     createSubTab,
     rndSubTab,
+    userAppSubTab,
     setActiveTab,
     setCreateSubTab,
     setRndSubTab,
+    setUserAppSubTab,
   })
 
   const roles = useHomeRoles({
@@ -106,6 +111,7 @@ export default function HomePage() {
     setActivityLog: (action) => setActivityLogRef.current(action),
     setIsVerified,
     setIsLifetime,
+    rndTabs,
   })
 
   fetchUserRoleRef.current = roles.fetchUserRole
@@ -188,7 +194,7 @@ export default function HomePage() {
   }
 
   const t = homeTranslations[language] ?? homeTranslations.en
-  const showRnd = canSeeRndTab(user?.username)
+  const showRnd = canSeeRndTab(user?.username, rndTabs)
 
   const clipAnalyzer = useClipAnalyzer({
     user,
@@ -298,7 +304,10 @@ export default function HomePage() {
             onCreateSubTabChange={setCreateSubTab}
             rndSubTab={rndSubTab}
             onRndSubTabChange={setRndSubTab}
+            userAppSubTab={userAppSubTab}
+            onUserAppSubTabChange={setUserAppSubTab}
             canAccessRnd={showRnd}
+            rndTabs={rndTabs}
             isOwner={isOwner}
             isAdmin={isAdmin}
             user={user}

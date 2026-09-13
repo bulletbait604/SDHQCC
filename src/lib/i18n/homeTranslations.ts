@@ -11,7 +11,9 @@ export const homeTranslations = {
     clipAnalyzer: 'Clip Analyzer',
     newTool: 'New tool',
     contentAnalyzer: 'Content Analyzer',
-    kickClips: 'KICK Clips',
+    kickClips: 'User APPs',
+    kickClipsApp: 'KICK Clips',
+    userAppsPickTool: 'User APPs — pick an app below',
     rnd: 'R&D',
     narrateMe: 'Narrate Me',
     narrateMeDesc:
@@ -82,7 +84,9 @@ export const homeTranslations = {
     clipAnalyzer: 'Analizador de Clips',
     newTool: 'Nueva herramienta',
     contentAnalyzer: 'Analizador de Contenido',
-    kickClips: 'KICK Clips',
+    kickClips: 'User APPs',
+    kickClipsApp: 'KICK Clips',
+    userAppsPickTool: 'User APPs — pick an app below',
     rnd: 'I+D',
     narrateMe: 'Narrate Me',
     narrateMeDesc:
@@ -153,7 +157,9 @@ export const homeTranslations = {
     clipAnalyzer: 'Analyseur de Clips',
     newTool: 'Nouvel outil',
     contentAnalyzer: 'Analyseur de Contenu',
-    kickClips: 'KICK Clips',
+    kickClips: 'User APPs',
+    kickClipsApp: 'KICK Clips',
+    userAppsPickTool: 'User APPs — pick an app below',
     rnd: 'R&D',
     narrateMe: 'Narrate Me',
     narrateMeDesc:
@@ -224,7 +230,9 @@ export const homeTranslations = {
     clipAnalyzer: 'Clip Analyzer',
     newTool: 'New tool',
     contentAnalyzer: 'Content Analyzer',
-    kickClips: 'KICK Clips',
+    kickClips: 'User APPs',
+    kickClipsApp: 'KICK Clips',
+    userAppsPickTool: 'User APPs — pick an app below',
     rnd: 'F&E',
     narrateMe: 'Narrate Me',
     narrateMeDesc:

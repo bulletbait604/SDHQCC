@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
-import { verifyOwnerUser } from '@/lib/auth/staffAccess'
+import { verifyRndToolUser } from '@/lib/auth/staffAccess'
 import {
   INTERNAL_API_SECRET_HEADER,
   isValidCronRequest,
@@ -19,7 +19,7 @@ async function authorize(req: NextRequest): Promise<'internal' | 'owner'> {
   const token = bearer.startsWith('Bearer ') ? bearer.slice(7) : ''
   const modalSecret = process.env.MODAL_SECRET?.trim()
   if (modalSecret && token && token === modalSecret) return 'internal'
-  await verifyOwnerUser(req)
+  await verifyRndToolUser(req, 'narrate-me')
   return 'owner'
 }
 

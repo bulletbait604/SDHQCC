@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
-import { verifyOwnerUser } from '@/lib/auth/staffAccess'
+import { verifyRndToolUser } from '@/lib/auth/staffAccess'
 import { setDeskControls } from '@/lib/tradebot/ledger'
 import { isKrakenLiveAllowed, isPlacingLiveOrders, isTradebotDeskEnabled } from '@/lib/tradebot/settings'
 import { syncLiveCash } from '@/lib/tradebot/venue'
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 /** Owner-only: ON/OFF and Fake/Real money. Live Kraken orders only when Real is selected. */
 export async function POST(req: NextRequest) {
   try {
-    await verifyOwnerUser(req)
+    await verifyRndToolUser(req, 'tradebot')
     if (!isTradebotDeskEnabled()) {
       return NextResponse.json(
         { error: 'Set TRADEBOT_PAPER=true or add Kraken keys.', engineOn: false },

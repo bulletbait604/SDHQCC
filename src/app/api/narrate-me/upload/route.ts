@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyOwnerUser } from '@/lib/auth/staffAccess'
+import { verifyRndToolUser } from '@/lib/auth/staffAccess'
 import { getR2ObjectMetadata, generateUploadUrl } from '@/lib/r2'
 import { narrateMeErrorResponse } from '@/lib/narrateMe/http'
 import { isAllowedNarrateMeVideoType, NARRATE_ME_UPLOAD_EXPIRES_IN } from '@/lib/narrateMe/config'
@@ -11,7 +11,7 @@ export const maxDuration = 30
 /** Owner-only R&D: presigned R2 PUT for the original video (browser → R2, not through Vercel). */
 export async function POST(req: NextRequest) {
   try {
-    const user = await verifyOwnerUser(req)
+    const user = await verifyRndToolUser(req, 'narrate-me')
     const body = (await req.json().catch(() => ({}))) as {
       filename?: unknown
       contentType?: unknown
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
 /** Confirm the R2 object exists after the browser PUT. */
 export async function PUT(req: NextRequest) {
   try {
-    const user = await verifyOwnerUser(req)
+    const user = await verifyRndToolUser(req, 'narrate-me')
     const body = (await req.json().catch(() => ({}))) as {
       jobId?: unknown
       durationSeconds?: unknown

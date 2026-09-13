@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyOwnerUser } from '@/lib/auth/staffAccess'
+import { verifyRndToolUser } from '@/lib/auth/staffAccess'
 import { narrateMeErrorResponse } from '@/lib/narrateMe/http'
 import { createUploadJob } from '@/lib/narrateMe/pipeline'
 import { listNarrateMeJobsForUser } from '@/lib/narrateMe/history'
@@ -12,7 +12,7 @@ export const maxDuration = 30
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await verifyOwnerUser(req)
+    const user = await verifyRndToolUser(req, 'narrate-me')
     const body = (await req.json().catch(() => ({}))) as {
       prompt?: unknown
       filename?: unknown
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await verifyOwnerUser(req)
+    const user = await verifyRndToolUser(req, 'narrate-me')
     const jobs = await listNarrateMeJobsForUser(user.username, 20)
     return NextResponse.json({ jobs, coinCost: NARRATE_ME_COIN_COST })
   } catch (err) {

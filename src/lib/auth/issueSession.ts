@@ -2,7 +2,7 @@ import type { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { getSessionSecret, signSessionJwt } from '@/lib/auth/sessionJwt'
 import type { UserRole } from '@/lib/auth/verifyAuth'
-import { capOwnerRole } from '@/lib/home/ownerIdentity'
+import { resolveSiteRole } from '@/lib/home/ownerIdentity'
 import { sessionCookieSecure } from '@/lib/sessionCookie'
 
 /** Re-issue Kick session JWT after OAuth redirects that drop the session cookie. */
@@ -19,7 +19,7 @@ export async function attachSessionCookieForUsername(
   const dbUser = await client.db('sdhq').collection('users').findOne({ username: normalized })
   if (!dbUser) return false
 
-  const role = capOwnerRole(normalized, (dbUser.role as UserRole) || 'free')
+  const role = resolveSiteRole(normalized, (dbUser.role as UserRole) || 'free')
   const jwt = signSessionJwt(
     {
       sub: String(dbUser.kickId ?? normalized),

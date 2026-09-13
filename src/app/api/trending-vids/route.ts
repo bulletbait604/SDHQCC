@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
-import { verifyOwnerUser } from '@/lib/auth/staffAccess'
+import { verifyRndToolUser } from '@/lib/auth/staffAccess'
 import {
   isTrendingVidsPlatformId,
   normalizeTrendingVidsPrompt,
@@ -13,7 +13,7 @@ export const maxDuration = 60
 /** Owner-only R&D: Google-grounded top-5 trends for one social/video platform. */
 export async function POST(req: NextRequest) {
   try {
-    await verifyOwnerUser(req)
+    await verifyRndToolUser(req, 'trending-vids')
 
     const body = (await req.json().catch(() => ({}))) as {
       platformId?: unknown

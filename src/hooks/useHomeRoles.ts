@@ -6,6 +6,7 @@ import { ROLE_CONFIG, ROLE_HIERARCHY, type Role } from '@/lib/home/roles'
 import {
   capOwnerRole,
   hasTabAccessForUser,
+  isAllowlistedAdmin,
   isSiteOwner,
   normalizeKickUsername,
 } from '@/lib/home/ownerIdentity'
@@ -38,6 +39,7 @@ export interface UseHomeRolesOptions {
   setActivityLog: React.Dispatch<React.SetStateAction<ActivityLogEntry[]>>
   setIsVerified: (value: boolean) => void
   setIsLifetime: (value: boolean) => void
+  rndTabs?: string[]
 }
 
 export function useHomeRoles({
@@ -49,6 +51,7 @@ export function useHomeRoles({
   setActivityLog,
   setIsVerified,
   setIsLifetime,
+  rndTabs = [],
 }: UseHomeRolesOptions) {
   const [userRole, setUserRole] = useState<Role>('free')
   const [usersWithRoles, setUsersWithRoles] = useState<
@@ -70,17 +73,18 @@ export function useHomeRoles({
   const [isTester, setIsTester] = useState(false)
 
   const isOwner = isSiteOwner(user?.username)
+  const isListedAdmin = isAllowlistedAdmin(user?.username)
 
   const hasTabAccess = useCallback(
-    (tabId: string) => hasTabAccessForUser(userRole, tabId, user?.username),
-    [userRole, user?.username]
+    (tabId: string) => hasTabAccessForUser(userRole, tabId, user?.username, rndTabs),
+    [userRole, user?.username, rndTabs]
   )
 
   useEffect(() => {
     if (activeTab !== 'rnd') return
-    if (canSeeRndTab(user?.username)) return
+    if (canSeeRndTab(user?.username, rndTabs)) return
     setActiveTab('educate')
-  }, [activeTab, user, setActiveTab])
+  }, [activeTab, user, rndTabs, setActiveTab])
 
   const fetchUsersWithRoles = useCallback(async () => {
     try {
@@ -114,6 +118,8 @@ export function useHomeRoles({
               currentAdminRole: 'owner',
             }),
           }).then(() => fetchUsersWithRoles())
+        } else if (isAllowlistedAdmin(user.username)) {
+          setUserRole('admin')
         } else {
           setUserRole('free')
         }
@@ -149,8 +155,20 @@ export function useHomeRoles({
 
   useEffect(() => {
     const normalizedUsername = normalizeKickUsername(user?.username || '')
+    const userWithRole = usersWithRoles.find(
+      (u) =>
+        typeof u.username === 'string' && normalizeKickUsername(u.username) === normalizedUsername
+    )
+    const dbRoleRaw = userWithRole?.role as Role | undefined
+    const dbRole = dbRoleRaw ? capOwnerRole(normalizedUsername, dbRoleRaw) : undefined
+    const sessionRoleRaw = (user?.role as Role | undefined) || undefined
+    const sessionRole = sessionRoleRaw ? capOwnerRole(normalizedUsername, sessionRoleRaw) : undefined
     const isAdminValue = user
-      ? isOwner || admins.some((admin) => normalizeKickUsername(admin.username) === normalizedUsername)
+      ? isOwner ||
+        isListedAdmin ||
+        dbRole === 'admin' ||
+        sessionRole === 'admin' ||
+        admins.some((admin) => normalizeKickUsername(admin.username) === normalizedUsername)
       : false
     const isSubscribedValue = user
       ? isVerified || subscribers.some((sub) => normalizeKickUsername(sub.username) === normalizedUsername)
@@ -159,21 +177,12 @@ export function useHomeRoles({
       ? isLifetime ||
         lifetimeMembers.some((member) => normalizeKickUsername(member.username) === normalizedUsername)
       : false
-    const userWithRole = usersWithRoles.find(
-      (u) =>
-        typeof u.username === 'string' && normalizeKickUsername(u.username) === normalizedUsername
-    )
     const isTesterValue = userWithRole?.role === 'tester'
 
     setIsAdmin(isAdminValue)
     setIsSubscribed(isSubscribedValue)
     setIsLifetimeMember(isLifetimeMemberValue)
     setIsTester(isTesterValue)
-
-    const dbRoleRaw = userWithRole?.role as Role | undefined
-    const dbRole = dbRoleRaw ? capOwnerRole(normalizedUsername, dbRoleRaw) : undefined
-    const sessionRoleRaw = (user?.role as Role | undefined) || undefined
-    const sessionRole = sessionRoleRaw ? capOwnerRole(normalizedUsername, sessionRoleRaw) : undefined
 
     if (isOwner) {
       setUserRole('owner')
@@ -200,7 +209,7 @@ export function useHomeRoles({
     } else {
       setUserRole('free')
     }
-  }, [user, isOwner, admins, subscribers, lifetimeMembers, isVerified, isLifetime, usersWithRoles])
+  }, [user, isOwner, isListedAdmin, admins, subscribers, lifetimeMembers, isVerified, isLifetime, usersWithRoles])
 
   useEffect(() => {
     if (!user?.username) return
@@ -210,13 +219,14 @@ export function useHomeRoles({
     )
     const canFetchLists =
       isOwner ||
+      isListedAdmin ||
       userRole === 'admin' ||
       userRole === 'owner' ||
       row?.role === 'admin' ||
       row?.role === 'owner'
     if (!canFetchLists) return
     void fetchUserLists()
-  }, [user, isOwner, userRole, usersWithRoles, fetchUserLists])
+  }, [user, isOwner, isListedAdmin, userRole, usersWithRoles, fetchUserLists])
 
   const handleUpdateRole = useCallback(
     async (username: string, newRole: Role) => {

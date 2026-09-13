@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
-import { verifyOwnerUser } from '@/lib/auth/staffAccess'
+import { verifyRndToolUser } from '@/lib/auth/staffAccess'
 import { isValidCronRequest, isValidInternalApiSecret, INTERNAL_API_SECRET_HEADER } from '@/lib/internalApi'
 import { loadPaperLedger } from '@/lib/tradebot/ledger'
 import { runPaperCycle } from '@/lib/tradebot/graph'
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
 /** Owner-only R&D: one Canada CAD Gemini cycle. Live Kraken only when TRADEBOT_LIVE is set. */
 export async function POST(req: NextRequest) {
   try {
-    await verifyOwnerUser(req)
+    await verifyRndToolUser(req, 'tradebot')
     return await runCycle()
   } catch (err: unknown) {
     if (err instanceof AuthError) return createAuthErrorResponse(err)

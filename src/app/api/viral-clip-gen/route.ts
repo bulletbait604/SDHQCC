@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
-import { verifyOwnerUser } from '@/lib/auth/staffAccess'
+import { verifyRndToolUser } from '@/lib/auth/staffAccess'
 import { listViralClipJobsForUser } from '@/lib/viralClipGen/history'
 import {
   pollViralClipJob,
@@ -24,7 +24,7 @@ function statusOf(err: unknown): number {
 /** Owner-only R&D: queue Gemini plan + fal jobs, then poll until complete. */
 export async function POST(req: NextRequest) {
   try {
-    const user = await verifyOwnerUser(req)
+    const user = await verifyRndToolUser(req, 'viral-clip-gen')
     const body = await req.json().catch(() => ({}))
     const input = validateViralClipInput(body)
     const result = await startViralClipJob({
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await verifyOwnerUser(req)
+    const user = await verifyRndToolUser(req, 'viral-clip-gen')
     const jobId = req.nextUrl.searchParams.get('jobId')?.trim()
     if (jobId) {
       const result = await pollViralClipJob(user, jobId)

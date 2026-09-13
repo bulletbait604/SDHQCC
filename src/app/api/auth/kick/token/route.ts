@@ -13,6 +13,7 @@ import {
   getInternalApiSecret,
 } from '@/lib/internalApi'
 import { BANNED_USER_MESSAGE, isUserBanned } from '@/lib/bannedUsers'
+import { isAllowlistedAdmin, resolveSiteRole } from '@/lib/home/ownerIdentity'
 
 import { consumeKickOAuthState } from '@/lib/kick/kickOAuthStateStore'
 
@@ -165,7 +166,21 @@ export async function POST(request: NextRequest) {
       )
 
       const dbUser = await db.collection('users').findOne({ username: user.username })
-      roleForSession = (dbUser?.role as UserRole) || 'free'
+      const resolvedRole = resolveSiteRole(user.username, (dbUser?.role as UserRole) || 'free')
+      if (dbUser?.role !== resolvedRole) {
+        await db.collection('users').updateOne(
+          { username: user.username },
+          { $set: { role: resolvedRole, updatedAt: now } }
+        )
+      }
+      if (isAllowlistedAdmin(user.username)) {
+        await db.collection('admins').updateOne(
+          { username: user.username.toLowerCase() },
+          { $set: { username: user.username.toLowerCase(), addedAt: now } },
+          { upsert: true }
+        )
+      }
+      roleForSession = resolvedRole
     }
 
     if (!user) {

@@ -2,6 +2,7 @@
 
 import { Button } from '@/components/ui/button'
 import OwnerBannedUsersPanel from '@/app/components/OwnerBannedUsersPanel'
+import OwnerRndGrantsPanel from '@/app/components/OwnerRndGrantsPanel'
 import {
   Settings,
   Globe,
@@ -680,6 +681,8 @@ export default function SettingsTab({
         </div>
       </div>
     )}
+
+    {isOwner && <OwnerRndGrantsPanel darkMode={darkMode} usersWithRoles={usersWithRoles} />}
 
 
     {/* Admin Tools — algorithm refresh (same actions as Algorithms Explained tab) */}

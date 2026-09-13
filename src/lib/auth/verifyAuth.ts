@@ -3,7 +3,7 @@ import clientPromise from '@/lib/mongodb'
 import { verifySessionJwt, getSessionSecret } from '@/lib/auth/sessionJwt'
 import { BANNED_USER_MESSAGE, isUserBanned } from '@/lib/bannedUsers'
 import { isAllowlistedOwner } from '@/lib/ownerAllowlist'
-import { capOwnerRole } from '@/lib/home/ownerIdentity'
+import { resolveSiteRole } from '@/lib/home/ownerIdentity'
 
 export type UserRole =
   | 'free'
@@ -122,11 +122,13 @@ export async function verifyAuth(req: NextRequest): Promise<VerifiedUser> {
     }
   }
 
-  // Update role from database (in case role changed since token issued)
-  if (dbUser.role) {
-    user.role = capOwnerRole(user.username, dbUser.role as UserRole)
-  } else if (user.role === 'owner' && !isAllowlistedOwner(user.username)) {
-    user.role = 'admin'
+  const resolvedRole = resolveSiteRole(user.username, (dbUser.role as UserRole) || user.role || 'free')
+  user.role = resolvedRole
+  if (dbUser.role !== resolvedRole) {
+    await db.collection('users').updateOne(
+      { username: user.username },
+      { $set: { role: resolvedRole, updatedAt: new Date().toISOString() } }
+    )
   }
 
   if (await isUserBanned(user.username)) {

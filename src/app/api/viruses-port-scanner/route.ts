@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
-import { verifyOwnerUser } from '@/lib/auth/staffAccess'
+import { verifyRndToolUser } from '@/lib/auth/staffAccess'
 import { cloudScanBlockedReason, CLOUD_SCAN_USER_MESSAGE } from '@/lib/virusesPortScanner/localScan'
 import { scanAllLocalPorts } from '@/lib/virusesPortScanner/scan'
 
@@ -11,7 +11,7 @@ export const maxDuration = 60
 /** Owner-only R&D: Open/Closed for every local TCP port, plus inbound/outbound sessions. */
 export async function GET(req: NextRequest) {
   try {
-    await verifyOwnerUser(req)
+    await verifyRndToolUser(req, 'viruses-port-scanner')
     const blocked = cloudScanBlockedReason(req.headers.get('host'), Boolean(process.env.VERCEL))
     if (blocked) {
       return NextResponse.json({ error: 'local-only', userMessage: blocked }, { status: 409 })

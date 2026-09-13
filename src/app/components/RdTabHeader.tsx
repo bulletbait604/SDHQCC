@@ -1,6 +1,6 @@
 'use client'
 
-import { Bot, Bug, Clapperboard, MapPinned, Mic, RadioTower, TrendingUp } from 'lucide-react'
+import { Bot, Bug, Clapperboard, Mic, RadioTower, TrendingUp } from 'lucide-react'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
@@ -11,7 +11,6 @@ export type RdSubTab =
   | 'tradebot'
   | 'narrate-me'
   | 'viruses-port-scanner'
-  | 'vi-guys-gw-map'
 
 type RdLabels = {
   goingLive: string
@@ -20,7 +19,6 @@ type RdLabels = {
   tradeBot: string
   narrateMe: string
   virusesPortScanner: string
-  viGuysGwMap: string
 }
 
 const SUB_TAB_META: Record<RdSubTab, { icon: typeof Clapperboard; shortLabel: string }> = {
@@ -30,7 +28,6 @@ const SUB_TAB_META: Record<RdSubTab, { icon: typeof Clapperboard; shortLabel: st
   'going-live': { icon: RadioTower, shortLabel: 'Live' },
   tradebot: { icon: Bot, shortLabel: 'Bot' },
   'viruses-port-scanner': { icon: Bug, shortLabel: 'Viruses' },
-  'vi-guys-gw-map': { icon: MapPinned, shortLabel: 'Vi-Guys' },
 }
 
 export const ALL_RD_SUBS = Object.keys(SUB_TAB_META) as RdSubTab[]
@@ -49,8 +46,6 @@ export function rdTabTitle(subTab: RdSubTab, labels: RdLabels): string {
       return labels.narrateMe
     case 'viruses-port-scanner':
       return labels.virusesPortScanner
-    case 'vi-guys-gw-map':
-      return labels.viGuysGwMap
   }
 }
 
@@ -92,9 +87,9 @@ export default function RdTabHeader({
           'grid h-auto w-full max-w-6xl mx-auto mb-6 rounded-xl p-1',
           count <= 1
             ? 'grid-cols-1 max-w-md'
-            : count <= 4
-              ? 'grid-cols-2 sm:grid-cols-4'
-              : 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-7',
+            : count <= 3
+              ? 'grid-cols-2 sm:grid-cols-3'
+              : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6',
           tabListClasses
         )}
       >

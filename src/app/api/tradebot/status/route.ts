@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
-import { verifyOwnerUser } from '@/lib/auth/staffAccess'
+import { verifyRndToolUser } from '@/lib/auth/staffAccess'
 import { latestCycleLog, listRecentFills, loadPaperLedger, markToMarket } from '@/lib/tradebot/ledger'
 import { probeCryptoQuotes } from '@/lib/tradebot/crypto'
 import { probeTsxQuotes } from '@/lib/tradebot/quotes'
@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic'
 /** Owner-only R&D: which TradeBot env vars are present (never returns secrets). */
 export async function GET(req: NextRequest) {
   try {
-    await verifyOwnerUser(req)
+    await verifyRndToolUser(req, 'tradebot')
 
     const providers: TradebotProviderStatus[] = TRADEBOT_ENV_CATALOG.map((item) => ({
       id: item.id,

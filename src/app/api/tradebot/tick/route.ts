@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
-import { verifyOwnerUser } from '@/lib/auth/staffAccess'
+import { verifyRndToolUser } from '@/lib/auth/staffAccess'
 import { isValidCronRequest, isValidInternalApiSecret, INTERNAL_API_SECRET_HEADER } from '@/lib/internalApi'
 import { runPaperTick } from '@/lib/tradebot/liveTape'
 import { isTradebotDeskEnabled } from '@/lib/tradebot/settings'
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
 /** Owner-only: live Kraken CAD quotes. Trades only when the desk is ON (paper or live keys). */
 export async function POST(req: NextRequest) {
   try {
-    await verifyOwnerUser(req)
+    await verifyRndToolUser(req, 'tradebot')
     return await runTick()
   } catch (err: unknown) {
     if (err instanceof AuthError) return createAuthErrorResponse(err)

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyOwnerUser } from '@/lib/auth/staffAccess'
+import { verifyRndToolUser } from '@/lib/auth/staffAccess'
 import { narrateMeErrorResponse } from '@/lib/narrateMe/http'
 import {
   getNarrateMeJobForUser,
@@ -16,7 +16,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await verifyOwnerUser(req)
+    const user = await verifyRndToolUser(req, 'narrate-me')
     const job = await getNarrateMeJobForUser(params.id, user.username)
     if (!job) return NextResponse.json({ error: 'Job not found.' }, { status: 404 })
     const body = (await req.json().catch(() => ({}))) as { regenerateSegmentId?: unknown }
@@ -36,7 +36,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await verifyOwnerUser(req)
+    const user = await verifyRndToolUser(req, 'narrate-me')
     const job = await getNarrateMeJobForUser(params.id, user.username)
     if (!job) return NextResponse.json({ error: 'Job not found.' }, { status: 404 })
     const body = (await req.json().catch(() => ({}))) as {
@@ -56,7 +56,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await verifyOwnerUser(req)
+    const user = await verifyRndToolUser(req, 'narrate-me')
     const job = await getNarrateMeJobForUser(params.id, user.username)
     if (!job) return NextResponse.json({ error: 'Job not found.' }, { status: 404 })
     return NextResponse.json({ script: job.script })

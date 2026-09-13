@@ -85,6 +85,16 @@ export async function POST(request: NextRequest) {
       { upsert: true }
     )
 
+    if (role === 'admin') {
+      await db.collection('admins').updateOne(
+        { username: normalizedUsername },
+        { $set: { username: normalizedUsername, addedAt: new Date().toISOString() } },
+        { upsert: true }
+      )
+    } else if (role !== 'owner') {
+      await db.collection('admins').deleteOne({ username: normalizedUsername })
+    }
+
     if (role === 'free') {
       await db.collection('subscribers').deleteOne({ username: normalizedUsername })
       await db.collection('lifetimeMembers').deleteOne({ username: normalizedUsername })

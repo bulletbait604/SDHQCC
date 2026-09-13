@@ -2,6 +2,9 @@ import type { NextRequest } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { verifyAuth, AuthError, type VerifiedUser } from '@/lib/auth/verifyAuth'
 import { isAllowlistedOwner } from '@/lib/ownerAllowlist'
+import { isAllowlistedAdmin, isSiteOwner } from '@/lib/home/ownerIdentity'
+import { readGrantedRndTabs } from '@/lib/home/rndGrants'
+import type { GrantableRndTab } from '@/lib/home/rndAccess'
 
 export function isStaffRole(role: string | undefined): boolean {
   return role === 'admin' || role === 'owner'
@@ -20,7 +23,7 @@ async function staffRoleFromDb(username: string): Promise<string | undefined> {
 /** Requires admin or owner (JWT + Mongo role fallback). */
 export async function verifyStaffUser(req: NextRequest): Promise<VerifiedUser> {
   const user = await verifyAuth(req)
-  if (isStaffRole(user.role) || isAllowlistedOwner(user.username)) {
+  if (isStaffRole(user.role) || isAllowlistedOwner(user.username) || isAllowlistedAdmin(user.username)) {
     return user
   }
   const dbRole = await staffRoleFromDb(user.username)
@@ -42,6 +45,17 @@ export async function verifyOwnerUser(req: NextRequest): Promise<VerifiedUser> {
     user.role = dbRole as VerifiedUser['role']
     return user
   }
+  throw new AuthError('Owner access required', 403)
+}
+
+/** Owner, or a user the owner granted this R&D tool. */
+export async function verifyRndToolUser(req: NextRequest, tab: GrantableRndTab): Promise<VerifiedUser> {
+  const user = await verifyAuth(req)
+  if (isOwnerActor(user.role, user.username) || isSiteOwner(user.username)) {
+    return user
+  }
+  const granted = await readGrantedRndTabs(user.username)
+  if (granted.includes(tab)) return user
   throw new AuthError('Owner access required', 403)
 }
 

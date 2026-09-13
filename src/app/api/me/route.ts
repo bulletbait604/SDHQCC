@@ -7,6 +7,8 @@ import {
   createAuthErrorResponse,
   extractSessionToken,
 } from '@/lib/auth/verifyAuth'
+import { isSiteOwner } from '@/lib/home/ownerIdentity'
+import { allGrantableRndTabs, readGrantedRndTabs } from '@/lib/home/rndGrants'
 
 export const dynamic = 'force-dynamic'
 
@@ -85,6 +87,10 @@ export async function GET(req: NextRequest) {
         : {}),
     }
 
+    const rndTabs = isSiteOwner(authUser.username)
+      ? allGrantableRndTabs()
+      : await readGrantedRndTabs(authUser.username)
+
     return NextResponse.json({
       user: kickUser,
       subscription: {
@@ -95,6 +101,7 @@ export async function GET(req: NextRequest) {
         language: prefs.language || 'en',
         darkMode: prefs.darkMode ?? false,
       },
+      rndTabs,
     })
   } catch (error) {
     if (error instanceof BannedUserError) {

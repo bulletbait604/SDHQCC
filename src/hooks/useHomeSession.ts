@@ -26,6 +26,7 @@ export function useHomeSession({ onSessionReady, fetchUserRole }: UseHomeSession
   const [bannedMessage, setBannedMessage] = useState('')
   const [isVerified, setIsVerified] = useState(false)
   const [isLifetime, setIsLifetime] = useState(false)
+  const [rndTabs, setRndTabs] = useState<string[]>([])
 
   useEffect(() => {
     setMounted(true)
@@ -63,6 +64,7 @@ export function useHomeSession({ onSessionReady, fetchUserRole }: UseHomeSession
             setUser(null)
             setIsVerified(false)
             setIsLifetime(false)
+            setRndTabs([])
             applyAnonymousUiFromCookies()
           } else if (!me.user) {
             setIsBanned(false)
@@ -70,11 +72,13 @@ export function useHomeSession({ onSessionReady, fetchUserRole }: UseHomeSession
             setUser(null)
             setIsVerified(false)
             setIsLifetime(false)
+            setRndTabs([])
             applyAnonymousUiFromCookies()
           } else {
             setIsBanned(false)
             setBannedMessage('')
             setUser(me.user as KickUser)
+            setRndTabs(Array.isArray(me.rndTabs) ? me.rndTabs.filter((id: unknown) => typeof id === 'string') : [])
             if (me.preferences?.language && homeTranslations[me.preferences.language as HomeLanguage]) {
               setLanguage(me.preferences.language as HomeLanguage)
             }
@@ -187,6 +191,7 @@ export function useHomeSession({ onSessionReady, fetchUserRole }: UseHomeSession
     setIsVerified,
     isLifetime,
     setIsLifetime,
+    rndTabs,
     handleLanguageChange,
     toggleDarkMode,
     handleLogout,

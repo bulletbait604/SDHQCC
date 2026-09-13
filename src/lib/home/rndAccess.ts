@@ -1,30 +1,61 @@
 import { isSiteOwner } from '@/lib/home/ownerIdentity'
 import type { Role } from '@/lib/home/roles'
 
-const OWNER_ONLY_RND_TABS = [
+/** R&D tools the owner can grant one-by-one. Vi-Guys GW Map lives under User APPs. */
+export const GRANTABLE_RND_TABS = [
+  'narrate-me',
   'viral-clip-gen',
   'trending-vids',
   'going-live',
   'tradebot',
-  'narrate-me',
   'viruses-port-scanner',
 ] as const
 
-/** Full R&D lab (Narrate Me, TradeBot, Viruses, …): site owner only. */
-export function canAccessRnd(_userRole: Role, username: string | null | undefined): boolean {
-  return isSiteOwner(username)
+export type GrantableRndTab = (typeof GRANTABLE_RND_TABS)[number]
+
+export function isGrantableRndTab(tab: string): tab is GrantableRndTab {
+  return (GRANTABLE_RND_TABS as readonly string[]).includes(tab)
 }
 
-/** R&D main tab is visible to any Kick-signed-in user (Vi-Guys GW Map). */
-export function canSeeRndTab(username: string | null | undefined): boolean {
-  return Boolean(username && username.trim())
-}
-
-/** Non-owners may only open Vi-Guys GW Map inside R&D. */
-export function canAccessRdSubTab(subTab: string, username: string | null | undefined): boolean {
-  if (subTab === 'vi-guys-gw-map') return canSeeRndTab(username)
-  if ((OWNER_ONLY_RND_TABS as readonly string[]).includes(subTab)) {
-    return canAccessRnd('free', username)
+export function sanitizeRndTabs(raw: unknown): GrantableRndTab[] {
+  if (!Array.isArray(raw)) return []
+  const out: GrantableRndTab[] = []
+  const seen = new Set<string>()
+  for (const item of raw) {
+    if (typeof item !== 'string') continue
+    const id = item.trim()
+    if (!isGrantableRndTab(id) || seen.has(id)) continue
+    seen.add(id)
+    out.push(id)
   }
-  return false
+  return out
+}
+
+/** Full R&D lab: site owner, or anyone the owner granted at least one R&D tool. */
+export function canAccessRnd(
+  _userRole: Role,
+  username: string | null | undefined,
+  grantedTabs: readonly string[] = []
+): boolean {
+  return canSeeRndTab(username, grantedTabs)
+}
+
+export function canSeeRndTab(
+  username: string | null | undefined,
+  grantedTabs: readonly string[] = []
+): boolean {
+  if (isSiteOwner(username)) return true
+  if (!username || !username.trim()) return false
+  return sanitizeRndTabs(grantedTabs).length > 0
+}
+
+export function canAccessRdSubTab(
+  subTab: string,
+  username: string | null | undefined,
+  grantedTabs: readonly string[] = []
+): boolean {
+  if (!isGrantableRndTab(subTab)) return false
+  if (isSiteOwner(username)) return true
+  if (!username || !username.trim()) return false
+  return sanitizeRndTabs(grantedTabs).includes(subTab)
 }

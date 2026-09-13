@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
-import { verifyOwnerUser } from '@/lib/auth/staffAccess'
+import { verifyRndToolUser } from '@/lib/auth/staffAccess'
 import { runGoingLivePipeline } from '@/lib/goingLive/generate'
 import {
   MAX_GOING_LIVE_REFS,
@@ -41,7 +41,7 @@ function normalizeRef(raw: IncomingRef): { base64: string; mimeType: string; byt
 /** Owner-only R&D: go-live stream title + social posts + posters. */
 export async function POST(req: NextRequest) {
   try {
-    await verifyOwnerUser(req)
+    await verifyRndToolUser(req, 'going-live')
 
     const body = await req.json()
     const {

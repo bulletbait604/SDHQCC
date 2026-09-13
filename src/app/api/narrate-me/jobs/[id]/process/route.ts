@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyOwnerUser } from '@/lib/auth/staffAccess'
+import { verifyRndToolUser } from '@/lib/auth/staffAccess'
 import { narrateMeErrorResponse } from '@/lib/narrateMe/http'
 import { getNarrateMeJobForUser, startAudioAssembly } from '@/lib/narrateMe/pipeline'
 
@@ -11,7 +11,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await verifyOwnerUser(req)
+    const user = await verifyRndToolUser(req, 'narrate-me')
     const job = await getNarrateMeJobForUser(params.id, user.username)
     if (!job) return NextResponse.json({ error: 'Job not found.' }, { status: 404 })
     if (job.voice.status !== 'complete') {

@@ -1,5 +1,8 @@
 export const OWNER_USERNAMES = ['bulletbait604'] as const
 
+/** Kick usernames that always get admin (all main tabs except R&D unless granted). */
+export const ADMIN_USERNAMES = ['mrv1rus'] as const
+
 /** @see isSiteOwner in ownerIdentity.ts — only these accounts get owner UI/API access */
 
 export const ROLE_HIERARCHY = {
@@ -132,4 +135,4 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
   },
 }
 
-export { isSiteOwner, capOwnerRole, hasTabAccessForUser, normalizeKickUsername } from '@/lib/home/ownerIdentity'
+export { isSiteOwner, isAllowlistedAdmin, capOwnerRole, hasTabAccessForUser, normalizeKickUsername, resolveSiteRole } from '@/lib/home/ownerIdentity'
