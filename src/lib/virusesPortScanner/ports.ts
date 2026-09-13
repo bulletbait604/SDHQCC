@@ -1,18 +1,8 @@
-import type { PortScanRow } from './types'
+import type { PortProto, PortScanRow, PortStatus } from './types'
 
-/** IANA well-known TCP/UDP range. */
-export const WELL_KNOWN_PORT_MAX = 1023
-
-/**
- * Common registered ports that sit above the well-known range.
- * These are the ones people actually run on a PC (dev servers, DBs, RDP, etc.).
- */
-export const EXTRA_REGISTERED_PORTS = [
-  1080, 1194, 1433, 1521, 1723, 1883, 2049, 2082, 2083, 2181, 2375, 2376, 2483, 3000, 3001,
-  3128, 3268, 3306, 3389, 3690, 4000, 4369, 4444, 5000, 5060, 5222, 5357, 5432, 5672, 5900,
-  5938, 5985, 5986, 6379, 6443, 6667, 7000, 8000, 8008, 8080, 8081, 8443, 8888, 9000, 9090,
-  9200, 9418, 11211, 15672, 27017, 32400,
-] as const
+export const PORT_MIN = 1
+export const PORT_MAX = 65535
+export const INBOUND_PAGE_SIZE = 200
 
 const SERVICE_NAMES: Record<number, string> = {
   1: 'tcpmux',
@@ -101,6 +91,7 @@ const SERVICE_NAMES: Record<number, string> = {
   5000: 'upnp',
   5060: 'sip',
   5222: 'xmpp-client',
+  5353: 'mdns',
   5357: 'wsdapi',
   5432: 'postgresql',
   5672: 'amqp',
@@ -132,31 +123,135 @@ export function serviceNameForPort(port: number): string {
   return SERVICE_NAMES[port] || 'unknown'
 }
 
-export function listKnownPorts(): number[] {
-  const set = new Set<number>()
-  for (let port = 1; port <= WELL_KNOWN_PORT_MAX; port += 1) {
-    set.add(port)
-  }
-  for (const port of EXTRA_REGISTERED_PORTS) {
-    if (port >= 1 && port <= 65535) set.add(port)
-  }
-  return Array.from(set).sort((a, b) => a - b)
+export function uniqueBinds(binds: string[] | undefined): string[] {
+  if (!binds || binds.length === 0) return []
+  return Array.from(new Set(binds)).sort()
 }
 
-export function classifyKnownPorts(
-  knownPorts: readonly number[],
-  listening: Map<number, string[]>
-): PortScanRow[] {
-  return knownPorts.map((port) => {
-    const binds = listening.get(port)
-    const uniqueBinds = binds ? Array.from(new Set(binds)).sort() : []
-    return {
-      port,
-      service: serviceNameForPort(port),
-      status: uniqueBinds.length > 0 ? 'Open' : 'Closed',
-      binds: uniqueBinds,
-    }
+export function openRow(port: number, proto: PortProto, binds: string[]): PortScanRow {
+  return {
+    port,
+    proto,
+    service: serviceNameForPort(port),
+    status: 'Open',
+    binds: uniqueBinds(binds),
+  }
+}
+
+export function closedRow(port: number, proto: PortProto): PortScanRow {
+  return {
+    port,
+    proto,
+    service: serviceNameForPort(port),
+    status: 'Closed',
+    binds: [],
+  }
+}
+
+export function rowsFromListenMap(listening: Map<number, string[]>, proto: PortProto): PortScanRow[] {
+  const rows: PortScanRow[] = []
+  listening.forEach((binds, port) => {
+    rows.push(openRow(port, proto, binds))
   })
+  rows.sort((a, b) => a.port - b.port)
+  return rows
+}
+
+export type StatusFilter = 'all' | PortStatus
+export type ProtoFilter = PortProto | 'both'
+
+function rowMatchesQuery(row: PortScanRow, query: string): boolean {
+  if (!query) return true
+  if (String(row.port).includes(query)) return true
+  if (row.service.toLowerCase().includes(query)) return true
+  if (row.status.toLowerCase().includes(query)) return true
+  if (row.proto.includes(query)) return true
+  for (let i = 0; i < row.binds.length; i += 1) {
+    if (row.binds[i].toLowerCase().includes(query)) return true
+  }
+  return false
+}
+
+function protosFor(filter: ProtoFilter): PortProto[] {
+  if (filter === 'both') return ['tcp', 'udp']
+  return [filter]
+}
+
+export function bindMapFromOpenRows(rows: readonly PortScanRow[], proto: PortProto): Map<number, string[]> {
+  const map = new Map<number, string[]>()
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = rows[i]
+    if (row.proto === proto && row.status === 'Open') map.set(row.port, row.binds)
+  }
+  return map
+}
+
+export function buildInboundPage(params: {
+  tcpBinds: Map<number, string[]>
+  udpBinds: Map<number, string[]>
+  filter: StatusFilter
+  proto: ProtoFilter
+  query: string
+  page: number
+  pageSize?: number
+}): { rows: PortScanRow[]; matched: number; page: number; pages: number } {
+  const pageSize = params.pageSize && params.pageSize > 0 ? params.pageSize : INBOUND_PAGE_SIZE
+  const query = params.query.trim().toLowerCase()
+  const protos = protosFor(params.proto)
+  const bindsFor = (proto: PortProto) => (proto === 'tcp' ? params.tcpBinds : params.udpBinds)
+
+  const collect = (page: number) => {
+    const rows: PortScanRow[] = []
+    let matched = 0
+    const start = (page - 1) * pageSize
+    const take = (row: PortScanRow) => {
+      if (!rowMatchesQuery(row, query)) return
+      if (matched >= start && rows.length < pageSize) rows.push(row)
+      matched += 1
+    }
+
+    if (params.filter === 'Open') {
+      const openRows: PortScanRow[] = []
+      for (let p = 0; p < protos.length; p += 1) {
+        const proto = protos[p]
+        const map = bindsFor(proto)
+        const ports: number[] = []
+        map.forEach((_binds, port) => {
+          ports.push(port)
+        })
+        ports.sort((a, b) => a - b)
+        for (let i = 0; i < ports.length; i += 1) {
+          openRows.push(openRow(ports[i], proto, map.get(ports[i]) || []))
+        }
+      }
+      if (params.proto === 'both') {
+        openRows.sort((a, b) => a.port - b.port || a.proto.localeCompare(b.proto))
+      }
+      for (let i = 0; i < openRows.length; i += 1) take(openRows[i])
+    } else {
+      for (let port = PORT_MIN; port <= PORT_MAX; port += 1) {
+        for (let p = 0; p < protos.length; p += 1) {
+          const proto = protos[p]
+          const binds = uniqueBinds(bindsFor(proto).get(port))
+          const isOpen = binds.length > 0
+          if (params.filter === 'Closed' && isOpen) continue
+          take(isOpen ? openRow(port, proto, binds) : closedRow(port, proto))
+        }
+      }
+    }
+
+    return { rows, matched }
+  }
+
+  const requested = Math.max(1, params.page)
+  const first = collect(requested)
+  const pages = Math.max(1, Math.ceil(first.matched / pageSize) || 1)
+  const page = Math.min(requested, pages)
+  if (page !== requested) {
+    const clamped = collect(page)
+    return { rows: clamped.rows, matched: clamped.matched, page, pages }
+  }
+  return { rows: first.rows, matched: first.matched, page, pages }
 }
 
 export function isLoopbackHost(host: string): boolean {
@@ -184,5 +279,5 @@ export function resolveScanHost(raw?: string | null): string {
 
 export function vercelScanNote(hostedOnVercel: boolean): string | undefined {
   if (!hostedOnVercel) return undefined
-  return 'This build is on Vercel, so the sweep is the serverless host — not your PC. Run the app locally to scan this computer.'
+  return 'This build is on Vercel, so the sweep is the serverless host — not your PC. Run `npm run dev` locally to scan inbound and outbound sockets on this computer. No extra network permission is required beyond reading this machine.'
 }

@@ -1,27 +1,29 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  classifyKnownPorts,
-  EXTRA_REGISTERED_PORTS,
+  bindMapFromOpenRows,
+  buildInboundPage,
+  INBOUND_PAGE_SIZE,
   isLoopbackHost,
-  listKnownPorts,
+  openRow,
+  PORT_MAX,
+  PORT_MIN,
   resolveScanHost,
   serviceNameForPort,
   vercelScanNote,
-  WELL_KNOWN_PORT_MAX,
 } from './ports'
-import { parseLocalAddress, parseProcNetTcp, parseUnixNetstat, parseWindowsNetstat } from './listenTable'
+import {
+  classifyConnectionDirection,
+  parseLocalAddress,
+  parseProcNetTcp,
+  parseUnixNetstat,
+  parseWindowsNetstat,
+  parseWindowsNetstatSnapshot,
+} from './listenTable'
 
-test('listKnownPorts covers well-known range plus extras without duplicates', () => {
-  const ports = listKnownPorts()
-  assert.equal(ports[0], 1)
-  assert.ok(ports.includes(WELL_KNOWN_PORT_MAX))
-  assert.ok(ports.includes(80))
-  assert.ok(ports.includes(443))
-  assert.ok(ports.includes(3389))
-  assert.ok(ports.includes(8080))
-  assert.equal(new Set(ports).size, ports.length)
-  assert.equal(ports.length, WELL_KNOWN_PORT_MAX + new Set(EXTRA_REGISTERED_PORTS.filter((p) => p > WELL_KNOWN_PORT_MAX)).size)
+test('TCP range covers every port on the machine', () => {
+  assert.equal(PORT_MIN, 1)
+  assert.equal(PORT_MAX, 65535)
 })
 
 test('service names resolve common listener ports', () => {
@@ -45,20 +47,65 @@ test('resolveScanHost only allows loopback', () => {
   assert.throws(() => resolveScanHost('10.0.0.2'), /loopback/)
 })
 
-test('classifyKnownPorts marks listening ports Open and the rest Closed', () => {
-  const listening = new Map<number, string[]>([
+test('buildInboundPage lists every TCP port and pages Closed rows', () => {
+  const tcpBinds = new Map<number, string[]>([
     [80, ['0.0.0.0']],
     [3000, ['127.0.0.1', '127.0.0.1']],
   ])
-  const rows = classifyKnownPorts([80, 443, 3000], listening)
-  assert.deepEqual(rows, [
-    { port: 80, service: 'http', status: 'Open', binds: ['0.0.0.0'] },
-    { port: 443, service: 'https', status: 'Closed', binds: [] },
-    { port: 3000, service: 'dev-http', status: 'Open', binds: ['127.0.0.1'] },
-  ])
+  const udpBinds = new Map<number, string[]>()
+  const all = buildInboundPage({
+    tcpBinds,
+    udpBinds,
+    filter: 'all',
+    proto: 'tcp',
+    query: '',
+    page: 1,
+    pageSize: 200,
+  })
+  assert.equal(all.matched, PORT_MAX)
+  assert.equal(all.pages, Math.ceil(PORT_MAX / 200))
+  assert.equal(all.rows[0]?.port, 1)
+  assert.equal(all.rows[0]?.status, 'Closed')
+  const open = buildInboundPage({
+    tcpBinds,
+    udpBinds,
+    filter: 'Open',
+    proto: 'tcp',
+    query: '',
+    page: 1,
+  })
+  assert.equal(open.matched, 2)
+  assert.deepEqual(
+    open.rows.map((row) => row.port),
+    [80, 3000]
+  )
+  const closed = buildInboundPage({
+    tcpBinds,
+    udpBinds,
+    filter: 'Closed',
+    proto: 'tcp',
+    query: '',
+    page: 1,
+    pageSize: 5,
+  })
+  assert.equal(closed.matched, PORT_MAX - 2)
+  assert.equal(closed.rows.length, 5)
+  assert.equal(
+    closed.rows.some((row) => row.port === 80),
+    false
+  )
 })
 
-test('parseWindowsNetstat reads IPv4 and IPv6 LISTENING rows', () => {
+test('bindMapFromOpenRows round-trips scan payload', () => {
+  const rows = [openRow(443, 'tcp', ['0.0.0.0']), openRow(53, 'udp', ['127.0.0.1'])]
+  const tcp = bindMapFromOpenRows(rows, 'tcp')
+  const udp = bindMapFromOpenRows(rows, 'udp')
+  assert.deepEqual(tcp.get(443), ['0.0.0.0'])
+  assert.equal(tcp.has(53), false)
+  assert.deepEqual(udp.get(53), ['127.0.0.1'])
+})
+
+test('parseWindowsNetstatSnapshot reads listeners, UDP, and traffic', () => {
   const stdout = [
     'Active Connections',
     '',
@@ -67,13 +114,25 @@ test('parseWindowsNetstat reads IPv4 and IPv6 LISTENING rows', () => {
     '  TCP    127.0.0.1:3000         0.0.0.0:0              LISTENING       1234',
     '  TCP    [::]:445               [::]:0                 LISTENING       4',
     '  TCP    127.0.0.1:3000         127.0.0.1:54321        ESTABLISHED     1234',
+    '  TCP    192.168.1.65:49732     20.42.73.24:443        ESTABLISHED     99',
     '  UDP    0.0.0.0:53             *:*                                    456',
   ].join('\r\n')
 
+  const snapshot = parseWindowsNetstatSnapshot(stdout)
+  assert.deepEqual(snapshot.listeningTcp.get(135), ['0.0.0.0'])
+  assert.deepEqual(snapshot.listeningTcp.get(3000), ['127.0.0.1'])
+  assert.deepEqual(snapshot.listeningTcp.get(445), ['::'])
+  assert.deepEqual(snapshot.listeningUdp.get(53), ['0.0.0.0'])
+  assert.equal(snapshot.connections.length, 2)
+
+  const inbound = classifyConnectionDirection(snapshot.connections[0], snapshot.listeningTcp)
+  const outbound = classifyConnectionDirection(snapshot.connections[1], snapshot.listeningTcp)
+  assert.equal(inbound.direction, 'inbound')
+  assert.equal(outbound.direction, 'outbound')
+  assert.equal(outbound.remotePort, 443)
+  assert.equal(outbound.pid, 99)
+
   const map = parseWindowsNetstat(stdout)
-  assert.deepEqual(map.get(135), ['0.0.0.0'])
-  assert.deepEqual(map.get(3000), ['127.0.0.1'])
-  assert.deepEqual(map.get(445), ['::'])
   assert.equal(map.has(53), false)
 })
 
@@ -110,4 +169,8 @@ test('parseUnixNetstat and parseLocalAddress handle common listen forms', () => 
 test('vercelScanNote only warns on hosted builds', () => {
   assert.equal(vercelScanNote(false), undefined)
   assert.match(String(vercelScanNote(true)), /Vercel/)
+})
+
+test('inbound page size stays practical for the UI', () => {
+  assert.equal(INBOUND_PAGE_SIZE, 200)
 })

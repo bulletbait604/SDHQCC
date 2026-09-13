@@ -429,7 +429,7 @@ export default function HomeMainTabs({
                   subtitleClasses={subtitleClasses}
                   description={
                     t.virusesPortScannerDesc ||
-                    'Sweep well-known TCP ports on this machine and list each as Open or Closed. Refresh anytime.'
+                    'Sweep every TCP port (1–65535) on this PC as Open or Closed, and list inbound listeners plus outbound connections.'
                   }
                 />
               </TabsContent>

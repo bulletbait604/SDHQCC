@@ -1,11 +1,21 @@
 import { execFile } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import { promisify } from 'node:util'
+import type { PortConnection, PortProto } from './types'
+import { PORT_MAX, PORT_MIN } from './ports'
 
 const execFileAsync = promisify(execFile)
 
+export type RawConnection = Omit<PortConnection, 'direction'>
+
+export type PortSnapshot = {
+  listeningTcp: Map<number, string[]>
+  listeningUdp: Map<number, string[]>
+  connections: RawConnection[]
+}
+
 function addBind(map: Map<number, string[]>, port: number, address: string) {
-  if (!Number.isInteger(port) || port < 1 || port > 65535) return
+  if (!Number.isInteger(port) || port < PORT_MIN || port > PORT_MAX) return
   const bind = address.trim() || '*'
   const existing = map.get(port)
   if (existing) {
@@ -34,18 +44,67 @@ export function parseLocalAddress(local: string): { address: string; port: numbe
   return { address: trimmed.slice(0, colon), port }
 }
 
+function parsePid(raw: string | undefined): number | null {
+  if (!raw) return null
+  const pid = Number.parseInt(raw, 10)
+  return Number.isInteger(pid) && pid >= 0 ? pid : null
+}
+
+function parseRemote(raw: string): { address: string; port: number | null } {
+  const trimmed = raw.trim()
+  if (!trimmed || trimmed === '*:*' || trimmed === '*.*' || trimmed === '0.0.0.0:0' || trimmed === '[::]:0') {
+    return { address: '*', port: null }
+  }
+  const parsed = parseLocalAddress(trimmed)
+  if (!parsed) return { address: trimmed, port: null }
+  return { address: parsed.address, port: parsed.port === 0 ? null : parsed.port }
+}
+
 /** Windows `netstat -ano` LISTENING TCP rows. */
 export function parseWindowsNetstat(stdout: string): Map<number, string[]> {
-  const map = new Map<number, string[]>()
+  return parseWindowsNetstatSnapshot(stdout).listeningTcp
+}
+
+export function parseWindowsNetstatSnapshot(stdout: string): PortSnapshot {
+  const listeningTcp = new Map<number, string[]>()
+  const listeningUdp = new Map<number, string[]>()
+  const connections: RawConnection[] = []
+
   for (const line of stdout.split(/\r?\n/)) {
     const trimmed = line.trim()
-    if (!/^TCP\b/i.test(trimmed) || !/\bLISTENING\b/i.test(trimmed)) continue
     const cols = trimmed.split(/\s+/)
-    if (cols.length < 4) continue
-    const parsed = parseLocalAddress(cols[1])
-    if (parsed) addBind(map, parsed.port, parsed.address)
+    if (cols.length < 3) continue
+    const protoRaw = cols[0].toUpperCase()
+    const proto: PortProto | null = protoRaw === 'TCP' ? 'tcp' : protoRaw === 'UDP' ? 'udp' : null
+    if (!proto) continue
+    const local = parseLocalAddress(cols[1])
+    if (!local) continue
+
+    if (proto === 'tcp') {
+      const state = (cols[3] || '').toUpperCase()
+      if (state === 'LISTENING') {
+        addBind(listeningTcp, local.port, local.address)
+        continue
+      }
+      if (state === 'ESTABLISHED' || state === 'SYN_SENT' || state === 'CLOSE_WAIT') {
+        const remote = parseRemote(cols[2])
+        connections.push({
+          proto,
+          localAddress: local.address,
+          localPort: local.port,
+          remoteAddress: remote.address,
+          remotePort: remote.port,
+          state,
+          pid: parsePid(cols[4]),
+        })
+      }
+      continue
+    }
+
+    addBind(listeningUdp, local.port, local.address)
   }
-  return map
+
+  return { listeningTcp, listeningUdp, connections }
 }
 
 function ipv4FromLittleEndianHex(hex: string): string {
@@ -54,22 +113,66 @@ function ipv4FromLittleEndianHex(hex: string): string {
   return `${n & 255}.${(n >> 8) & 255}.${(n >> 16) & 255}.${(n >> 24) & 255}`
 }
 
+const PROC_TCP_ESTABLISHED = '01'
+const PROC_TCP_SYN_SENT = '02'
+const PROC_TCP_LISTEN = '0A'
+const PROC_UDP_LISTEN = '07'
+
 /** Linux `/proc/net/tcp` and `/proc/net/tcp6` — state 0A is LISTEN. */
 export function parseProcNetTcp(content: string, family: 'ipv4' | 'ipv6'): Map<number, string[]> {
-  const map = new Map<number, string[]>()
+  return parseProcNetSnapshot(content, family, 'tcp').listeningTcp
+}
+
+export function parseProcNetSnapshot(
+  content: string,
+  family: 'ipv4' | 'ipv6',
+  proto: PortProto
+): PortSnapshot {
+  const listeningTcp = new Map<number, string[]>()
+  const listeningUdp = new Map<number, string[]>()
+  const connections: RawConnection[] = []
+  const listenMap = proto === 'tcp' ? listeningTcp : listeningUdp
   const lines = content.split(/\r?\n/).slice(1)
+
   for (const line of lines) {
     const cols = line.trim().split(/\s+/)
     if (cols.length < 4) continue
-    if (cols[3] !== '0A') continue
+    const state = cols[3]
     const [hexAddr, hexPort] = cols[1].split(':')
     if (!hexAddr || !hexPort) continue
     const port = Number.parseInt(hexPort, 16)
     if (!Number.isInteger(port)) continue
     const address = family === 'ipv4' ? ipv4FromLittleEndianHex(hexAddr) : hexAddr.toLowerCase()
-    addBind(map, port, address)
+
+    if (proto === 'tcp' && state === PROC_TCP_LISTEN) {
+      addBind(listenMap, port, address)
+      continue
+    }
+    if (proto === 'udp' && (state === PROC_UDP_LISTEN || state === '00')) {
+      addBind(listenMap, port, address)
+      continue
+    }
+    if (proto === 'tcp' && (state === PROC_TCP_ESTABLISHED || state === PROC_TCP_SYN_SENT)) {
+      const rem = cols[2].split(':')
+      const remotePort = rem[1] ? Number.parseInt(rem[1], 16) : NaN
+      const remoteAddress = rem[0]
+        ? family === 'ipv4'
+          ? ipv4FromLittleEndianHex(rem[0])
+          : rem[0].toLowerCase()
+        : '*'
+      connections.push({
+        proto,
+        localAddress: address,
+        localPort: port,
+        remoteAddress,
+        remotePort: Number.isInteger(remotePort) && remotePort > 0 ? remotePort : null,
+        state: state === PROC_TCP_SYN_SENT ? 'SYN_SENT' : 'ESTABLISHED',
+        pid: null,
+      })
+    }
   }
-  return map
+
+  return { listeningTcp, listeningUdp, connections }
 }
 
 function mergeListenMaps(into: Map<number, string[]>, from: Map<number, string[]>) {
@@ -80,74 +183,135 @@ function mergeListenMaps(into: Map<number, string[]>, from: Map<number, string[]
   })
 }
 
-async function listeningPortsWindows(): Promise<Map<number, string[]>> {
+function mergeSnapshots(into: PortSnapshot, from: PortSnapshot) {
+  mergeListenMaps(into.listeningTcp, from.listeningTcp)
+  mergeListenMaps(into.listeningUdp, from.listeningUdp)
+  for (let i = 0; i < from.connections.length; i += 1) {
+    into.connections.push(from.connections[i])
+  }
+}
+
+async function snapshotWindows(): Promise<PortSnapshot> {
   const { stdout } = await execFileAsync('netstat', ['-ano'], {
     windowsHide: true,
     timeout: 15000,
     maxBuffer: 8 * 1024 * 1024,
   })
-  return parseWindowsNetstat(stdout)
+  return parseWindowsNetstatSnapshot(stdout)
 }
 
-async function listeningPortsLinuxProc(): Promise<Map<number, string[]>> {
-  const map = new Map<number, string[]>()
-  const ipv4 = await readFile('/proc/net/tcp', 'utf8')
-  mergeListenMaps(map, parseProcNetTcp(ipv4, 'ipv4'))
+async function snapshotLinuxProc(): Promise<PortSnapshot> {
+  const snapshot: PortSnapshot = {
+    listeningTcp: new Map(),
+    listeningUdp: new Map(),
+    connections: [],
+  }
+  mergeSnapshots(snapshot, parseProcNetSnapshot(await readFile('/proc/net/tcp', 'utf8'), 'ipv4', 'tcp'))
   try {
-    const ipv6 = await readFile('/proc/net/tcp6', 'utf8')
-    mergeListenMaps(map, parseProcNetTcp(ipv6, 'ipv6'))
+    mergeSnapshots(snapshot, parseProcNetSnapshot(await readFile('/proc/net/tcp6', 'utf8'), 'ipv6', 'tcp'))
   } catch {
     /* tcp6 is optional */
   }
-  return map
+  try {
+    mergeSnapshots(snapshot, parseProcNetSnapshot(await readFile('/proc/net/udp', 'utf8'), 'ipv4', 'udp'))
+  } catch {
+    /* udp is optional */
+  }
+  try {
+    mergeSnapshots(snapshot, parseProcNetSnapshot(await readFile('/proc/net/udp6', 'utf8'), 'ipv6', 'udp'))
+  } catch {
+    /* udp6 is optional */
+  }
+  return snapshot
 }
 
 /** Generic `netstat -lnt` / `netstat -an` LISTEN rows (Linux/macOS). */
 export function parseUnixNetstat(stdout: string): Map<number, string[]> {
-  const map = new Map<number, string[]>()
-  for (const line of stdout.split(/\r?\n/)) {
-    const trimmed = line.trim()
-    if (!/^tcp/i.test(trimmed) || !/\bLISTEN/i.test(trimmed)) continue
-    const cols = trimmed.split(/\s+/)
-    const local = cols.find((col) => col.includes('.') || col.includes(':') || col.includes('*'))
-    if (!local) continue
-    const normalized = local.includes('.') && local.lastIndexOf('.') > local.lastIndexOf(':')
-      ? local.replace(/\.(\d+)$/, ':$1')
-      : local
-    const parsed = parseLocalAddress(normalized.replace(/^\*:/, '0.0.0.0:'))
-    if (parsed) addBind(map, parsed.port, parsed.address === '*' ? '0.0.0.0' : parsed.address)
-  }
-  return map
+  return parseUnixNetstatSnapshot(stdout).listeningTcp
 }
 
-async function listeningPortsUnixNetstat(): Promise<Map<number, string[]>> {
-  try {
-    const { stdout } = await execFileAsync('netstat', ['-lnt'], {
-      timeout: 15000,
-      maxBuffer: 8 * 1024 * 1024,
-    })
-    const parsed = parseUnixNetstat(stdout)
-    if (parsed.size > 0) return parsed
-  } catch {
-    /* fall through */
+export function parseUnixNetstatSnapshot(stdout: string): PortSnapshot {
+  const listeningTcp = new Map<number, string[]>()
+  const listeningUdp = new Map<number, string[]>()
+  const connections: RawConnection[] = []
+
+  for (const line of stdout.split(/\r?\n/)) {
+    const trimmed = line.trim()
+    if (!/^(tcp|udp)/i.test(trimmed)) continue
+    const cols = trimmed.split(/\s+/)
+    const proto: PortProto = /^udp/i.test(cols[0]) ? 'udp' : 'tcp'
+    const localRaw = cols.find((col) => col.includes('.') || col.includes(':') || col.includes('*'))
+    if (!localRaw) continue
+    const normalized =
+      localRaw.includes('.') && localRaw.lastIndexOf('.') > localRaw.lastIndexOf(':')
+        ? localRaw.replace(/\.(\d+)$/, ':$1')
+        : localRaw
+    const local = parseLocalAddress(normalized.replace(/^\*:/, '0.0.0.0:'))
+    if (!local) continue
+    const state = (cols[cols.length - 1] || '').toUpperCase()
+    const listen = proto === 'udp' || state === 'LISTEN' || state === 'LISTENING'
+    if (listen && (proto === 'udp' || /\bLISTEN/i.test(trimmed))) {
+      addBind(proto === 'tcp' ? listeningTcp : listeningUdp, local.port, local.address === '*' ? '0.0.0.0' : local.address)
+      continue
+    }
+    if (proto === 'tcp' && (state === 'ESTABLISHED' || state === 'SYN_SENT')) {
+      const remRaw = cols.filter((col) => col.includes('.') || col.includes(':'))[1]
+      const remote = parseRemote(remRaw || '*:*')
+      connections.push({
+        proto,
+        localAddress: local.address,
+        localPort: local.port,
+        remoteAddress: remote.address,
+        remotePort: remote.port,
+        state,
+        pid: null,
+      })
+    }
   }
+
+  return { listeningTcp, listeningUdp, connections }
+}
+
+async function snapshotUnixNetstat(): Promise<PortSnapshot> {
   const { stdout } = await execFileAsync('netstat', ['-an'], {
     timeout: 15000,
     maxBuffer: 8 * 1024 * 1024,
   })
-  return parseUnixNetstat(stdout)
+  return parseUnixNetstatSnapshot(stdout)
 }
 
-export async function readListeningTcpPorts(): Promise<Map<number, string[]>> {
+export function classifyConnectionDirection(
+  conn: RawConnection,
+  listeningTcp: Map<number, string[]>
+): PortConnection {
+  const direction = conn.proto === 'tcp' && listeningTcp.has(conn.localPort) ? 'inbound' : 'outbound'
+  return {
+    proto: conn.proto,
+    localAddress: conn.localAddress,
+    localPort: conn.localPort,
+    remoteAddress: conn.remoteAddress,
+    remotePort: conn.remotePort,
+    state: conn.state,
+    direction: conn.proto === 'udp' ? 'inbound' : direction,
+    pid: conn.pid,
+  }
+}
+
+export async function readLocalPortSnapshot(): Promise<PortSnapshot> {
   if (process.platform === 'win32') {
-    return listeningPortsWindows()
+    return snapshotWindows()
   }
   if (process.platform === 'linux') {
     try {
-      return await listeningPortsLinuxProc()
+      return await snapshotLinuxProc()
     } catch {
-      return listeningPortsUnixNetstat()
+      return snapshotUnixNetstat()
     }
   }
-  return listeningPortsUnixNetstat()
+  return snapshotUnixNetstat()
+}
+
+export async function readListeningTcpPorts(): Promise<Map<number, string[]>> {
+  const snapshot = await readLocalPortSnapshot()
+  return snapshot.listeningTcp
 }

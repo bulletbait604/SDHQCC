@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { verifyOwnerUser } from '@/lib/auth/staffAccess'
-import { scanKnownPorts } from '@/lib/virusesPortScanner/scan'
+import { scanAllLocalPorts } from '@/lib/virusesPortScanner/scan'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-/** Owner-only R&D: Open/Closed status for well-known TCP ports on this machine. */
+/** Owner-only R&D: Open/Closed for every local TCP port, plus inbound/outbound sessions. */
 export async function GET(req: NextRequest) {
   try {
     await verifyOwnerUser(req)
-    const result = await scanKnownPorts()
+    const result = await scanAllLocalPorts()
     return NextResponse.json(result)
   } catch (err: unknown) {
     if (err instanceof AuthError) return createAuthErrorResponse(err)

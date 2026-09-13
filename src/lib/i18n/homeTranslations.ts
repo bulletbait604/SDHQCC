@@ -30,7 +30,7 @@ export const homeTranslations = {
       'Kraken CAD coins only. High hunts smaller names and news movers, not just BTC. One ticket, maker limits, take ~8–12% so fees do not eat the win. Halt the day at -8%. Fake to practice, Real for Kraken. Switching to Real turns the desk OFF — press ON to trade.',
     virusesPortScanner: 'Viruses Port Scanner',
     virusesPortScannerDesc:
-      'Sweep well-known TCP ports on this PC and list each as Open or Closed. Refresh anytime to rescan.',
+      'Sweep every TCP port (1–65535) on this PC as Open or Closed, list bound UDP, and show inbound sessions plus outbound connections. Run locally — it reads this machine’s sockets, no extra network permission.',
     rndPickTool: 'R&D — owner only · pick a tool below',
     backgroundRemover: 'Background Remover',
     backgroundRemoverDesc:
@@ -97,7 +97,7 @@ export const homeTranslations = {
       'Solo monedas Kraken en CAD. Empiezas con CA$100. Compra el dip en tendencia alcista con límites maker. Arrastra el stop. 1–2 posiciones. Corta el día a -8%.',
     virusesPortScanner: 'Viruses Port Scanner',
     virusesPortScannerDesc:
-      'Explora los puertos TCP conocidos de este PC y lista cada uno como Open o Closed. Actualiza cuando quieras.',
+      'Explora cada puerto TCP (1–65535) de este PC como Open o Closed, lista UDP en uso y muestra sesiones entrantes y conexiones salientes. Ejecuta la app en local; lee los sockets de esta máquina.',
     rndPickTool: 'I+D — solo propietario · elige una herramienta abajo',
     backgroundRemover: 'Eliminador de fondo',
     backgroundRemoverDesc:
@@ -164,7 +164,7 @@ export const homeTranslations = {
       'Uniquement des paires Kraken en CAD. Départ CA$100. Achat d’un dip en tendance haussière en maker. Trailing stop. 1–2 tickets. Stop journée à -8 %.',
     virusesPortScanner: 'Viruses Port Scanner',
     virusesPortScannerDesc:
-      'Balaye les ports TCP connus de ce PC et liste chacun comme Open ou Closed. Actualisez pour rescanner.',
+      'Balaye chaque port TCP (1–65535) de ce PC en Open ou Closed, liste l’UDP lié, et montre sessions entrantes et connexions sortantes. Lancez l’app en local : lecture des sockets de cette machine.',
     rndPickTool: 'R&D — propriétaire seulement · choisissez un outil ci-dessous',
     backgroundRemover: 'Suppression d’arrière-plan',
     backgroundRemoverDesc:
@@ -231,7 +231,7 @@ export const homeTranslations = {
       'Nur Kraken-CAD-Coins. Start mit CA$100. Kauft den Dip im Aufwärtstrend als Maker. Trailing-Stop. 1–2 Tickets. Tageshalt bei -8 %.',
     virusesPortScanner: 'Viruses Port Scanner',
     virusesPortScannerDesc:
-      'Scannt bekannte TCP-Ports auf diesem PC und listet jeden als Open oder Closed. Jederzeit aktualisieren.',
+      'Scannt jeden TCP-Port (1–65535) auf diesem PC als Open oder Closed, listet gebundene UDP-Ports und zeigt eingehende Sitzungen sowie ausgehende Verbindungen. Lokal ausführen — liest die Sockets dieses Rechners.',
     rndPickTool: 'F&E — nur Owner · Werkzeug unten wählen',
     backgroundRemover: 'Hintergrund entfernen',
     backgroundRemoverDesc:
