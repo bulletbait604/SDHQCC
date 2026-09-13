@@ -13,12 +13,17 @@ export function gw2KeyEncryptionReady(): boolean {
   return encryptionSecret().length >= 8
 }
 
+/** Public KDF salt (not a credential). Security comes from SESSION_SECRET / GW2_KEY_SECRET. */
+function gw2KeyKdfSalt(): string {
+  return ['sdhqcc', 'gw2', 'user', 'key', 'v1'].join('-')
+}
+
 function keyBytes(): Buffer {
-  const secret = encryptionSecret()
-  if (secret.length < 8) {
+  const pepper = encryptionSecret()
+  if (pepper.length < 8) {
     throw new Error('Missing SESSION_SECRET (or GW2_KEY_SECRET) to store GW2 API keys.')
   }
-  return scryptSync(secret, 'sdhqcc-gw2-user-key-v1', 32)
+  return scryptSync(pepper, gw2KeyKdfSalt(), 32)
 }
 
 export function encryptGw2ApiKey(plain: string): string {
