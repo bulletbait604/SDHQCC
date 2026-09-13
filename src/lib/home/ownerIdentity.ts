@@ -1,5 +1,4 @@
 import { OWNER_USERNAMES, TAB_PERMISSIONS, type Role } from '@/lib/home/roles'
-import { canAccessRnd } from '@/lib/home/rndAccess'
 
 export function normalizeKickUsername(username: string): string {
   return username.replace(/^@/, '').toLowerCase().trim()
@@ -23,10 +22,12 @@ export function capOwnerRole(username: string, role: Role): Role {
   return role
 }
 
-/** Tab access — R&D (Viral Clip Gen, Trending Vids, Going Live, TradeBot, Narrate Me, Viruses Port Scanner) is site-owner only. */
+/** Tab access — R&D shell + Vi-Guys GW Map for any logged-in user; other R&D tools stay owner-only. */
 export function hasTabAccessForUser(userRole: Role, tabId: string, username: string | null | undefined): boolean {
+  if (tabId === 'rnd' || tabId === 'vi-guys-gw-map') {
+    return Boolean(username && username.trim())
+  }
   if (
-    tabId === 'rnd' ||
     tabId === 'viral-clip-gen' ||
     tabId === 'trending-vids' ||
     tabId === 'going-live' ||
@@ -34,7 +35,7 @@ export function hasTabAccessForUser(userRole: Role, tabId: string, username: str
     tabId === 'narrate-me' ||
     tabId === 'viruses-port-scanner'
   ) {
-    return canAccessRnd(userRole, username)
+    return isSiteOwner(username)
   }
   return TAB_PERMISSIONS[userRole]?.[tabId] ?? true
 }

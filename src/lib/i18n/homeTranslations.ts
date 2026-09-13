@@ -30,8 +30,12 @@ export const homeTranslations = {
       'Kraken CAD coins only. High hunts smaller names and news movers, not just BTC. One ticket, maker limits, take ~8–12% so fees do not eat the win. Halt the day at -8%. Fake to practice, Real for Kraken. Switching to Real turns the desk OFF — press ON to trade.',
     virusesPortScanner: 'Viruses Port Scanner',
     virusesPortScannerDesc:
-      'Sweep every TCP port (1–65535) on this PC using its local IP: Open/Closed, bound UDP, inbound sessions, and outbound connections. Use npm run dev at http://localhost:3000 — Vercel/GitHub hosts are never scanned.',
-    rndPickTool: 'R&D — owner only · pick a tool below',
+      'Sweep every TCP port (1–65535) on this PC using its local IP. Open http://127.0.0.1:3847/ after npm run viruses-server. Vercel/GitHub are never scanned.',
+    viGuysGwMap: 'Vi-Guys GW Map',
+    viGuysGwMapDesc:
+      'Guild Wars 2 map tracker. Log in with Kick, paste your ArenaNet API, and search hero points, mastery insights, vistas, waypoints, hearts, and achievements. Your key stays encrypted to your account.',
+    rndPickTool: 'R&D — pick a tool below',
+    rndGwMapPickTool: 'Log in with Kick, then connect your Guild Wars 2 API key',
     backgroundRemover: 'Background Remover',
     backgroundRemoverDesc:
       'Upload a photo and remove the background behind the main subject with AI.',
@@ -97,8 +101,12 @@ export const homeTranslations = {
       'Solo monedas Kraken en CAD. Empiezas con CA$100. Compra el dip en tendencia alcista con límites maker. Arrastra el stop. 1–2 posiciones. Corta el día a -8%.',
     virusesPortScanner: 'Viruses Port Scanner',
     virusesPortScannerDesc:
-      'Explora cada puerto TCP (1–65535) de este PC con su IP local: Open/Closed, UDP en uso, sesiones entrantes y conexiones salientes. Usa npm run dev en http://localhost:3000; Vercel/GitHub no se escanean.',
-    rndPickTool: 'I+D — solo propietario · elige una herramienta abajo',
+      'Explora cada puerto TCP (1–65535) de este PC con su IP local. Abre http://127.0.0.1:3847/ con npm run viruses-server. Vercel/GitHub no se escanean.',
+    viGuysGwMap: 'Vi-Guys GW Map',
+    viGuysGwMapDesc:
+      'Rastreador del mapa de Guild Wars 2. Entra con Kick, pega tu ArenaNet API y busca hero points, maestrías, vistas, waypoints, hearts y logros. La clave queda cifrada en tu cuenta.',
+    rndPickTool: 'I+D — elige una herramienta abajo',
+    rndGwMapPickTool: 'Entra con Kick y conecta tu clave de API de Guild Wars 2',
     backgroundRemover: 'Eliminador de fondo',
     backgroundRemoverDesc:
       'Sube una foto y elimina el fondo detrás del sujeto principal con IA.',
@@ -164,8 +172,12 @@ export const homeTranslations = {
       'Uniquement des paires Kraken en CAD. Départ CA$100. Achat d’un dip en tendance haussière en maker. Trailing stop. 1–2 tickets. Stop journée à -8 %.',
     virusesPortScanner: 'Viruses Port Scanner',
     virusesPortScannerDesc:
-      'Balaye chaque port TCP (1–65535) de ce PC via son IP locale : Open/Closed, UDP lié, sessions entrantes et connexions sortantes. Lancez npm run dev sur http://localhost:3000 — Vercel/GitHub ne sont jamais scannés.',
-    rndPickTool: 'R&D — propriétaire seulement · choisissez un outil ci-dessous',
+      'Balaye chaque port TCP (1–65535) de ce PC via son IP locale. Ouvrez http://127.0.0.1:3847/ avec npm run viruses-server. Vercel/GitHub ne sont jamais scannés.',
+    viGuysGwMap: 'Vi-Guys GW Map',
+    viGuysGwMapDesc:
+      'Suivi de la carte Guild Wars 2. Connectez-vous avec Kick, collez votre API ArenaNet, puis cherchez hero points, maîtrises, vues, waypoints, cœurs et succès. La clé reste chiffrée pour votre compte.',
+    rndPickTool: 'R&D — choisissez un outil ci-dessous',
+    rndGwMapPickTool: 'Connectez-vous avec Kick, puis liez votre clé API Guild Wars 2',
     backgroundRemover: 'Suppression d’arrière-plan',
     backgroundRemoverDesc:
       'Importez une photo et supprimez l’arrière-plan derrière le sujet principal avec l’IA.',
@@ -231,8 +243,12 @@ export const homeTranslations = {
       'Nur Kraken-CAD-Coins. Start mit CA$100. Kauft den Dip im Aufwärtstrend als Maker. Trailing-Stop. 1–2 Tickets. Tageshalt bei -8 %.',
     virusesPortScanner: 'Viruses Port Scanner',
     virusesPortScannerDesc:
-      'Scannt jeden TCP-Port (1–65535) auf diesem PC über die lokale IP: Open/Closed, gebundenes UDP, eingehende Sitzungen und ausgehende Verbindungen. npm run dev auf http://localhost:3000 — Vercel/GitHub werden nicht gescannt.',
-    rndPickTool: 'F&E — nur Owner · Werkzeug unten wählen',
+      'Scannt jeden TCP-Port (1–65535) auf diesem PC über die lokale IP. Öffnen Sie http://127.0.0.1:3847/ mit npm run viruses-server. Vercel/GitHub werden nicht gescannt.',
+    viGuysGwMap: 'Vi-Guys GW Map',
+    viGuysGwMapDesc:
+      'Guild-Wars-2-Karten-Tracker. Mit Kick anmelden, ArenaNet-API einfügen, dann Hero Points, Masteries, Vistas, Waypoints, Hearts und Achievements suchen. Der Schlüssel bleibt verschlüsselt.',
+    rndPickTool: 'F&E — Werkzeug unten wählen',
+    rndGwMapPickTool: 'Mit Kick anmelden, dann den Guild-Wars-2-API-Schlüssel verbinden',
     backgroundRemover: 'Hintergrund entfernen',
     backgroundRemoverDesc:
       'Laden Sie ein Foto hoch und entfernen Sie den Hintergrund hinter dem Hauptmotiv mit KI.',

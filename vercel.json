@@ -62,6 +62,12 @@
     },
     "src/app/api/viruses-port-scanner/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/vi-guys-gw-map/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/vi-guys-gw-map/achievements/route.ts": {
+      "maxDuration": 60
     }
   }
 }

@@ -9,6 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "viruses-agent": "tsx src/lib/virusesPortScanner/agent.ts",
+    "viruses-server": "tsx src/lib/virusesPortScanner/agent.ts",
     "create-paypal-plan": "node scripts/create-paypal-plan.js",
     "create-paypal-plan:sandbox": "node -e \"process.env.PAYPAL_MODE='sandbox'; require('./scripts/create-paypal-plan.js')\""
   },
@@ -31,6 +33,7 @@
     "clsx": "^2.1.1",
     "framer-motion": "^11.3.2",
     "google-auth-library": "^9.14.2",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.400.0",
     "mongodb": "^4.17.2",
     "next": "^14.2.0",
@@ -44,6 +47,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.22",
     "@types/uuid": "^10.0.0",
     "eslint": "^8.57.0",
     "eslint-config-next": "^14.2.0",

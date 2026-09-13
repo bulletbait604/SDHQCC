@@ -22,6 +22,7 @@ const RND_SUBS = new Set<RdSubTab>([
   'going-live',
   'tradebot',
   'viruses-port-scanner',
+  'vi-guys-gw-map',
 ])
 
 /** Legacy ?tab= names from older links. */

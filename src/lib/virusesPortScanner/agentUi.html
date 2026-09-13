@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Viruses Port Scanner · this PC</title>
+    <style>
+      :root {
+        --bg: #050806;
+        --card: #0b140f;
+        --line: rgba(57, 255, 120, 0.28);
+        --text: #d7ffe6;
+        --muted: #7aa88a;
+        --accent: #39ff78;
+        --rose: #fb7185;
+        --cyan: #22d3ee;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        background:
+          linear-gradient(rgba(0, 255, 80, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 255, 80, 0.05) 1px, transparent 1px),
+          var(--bg);
+        background-size: 22px 22px, 22px 22px, auto;
+        color: var(--text);
+      }
+      main { max-width: 1200px; margin: 0 auto; padding: 24px 16px 48px; }
+      h1 { font-size: 22px; margin: 4px 0 8px; }
+      .kicker { color: var(--accent); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; }
+      .sub { color: var(--muted); font-size: 13px; max-width: 46rem; }
+      .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; justify-content: space-between; }
+      label.ip { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; max-width: 420px; }
+      label.ip span { color: var(--accent); font-size: 11px; text-transform: uppercase; }
+      input, button, select {
+        font: inherit;
+        color: var(--text);
+        background: #000;
+        border: 1px solid #14532d;
+        border-radius: 12px;
+        padding: 10px 12px;
+      }
+      button {
+        background: var(--accent);
+        color: #04110a;
+        font-weight: 700;
+        cursor: pointer;
+        border: 0;
+      }
+      button:disabled { opacity: 0.6; cursor: wait; }
+      button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+      button.active { background: rgba(57, 255, 120, 0.16); }
+      .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 20px 0; }
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+      .card b { display: block; font-size: 22px; margin-top: 6px; }
+      .err { color: var(--rose); margin: 12px 0; }
+      .note { color: #fde68a; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 12px; padding: 10px 12px; font-size: 12px; }
+      .filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+      .table-wrap { overflow: auto; max-height: 28rem; border: 1px solid var(--line); border-radius: 16px; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th { position: sticky; top: 0; background: #000; color: var(--accent); text-align: left; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; padding: 10px 12px; }
+      td { padding: 8px 12px; border-top: 1px solid rgba(57, 255, 120, 0.12); vertical-align: top; }
+      .open { color: var(--accent); }
+      .closed { color: var(--rose); }
+      .out { color: var(--cyan); }
+      .pager { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 10px 4px; color: var(--muted); font-size: 12px; }
+      h2 { font-size: 14px; color: var(--accent); margin: 28px 0 10px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="kicker">Local server · this PC only</p>
+      <div class="row">
+        <div>
+          <h1>Viruses Port Scanner</h1>
+          <p class="sub">Inbound and outbound sockets on this computer’s local IP. This page is served from 127.0.0.1 — not Vercel.</p>
+        </div>
+        <button id="refresh" type="button">Refresh</button>
+      </div>
+      <label class="ip">
+        <span>Local IP</span>
+        <input id="ip" readonly value="Detecting…" />
+      </label>
+      <p id="hostline" class="sub"></p>
+      <p id="error" class="err" hidden></p>
+      <p id="note" class="note" hidden></p>
+      <div class="stats">
+        <div class="card">Inbound open<b id="tcpOpen">—</b><span class="sub" id="udpOpen"></span></div>
+        <div class="card">Closed TCP<b id="closed">—</b><span class="sub">of 65535 ports</span></div>
+        <div class="card">Outbound<b id="outbound">—</b><span class="sub" id="inboundSess"></span></div>
+        <div class="card">Host<b id="hostname">—</b><span class="sub" id="meta"></span></div>
+      </div>
+
+      <h2>Inbound ports (1–65535)</h2>
+      <div class="filters">
+        <button type="button" class="ghost active" data-filter="Open">Open</button>
+        <button type="button" class="ghost" data-filter="Closed">Closed</button>
+        <button type="button" class="ghost" data-filter="all">All</button>
+        <button type="button" class="ghost active" data-proto="tcp">TCP</button>
+        <button type="button" class="ghost" data-proto="udp">UDP</button>
+        <button type="button" class="ghost" data-proto="both">TCP+UDP</button>
+        <input id="q" placeholder="Jump by port, process, version, or bind…" style="flex:1; min-width: 200px" />
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Port</th><th>Proto</th><th>Service</th><th>Status</th><th>Process</th><th>Version</th><th>Bind</th>
+            </tr>
+          </thead>
+          <tbody id="ports"></tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <span id="pageinfo"></span>
+        <span>
+          <button type="button" class="ghost" id="prev">Prev</button>
+          <button type="button" class="ghost" id="next">Next</button>
+        </span>
+      </div>
+
+      <h2>Live traffic · inbound sessions and outbound connections</h2>
+      <input id="tq" placeholder="Filter by remote host, local port, PID, in/out…" style="width:100%; margin-bottom:10px" />
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Dir</th><th>Local</th><th>Remote</th><th>Process</th><th>Version</th><th>State</th><th>PID</th>
+            </tr>
+          </thead>
+          <tbody id="traffic"></tbody>
+        </table>
+      </div>
+    </main>
+    <script>
+      const PAGE_SIZE = 200
+      const PORT_MAX = 65535
+      let result = null
+      let filter = 'Open'
+      let proto = 'tcp'
+      let page = 1
+      let query = ''
+      let trafficQuery = ''
+
+      const $ = (id) => document.getElementById(id)
+      const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+
+      function processLabel(info) {
+        if (!info) return '—'
+        const version = info.version || info.product
+        if (version && info.description && info.description !== info.name) return info.name + ' ' + version + ' (' + info.description + ')'
+        if (version) return info.name + ' ' + version
+        if (info.description && info.description !== info.name) return info.name + ' (' + info.description + ')'
+        return info.name
+      }
+      function processList(list) {
+        if (!list || !list.length) return '—'
+        return list.map(processLabel).join(' · ')
+      }
+      function remoteOf(conn) {
+        if (!conn.remoteAddress || conn.remoteAddress === '*') return '—'
+        if (conn.remotePort == null) return conn.remoteAddress
+        return conn.remoteAddress + ':' + conn.remotePort
+      }
+
+      function openMaps() {
+        const tcp = new Map()
+        const udp = new Map()
+        const details = new Map()
+        for (const row of result.ports || []) {
+          if (row.status !== 'Open') continue
+          const map = row.proto === 'udp' ? udp : tcp
+          map.set(row.port, row.binds || [])
+          details.set(row.proto + ':' + row.port, row)
+        }
+        return { tcp, udp, details }
+      }
+
+      function rowHtml(row) {
+        const ver = (row.processes && row.processes[0] && (row.processes[0].version || row.processes[0].product)) || '—'
+        return '<tr><td>' + row.port + '</td><td>' + esc(row.proto) + '</td><td>' + esc(row.service || 'unknown') +
+          '</td><td class="' + (row.status === 'Open' ? 'open' : 'closed') + '">' + row.status +
+          '</td><td>' + esc(row.status === 'Open' ? processList(row.processes) : '—') +
+          '</td><td>' + esc(ver) + '</td><td>' + esc((row.binds || []).join(', ') || '—') + '</td></tr>'
+      }
+
+      function matches(row, q) {
+        if (!q) return true
+        const hay = [row.port, row.proto, row.service, row.status, (row.binds || []).join(' '),
+          processList(row.processes)].join(' ').toLowerCase()
+        return hay.includes(q)
+      }
+
+      function inboundPage() {
+        const { tcp, udp, details } = openMaps()
+        const protos = proto === 'both' ? ['tcp', 'udp'] : [proto]
+        const q = query.trim().toLowerCase()
+        const rows = []
+        const takeOpen = () => {
+          const open = []
+          for (const p of protos) {
+            const map = p === 'udp' ? udp : tcp
+            const ports = Array.from(map.keys()).sort((a, b) => a - b)
+            for (const port of ports) {
+              const key = p + ':' + port
+              open.push(details.get(key) || { port, proto: p, service: 'unknown', status: 'Open', binds: map.get(port), pids: [], processes: [] })
+            }
+          }
+          if (proto === 'both') open.sort((a, b) => a.port - b.port || a.proto.localeCompare(b.proto))
+          return open.filter((row) => matches(row, q))
+        }
+        let all
+        if (filter === 'Open') all = takeOpen()
+        else {
+          all = []
+          for (let port = 1; port <= PORT_MAX; port += 1) {
+            for (const p of protos) {
+              const map = p === 'udp' ? udp : tcp
+              const binds = map.get(port)
+              const isOpen = !!(binds && binds.length)
+              if (filter === 'Closed' && isOpen) continue
+              const row = isOpen
+                ? (details.get(p + ':' + port) || { port, proto: p, service: 'unknown', status: 'Open', binds, pids: [], processes: [] })
+                : { port, proto: p, service: 'unknown', status: 'Closed', binds: [], pids: [], processes: [] }
+              if (matches(row, q)) all.push(row)
+            }
+          }
+        }
+        const pages = Math.max(1, Math.ceil(all.length / PAGE_SIZE) || 1)
+        page = Math.min(Math.max(1, page), pages)
+        const slice = all.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+        return { slice, matched: all.length, pages }
+      }
+
+      function render() {
+        if (!result) return
+        $('ip').value = (result.lanIps && result.lanIps.length) ? result.lanIps.join(' · ') : (result.host || '127.0.0.1')
+        $('hostline').textContent = 'This PC only · ' + (result.hostname || '') + ' · ' + (result.host || '')
+        $('tcpOpen').textContent = (result.tcpOpenCount ?? '—') + ' TCP'
+        $('udpOpen').textContent = (result.udpOpenCount ?? 0) + ' UDP bound'
+        $('closed').textContent = result.closedCount ?? '—'
+        $('outbound').textContent = result.outboundCount ?? '—'
+        $('inboundSess').textContent = (result.inboundSessionCount ?? 0) + ' inbound sessions'
+        $('hostname').textContent = result.hostname || '—'
+        $('meta').textContent = (result.platform || '') + ' · ' + (result.durationMs != null ? result.durationMs + ' ms' : '')
+        if (result.note) { $('note').hidden = false; $('note').textContent = result.note } else $('note').hidden = true
+
+        const inbound = inboundPage()
+        $('ports').innerHTML = inbound.slice.length
+          ? inbound.slice.map(rowHtml).join('')
+          : '<tr><td colspan="7">No ports match this filter.</td></tr>'
+        $('pageinfo').textContent = 'Showing ' + inbound.slice.length + ' of ' + inbound.matched.toLocaleString() + ' · page ' + page + '/' + inbound.pages
+        $('prev').disabled = page <= 1
+        $('next').disabled = page >= inbound.pages
+
+        const tq = trafficQuery.trim().toLowerCase()
+        const traffic = (result.connections || []).filter((conn) => {
+          if (!tq) return true
+          const hay = [conn.direction, conn.proto, conn.state, conn.localAddress, conn.localPort, conn.remoteAddress, conn.remotePort, conn.pid, processLabel(conn.process)].join(' ').toLowerCase()
+          return hay.includes(tq)
+        })
+        $('traffic').innerHTML = traffic.length
+          ? traffic.map((conn) => '<tr><td class="' + (conn.direction === 'outbound' ? 'out' : 'open') + '">' + esc(conn.direction) +
+            '</td><td>' + esc(conn.localAddress + ':' + conn.localPort) +
+            '</td><td>' + esc(remoteOf(conn)) +
+            '</td><td>' + esc(processLabel(conn.process)) +
+            '</td><td>' + esc((conn.process && (conn.process.version || conn.process.product)) || '—') +
+            '</td><td>' + esc(conn.state) +
+            '</td><td>' + esc(conn.pid == null ? '—' : conn.pid) + '</td></tr>').join('')
+          : '<tr><td colspan="7">No active TCP sessions match.</td></tr>'
+      }
+
+      async function scan() {
+        $('error').hidden = true
+        $('refresh').disabled = true
+        $('refresh').textContent = 'Scanning…'
+        try {
+          const res = await fetch('/scan', { cache: 'no-store' })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.userMessage || data.error || 'Scan failed')
+          if (!Array.isArray(data.ports)) throw new Error('Scan returned no port list.')
+          result = data
+          page = 1
+          render()
+        } catch (err) {
+          $('error').hidden = false
+          $('error').textContent = err.message || 'Scan failed'
+        } finally {
+          $('refresh').disabled = false
+          $('refresh').textContent = 'Refresh'
+        }
+      }
+
+      $('refresh').onclick = scan
+      $('q').oninput = (e) => { query = e.target.value; page = 1; if (result) render() }
+      $('tq').oninput = (e) => { trafficQuery = e.target.value; if (result) render() }
+      $('prev').onclick = () => { page -= 1; render() }
+      $('next').onclick = () => { page += 1; render() }
+      document.querySelectorAll('[data-filter]').forEach((btn) => {
+        btn.onclick = () => {
+          filter = btn.getAttribute('data-filter')
+          document.querySelectorAll('[data-filter]').forEach((b) => b.classList.toggle('active', b === btn))
+          page = 1
+          if (result) render()
+        }
+      })
+      document.querySelectorAll('[data-proto]').forEach((btn) => {
+        btn.onclick = () => {
+          proto = btn.getAttribute('data-proto')
+          document.querySelectorAll('[data-proto]').forEach((b) => b.classList.toggle('active', b === btn))
+          page = 1
+          if (result) render()
+        }
+      })
+      scan()
+    </script>
+  </body>
+</html>

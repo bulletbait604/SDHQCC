@@ -1,7 +1,14 @@
 /** Shared by the client tab and the API — no Node builtins. */
 
+export const LOCAL_AGENT_PORT = 3847
+export const LOCAL_AGENT_UI_URL = `http://127.0.0.1:${LOCAL_AGENT_PORT}/`
+export const LOCAL_AGENT_SCAN_URL = `http://127.0.0.1:${LOCAL_AGENT_PORT}/scan`
+export const LOCAL_AGENT_HEALTH_URL = `http://127.0.0.1:${LOCAL_AGENT_PORT}/health`
+export const LOCAL_AGENT_NOTE =
+  'Served from the local scanner on this PC. Keep npm run viruses-server running.'
+
 export const CLOUD_SCAN_USER_MESSAGE =
-  'This scanner only reads ports on this PC (local IP). Open http://localhost:3000 after npm run dev. A Vercel or GitHub deploy is a different machine and is never scanned.'
+  'Open the local scanner at http://127.0.0.1:3847/ (npm run viruses-server). The live Vercel/GitHub host is a different machine and is never scanned.'
 
 export function hostnameFromHostHeader(hostHeader: string | null | undefined): string {
   const raw = (hostHeader || '').trim().toLowerCase()
@@ -63,4 +70,27 @@ export function cloudScanBlockedReason(
 export function formatLocalIpDisplay(lanIps: readonly string[], fallback = '127.0.0.1'): string {
   if (lanIps.length) return lanIps.join(' · ')
   return fallback
+}
+
+export function isAllowedAgentPageOrigin(origin: string): boolean {
+  let url: URL
+  try {
+    url = new URL(origin)
+  } catch {
+    return false
+  }
+  const host = url.hostname.toLowerCase()
+  if (url.protocol === 'http:' && isThisPcScanHost(host)) return true
+  if (url.protocol !== 'https:') return false
+  if (host === 'sdcreatorcorner.com' || host === 'www.sdcreatorcorner.com') return true
+  if (host === 'sdhqcc.vercel.app') return true
+  if (/^sdhqcc([.-].*)?\.vercel\.app$/.test(host)) return true
+  return false
+}
+
+/** Reflect Origin when the page is allowed; null if curl/no Origin; false if blocked. */
+export function agentAllowedCorsOrigin(originHeader: string | null | undefined): string | null | false {
+  const origin = (originHeader || '').trim()
+  if (!origin) return null
+  return isAllowedAgentPageOrigin(origin) ? origin : false
 }

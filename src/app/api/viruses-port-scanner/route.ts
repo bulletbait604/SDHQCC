@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
         userMessage:
           message === CLOUD_SCAN_USER_MESSAGE
             ? message
-            : 'Could not read ports on this PC. Retry from http://localhost:3000.',
+            : 'Could not read ports on this PC. Open http://127.0.0.1:3847/ after npm run viruses-server.',
       },
       { status: 503 }
     )

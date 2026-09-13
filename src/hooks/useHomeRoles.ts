@@ -9,7 +9,7 @@ import {
   isSiteOwner,
   normalizeKickUsername,
 } from '@/lib/home/ownerIdentity'
-import { canAccessRnd } from '@/lib/home/rndAccess'
+import { canSeeRndTab } from '@/lib/home/rndAccess'
 
 interface Subscriber {
   id: string
@@ -77,17 +77,10 @@ export function useHomeRoles({
   )
 
   useEffect(() => {
-    if (!user?.username) return
-
-    if (canAccessRnd(userRole, user.username)) return
-
-    const sessionRole = capOwnerRole(user.username, (user.role as Role) || 'free')
-    if (canAccessRnd(sessionRole, user.username)) return
-
-    if (activeTab === 'rnd') {
-      setActiveTab('educate')
-    }
-  }, [activeTab, user, userRole, setActiveTab])
+    if (activeTab !== 'rnd') return
+    if (canSeeRndTab(user?.username)) return
+    setActiveTab('educate')
+  }, [activeTab, user, setActiveTab])
 
   const fetchUsersWithRoles = useCallback(async () => {
     try {

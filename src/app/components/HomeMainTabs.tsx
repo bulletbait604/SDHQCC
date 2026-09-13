@@ -1,11 +1,12 @@
 'use client'
 
+import { useEffect, useMemo } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { Settings, Video, Wand2, GraduationCap, BarChart3, FlaskConical } from 'lucide-react'
 import ResourceHubTab from '@/app/components/ResourceHubTab'
 import CreateTabHeader, { type CreateSubTab } from '@/app/components/CreateTabHeader'
-import RdTabHeader, { type RdSubTab } from '@/app/components/RdTabHeader'
+import RdTabHeader, { ALL_RD_SUBS, type RdSubTab } from '@/app/components/RdTabHeader'
 import TagGeneratorTab from '@/app/components/TagGeneratorTab'
 import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
 import Post4MeTab from '@/app/components/Post4MeTab'
@@ -17,6 +18,7 @@ import ViralClipGenTab from '@/app/components/ViralClipGenTab'
 import NarrateMeTab from '@/app/components/NarrateMeTab'
 import TradeBotTab from '@/app/components/TradeBotTab'
 import VirusesPortScannerTab from '@/app/components/VirusesPortScannerTab'
+import ViGuysGwMapTab from '@/app/components/ViGuysGwMapTab'
 import KickClipsComingSoon from '@/app/components/KickClipsComingSoon'
 import SettingsTab from '@/app/components/SettingsTab'
 import type { ActivityLogEntry, HomeLanguage, KickUser, Platform } from '@/lib/home/types'
@@ -177,6 +179,18 @@ export default function HomeMainTabs({
   usersWithRoles,
   onDeleteUser,
 }: HomeMainTabsProps) {
+  const visibleRdTabs = useMemo<RdSubTab[]>(
+    () => (isOwner ? ALL_RD_SUBS : ['vi-guys-gw-map']),
+    [isOwner]
+  )
+  const effectiveRndSubTab = visibleRdTabs.includes(rndSubTab)
+    ? rndSubTab
+    : (visibleRdTabs[0] || 'vi-guys-gw-map')
+
+  useEffect(() => {
+    if (rndSubTab === effectiveRndSubTab) return
+    onRndSubTabChange(effectiveRndSubTab)
+  }, [rndSubTab, effectiveRndSubTab, onRndSubTabChange])
   return (
     <Tabs value={activeTab} onValueChange={onTabChange} className="space-y-6">
       <TabsList
@@ -331,19 +345,20 @@ export default function HomeMainTabs({
       {canAccessRnd && (
         <TabsContent value="rnd">
           <Tabs
-            value={rndSubTab}
+            value={effectiveRndSubTab}
             onValueChange={(v) => onRndSubTabChange(v as RdSubTab)}
             className="space-y-4"
           >
             <div
               className={cn(
                 cardClasses,
-                rndSubTab === 'tradebot' ? 'overflow-hidden p-0' : 'p-4 sm:p-6'
+                effectiveRndSubTab === 'tradebot' ? 'overflow-hidden p-0' : 'p-4 sm:p-6'
               )}
             >
-              <div className={rndSubTab === 'tradebot' ? 'p-4 sm:p-6 pb-3' : undefined}>
+              <div className={effectiveRndSubTab === 'tradebot' ? 'p-4 sm:p-6 pb-3' : undefined}>
               <RdTabHeader
-                activeSubTab={rndSubTab}
+                activeSubTab={effectiveRndSubTab}
+                visibleTabs={visibleRdTabs}
                 labels={{
                   narrateMe: t.narrateMe || 'Narrate Me',
                   viralClipGen: t.viralClipGen || 'Viral Clip Gen',
@@ -351,14 +366,17 @@ export default function HomeMainTabs({
                   goingLive: t.goingLive || 'Going Live',
                   tradeBot: t.tradeBot || 'TradeBot',
                   virusesPortScanner: t.virusesPortScanner || 'Viruses Port Scanner',
+                  viGuysGwMap: t.viGuysGwMap || 'Vi-Guys GW Map',
                 }}
-                pickToolLabel={t.rndPickTool}
+                pickToolLabel={isOwner ? t.rndPickTool : t.rndGwMapPickTool || t.viGuysGwMap}
                 darkMode={darkMode}
                 tabListClasses={createSubTabListClasses}
                 tabTriggerClasses={tabTriggerClasses}
               />
               </div>
 
+              {isOwner && (
+                <>
               <TabsContent value="narrate-me">
                 <NarrateMeTab
                   darkMode={darkMode}
@@ -430,6 +448,20 @@ export default function HomeMainTabs({
                   description={
                     t.virusesPortScannerDesc ||
                     'Sweep every TCP port (1–65535) on this PC as Open or Closed, and list inbound listeners plus outbound connections.'
+                  }
+                />
+              </TabsContent>
+                </>
+              )}
+
+              <TabsContent value="vi-guys-gw-map">
+                <ViGuysGwMapTab
+                  darkMode={darkMode}
+                  subtitleClasses={subtitleClasses}
+                  kickUsername={user.username}
+                  description={
+                    t.viGuysGwMapDesc ||
+                    'Track Guild Wars 2 map resources and achievements. Log in with Kick, then paste your ArenaNet API.'
                   }
                 />
               </TabsContent>

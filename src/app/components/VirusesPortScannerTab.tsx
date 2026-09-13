@@ -29,6 +29,8 @@ import {
   CLOUD_SCAN_USER_MESSAGE,
   formatLocalIpDisplay,
   isThisPcScanHost,
+  LOCAL_AGENT_SCAN_URL,
+  LOCAL_AGENT_UI_URL,
 } from '@/lib/virusesPortScanner/localScan'
 import { formatProcessLabel, formatProcessList } from '@/lib/virusesPortScanner/processLabel'
 import type { PortConnection, PortScanResult } from '@/lib/virusesPortScanner/types'
@@ -91,25 +93,41 @@ export default function VirusesPortScannerTab({
     setIsWorking(true)
     setError('')
     try {
-      if (typeof window !== 'undefined' && !isThisPcScanHost(window.location.hostname)) {
-        setResult(null)
-        throw new Error(CLOUD_SCAN_USER_MESSAGE)
-      }
-      const res = await fetch('/api/viruses-port-scanner', {
-        method: 'GET',
-        credentials: 'include',
-      })
-      const data = await parseJsonResponse<PortScanResult & { userMessage?: string; error?: string }>(
-        res
+      const agentRes = await fetch(LOCAL_AGENT_SCAN_URL, { method: 'GET', cache: 'no-store' }).catch(
+        () => null
       )
-      if (!res.ok) {
-        throw new Error(data.userMessage || data.error || 'Port scan failed')
+      if (agentRes) {
+        const data = await parseJsonResponse<PortScanResult & { userMessage?: string; error?: string }>(
+          agentRes
+        )
+        if (agentRes.ok && Array.isArray(data.ports)) {
+          setResult(data)
+          setPage(1)
+          return
+        }
       }
-      if (!Array.isArray(data.ports)) {
-        throw new Error('Scan returned no port list.')
+
+      if (typeof window !== 'undefined' && isThisPcScanHost(window.location.hostname)) {
+        const res = await fetch('/api/viruses-port-scanner', {
+          method: 'GET',
+          credentials: 'include',
+        })
+        const data = await parseJsonResponse<PortScanResult & { userMessage?: string; error?: string }>(
+          res
+        )
+        if (!res.ok) {
+          throw new Error(data.userMessage || data.error || 'Port scan failed')
+        }
+        if (!Array.isArray(data.ports)) {
+          throw new Error('Scan returned no port list.')
+        }
+        setResult(data)
+        setPage(1)
+        return
       }
-      setResult(data)
-      setPage(1)
+
+      setResult(null)
+      throw new Error(CLOUD_SCAN_USER_MESSAGE)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Port scan failed')
     } finally {
@@ -206,6 +224,14 @@ export default function VirusesPortScannerTab({
               </p>
               <h4 className={`text-xl font-bold font-mono ${textMain}`}>Viruses Port Scanner</h4>
               <p className={`text-sm mt-1 max-w-2xl ${subtitleClasses}`}>{description}</p>
+              <p className={`text-xs font-mono mt-2 max-w-2xl ${subtitleClasses}`}>
+                Local scanner:{' '}
+                <a className={accent} href={LOCAL_AGENT_UI_URL} target="_blank" rel="noreferrer">
+                  {LOCAL_AGENT_UI_URL}
+                </a>
+                {' · '}
+                <span className={accent}>npm run viruses-server</span>
+              </p>
               <label className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2 max-w-xl">
                 <span className={`text-xs font-semibold uppercase tracking-wide shrink-0 ${accent}`}>
                   Local IP

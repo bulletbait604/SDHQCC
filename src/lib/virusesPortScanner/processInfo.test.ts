@@ -5,6 +5,7 @@ import {
   cloudScanBlockedReason,
   formatLocalIpDisplay,
   hostnameFromHostHeader,
+  isAllowedAgentPageOrigin,
   isThisPcScanHost,
 } from './localScan'
 import {
@@ -48,8 +49,12 @@ test('isThisPcScanHost allows this computer and blocks cloud hosts', () => {
   assert.equal(isThisPcScanHost('sdhqcc.vercel.app'), false)
   assert.equal(isThisPcScanHost('github.com'), false)
   assert.equal(hostnameFromHostHeader('localhost:3000'), 'localhost')
-  assert.equal(cloudScanBlockedReason('sdhqcc.vercel.app', false)?.includes('localhost:3000'), true)
-  assert.equal(cloudScanBlockedReason('localhost:3000', true)?.includes('localhost:3000'), true)
+  assert.equal(cloudScanBlockedReason('sdhqcc.vercel.app', false)?.includes('127.0.0.1:3847'), true)
+  assert.equal(cloudScanBlockedReason('localhost:3000', true)?.includes('127.0.0.1:3847'), true)
   assert.equal(cloudScanBlockedReason('localhost:3000', false), null)
   assert.equal(formatLocalIpDisplay(['192.168.1.65', '10.0.0.2']), '192.168.1.65 · 10.0.0.2')
+  assert.equal(isAllowedAgentPageOrigin('https://sdcreatorcorner.com'), true)
+  assert.equal(isAllowedAgentPageOrigin('https://sdhqcc.vercel.app'), true)
+  assert.equal(isAllowedAgentPageOrigin('http://localhost:3000'), true)
+  assert.equal(isAllowedAgentPageOrigin('https://evil.example'), false)
 })

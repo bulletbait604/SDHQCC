@@ -34,7 +34,7 @@ import SubscribePopup from '@/app/components/SubscribePopup'
 import LifetimePassPopup from '@/app/components/LifetimePassPopup'
 import { pollSubscriptionVerification } from '@/lib/paypal/pollSubscriptionVerification'
 import { useCoins } from '@/hooks/useCoins'
-import { canAccessRnd } from '@/lib/home/rndAccess'
+import { canSeeRndTab } from '@/lib/home/rndAccess'
 import { startKickLogin } from '@/lib/kick/startKickLogin'
 
 export default function HomePage() {
@@ -188,7 +188,7 @@ export default function HomePage() {
   }
 
   const t = homeTranslations[language] ?? homeTranslations.en
-  const showRnd = user ? canAccessRnd(userRole, user.username) : false
+  const showRnd = canSeeRndTab(user?.username)
 
   const clipAnalyzer = useClipAnalyzer({
     user,
