@@ -30,7 +30,7 @@ export const homeTranslations = {
       'Kraken CAD coins only. High hunts smaller names and news movers, not just BTC. One ticket, maker limits, take ~8–12% so fees do not eat the win. Halt the day at -8%. Fake to practice, Real for Kraken. Switching to Real turns the desk OFF — press ON to trade.',
     virusesPortScanner: 'Viruses Port Scanner',
     virusesPortScannerDesc:
-      'Sweep every TCP port (1–65535) on this PC as Open or Closed, list bound UDP, and show inbound sessions plus outbound connections. Run locally — it reads this machine’s sockets, no extra network permission.',
+      'Sweep every TCP port (1–65535) on this PC using its local IP: Open/Closed, bound UDP, inbound sessions, and outbound connections. Use npm run dev at http://localhost:3000 — Vercel/GitHub hosts are never scanned.',
     rndPickTool: 'R&D — owner only · pick a tool below',
     backgroundRemover: 'Background Remover',
     backgroundRemoverDesc:
@@ -97,7 +97,7 @@ export const homeTranslations = {
       'Solo monedas Kraken en CAD. Empiezas con CA$100. Compra el dip en tendencia alcista con límites maker. Arrastra el stop. 1–2 posiciones. Corta el día a -8%.',
     virusesPortScanner: 'Viruses Port Scanner',
     virusesPortScannerDesc:
-      'Explora cada puerto TCP (1–65535) de este PC como Open o Closed, lista UDP en uso y muestra sesiones entrantes y conexiones salientes. Ejecuta la app en local; lee los sockets de esta máquina.',
+      'Explora cada puerto TCP (1–65535) de este PC con su IP local: Open/Closed, UDP en uso, sesiones entrantes y conexiones salientes. Usa npm run dev en http://localhost:3000; Vercel/GitHub no se escanean.',
     rndPickTool: 'I+D — solo propietario · elige una herramienta abajo',
     backgroundRemover: 'Eliminador de fondo',
     backgroundRemoverDesc:
@@ -164,7 +164,7 @@ export const homeTranslations = {
       'Uniquement des paires Kraken en CAD. Départ CA$100. Achat d’un dip en tendance haussière en maker. Trailing stop. 1–2 tickets. Stop journée à -8 %.',
     virusesPortScanner: 'Viruses Port Scanner',
     virusesPortScannerDesc:
-      'Balaye chaque port TCP (1–65535) de ce PC en Open ou Closed, liste l’UDP lié, et montre sessions entrantes et connexions sortantes. Lancez l’app en local : lecture des sockets de cette machine.',
+      'Balaye chaque port TCP (1–65535) de ce PC via son IP locale : Open/Closed, UDP lié, sessions entrantes et connexions sortantes. Lancez npm run dev sur http://localhost:3000 — Vercel/GitHub ne sont jamais scannés.',
     rndPickTool: 'R&D — propriétaire seulement · choisissez un outil ci-dessous',
     backgroundRemover: 'Suppression d’arrière-plan',
     backgroundRemoverDesc:
@@ -231,7 +231,7 @@ export const homeTranslations = {
       'Nur Kraken-CAD-Coins. Start mit CA$100. Kauft den Dip im Aufwärtstrend als Maker. Trailing-Stop. 1–2 Tickets. Tageshalt bei -8 %.',
     virusesPortScanner: 'Viruses Port Scanner',
     virusesPortScannerDesc:
-      'Scannt jeden TCP-Port (1–65535) auf diesem PC als Open oder Closed, listet gebundene UDP-Ports und zeigt eingehende Sitzungen sowie ausgehende Verbindungen. Lokal ausführen — liest die Sockets dieses Rechners.',
+      'Scannt jeden TCP-Port (1–65535) auf diesem PC über die lokale IP: Open/Closed, gebundenes UDP, eingehende Sitzungen und ausgehende Verbindungen. npm run dev auf http://localhost:3000 — Vercel/GitHub werden nicht gescannt.',
     rndPickTool: 'F&E — nur Owner · Werkzeug unten wählen',
     backgroundRemover: 'Hintergrund entfernen',
     backgroundRemoverDesc:

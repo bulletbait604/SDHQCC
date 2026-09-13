@@ -1,4 +1,7 @@
 import type { PortProto, PortScanRow, PortStatus, ProcessInfo } from './types'
+import { isLoopbackHostname } from './localScan'
+
+export { isLoopbackHostname as isLoopbackHost } from './localScan'
 
 export const PORT_MIN = 1
 export const PORT_MAX = 65535
@@ -323,23 +326,11 @@ export function buildInboundPage(params: {
   return { rows: first.rows, matched: first.matched, page, pages }
 }
 
-export function isLoopbackHost(host: string): boolean {
-  const normalized = host.trim().toLowerCase().replace(/^\[|\]$/g, '')
-  if (!normalized) return false
-  if (normalized === 'localhost' || normalized === '::1') return true
-  const ipv4 = normalized.match(/^127\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
-  if (!ipv4) return false
-  return ipv4.slice(1).every((octet) => {
-    const n = Number.parseInt(octet, 10)
-    return n >= 0 && n <= 255
-  })
-}
-
 /** Loopback only — never scan LAN/public hosts from this app. */
 export function resolveScanHost(raw?: string | null): string {
   const host = (raw ?? '').trim().toLowerCase()
   if (!host) return '127.0.0.1'
-  if (!isLoopbackHost(host)) {
+  if (!isLoopbackHostname(host)) {
     throw new Error('Scan host must be loopback (127.0.0.1 / localhost).')
   }
   if (host === 'localhost' || host === '::1' || host === '[::1]') return '127.0.0.1'
@@ -348,5 +339,5 @@ export function resolveScanHost(raw?: string | null): string {
 
 export function vercelScanNote(hostedOnVercel: boolean): string | undefined {
   if (!hostedOnVercel) return undefined
-  return 'This build is on Vercel, so the sweep is the serverless host — not your PC. Run `npm run dev` locally to scan inbound and outbound sockets on this computer. No extra network permission is required beyond reading this machine.'
+  return 'This scanner never runs on Vercel. Open http://localhost:3000 after npm run dev to read ports on this PC.'
 }

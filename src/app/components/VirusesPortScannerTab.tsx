@@ -25,6 +25,11 @@ import {
   type ProtoFilter,
   type StatusFilter,
 } from '@/lib/virusesPortScanner/ports'
+import {
+  CLOUD_SCAN_USER_MESSAGE,
+  formatLocalIpDisplay,
+  isThisPcScanHost,
+} from '@/lib/virusesPortScanner/localScan'
 import { formatProcessLabel, formatProcessList } from '@/lib/virusesPortScanner/processLabel'
 import type { PortConnection, PortScanResult } from '@/lib/virusesPortScanner/types'
 
@@ -86,6 +91,10 @@ export default function VirusesPortScannerTab({
     setIsWorking(true)
     setError('')
     try {
+      if (typeof window !== 'undefined' && !isThisPcScanHost(window.location.hostname)) {
+        setResult(null)
+        throw new Error(CLOUD_SCAN_USER_MESSAGE)
+      }
       const res = await fetch('/api/viruses-port-scanner', {
         method: 'GET',
         credentials: 'include',
@@ -199,23 +208,26 @@ export default function VirusesPortScannerTab({
               <p className={`text-sm mt-1 max-w-2xl ${subtitleClasses}`}>{description}</p>
               <label className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2 max-w-xl">
                 <span className={`text-xs font-semibold uppercase tracking-wide shrink-0 ${accent}`}>
-                  IP Address
+                  Local IP
                 </span>
                 <span className="relative flex-1">
                   <Globe className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${accent}`} />
                   <input
                     readOnly
                     value={
-                      result?.publicIp ||
-                      (isWorking ? 'Detecting…' : 'Unavailable')
+                      result
+                        ? formatLocalIpDisplay(result.lanIps, result.host)
+                        : isWorking
+                          ? 'Detecting…'
+                          : 'Unavailable'
                     }
                     className={`w-full rounded-xl border pl-9 pr-3 py-2 text-sm font-mono outline-none ${inputShell}`}
                   />
                 </span>
               </label>
-              {result?.lanIps?.length ? (
+              {result?.host ? (
                 <p className={`text-xs font-mono mt-1 ${subtitleClasses}`}>
-                  LAN: {result.lanIps.join(' · ')}
+                  This PC only · {result.hostname} · {result.host}
                 </p>
               ) : null}
             </div>

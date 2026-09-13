@@ -29,22 +29,3 @@ export function localIpv4Addresses(): string[] {
   return found
 }
 
-async function fetchIpFrom(url: string): Promise<string | null> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 4000)
-  try {
-    const res = await fetch(url, { signal: controller.signal, cache: 'no-store' })
-    if (!res.ok) return null
-    return parsePublicIpText(await res.text())
-  } catch {
-    return null
-  } finally {
-    clearTimeout(timer)
-  }
-}
-
-export async function resolvePublicIpv4(): Promise<string | null> {
-  const first = await fetchIpFrom('https://api.ipify.org')
-  if (first) return first
-  return fetchIpFrom('https://ipv4.icanhazip.com')
-}

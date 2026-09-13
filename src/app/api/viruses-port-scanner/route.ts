@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { verifyOwnerUser } from '@/lib/auth/staffAccess'
+import { cloudScanBlockedReason, CLOUD_SCAN_USER_MESSAGE } from '@/lib/virusesPortScanner/localScan'
 import { scanAllLocalPorts } from '@/lib/virusesPortScanner/scan'
 
 export const dynamic = 'force-dynamic'
@@ -11,6 +12,10 @@ export const maxDuration = 60
 export async function GET(req: NextRequest) {
   try {
     await verifyOwnerUser(req)
+    const blocked = cloudScanBlockedReason(req.headers.get('host'), Boolean(process.env.VERCEL))
+    if (blocked) {
+      return NextResponse.json({ error: 'local-only', userMessage: blocked }, { status: 409 })
+    }
     const result = await scanAllLocalPorts()
     return NextResponse.json(result)
   } catch (err: unknown) {
@@ -20,7 +25,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         error: message,
-        userMessage: 'Could not scan ports on this machine. Retry, or run the app locally.',
+        userMessage:
+          message === CLOUD_SCAN_USER_MESSAGE
+            ? message
+            : 'Could not read ports on this PC. Retry from http://localhost:3000.',
       },
       { status: 503 }
     )

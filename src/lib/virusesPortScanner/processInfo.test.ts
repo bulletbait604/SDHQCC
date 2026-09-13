@@ -2,6 +2,12 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { parsePublicIpText } from './hostIps'
 import {
+  cloudScanBlockedReason,
+  formatLocalIpDisplay,
+  hostnameFromHostHeader,
+  isThisPcScanHost,
+} from './localScan'
+import {
   formatProcessLabel,
   parseProcessInfoJson,
   parseTasklistCsv,
@@ -32,4 +38,18 @@ test('parsePublicIpText accepts public IPv4 only', () => {
   assert.equal(parsePublicIpText('127.0.0.1'), null)
   assert.equal(parsePublicIpText('192.168.1.65'), null)
   assert.equal(parsePublicIpText('not-an-ip'), null)
+})
+
+test('isThisPcScanHost allows this computer and blocks cloud hosts', () => {
+  assert.equal(isThisPcScanHost('localhost'), true)
+  assert.equal(isThisPcScanHost('127.0.0.1'), true)
+  assert.equal(isThisPcScanHost('192.168.1.65'), true)
+  assert.equal(isThisPcScanHost('Gaming_PC'), true)
+  assert.equal(isThisPcScanHost('sdhqcc.vercel.app'), false)
+  assert.equal(isThisPcScanHost('github.com'), false)
+  assert.equal(hostnameFromHostHeader('localhost:3000'), 'localhost')
+  assert.equal(cloudScanBlockedReason('sdhqcc.vercel.app', false)?.includes('localhost:3000'), true)
+  assert.equal(cloudScanBlockedReason('localhost:3000', true)?.includes('localhost:3000'), true)
+  assert.equal(cloudScanBlockedReason('localhost:3000', false), null)
+  assert.equal(formatLocalIpDisplay(['192.168.1.65', '10.0.0.2']), '192.168.1.65 · 10.0.0.2')
 })
