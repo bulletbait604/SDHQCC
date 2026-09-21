@@ -7,12 +7,7 @@ import { GRANTABLE_RND_TABS, type GrantableRndTab } from '@/lib/home/rndAccess'
 import { normalizeKickUsername } from '@/lib/home/ownerIdentity'
 
 const RND_TAB_LABELS: Record<GrantableRndTab, string> = {
-  'narrate-me': 'Narrate Me',
-  'viral-clip-gen': 'Viral Clip Gen',
   'trending-vids': 'Trending Vids',
-  'going-live': 'Going Live',
-  tradebot: 'TradeBot',
-  'viruses-port-scanner': 'Viruses Port Scanner',
 }
 
 interface Props {
@@ -85,8 +80,8 @@ export default function OwnerRndGrantsPanel({ darkMode, usersWithRoles }: Props)
 
   return (
     <div
-      className={`p-4 rounded-lg border-2 ${
-        darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-emerald-300'
+      className={`p-5 rounded-2xl border-2 ${
+        darkMode ? 'bg-sdhq-dark-700/60 border-sdhq-green-500/30' : 'bg-gray-50 border-emerald-300'
       }`}
     >
       <h4 className={`font-semibold mb-2 flex items-center ${darkMode ? 'text-white' : 'text-gray-900'}`}>

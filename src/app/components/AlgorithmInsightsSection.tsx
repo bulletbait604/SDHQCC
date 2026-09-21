@@ -108,8 +108,8 @@ export default function AlgorithmInsightsSection({
             {algorithmError && <span className="text-red-500 text-base">{algorithmError}</span>}
             <p className={`${subtitleClasses} text-base`}>Last updated: {lastUpdated}</p>
             <p className={`${subtitleClasses} text-xs w-full text-center`}>
-              Auto-refreshes on the 1st of every month via Gemini Flash-Lite · used by Analyzer,
-              Post4Me &amp; Clip Editor
+              Auto-refreshes on the 1st of every month via Gemini Flash-Lite · used by Analyzer
+              &amp; Post4Me
             </p>
           </div>
 

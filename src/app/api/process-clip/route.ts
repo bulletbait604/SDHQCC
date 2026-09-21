@@ -6,6 +6,6 @@ export const dynamic = 'force-dynamic'
 export async function POST() {
   return legacyRouteGone({
     message: 'This endpoint has been removed.',
-    successorPath: '/api/viral-clip-gen',
+    successorPath: '/',
   })
 }

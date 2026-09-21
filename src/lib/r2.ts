@@ -39,10 +39,10 @@ function sanitizeFilename(filename: string): string {
 export type GenerateUploadUrlOpts = {
   /** Clip analyzer / thumbnail / Post4Me: `uploads/clips/<user>/…` or `uploads/thumbnail-clips/<user>/…` */
   clipUsername?: string
-  purpose?: 'clip-analyzer' | 'thumbnail-generator' | 'post4me' | 'narrate-me'
+  purpose?: 'clip-analyzer' | 'thumbnail-generator' | 'post4me'
   /** Presigned PUT lifetime in seconds (default 5 min). Large thumbnail clips need longer. */
   expiresIn?: number
-  /** Exact object key when the caller already allocated one (Narrate Me). */
+  /** Exact object key when the caller already allocated one. */
   fileKey?: string
   jobId?: string
 }
@@ -69,8 +69,6 @@ export async function generateUploadUrl(
       fileKey = `uploads/thumbnail-clips/${userSeg}/${timestamp}-${safeName}`
     } else if (opts.purpose === 'post4me') {
       fileKey = `uploads/post4me-clips/${userSeg}/${timestamp}-${safeName}`
-    } else if (opts.purpose === 'narrate-me' && opts.jobId) {
-      fileKey = `narrate-me/${userSeg}/${opts.jobId}/source/${timestamp}-${safeName}`
     } else {
       fileKey = `uploads/clips/${userSeg}/${timestamp}-${safeName}`
     }

@@ -1,29 +1,27 @@
 /** Shared home shell class names (header, cards, tabs). */
 export function getHomeThemeClasses(darkMode: boolean) {
-  /** Logo cyan (#008b99 / sdhq-cyan-700) bar — high contrast labels, no white wash. */
   const tabListClasses = darkMode
-    ? 'bg-sdhq-dark-800 border-2 border-sdhq-cyan-500/40 shadow-xl p-1'
-    : 'bg-sdhq-cyan-700 border-2 border-sdhq-cyan-500 shadow-xl p-1'
+    ? 'bg-sdhq-dark-800/80 border border-white/10 shadow-xl shadow-black/20 p-1.5 rounded-2xl backdrop-blur-xl'
+    : 'bg-white/80 border border-sdhq-cyan-200/80 shadow-xl shadow-cyan-200/40 p-1.5 rounded-2xl backdrop-blur-xl'
 
-  /** Full trigger classes (must stay literal strings for Tailwind JIT). */
   const tabTriggerClasses = darkMode
-    ? 'text-sdhq-cyan-100/90 hover:text-white hover:bg-sdhq-cyan-500/15 border-r border-sdhq-cyan-500/25 last:border-r-0 data-[state=active]:bg-sdhq-cyan-500/30 data-[state=active]:text-white data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-sdhq-cyan-400 data-[state=active]:shadow-md rounded-md'
-    : 'text-sdhq-cyan-50 hover:text-white hover:bg-sdhq-cyan-600/50 border-r border-sdhq-cyan-500/35 last:border-r-0 data-[state=active]:bg-sdhq-cyan-500 data-[state=active]:text-sdhq-dark-900 data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-sdhq-green-500 data-[state=active]:shadow-md rounded-md'
+    ? 'rounded-xl text-sdhq-cyan-100/80 hover:text-white hover:bg-white/5 transition-all duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-sdhq-cyan-500 data-[state=active]:to-sdhq-green-500 data-[state=active]:text-black data-[state=active]:font-semibold data-[state=active]:shadow-lg data-[state=active]:shadow-sdhq-cyan-500/20'
+    : 'rounded-xl text-slate-600 hover:text-slate-900 hover:bg-sdhq-cyan-50 transition-all duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-sdhq-cyan-500 data-[state=active]:to-sdhq-green-500 data-[state=active]:text-black data-[state=active]:font-semibold data-[state=active]:shadow-md'
 
   const createSubTabListClasses = darkMode
-    ? 'bg-sdhq-dark-800 border border-sdhq-cyan-500/40'
-    : 'bg-sdhq-cyan-700 border border-sdhq-cyan-500'
+    ? 'bg-sdhq-dark-900/70 border border-white/10 rounded-2xl'
+    : 'bg-cyan-50/80 border border-sdhq-cyan-200 rounded-2xl'
 
   return {
     themeClasses: darkMode
-      ? 'min-h-screen bg-black text-white'
-      : 'min-h-screen bg-gradient-to-br from-cyan-50 to-green-50',
+      ? 'relative min-h-screen bg-[#05070d] text-white'
+      : 'relative min-h-screen bg-gradient-to-br from-cyan-50 via-white to-emerald-50',
     headerClasses: darkMode
-      ? 'bg-gradient-to-r from-sdhq-dark-800 via-sdhq-dark-800 to-sdhq-dark-700/90 backdrop-blur-xl border-b border-sdhq-cyan-500/30 shadow-2xl'
-      : 'bg-gradient-to-r from-white via-white to-cyan-50/80 backdrop-blur-xl border-b border-sdhq-cyan-300 shadow-2xl',
+      ? 'sticky top-0 z-40 bg-sdhq-dark-900/75 backdrop-blur-2xl border-b border-white/10 shadow-lg shadow-black/20'
+      : 'sticky top-0 z-40 bg-white/75 backdrop-blur-2xl border-b border-sdhq-cyan-200/70 shadow-lg shadow-cyan-100/50',
     cardClasses: darkMode
-      ? 'bg-sdhq-dark-800/90 border border-sdhq-dark-700 rounded-xl shadow-lg'
-      : 'bg-white/80 backdrop-blur-sm border border-sdhq-cyan-200 rounded-xl shadow-lg',
+      ? 'bg-sdhq-dark-800/70 border border-white/10 rounded-2xl shadow-xl shadow-black/20 backdrop-blur-xl'
+      : 'bg-white/85 backdrop-blur-xl border border-sdhq-cyan-100 rounded-2xl shadow-xl shadow-cyan-100/60',
     tabListClasses,
     tabTriggerClasses,
     createSubTabListClasses,

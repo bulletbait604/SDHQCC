@@ -133,7 +133,7 @@ export default function TrendingVidsTab({
                 setResult(null)
                 setError('')
               }}
-              className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${
+              className={`rounded-xl border px-3 py-2.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
                 platformId === p.id ? chipActive : chipIdle
               }`}
             >

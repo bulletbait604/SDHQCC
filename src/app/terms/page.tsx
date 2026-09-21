@@ -128,6 +128,11 @@ export default function TermsOfService() {
             </a>
           </p>
         </section>
+        <p className="mt-8 border-t border-gray-200 pt-6">
+          <Link href="/" className="font-semibold text-sdhq-cyan-600 underline hover:text-sdhq-cyan-700">
+            Back to Creator Corner
+          </Link>
+        </p>
       </div>
     </div>
   )

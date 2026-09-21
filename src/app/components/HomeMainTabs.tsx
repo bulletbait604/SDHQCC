@@ -7,20 +7,13 @@ import { Settings, LayoutGrid, Wand2, GraduationCap, BarChart3, FlaskConical } f
 import ResourceHubTab from '@/app/components/ResourceHubTab'
 import CreateTabHeader, { type CreateSubTab } from '@/app/components/CreateTabHeader'
 import RdTabHeader, { ALL_RD_SUBS, type RdSubTab } from '@/app/components/RdTabHeader'
-import UserAppsTabHeader, { type UserAppSubTab } from '@/app/components/UserAppsTabHeader'
+import UserAppsIdeaTab from '@/app/components/UserAppsIdeaTab'
 import TagGeneratorTab from '@/app/components/TagGeneratorTab'
 import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
 import Post4MeTab from '@/app/components/Post4MeTab'
 import BackgroundRemoverTab from '@/app/components/BackgroundRemoverTab'
 import AnalyzeTab from '@/app/components/AnalyzeTab'
-import GoingLiveTab from '@/app/components/GoingLiveTab'
 import TrendingVidsTab from '@/app/components/TrendingVidsTab'
-import ViralClipGenTab from '@/app/components/ViralClipGenTab'
-import NarrateMeTab from '@/app/components/NarrateMeTab'
-import TradeBotTab from '@/app/components/TradeBotTab'
-import VirusesPortScannerTab from '@/app/components/VirusesPortScannerTab'
-import ViGuysGwMapTab from '@/app/components/ViGuysGwMapTab'
-import KickClipsComingSoon from '@/app/components/KickClipsComingSoon'
 import SettingsTab from '@/app/components/SettingsTab'
 import type { ActivityLogEntry, HomeLanguage, KickUser, Platform } from '@/lib/home/types'
 import type { Role } from '@/lib/home/roles'
@@ -36,8 +29,6 @@ export interface HomeMainTabsProps {
   onCreateSubTabChange: (sub: CreateSubTab) => void
   rndSubTab: RdSubTab
   onRndSubTabChange: (sub: RdSubTab) => void
-  userAppSubTab: UserAppSubTab
-  onUserAppSubTabChange: (sub: UserAppSubTab) => void
   canAccessRnd: boolean
   rndTabs: string[]
   isOwner: boolean
@@ -65,7 +56,6 @@ export interface HomeMainTabsProps {
   hasTabAccess: (tabId: string) => boolean
   hasEnoughCoins: (tool: ToolType) => boolean
   hasUnlimitedAccess: boolean
-  coinBalance: number
   coinLoading: boolean
   refreshBalance: () => void
   onActivityLog: (entry: ActivityLogEntry) => void
@@ -75,7 +65,6 @@ export interface HomeMainTabsProps {
     estimatedCostNote?: string
   }) => void
   clipAnalyzer: ClipAnalyzer
-  onDonate: () => void
   onLanguageChange: (lang: HomeLanguage) => void
   onDarkModeToggle: () => void
   feedbackReplyEmail: string
@@ -117,8 +106,6 @@ export default function HomeMainTabs({
   onCreateSubTabChange,
   rndSubTab,
   onRndSubTabChange,
-  userAppSubTab,
-  onUserAppSubTabChange,
   canAccessRnd,
   rndTabs,
   isOwner,
@@ -146,13 +133,11 @@ export default function HomeMainTabs({
   hasTabAccess,
   hasEnoughCoins,
   hasUnlimitedAccess,
-  coinBalance,
   coinLoading,
   refreshBalance,
   onActivityLog,
   onThumbnailActivityLog,
   clipAnalyzer,
-  onDonate,
   onLanguageChange,
   onDarkModeToggle,
   feedbackReplyEmail,
@@ -192,40 +177,41 @@ export default function HomeMainTabs({
   )
   const effectiveRndSubTab = visibleRdTabs.includes(rndSubTab)
     ? rndSubTab
-    : (visibleRdTabs[0] || 'viral-clip-gen')
+    : (visibleRdTabs[0] || 'trending-vids')
 
   useEffect(() => {
     if (rndSubTab === effectiveRndSubTab) return
     onRndSubTabChange(effectiveRndSubTab)
   }, [rndSubTab, effectiveRndSubTab, onRndSubTabChange])
+
   return (
     <Tabs value={activeTab} onValueChange={onTabChange} className="space-y-6">
       <TabsList
         className={`grid w-full grid-cols-2 ${canAccessRnd ? 'sm:grid-cols-6' : 'sm:grid-cols-5'} ${tabListClasses}`}
       >
         <TabsTrigger value="educate" className={cn('flex items-center space-x-2', tabTriggerClasses)}>
-          <GraduationCap className="w-4 h-4" />
+          <GraduationCap className="h-4 w-4" />
           <span className="hidden sm:inline">{t.educate}</span>
         </TabsTrigger>
         <TabsTrigger value="create" className={cn('flex items-center space-x-2', tabTriggerClasses)}>
-          <Wand2 className="w-4 h-4" />
+          <Wand2 className="h-4 w-4" />
           <span className="hidden sm:inline">{t.create}</span>
         </TabsTrigger>
         <TabsTrigger value="analyze" className={cn('flex items-center space-x-2', tabTriggerClasses)}>
-          <BarChart3 className="w-4 h-4" />
+          <BarChart3 className="h-4 w-4" />
           <span className="hidden sm:inline">{t.analyze}</span>
         </TabsTrigger>
         <TabsTrigger value="kick-clips" className={cn('flex items-center space-x-2', tabTriggerClasses)}>
-          <LayoutGrid className="w-4 h-4" />
+          <LayoutGrid className="h-4 w-4" />
           <span className="hidden sm:inline">{t.kickClips}</span>
         </TabsTrigger>
         <TabsTrigger value="settings" className={cn('flex items-center space-x-2', tabTriggerClasses)}>
-          <Settings className="w-4 h-4" />
+          <Settings className="h-4 w-4" />
           <span className="hidden sm:inline">{t.settings}</span>
         </TabsTrigger>
         {canAccessRnd && (
           <TabsTrigger value="rnd" className={cn('flex items-center space-x-2', tabTriggerClasses)}>
-            <FlaskConical className="w-4 h-4" />
+            <FlaskConical className="h-4 w-4" />
             <span className="hidden sm:inline">{t.rnd}</span>
           </TabsTrigger>
         )}
@@ -356,116 +342,30 @@ export default function HomeMainTabs({
             onValueChange={(v) => onRndSubTabChange(v as RdSubTab)}
             className="space-y-4"
           >
-            <div
-              className={cn(
-                cardClasses,
-                effectiveRndSubTab === 'tradebot' ? 'overflow-hidden p-0' : 'p-4 sm:p-6'
-              )}
-            >
-              <div className={effectiveRndSubTab === 'tradebot' ? 'p-4 sm:p-6 pb-3' : undefined}>
+            <div className={cn(cardClasses, 'p-4 sm:p-6')}>
               <RdTabHeader
                 activeSubTab={effectiveRndSubTab}
                 visibleTabs={visibleRdTabs}
                 labels={{
-                  narrateMe: t.narrateMe || 'Narrate Me',
-                  viralClipGen: t.viralClipGen || 'Viral Clip Gen',
                   trendingVids: t.trendingVids || 'Trending Vids',
-                  goingLive: t.goingLive || 'Going Live',
-                  tradeBot: t.tradeBot || 'TradeBot',
-                  virusesPortScanner: t.virusesPortScanner || 'Viruses Port Scanner',
                 }}
                 pickToolLabel={t.rndPickTool}
                 darkMode={darkMode}
                 tabListClasses={createSubTabListClasses}
                 tabTriggerClasses={tabTriggerClasses}
               />
-              </div>
-
-              {visibleRdTabs.includes('narrate-me') && (
-              <TabsContent value="narrate-me">
-                <NarrateMeTab
-                  darkMode={darkMode}
-                  subtitleClasses={subtitleClasses}
-                  description={
-                    t.narrateMeDesc ||
-                    'Turn your gameplay into researched, timestamp-accurate narration.'
-                  }
-                  hasUnlimitedAccess={hasUnlimitedAccess || isOwner}
-                  coinBalance={coinBalance}
-                  coinLoading={coinLoading}
-                  refreshBalance={refreshBalance}
-                />
-              </TabsContent>
-              )}
-
-              {visibleRdTabs.includes('viral-clip-gen') && (
-              <TabsContent value="viral-clip-gen">
-                <ViralClipGenTab
-                  darkMode={darkMode}
-                  subtitleClasses={subtitleClasses}
-                  description={
-                    t.viralClipGenDesc ||
-                    'Describe a short vertical clip, add optional references, pick a length, and generate a 9:16 video.'
-                  }
-                  hasUnlimitedAccess={hasUnlimitedAccess || isOwner}
-                  coinBalance={coinBalance}
-                  coinLoading={coinLoading}
-                  refreshBalance={refreshBalance}
-                />
-              </TabsContent>
-              )}
 
               {visibleRdTabs.includes('trending-vids') && (
-              <TabsContent value="trending-vids">
-                <TrendingVidsTab
-                  darkMode={darkMode}
-                  subtitleClasses={subtitleClasses}
-                  description={
-                    t.trendingVidsDesc ||
-                    'Pick a platform. We search the live web via Google and list the top 5 trends — videos and topics for YouTube and other video apps.'
-                  }
-                />
-              </TabsContent>
-              )}
-
-              {visibleRdTabs.includes('going-live') && (
-              <TabsContent value="going-live">
-                <GoingLiveTab
-                  darkMode={darkMode}
-                  subtitleClasses={subtitleClasses}
-                  description={
-                    t.goingLiveDesc ||
-                    'Upload references, pick platforms and a vibe, then get a stream title, social posts, and posters.'
-                  }
-                  user={user}
-                />
-              </TabsContent>
-              )}
-
-              {visibleRdTabs.includes('tradebot') && (
-              <TabsContent value="tradebot" className="mt-0">
-                <TradeBotTab
-                  darkMode={darkMode}
-                  subtitleClasses={subtitleClasses}
-                  description={
-                    t.tradeBotDesc ||
-                    'Kraken CAD coins only. Start with CA$100. Buys a dip in an uptrend with maker limits. One ticket, most of the book. Take ~8–12%. Halt the day at -8%. Fake to practice, Real for Kraken.'
-                  }
-                />
-              </TabsContent>
-              )}
-
-              {visibleRdTabs.includes('viruses-port-scanner') && (
-              <TabsContent value="viruses-port-scanner">
-                <VirusesPortScannerTab
-                  darkMode={darkMode}
-                  subtitleClasses={subtitleClasses}
-                  description={
-                    t.virusesPortScannerDesc ||
-                    'Sweep every TCP port (1–65535) on this PC as Open or Closed, and list inbound listeners plus outbound connections.'
-                  }
-                />
-              </TabsContent>
+                <TabsContent value="trending-vids">
+                  <TrendingVidsTab
+                    darkMode={darkMode}
+                    subtitleClasses={subtitleClasses}
+                    description={
+                      t.trendingVidsDesc ||
+                      'Pick a platform. We search the live web via Google and list the top 5 trends — videos and topics for YouTube and other video apps.'
+                    }
+                  />
+                </TabsContent>
               )}
             </div>
           </Tabs>
@@ -473,48 +373,20 @@ export default function HomeMainTabs({
       )}
 
       <TabsContent value="kick-clips">
-        <Tabs
-          value={userAppSubTab}
-          onValueChange={(v) => onUserAppSubTabChange(v as UserAppSubTab)}
-          className="space-y-4"
-        >
-          <div className={cn(cardClasses, 'p-4 sm:p-6')}>
-            <UserAppsTabHeader
-              activeSubTab={userAppSubTab}
-              labels={{
-                viGuysGwMap: t.viGuysGwMap || 'Vi-Guys GW Map',
-                kickClipsApp: t.kickClipsApp || 'KICK Clips',
-              }}
-              pickToolLabel={t.userAppsPickTool || 'User APPs — pick an app below'}
-              darkMode={darkMode}
-              tabListClasses={createSubTabListClasses}
-              tabTriggerClasses={tabTriggerClasses}
-            />
-            <TabsContent value="vi-guys-gw-map">
-              <ViGuysGwMapTab
-                darkMode={darkMode}
-                subtitleClasses={subtitleClasses}
-                kickUsername={user.username}
-                description={
-                  t.viGuysGwMapDesc ||
-                  'Track Guild Wars 2 map resources and achievements. Log in with Kick, then paste your ArenaNet API.'
-                }
-              />
-            </TabsContent>
-            <TabsContent value="kick-clips">
-              <KickClipsComingSoon
-                darkMode={darkMode}
-                cardClasses="border-0 bg-transparent shadow-none p-0"
-                textClasses={textClasses}
-                subtitleClasses={subtitleClasses}
-                title={t.kickClipsApp || t.kickClips}
-                comingSoonLabel={t.appComingSoon}
-                donateLabel={t.donate}
-                onDonate={onDonate}
-              />
-            </TabsContent>
-          </div>
-        </Tabs>
+        <div className={cn(cardClasses, 'p-4 sm:p-8')}>
+          <UserAppsIdeaTab
+            darkMode={darkMode}
+            title={t.kickClips}
+            intro={t.userAppsIntro}
+            subjectLabel={t.userAppsSubject}
+            bodyLabel={t.userAppsBody}
+            subjectPlaceholder={t.userAppsSubjectPlaceholder}
+            bodyPlaceholder={t.userAppsBodyPlaceholder}
+            submitLabel={t.userAppsSubmit}
+            sendingLabel={t.userAppsSending}
+            successMessage={t.userAppsSuccess}
+          />
+        </div>
       </TabsContent>
 
       <TabsContent value="settings">

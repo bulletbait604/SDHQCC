@@ -1,15 +1,8 @@
 import { isSiteOwner } from '@/lib/home/ownerIdentity'
 import type { Role } from '@/lib/home/roles'
 
-/** R&D tools the owner can grant one-by-one. Vi-Guys GW Map lives under User APPs. */
-export const GRANTABLE_RND_TABS = [
-  'narrate-me',
-  'viral-clip-gen',
-  'trending-vids',
-  'going-live',
-  'tradebot',
-  'viruses-port-scanner',
-] as const
+/** R&D tools the owner can grant one-by-one. */
+export const GRANTABLE_RND_TABS = ['trending-vids'] as const
 
 export type GrantableRndTab = (typeof GRANTABLE_RND_TABS)[number]
 

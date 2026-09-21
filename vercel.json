@@ -3,18 +3,6 @@
     {
       "path": "/api/algorithms/update",
       "schedule": "0 8 1 * *"
-    },
-    {
-      "path": "/api/tradebot/cycle",
-      "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/tradebot/tick",
-      "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/narrate-me/tick",
-      "schedule": "* * * * *"
     }
   ],
   "functions": {
@@ -35,39 +23,6 @@
     },
     "src/app/api/clip-analyze/route.ts": {
       "maxDuration": 300
-    },
-    "src/app/api/viral-clip-gen/route.ts": {
-      "maxDuration": 60
-    },
-    "src/app/api/narrate-me/tick/route.ts": {
-      "maxDuration": 300
-    },
-    "src/app/api/narrate-me/jobs/[id]/analyze/route.ts": {
-      "maxDuration": 30
-    },
-    "src/app/api/narrate-me/jobs/[id]/script/route.ts": {
-      "maxDuration": 120
-    },
-    "src/app/api/narrate-me/jobs/[id]/voice/route.ts": {
-      "maxDuration": 30
-    },
-    "src/app/api/narrate-me/jobs/[id]/process/route.ts": {
-      "maxDuration": 60
-    },
-    "src/app/api/tradebot/cycle/route.ts": {
-      "maxDuration": 120
-    },
-    "src/app/api/tradebot/tick/route.ts": {
-      "maxDuration": 55
-    },
-    "src/app/api/viruses-port-scanner/route.ts": {
-      "maxDuration": 60
-    },
-    "src/app/api/vi-guys-gw-map/route.ts": {
-      "maxDuration": 60
-    },
-    "src/app/api/vi-guys-gw-map/achievements/route.ts": {
-      "maxDuration": 60
     }
   }
 }

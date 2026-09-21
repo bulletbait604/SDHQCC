@@ -428,7 +428,7 @@ export default function ResourceHubTab({
                   {items.map((row) => (
                     <div
                       key={`${row.category}-${row.name}`}
-                      className={`rounded-xl border p-4 transition-shadow ${cardInner} ${darkMode ? 'hover:border-sdhq-cyan-500/40' : 'hover:border-sdhq-cyan-300'}`}
+                      className={`rounded-2xl border p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg ${cardInner} ${darkMode ? 'hover:border-sdhq-cyan-400/50' : 'hover:border-sdhq-cyan-300 hover:shadow-cyan-100'}`}
                     >
                       <div className="mb-1 flex flex-wrap items-center gap-2">
                         <span

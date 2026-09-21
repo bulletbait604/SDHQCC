@@ -6,8 +6,6 @@ export const TOOL_COIN_COSTS = {
   post4me: 2,
   'background-remover': 0,
   'content-analyzer': 2,
-  'viral-clip-gen': 4,
-  'narrate-me': 8,
 } as const
 
 export type ToolCoinName = keyof typeof TOOL_COIN_COSTS

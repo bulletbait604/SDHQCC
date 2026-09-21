@@ -79,11 +79,14 @@ const config: Config = {
         mono: ['JetBrains Mono', 'monospace'],
       },
       animation: {
-        'fade-in': 'fadeIn 0.5s ease-in-out',
-        'slide-up': 'slideUp 0.3s ease-out',
+        'fade-in': 'fadeIn 0.45s ease-in-out',
+        'slide-up': 'slideUp 0.35s ease-out',
+        'slide-in': 'slideIn 0.3s ease-out',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'gradient': 'gradient 3s ease infinite',
+        gradient: 'gradient 8s ease infinite',
         'neon-glow': 'neonGlow 2s ease-in-out infinite alternate',
+        float: 'floatSoft 6s ease-in-out infinite',
+        'press-pop': 'pressPop 0.18s ease-out',
       },
       keyframes: {
         fadeIn: {
@@ -91,7 +94,11 @@ const config: Config = {
           '100%': { opacity: '1' },
         },
         slideUp: {
-          '0%': { transform: 'translateY(10px)', opacity: '0' },
+          '0%': { transform: 'translateY(12px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        slideIn: {
+          '0%': { transform: 'translateY(8px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
         gradient: {
@@ -102,6 +109,15 @@ const config: Config = {
           '0%': { boxShadow: '0 0 5px #00e5ff, 0 0 10px #00e5ff, 0 0 15px #00e5ff' },
           '50%': { boxShadow: '0 0 10px #00e5ff, 0 0 20px #00e5ff, 0 0 30px #00e5ff' },
           '100%': { boxShadow: '0 0 5px #00e5ff, 0 0 10px #00e5ff, 0 0 15px #00e5ff' },
+        },
+        floatSoft: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-8px)' },
+        },
+        pressPop: {
+          '0%': { transform: 'scale(1)' },
+          '50%': { transform: 'scale(0.97)' },
+          '100%': { transform: 'scale(1)' },
         },
       },
       backgroundImage: {

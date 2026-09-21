@@ -5,16 +5,16 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
-  --foreground-rgb: 0, 0, 0;
+  --foreground-rgb: 15, 23, 42;
   --background-start-rgb: 240, 253, 255;
-  --background-end-rgb: 240, 255, 244;
+  --background-end-rgb: 236, 253, 245;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+    --foreground-rgb: 248, 250, 252;
+    --background-start-rgb: 3, 7, 18;
+    --background-end-rgb: 2, 6, 23;
   }
 }
 
@@ -32,15 +32,9 @@ body {
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  background: rgb(var(--background-start-rgb));
 }
 
-/* Keep dropdown menu item text in the same font as the select control text. */
 select,
 select option,
 select optgroup {
@@ -62,89 +56,147 @@ a {
   .glass-morphism {
     @apply bg-white/20 backdrop-blur-md border border-white/20;
   }
-  
+
   .gradient-text {
-    @apply bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-sdhq-cyan-500 via-emerald-400 to-sdhq-green-500 bg-clip-text text-transparent;
   }
-  
+
   .sdhq-button {
-    @apply bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold py-2 px-6 rounded-lg hover:from-sdhq-cyan-600 hover:to-sdhq-green-600 transition-all duration-300 shadow-lg hover:shadow-xl;
+    @apply inline-flex items-center justify-center bg-gradient-to-r from-sdhq-cyan-500 via-emerald-400 to-sdhq-green-500 text-black font-semibold py-2.5 px-6 rounded-xl shadow-lg shadow-sdhq-cyan-500/25 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-xl hover:shadow-sdhq-cyan-500/35 hover:from-sdhq-cyan-400 hover:to-sdhq-green-400 active:translate-y-0 active:scale-[0.98];
   }
-  
+
   .sdhq-button-outline {
-    @apply border-2 border-sdhq-cyan-500 text-sdhq-cyan-600 font-semibold py-2 px-6 rounded-lg hover:bg-sdhq-cyan-50 transition-all duration-300;
+    @apply border-2 border-sdhq-cyan-500 text-sdhq-cyan-600 font-semibold py-2.5 px-6 rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:bg-sdhq-cyan-50 hover:shadow-md active:translate-y-0;
   }
-  
+
   .sdhq-card {
-    @apply bg-white/80 backdrop-blur-sm border border-sdhq-cyan-200 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300;
+    @apply bg-white/80 backdrop-blur-sm border border-sdhq-cyan-200 rounded-2xl shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl;
   }
-  
+
   .neon-glow-cyan {
     @apply shadow-neon-cyan;
   }
-  
+
   .neon-glow-green {
     @apply shadow-neon-green;
   }
-  
+
   .text-neon-cyan {
     @apply text-sdhq-cyan-500 drop-shadow-[0_0_10px_rgba(0,229,255,0.8)];
   }
-  
+
   .text-neon-green {
     @apply text-sdhq-green-500 drop-shadow-[0_0_10px_rgba(0,255,0,0.8)];
   }
-
 }
 
-.gw2-hp-map.leaflet-container {
-  background: #050806;
-  width: 100%;
-  height: 100%;
+@keyframes fade-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.gw2-hp-marker {
-  display: block;
-  width: 14px;
-  height: 14px;
+@keyframes float-orb {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(18px, -22px) scale(1.08);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+.animate-fade-slide-in {
+  animation: fade-slide-in 0.35s ease-out both;
+}
+
+.sdhq-page-orbs {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.sdhq-page-orbs::before,
+.sdhq-page-orbs::after {
+  content: '';
+  position: absolute;
   border-radius: 999px;
-  box-sizing: border-box;
+  filter: blur(70px);
+  animation: float-orb 14s ease-in-out infinite;
 }
 
-.gw2-hp-todo {
-  background: #fbbf24;
-  border: 2px solid #78350f;
-  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.35);
+.sdhq-page-orbs::before {
+  width: 28rem;
+  height: 28rem;
+  top: -8rem;
+  left: -6rem;
+  background: rgba(0, 229, 255, 0.22);
 }
 
-.gw2-hp-done {
-  background: #22c55e;
-  border: 2px solid #052e16;
-  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.4);
+.sdhq-page-orbs::after {
+  width: 24rem;
+  height: 24rem;
+  right: -5rem;
+  bottom: 10%;
+  background: rgba(52, 211, 153, 0.18);
+  animation-delay: -6s;
 }
 
-.gw2-kind-hero_point { background: #fbbf24; }
-.gw2-kind-mastery { background: #c084fc; }
-.gw2-kind-vista { background: #67e8f9; }
-.gw2-kind-waypoint { background: #60a5fa; }
-.gw2-kind-heart { background: #fb7185; }
-
-.gw2-hp-popup {
-  color: #111827;
-  font-size: 13px;
-  min-width: 180px;
+.sdhq-loading-ring {
+  position: relative;
+  width: 3.25rem;
+  height: 3.25rem;
 }
 
-.gw2-hp-popup p {
-  margin: 4px 0 0;
+.sdhq-loading-ring::before,
+.sdhq-loading-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 3px solid transparent;
+  border-top-color: #00e5ff;
+  border-right-color: #34d399;
+  animation: spin 0.85s linear infinite;
 }
 
-.gw2-hp-popup .mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 11px;
-  opacity: 0.8;
+.sdhq-loading-ring::after {
+  inset: 6px;
+  animation-direction: reverse;
+  animation-duration: 1.15s;
+  opacity: 0.7;
 }
 
-.gw2-hp-popup .open { color: #15803d; }
-.gw2-hp-popup .todo { color: #b45309; }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-slide-in,
+  .sdhq-page-orbs::before,
+  .sdhq-page-orbs::after,
+  .sdhq-loading-ring::before,
+  .sdhq-loading-ring::after {
+    animation: none;
+  }
+}

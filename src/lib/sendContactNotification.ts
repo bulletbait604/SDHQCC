@@ -14,8 +14,9 @@ export type ContactNotifyResult = { sent: true } | { sent: false; reason: string
 
 export async function sendContactStaffEmail(opts: {
   kickUsername: string
-  replyEmail: string
+  replyEmail?: string
   message: string
+  subject?: string
 }): Promise<ContactNotifyResult> {
   const apiKey = process.env.RESEND_API_KEY?.trim()
   const to = process.env.FEEDBACK_NOTIFY_EMAIL?.trim() || DEFAULT_NOTIFY_EMAIL
@@ -28,14 +29,21 @@ export async function sendContactStaffEmail(opts: {
     return { sent: false, reason: 'missing_api_key' }
   }
 
-  const subject = `[Stream Dreams Contact] @${opts.kickUsername}`
+  const subject = opts.subject?.trim() || `[Stream Dreams Contact] @${opts.kickUsername}`
+  const replyBlock = opts.replyEmail
+    ? `<p><strong>Reply-to address:</strong> ${escapeHtml(opts.replyEmail)}</p>`
+    : ''
   const html = `
 <p><strong>Kick username:</strong> ${escapeHtml(opts.kickUsername)}</p>
-<p><strong>Reply-to address:</strong> ${escapeHtml(opts.replyEmail)}</p>
+${replyBlock}
 <p><strong>Message:</strong></p>
 <pre style="white-space:pre-wrap;font-family:system-ui,sans-serif;font-size:14px;">${escapeHtml(opts.message)}</pre>
 <hr />
-<p style="color:#666;font-size:12px;">Reply in your mail client to reach this user directly.</p>
+<p style="color:#666;font-size:12px;">${
+    opts.replyEmail
+      ? 'Reply in your mail client to reach this user directly.'
+      : 'Contact details, if provided, are in the message body.'
+  }</p>
 `.trim()
 
   const res = await fetch('https://api.resend.com/emails', {
@@ -47,7 +55,7 @@ export async function sendContactStaffEmail(opts: {
     body: JSON.stringify({
       from,
       to: [to],
-      reply_to: opts.replyEmail,
+      ...(opts.replyEmail ? { reply_to: opts.replyEmail } : {}),
       subject,
       html,
     }),

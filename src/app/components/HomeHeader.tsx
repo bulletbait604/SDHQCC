@@ -73,7 +73,7 @@ export default function HomeHeader({
                     width={48}
                     height={48}
                     referrerPolicy="no-referrer"
-                    className={`w-12 h-12 shrink-0 rounded-full border-2 object-cover ${darkMode ? 'border-sdhq-cyan-500' : 'border-sdhq-cyan-300'}`}
+                  className={`w-12 h-12 shrink-0 rounded-full border-2 object-cover transition-transform duration-300 hover:scale-105 ${darkMode ? 'border-sdhq-cyan-400' : 'border-sdhq-cyan-300'}`}
                   />
                 ) : (
                   <div className="w-12 h-12 shrink-0 rounded-full bg-gradient-to-r from-sdhq-cyan-400 to-sdhq-green-400 flex items-center justify-center">
@@ -136,7 +136,7 @@ export default function HomeHeader({
                         variant="outline"
                         size="sm"
                         onClick={onVerifySubscription}
-                        className={`max-w-[min(100vw-8rem,18rem)] whitespace-normal text-center leading-snug sm:max-w-none sm:whitespace-nowrap ${darkMode ? 'border-sdhq-dark-600 text-white' : ''}`}
+                        className={`max-w-[min(100vw-8rem,18rem)] whitespace-normal text-center leading-snug sm:max-w-none sm:whitespace-nowrap ${darkMode ? 'border-white/15 text-white hover:bg-white/10' : ''}`}
                       >
                         <Shield className="w-4 h-4 mr-1 shrink-0" />
                         {verifySubscriptionLabel}
@@ -146,7 +146,7 @@ export default function HomeHeader({
                         variant="outline"
                         size="sm"
                         onClick={onDonate}
-                        className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
+                        className={darkMode ? 'border-white/15 text-white hover:bg-white/10' : ''}
                       >
                         <Heart className="w-4 h-4 mr-1 shrink-0" />
                         Donate
@@ -159,7 +159,7 @@ export default function HomeHeader({
                         variant="outline"
                         size="sm"
                         onClick={onDonate}
-                        className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
+                        className={darkMode ? 'border-white/15 text-white hover:bg-white/10' : ''}
                       >
                         <Heart className="w-4 h-4 mr-1 shrink-0" />
                         Donate
@@ -203,17 +203,18 @@ export default function HomeHeader({
               variant="outline"
               size="sm"
               onClick={onToggleDarkMode}
-              className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
+              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              className={darkMode ? 'border-white/15 text-white hover:bg-white/10' : ''}
             >
               {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
             <select
               value={language}
               onChange={(e) => onLanguageChange(e.target.value as HomeLanguage)}
-              className={`px-3 py-1.5 rounded-md text-base border ${
+              className={`px-3 py-1.5 rounded-xl text-base border transition-all ${
                 darkMode
-                  ? 'bg-sdhq-dark-800 border-sdhq-dark-600 text-white'
-                  : 'bg-white border-sdhq-cyan-200 text-gray-900'
+                  ? 'bg-sdhq-dark-800/80 border-white/15 text-white hover:border-sdhq-cyan-400'
+                  : 'bg-white border-sdhq-cyan-200 text-gray-900 hover:border-sdhq-cyan-400'
               }`}
             >
               <option value="en">EN</option>
@@ -227,12 +228,12 @@ export default function HomeHeader({
                   variant="outline"
                   size="sm"
                   onClick={onOpenSettings}
-                  className={darkMode ? 'border-sdhq-dark-600 text-white' : ''}
+                  className={darkMode ? 'border-white/15 text-white hover:bg-white/10' : ''}
                 >
                   <Settings className="w-4 h-4 mr-1" />
                   {settingsLabel}
                 </Button>
-                <Button variant="destructive" size="sm" onClick={onLogout}>
+                <Button variant="destructive" size="sm" onClick={onLogout} title={logoutLabel}>
                   <LogOut className="w-4 h-4 mr-1" />
                   {logoutLabel}
                 </Button>

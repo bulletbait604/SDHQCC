@@ -12,32 +12,21 @@ export const homeTranslations = {
     newTool: 'New tool',
     contentAnalyzer: 'Content Analyzer',
     kickClips: 'User APPs',
-    kickClipsApp: 'KICK Clips',
-    userAppsPickTool: 'User APPs — pick an app below',
+    userAppsIntro:
+      'Want to create an app for Creator Corner? Send in your idea. Tell us roughly what you want to build and how we can contact you.',
+    userAppsSubject: 'Subject',
+    userAppsBody: 'Body',
+    userAppsSubjectPlaceholder: 'Short title for your app idea',
+    userAppsBodyPlaceholder:
+      'Describe the app you want to create, who it helps, and how we can reach you (email, Kick, Discord, etc.).',
+    userAppsSubmit: 'Send idea',
+    userAppsSending: 'Sending…',
+    userAppsSuccess: 'Thanks! Your idea was sent. We will follow up if it is a fit.',
     rnd: 'R&D',
-    narrateMe: 'Narrate Me',
-    narrateMeDesc:
-      'Turn your gameplay into researched, timestamp-accurate narration. The video is the source of truth.',
-    viralClipGen: 'Viral Clip Gen',
-    viralClipGenDesc:
-      'Describe a short vertical clip, add optional references, pick a length, and generate a 9:16 video.',
-    goingLive: 'Going Live',
-    goingLiveDesc:
-      'Upload up to 4 references, pick a streaming platform, social networks, and a vibe. Get a stream title, a post per network, and a matching poster.',
     trendingVids: 'Trending Vids',
     trendingVidsDesc:
       'Pick a platform. We search the live web via Google and list the top 5 trends — videos and topics for YouTube and other video apps.',
-    tradeBot: 'TradeBot',
-    tradeBotDesc:
-      'Kraken CAD coins only. High hunts smaller names and news movers, not just BTC. One ticket, maker limits, take ~8–12% so fees do not eat the win. Halt the day at -8%. Fake to practice, Real for Kraken. Switching to Real turns the desk OFF — press ON to trade.',
-    virusesPortScanner: 'Viruses Port Scanner',
-    virusesPortScannerDesc:
-      'Sweep every TCP port (1–65535) on this PC using its local IP. Open http://127.0.0.1:3847/ after npm run viruses-server. Vercel/GitHub are never scanned.',
-    viGuysGwMap: 'Vi-Guys GW Map',
-    viGuysGwMapDesc:
-      'Guild Wars 2 map tracker. Log in with Kick, paste your ArenaNet API, and search hero points, mastery insights, vistas, waypoints, hearts, and achievements. Your key stays encrypted to your account.',
     rndPickTool: 'R&D — pick a tool below',
-    rndGwMapPickTool: 'Log in with Kick, then connect your Guild Wars 2 API key',
     backgroundRemover: 'Background Remover',
     backgroundRemoverDesc:
       'Upload a photo and remove the background behind the main subject with AI.',
@@ -85,32 +74,21 @@ export const homeTranslations = {
     newTool: 'Nueva herramienta',
     contentAnalyzer: 'Analizador de Contenido',
     kickClips: 'User APPs',
-    kickClipsApp: 'KICK Clips',
-    userAppsPickTool: 'User APPs — pick an app below',
+    userAppsIntro:
+      '¿Quieres crear una app para Creator Corner? Envía tu idea. Cuéntanos qué quieres construir y cómo contactarte.',
+    userAppsSubject: 'Asunto',
+    userAppsBody: 'Mensaje',
+    userAppsSubjectPlaceholder: 'Título corto para tu idea de app',
+    userAppsBodyPlaceholder:
+      'Describe la app que quieres crear, a quién ayuda y cómo podemos contactarte (email, Kick, Discord, etc.).',
+    userAppsSubmit: 'Enviar idea',
+    userAppsSending: 'Enviando…',
+    userAppsSuccess: '¡Gracias! Tu idea fue enviada. Te contactaremos si encaja.',
     rnd: 'I+D',
-    narrateMe: 'Narrate Me',
-    narrateMeDesc:
-      'Convierte tu gameplay en narración investigada y precisa en el tiempo. El vídeo es la fuente de verdad.',
-    viralClipGen: 'Viral Clip Gen',
-    viralClipGenDesc:
-      'Describe un clip vertical, añade referencias opcionales, elige duración y genera un vídeo 9:16.',
-    goingLive: 'En vivo',
-    goingLiveDesc:
-      'Sube hasta 4 referencias, elige una plataforma de streaming, redes y un tono. Obtén título, un post por red y un póster.',
     trendingVids: 'Vids en tendencia',
     trendingVidsDesc:
       'Elige una plataforma. Buscamos en la web en vivo con Google y listamos las 5 tendencias — vídeos y temas para YouTube y otras apps de vídeo.',
-    tradeBot: 'TradeBot',
-    tradeBotDesc:
-      'Solo monedas Kraken en CAD. Empiezas con CA$100. Compra el dip en tendencia alcista con límites maker. Arrastra el stop. 1–2 posiciones. Corta el día a -8%.',
-    virusesPortScanner: 'Viruses Port Scanner',
-    virusesPortScannerDesc:
-      'Explora cada puerto TCP (1–65535) de este PC con su IP local. Abre http://127.0.0.1:3847/ con npm run viruses-server. Vercel/GitHub no se escanean.',
-    viGuysGwMap: 'Vi-Guys GW Map',
-    viGuysGwMapDesc:
-      'Rastreador del mapa de Guild Wars 2. Entra con Kick, pega tu ArenaNet API y busca hero points, maestrías, vistas, waypoints, hearts y logros. La clave queda cifrada en tu cuenta.',
     rndPickTool: 'I+D — elige una herramienta abajo',
-    rndGwMapPickTool: 'Entra con Kick y conecta tu clave de API de Guild Wars 2',
     backgroundRemover: 'Eliminador de fondo',
     backgroundRemoverDesc:
       'Sube una foto y elimina el fondo detrás del sujeto principal con IA.',
@@ -158,32 +136,21 @@ export const homeTranslations = {
     newTool: 'Nouvel outil',
     contentAnalyzer: 'Analyseur de Contenu',
     kickClips: 'User APPs',
-    kickClipsApp: 'KICK Clips',
-    userAppsPickTool: 'User APPs — pick an app below',
+    userAppsIntro:
+      'Vous voulez créer une app pour Creator Corner ? Envoyez votre idée. Dites-nous ce que vous voulez construire et comment vous joindre.',
+    userAppsSubject: 'Objet',
+    userAppsBody: 'Message',
+    userAppsSubjectPlaceholder: 'Titre court pour votre idée d’app',
+    userAppsBodyPlaceholder:
+      'Décrivez l’app que vous voulez créer, à qui elle sert, et comment vous contacter (email, Kick, Discord, etc.).',
+    userAppsSubmit: 'Envoyer l’idée',
+    userAppsSending: 'Envoi…',
+    userAppsSuccess: 'Merci ! Votre idée a été envoyée. Nous vous recontacterons si elle convient.',
     rnd: 'R&D',
-    narrateMe: 'Narrate Me',
-    narrateMeDesc:
-      'Transformez votre gameplay en narration documentée et calée sur la timeline. La vidéo fait foi.',
-    viralClipGen: 'Viral Clip Gen',
-    viralClipGenDesc:
-      'Décrivez un clip vertical, ajoutez des références optionnelles, choisissez une durée et générez une vidéo 9:16.',
-    goingLive: 'En direct',
-    goingLiveDesc:
-      'Importez jusqu’à 4 visuels, choisissez une plateforme de stream, des réseaux et un ton. Titre, un post par réseau et un poster.',
     trendingVids: 'Vids tendances',
     trendingVidsDesc:
       'Choisissez une plateforme. On cherche le web en direct via Google et on liste les 5 tendances — vidéos et sujets pour YouTube et les autres apps vidéo.',
-    tradeBot: 'TradeBot',
-    tradeBotDesc:
-      'Uniquement des paires Kraken en CAD. Départ CA$100. Achat d’un dip en tendance haussière en maker. Trailing stop. 1–2 tickets. Stop journée à -8 %.',
-    virusesPortScanner: 'Viruses Port Scanner',
-    virusesPortScannerDesc:
-      'Balaye chaque port TCP (1–65535) de ce PC via son IP locale. Ouvrez http://127.0.0.1:3847/ avec npm run viruses-server. Vercel/GitHub ne sont jamais scannés.',
-    viGuysGwMap: 'Vi-Guys GW Map',
-    viGuysGwMapDesc:
-      'Suivi de la carte Guild Wars 2. Connectez-vous avec Kick, collez votre API ArenaNet, puis cherchez hero points, maîtrises, vues, waypoints, cœurs et succès. La clé reste chiffrée pour votre compte.',
     rndPickTool: 'R&D — choisissez un outil ci-dessous',
-    rndGwMapPickTool: 'Connectez-vous avec Kick, puis liez votre clé API Guild Wars 2',
     backgroundRemover: 'Suppression d’arrière-plan',
     backgroundRemoverDesc:
       'Importez une photo et supprimez l’arrière-plan derrière le sujet principal avec l’IA.',
@@ -231,32 +198,21 @@ export const homeTranslations = {
     newTool: 'New tool',
     contentAnalyzer: 'Content Analyzer',
     kickClips: 'User APPs',
-    kickClipsApp: 'KICK Clips',
-    userAppsPickTool: 'User APPs — pick an app below',
+    userAppsIntro:
+      'Möchten Sie eine App für Creator Corner erstellen? Senden Sie Ihre Idee. Beschreiben Sie grob, was Sie bauen wollen und wie wir Sie erreichen.',
+    userAppsSubject: 'Betreff',
+    userAppsBody: 'Nachricht',
+    userAppsSubjectPlaceholder: 'Kurzer Titel für Ihre App-Idee',
+    userAppsBodyPlaceholder:
+      'Beschreiben Sie die App, wen sie hilft und wie wir Sie erreichen (E-Mail, Kick, Discord usw.).',
+    userAppsSubmit: 'Idee senden',
+    userAppsSending: 'Senden…',
+    userAppsSuccess: 'Danke! Ihre Idee wurde gesendet. Wir melden uns, wenn sie passt.',
     rnd: 'F&E',
-    narrateMe: 'Narrate Me',
-    narrateMeDesc:
-      'Macht aus Gameplay recherchierte, zeitgenaue Narration. Das Video ist die Quelle der Wahrheit.',
-    viralClipGen: 'Viral Clip Gen',
-    viralClipGenDesc:
-      'Beschreiben Sie einen vertikalen Clip, fügen Sie optionale Referenzen hinzu, wählen Sie die Länge und erzeugen Sie ein 9:16-Video.',
-    goingLive: 'Live gehen',
-    goingLiveDesc:
-      'Bis zu 4 Referenzen, Streaming-Plattform, Netzwerke und Ton. Stream-Titel, ein Post pro Netzwerk und ein Poster.',
     trendingVids: 'Trend-Vids',
     trendingVidsDesc:
       'Plattform wählen. Wir durchsuchen das Live-Web über Google und listen die Top 5 Trends — Videos und Themen für YouTube und andere Video-Apps.',
-    tradeBot: 'TradeBot',
-    tradeBotDesc:
-      'Nur Kraken-CAD-Coins. Start mit CA$100. Kauft den Dip im Aufwärtstrend als Maker. Trailing-Stop. 1–2 Tickets. Tageshalt bei -8 %.',
-    virusesPortScanner: 'Viruses Port Scanner',
-    virusesPortScannerDesc:
-      'Scannt jeden TCP-Port (1–65535) auf diesem PC über die lokale IP. Öffnen Sie http://127.0.0.1:3847/ mit npm run viruses-server. Vercel/GitHub werden nicht gescannt.',
-    viGuysGwMap: 'Vi-Guys GW Map',
-    viGuysGwMapDesc:
-      'Guild-Wars-2-Karten-Tracker. Mit Kick anmelden, ArenaNet-API einfügen, dann Hero Points, Masteries, Vistas, Waypoints, Hearts und Achievements suchen. Der Schlüssel bleibt verschlüsselt.',
     rndPickTool: 'F&E — Werkzeug unten wählen',
-    rndGwMapPickTool: 'Mit Kick anmelden, dann den Guild-Wars-2-API-Schlüssel verbinden',
     backgroundRemover: 'Hintergrund entfernen',
     backgroundRemoverDesc:
       'Laden Sie ein Foto hoch und entfernen Sie den Hintergrund hinter dem Hauptmotiv mit KI.',

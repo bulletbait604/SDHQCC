@@ -1,32 +1,21 @@
 import type { CreateSubTab } from '@/app/components/CreateTabHeader'
 import type { RdSubTab } from '@/app/components/RdTabHeader'
-import type { UserAppSubTab } from '@/app/components/UserAppsTabHeader'
 
 export interface HomeTabState {
   tab: string
   create?: CreateSubTab
   rnd?: RdSubTab
-  apps?: UserAppSubTab
 }
 
 export const DEFAULT_HOME_TAB = 'educate'
 export const DEFAULT_CREATE_SUB: CreateSubTab = 'thumbnail'
-export const DEFAULT_RND_SUB: RdSubTab = 'viral-clip-gen'
-export const DEFAULT_USER_APP: UserAppSubTab = 'vi-guys-gw-map'
+export const DEFAULT_RND_SUB: RdSubTab = 'trending-vids'
 
 const TAB_QUERY_KEYS = ['tab', 'create', 'rnd', 'apps'] as const
 
 const MAIN_TABS = new Set(['educate', 'create', 'analyze', 'kick-clips', 'settings', 'rnd', 'user-apps'])
 const CREATE_SUBS = new Set<CreateSubTab>(['tags', 'thumbnail', 'post4me', 'background'])
-const RND_SUBS = new Set<RdSubTab>([
-  'narrate-me',
-  'viral-clip-gen',
-  'trending-vids',
-  'going-live',
-  'tradebot',
-  'viruses-port-scanner',
-])
-const USER_APPS = new Set<UserAppSubTab>(['vi-guys-gw-map', 'kick-clips'])
+const RND_SUBS = new Set<RdSubTab>(['trending-vids'])
 
 /** Legacy ?tab= names from older links. */
 const LEGACY_TAB_MAP: Record<string, HomeTabState> = {
@@ -36,12 +25,18 @@ const LEGACY_TAB_MAP: Record<string, HomeTabState> = {
   'background-remover': { tab: 'create', create: 'background' },
   post4me: { tab: 'create', create: 'post4me' },
   'clip-analyzer': { tab: 'analyze' },
-  'clip-editor': { tab: 'rnd', rnd: 'viral-clip-gen' },
-  'robot-talk': { tab: 'rnd', rnd: 'viral-clip-gen' },
-  'thumbnail-2': { tab: 'rnd', rnd: 'viral-clip-gen' },
-  'panels-banners': { tab: 'rnd', rnd: 'going-live' },
+  'clip-editor': { tab: 'rnd', rnd: 'trending-vids' },
+  'robot-talk': { tab: 'rnd', rnd: 'trending-vids' },
+  'thumbnail-2': { tab: 'rnd', rnd: 'trending-vids' },
+  'panels-banners': { tab: 'rnd', rnd: 'trending-vids' },
   'new-tool': { tab: DEFAULT_HOME_TAB },
-  'user-apps': { tab: 'kick-clips', apps: DEFAULT_USER_APP },
+  'user-apps': { tab: 'kick-clips' },
+  'vi-guys-gw-map': { tab: 'kick-clips' },
+  'viral-clip-gen': { tab: 'rnd', rnd: 'trending-vids' },
+  'narrate-me': { tab: 'rnd', rnd: 'trending-vids' },
+  'going-live': { tab: 'rnd', rnd: 'trending-vids' },
+  tradebot: { tab: 'rnd', rnd: 'trending-vids' },
+  'viruses-port-scanner': { tab: 'rnd', rnd: 'trending-vids' },
 }
 
 function coerceRnd(rnd: RdSubTab | undefined): RdSubTab | undefined {
@@ -49,25 +44,12 @@ function coerceRnd(rnd: RdSubTab | undefined): RdSubTab | undefined {
   return RND_SUBS.has(rnd) ? rnd : DEFAULT_RND_SUB
 }
 
-function coerceUserApp(apps: UserAppSubTab | undefined): UserAppSubTab | undefined {
-  if (!apps) return apps
-  return USER_APPS.has(apps) ? apps : DEFAULT_USER_APP
-}
-
 export function normalizeHomeTabState(state: HomeTabState): HomeTabState {
   const tab = state.tab === 'user-apps' ? 'kick-clips' : state.tab || DEFAULT_HOME_TAB
-  const rndMovedToApps = state.rnd === ('vi-guys-gw-map' as string)
   return {
-    tab: rndMovedToApps && tab === 'rnd' ? 'kick-clips' : tab,
+    tab,
     create: tab === 'create' ? (state.create ?? DEFAULT_CREATE_SUB) : state.create,
-    rnd:
-      tab === 'rnd' && !rndMovedToApps
-        ? (coerceRnd(state.rnd) ?? DEFAULT_RND_SUB)
-        : coerceRnd(state.rnd === ('vi-guys-gw-map' as string) ? undefined : state.rnd),
-    apps:
-      tab === 'kick-clips' || rndMovedToApps
-        ? (coerceUserApp(rndMovedToApps ? 'vi-guys-gw-map' : state.apps) ?? DEFAULT_USER_APP)
-        : coerceUserApp(state.apps),
+    rnd: tab === 'rnd' ? (coerceRnd(state.rnd) ?? DEFAULT_RND_SUB) : coerceRnd(state.rnd),
   }
 }
 
@@ -82,18 +64,14 @@ export function parseHomeTabFromSearch(search: string): HomeTabState {
   const tab = tabParam && MAIN_TABS.has(tabParam) ? tabParam : DEFAULT_HOME_TAB
   const createParam = params.get('create')
   const rndParam = params.get('rnd')
-  const appsParam = params.get('apps')
 
   const create =
     createParam && CREATE_SUBS.has(createParam as CreateSubTab)
       ? (createParam as CreateSubTab)
       : undefined
   const rnd = rndParam && RND_SUBS.has(rndParam as RdSubTab) ? (rndParam as RdSubTab) : undefined
-  const apps =
-    (rndParam === 'vi-guys-gw-map' ? 'vi-guys-gw-map' : undefined) ||
-    (appsParam && USER_APPS.has(appsParam as UserAppSubTab) ? (appsParam as UserAppSubTab) : undefined)
 
-  return normalizeHomeTabState({ tab, create, rnd, apps })
+  return normalizeHomeTabState({ tab, create, rnd })
 }
 
 export function buildTabQuery(state: HomeTabState): URLSearchParams {
@@ -101,7 +79,7 @@ export function buildTabQuery(state: HomeTabState): URLSearchParams {
   const q = new URLSearchParams()
 
   const isHomeDefault =
-    normalized.tab === DEFAULT_HOME_TAB && !normalized.create && !normalized.rnd && !normalized.apps
+    normalized.tab === DEFAULT_HOME_TAB && !normalized.create && !normalized.rnd
 
   if (isHomeDefault) return q
 
@@ -115,11 +93,6 @@ export function buildTabQuery(state: HomeTabState): URLSearchParams {
   if (normalized.tab === 'rnd') {
     const sub = normalized.rnd ?? DEFAULT_RND_SUB
     if (sub !== DEFAULT_RND_SUB) q.set('rnd', sub)
-  }
-
-  if (normalized.tab === 'kick-clips') {
-    const sub = normalized.apps ?? DEFAULT_USER_APP
-    if (sub !== DEFAULT_USER_APP) q.set('apps', sub)
   }
 
   return q

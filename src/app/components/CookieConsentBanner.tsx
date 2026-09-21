@@ -10,7 +10,7 @@ interface Props {
 
 export default function CookieConsentBanner({ onAccept, onDecline, darkMode = true }: Props) {
   return (
-    <div className={`fixed bottom-0 left-0 right-0 z-50 p-4 ${darkMode ? 'bg-sdhq-dark-900/95' : 'bg-white/95'} border-t ${darkMode ? 'border-sdhq-cyan-500/30' : 'border-sdhq-cyan-200'} backdrop-blur-sm`}>
+    <div className={`fixed bottom-4 left-4 right-4 z-50 p-4 md:bottom-6 md:left-6 md:right-6 ${darkMode ? 'bg-sdhq-dark-900/95 border-white/10' : 'bg-white/95 border-sdhq-cyan-200'} border rounded-2xl shadow-2xl backdrop-blur-xl animate-slide-up`}>
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
         <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
           <p className="mb-1">

@@ -33,7 +33,7 @@ export function capOwnerRole(username: string, role: Role): Role {
   return resolveSiteRole(username, role)
 }
 
-/** Tab access — User APPs (including Vi-Guys) for signed-in users; R&D tools by owner grant. */
+/** Tab access — User APPs for signed-in users; R&D tools by owner grant. */
 export function hasTabAccessForUser(
   userRole: Role,
   tabId: string,
@@ -45,17 +45,10 @@ export function hasTabAccessForUser(
     if (isSiteOwner(username)) return true
     return signedIn && grantedRndTabs.some((id) => typeof id === 'string' && id.trim())
   }
-  if (tabId === 'vi-guys-gw-map' || tabId === 'kick-clips' || tabId === 'user-apps') {
+  if (tabId === 'kick-clips' || tabId === 'user-apps') {
     return signedIn
   }
-  if (
-    tabId === 'viral-clip-gen' ||
-    tabId === 'trending-vids' ||
-    tabId === 'going-live' ||
-    tabId === 'tradebot' ||
-    tabId === 'narrate-me' ||
-    tabId === 'viruses-port-scanner'
-  ) {
+  if (tabId === 'trending-vids') {
     if (isSiteOwner(username)) return true
     return signedIn && grantedRndTabs.includes(tabId)
   }

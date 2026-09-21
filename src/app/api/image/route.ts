@@ -33,9 +33,11 @@ function contentTypeForKey(key: string, fromR2?: string): string {
 
 function userOwnsUploadKey(key: string, username: string): boolean {
   const safeUser = username.replace(/^@/, '').toLowerCase().replace(/[^a-z0-9_-]/g, '_').slice(0, 64)
-  return key.startsWith(`uploads/clips/${safeUser}/`) ||
-    key.startsWith(`uploads/viral-clip-gen/${safeUser}/`) ||
-    key.startsWith(`narrate-me/${safeUser}/`)
+  return (
+    key.startsWith(`uploads/clips/${safeUser}/`) ||
+    key.startsWith(`uploads/thumbnail-clips/${safeUser}/`) ||
+    key.startsWith(`uploads/post4me-clips/${safeUser}/`)
+  )
 }
 
 export async function GET(request: NextRequest) {

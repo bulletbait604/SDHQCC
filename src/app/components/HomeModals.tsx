@@ -14,9 +14,9 @@ interface ModalShellProps {
 
 function ModalShell({ darkMode, title, onClose, children, maxWidth = 'max-w-md' }: ModalShellProps) {
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
       <div
-        className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl ${maxWidth} w-full p-6 shadow-2xl`}
+        className={`${darkMode ? 'bg-sdhq-dark-800 border-white/10' : 'bg-white border-sdhq-cyan-100'} ${maxWidth} w-full rounded-2xl border p-6 shadow-2xl animate-slide-up`}
       >
         <div className="flex items-center justify-between mb-6">
           <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{title}</h3>
@@ -44,9 +44,9 @@ export function PrivacyPolicyModal({
   onClose: () => void
 }) {
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
       <div
-        className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 shadow-2xl`}
+        className={`${darkMode ? 'bg-sdhq-dark-800 border-white/10' : 'bg-white border-sdhq-cyan-100'} rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto border p-6 shadow-2xl animate-slide-up`}
       >
         <div className="flex items-center justify-between mb-6">
           <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{title}</h3>
@@ -111,8 +111,8 @@ export function TermsOfServiceModal({
   ] as const
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 shadow-2xl`}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
+      <div className={`${darkMode ? 'bg-sdhq-dark-800 border-white/10' : 'bg-white border-sdhq-cyan-100'} max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-2xl border p-6 shadow-2xl animate-slide-up`}>
         <div className="flex items-center justify-between mb-6">
           <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{title}</h3>
           <button type="button" onClick={onClose} className={`p-1 rounded-full ${darkMode ? 'text-white' : 'text-gray-600'}`}>
@@ -238,9 +238,9 @@ export function ClearActivityLogModal({
 
 export function VerificationWaitModal({ darkMode }: { darkMode: boolean }) {
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className={`${darkMode ? 'bg-sdhq-dark-800' : 'bg-white'} rounded-xl max-w-sm w-full p-8 shadow-2xl text-center`}>
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sdhq-cyan-500 mx-auto mb-4" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className={`${darkMode ? 'bg-sdhq-dark-800 border-white/10' : 'bg-white'} w-full max-w-sm rounded-2xl border p-8 text-center shadow-2xl`}>
+        <div className="sdhq-loading-ring mx-auto mb-4" />
         <h3 className={`text-xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Please Wait...</h3>
         <p className={`text-base mb-4 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
           Verifying your payment and activating your account. This may take up to 2 minutes.

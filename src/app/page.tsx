@@ -5,7 +5,6 @@ import CoinPurchase from '@/app/components/CoinPurchase'
 import BannedUserScreen from '@/app/components/BannedUserScreen'
 import { type CreateSubTab } from '@/app/components/CreateTabHeader'
 import { type RdSubTab } from '@/app/components/RdTabHeader'
-import { type UserAppSubTab } from '@/app/components/UserAppsTabHeader'
 import { useClipAnalyzer } from '@/hooks/useClipAnalyzer'
 import { useHomeRoles } from '@/hooks/useHomeRoles'
 import { useHomeSession } from '@/hooks/useHomeSession'
@@ -41,8 +40,7 @@ import { startKickLogin } from '@/lib/kick/startKickLogin'
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState('educate')
   const [createSubTab, setCreateSubTab] = useState<CreateSubTab>('thumbnail')
-  const [rndSubTab, setRndSubTab] = useState<RdSubTab>('viral-clip-gen')
-  const [userAppSubTab, setUserAppSubTab] = useState<UserAppSubTab>('vi-guys-gw-map')
+  const [rndSubTab, setRndSubTab] = useState<RdSubTab>('trending-vids')
   const [showSettings, setShowSettings] = useState(false)
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false)
   const [showTerms, setShowTerms] = useState(false)
@@ -95,11 +93,9 @@ export default function HomePage() {
     activeTab,
     createSubTab,
     rndSubTab,
-    userAppSubTab,
     setActiveTab,
     setCreateSubTab,
     setRndSubTab,
-    setUserAppSubTab,
   })
 
   const roles = useHomeRoles({
@@ -252,8 +248,12 @@ export default function HomePage() {
 
   if (!mounted || !sessionChecked) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-sdhq-dark-900">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sdhq-cyan-500"></div>
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#05070d]">
+        <div className="sdhq-page-orbs" />
+        <div className="relative z-10 flex flex-col items-center gap-4">
+          <div className="sdhq-loading-ring" />
+          <p className="text-sm font-medium text-sdhq-cyan-300">Loading Creator Corner…</p>
+        </div>
       </div>
     )
   }
@@ -264,6 +264,8 @@ export default function HomePage() {
 
   return (
     <div className={themeClasses}>
+      <div className="sdhq-page-orbs" />
+      <div className="relative z-10">
       <HomeHeader
         headerClasses={headerClasses}
         darkMode={darkMode}
@@ -304,8 +306,6 @@ export default function HomePage() {
             onCreateSubTabChange={setCreateSubTab}
             rndSubTab={rndSubTab}
             onRndSubTabChange={setRndSubTab}
-            userAppSubTab={userAppSubTab}
-            onUserAppSubTabChange={setUserAppSubTab}
             canAccessRnd={showRnd}
             rndTabs={rndTabs}
             isOwner={isOwner}
@@ -333,13 +333,11 @@ export default function HomePage() {
             hasTabAccess={hasTabAccess}
             hasEnoughCoins={hasEnoughCoins}
             hasUnlimitedAccess={hasUnlimitedAccess}
-            coinBalance={balance}
             coinLoading={coinLoading}
             refreshBalance={refreshBalance}
             onActivityLog={appendActivityLog}
             onThumbnailActivityLog={logThumbnailGeneration}
             clipAnalyzer={clipAnalyzer}
-            onDonate={() => setShowDonatePopup(true)}
             onLanguageChange={handleLanguageChange}
             onDarkModeToggle={toggleDarkMode}
             feedbackReplyEmail={feedback.feedbackReplyEmail}
@@ -394,6 +392,7 @@ export default function HomePage() {
         onOpenPrivacy={() => setShowPrivacyPolicy(true)}
         onOpenTerms={() => setShowTerms(true)}
       />
+      </div>
 
       {showSettings && (
         <SettingsQuickModal

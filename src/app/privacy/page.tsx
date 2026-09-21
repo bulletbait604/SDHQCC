@@ -185,12 +185,17 @@ export default function PrivacyPolicy() {
           </p>
         </section>
 
-        <div className="mt-8 pt-8 border-t border-gray-200">
+        <div className="mt-8 flex items-center justify-between border-t border-gray-200 pt-8">
           <p className="text-sm text-gray-500">
             This site uses advertising to support free access. Essential cookies are required for login. Advertising
             cookies are optional and controlled through the cookie consent banner.
           </p>
         </div>
+        <p className="mt-6">
+          <Link href="/" className="text-sdhq-cyan-600 hover:text-sdhq-cyan-700 font-semibold underline">
+            Back to Creator Corner
+          </Link>
+        </p>
       </div>
     </div>
   )
