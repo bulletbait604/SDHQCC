@@ -32,7 +32,7 @@ export default function LoginHero({
   onLogin,
 }: LoginHeroProps) {
   return (
-    <div className={`relative mt-6 overflow-hidden ${cardClasses}`}>
+    <div className={`relative mt-3 overflow-hidden ${cardClasses}`}>
       <div
         className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${
           darkMode
@@ -40,14 +40,14 @@ export default function LoginHero({
             : 'from-cyan-100/70 via-transparent to-emerald-100/60'
         }`}
       />
-      <div className="relative flex min-h-[460px] flex-col items-center justify-center px-5 py-10 text-center">
+      <div className="relative flex flex-col items-center justify-center px-5 py-8 text-center">
         <Image
           src={LOGO_URL}
           alt="Stream Dreams Creator Corner"
           width={320}
           height={320}
           priority
-          className="mx-auto mb-3 h-52 w-52 rounded-3xl object-contain sm:h-64 sm:w-64 md:h-72 md:w-72 animate-float"
+          className="mx-auto mb-3 h-40 w-40 rounded-3xl object-contain sm:h-48 sm:w-48 md:h-56 md:w-56 animate-float"
         />
         <span
           className={`mb-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${

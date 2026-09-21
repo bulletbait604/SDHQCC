@@ -16,12 +16,16 @@ import {
 } from 'lucide-react'
 import type { HomeLanguage, KickUser } from '@/lib/home/types'
 import { ROLE_CONFIG, type Role } from '@/lib/home/roles'
+import { OWNER_VIEW_AS_OPTIONS, type OwnerViewAs } from '@/lib/home/ownerViewAs'
 
 export interface HomeHeaderProps {
   headerClasses: string
   darkMode: boolean
   user: KickUser | null
   userRole: Role
+  showViewAsSwitcher?: boolean
+  viewAs?: OwnerViewAs
+  onViewAsChange?: (viewAs: OwnerViewAs) => void
   balance: number
   language: HomeLanguage
   verifySubscriptionLabel: string
@@ -43,6 +47,9 @@ export default function HomeHeader({
   darkMode,
   user,
   userRole,
+  showViewAsSwitcher = false,
+  viewAs = 'owner',
+  onViewAsChange,
   balance,
   language,
   verifySubscriptionLabel,
@@ -60,7 +67,7 @@ export default function HomeHeader({
 }: HomeHeaderProps) {
   return (
     <header className={headerClasses}>
-      <div className="container mx-auto px-4 py-4">
+      <div className="container mx-auto px-3 py-2.5 sm:px-4 sm:py-3">
         <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2 sm:items-center">
           <div className="flex min-w-0 items-center justify-self-start">
             {user ? (
@@ -175,7 +182,7 @@ export default function HomeHeader({
 
           <div className="flex flex-col items-center justify-center text-center min-w-0 justify-self-center px-1">
             {user && (
-              <div className="flex flex-col items-center gap-2 group max-w-[min(100vw-2rem,28rem)]">
+              <div className="flex flex-col items-center gap-1.5 group max-w-[min(100vw-2rem,28rem)]">
                 <div
                   className={`relative overflow-hidden rounded-2xl bg-black shadow-lg transition-all duration-300 group-hover:scale-105 ${
                     darkMode ? 'shadow-sdhq-cyan-500/25' : 'shadow-cyan-500/25 ring-1 ring-black/10'
@@ -221,6 +228,33 @@ export default function HomeHeader({
               <option value="fr">FR</option>
               <option value="de">DE</option>
             </select>
+            {showViewAsSwitcher && onViewAsChange ? (
+              <label className="flex min-w-0 items-center gap-1.5">
+                <span
+                  className={`hidden text-xs font-semibold uppercase tracking-wide sm:inline ${
+                    darkMode ? 'text-sdhq-cyan-300' : 'text-sdhq-cyan-700'
+                  }`}
+                >
+                  View as
+                </span>
+                <select
+                  value={viewAs}
+                  onChange={(e) => onViewAsChange(e.target.value as OwnerViewAs)}
+                  title="Preview the site as a regular user or subscriber. Tools still run as owner."
+                  className={`max-w-[9.5rem] rounded-xl border px-3 py-1.5 text-base transition-all ${
+                    darkMode
+                      ? 'bg-sdhq-dark-800/80 border-white/15 text-white hover:border-sdhq-cyan-400'
+                      : 'bg-white border-sdhq-cyan-200 text-gray-900 hover:border-sdhq-cyan-400'
+                  }`}
+                >
+                  {OWNER_VIEW_AS_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             {user ? (
               <>
                 <Button

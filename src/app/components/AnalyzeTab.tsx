@@ -168,7 +168,7 @@ export default function AnalyzeTab({
   })
 
   return (
-<div className={`relative py-8 ${cardClasses} ${!hasTabAccess('analyze') && !hasTabAccess('clip-analyzer') ? 'pointer-events-none' : ''}`}>
+<div className={`relative p-4 sm:p-5 ${cardClasses} ${!hasTabAccess('analyze') && !hasTabAccess('clip-analyzer') ? 'pointer-events-none' : ''}`}>
   {!hasTabAccess('analyze') && !hasTabAccess('clip-analyzer') && (
     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 rounded-xl flex flex-col items-center justify-center p-6">
       <div className="text-center">
@@ -181,7 +181,7 @@ export default function AnalyzeTab({
   )}
 
   {/* Platform Logos */}
-  <div className="flex justify-center gap-4 mb-6">
+  <div className="flex justify-center gap-3 mb-3">
     {platformsBannerLogos.map((platform) => (
       <img
         key={platform.id}
@@ -192,19 +192,19 @@ export default function AnalyzeTab({
     ))}
   </div>
 
-  <div className="flex flex-col items-center mb-6">
-    <div className="flex items-center space-x-3 mb-1">
-      <Video className="w-10 h-10 text-sdhq-green-500" />
-      <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{analyzeTitle}</h3>
+  <div className="flex flex-col items-center mb-4">
+    <div className="flex items-center gap-2 mb-1">
+      <Video className="w-7 h-7 text-sdhq-green-500" />
+      <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{analyzeTitle}</h3>
     </div>
-    <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
+    <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-1`}>
       Powered By: Gemini 3.1 Flash-Lite
     </p>
-    <p className={`${textClasses} text-base`}>{clipAnalyzerDesc}</p>
+    <p className={`${textClasses} text-sm`}>{clipAnalyzerDesc}</p>
   </div>
 
   {/* Steps */}
-  <div className={`max-w-2xl mx-auto mb-6 p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
+  <div className={`max-w-2xl mx-auto mb-4 p-4 rounded-lg border ${darkMode ? 'bg-sdhq-dark-800 border-sdhq-dark-600' : 'bg-gray-50 border-sdhq-cyan-200'}`}>
     <h4 className={`text-base font-semibold mb-3 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>How to use:</h4>
     <ol className={`space-y-2 text-base ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
       <li className="flex items-start gap-2">
@@ -231,13 +231,13 @@ export default function AnalyzeTab({
 
   {/* Access: login + coins (free) or subscription unlimited */}
   {!user ? (
-    <div className="text-center py-12">
+    <div className="text-center py-6">
       <p className={`${subtitleClasses}`}>Login required to analyze clips</p>
     </div>
   ) : (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Input Section */}
-      <div className={`relative overflow-hidden rounded-2xl p-6 ${
+      <div className={`relative overflow-hidden rounded-2xl p-4 ${
         darkMode 
           ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/20' 
           : 'bg-gradient-to-br from-gray-100 to-white border border-sdhq-cyan-200'

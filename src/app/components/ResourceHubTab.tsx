@@ -362,17 +362,17 @@ export default function ResourceHubTab({
   const body = `text-sm leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-600'}`
   const muted = `text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`
   const cardInner = darkMode ? 'bg-sdhq-dark-700/50 border-sdhq-dark-600' : 'bg-cyan-50/40 border-sdhq-cyan-100'
-  const sectionDivider = `my-12 border-t-2 ${darkMode ? 'border-sdhq-cyan-500/25' : 'border-sdhq-cyan-200'}`
+  const sectionDivider = `my-6 border-t ${darkMode ? 'border-sdhq-cyan-500/25' : 'border-sdhq-cyan-200'}`
   const [toolkitSection, setToolkitSection] = useState<ToolkitSectionId>('audio')
   const toolkitItems = TOOLKIT_LINKS.filter((row) => row.sectionId === toolkitSection)
   const toolkitMeta = TOOLKIT_SECTION_META[toolkitSection]
 
   return (
-    <div className={`py-8 px-4 sm:px-8 ${cardClasses}`}>
-      <div className="flex flex-col items-center mb-10 text-center">
-        <div className="flex items-center gap-3 mb-2">
-          <BookOpen className="w-10 h-10 text-sdhq-cyan-500" />
-          <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Resource Hub</h3>
+    <div className={`p-4 sm:p-5 ${cardClasses}`}>
+      <div className="mb-4 flex flex-col items-center text-center">
+        <div className="flex items-center gap-2">
+          <BookOpen className="h-7 w-7 text-sdhq-cyan-500" />
+          <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Resource Hub</h3>
         </div>
       </div>
 
@@ -395,17 +395,17 @@ export default function ResourceHubTab({
       <hr className={sectionDivider} />
 
       <section>
-        <div className="mb-8">
-          <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+        <div className="mb-5">
+          <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
             Tools & streaming specs
           </h3>
-          <p className={`mt-2 max-w-2xl ${body}`}>
+          <p className={`mt-1 max-w-2xl ${body}`}>
             Pick a category, skim the cards, and open only what you need. Always check licenses before using assets
             on monetized streams.
           </p>
         </div>
 
-        <section className="mb-12">
+        <section className="mb-6">
           <div className="mb-4 flex items-center gap-2">
             <MonitorPlay className="h-5 w-5 text-sdhq-cyan-400" />
             <h2 className={h2}>Streaming software</h2>
@@ -451,7 +451,7 @@ export default function ResourceHubTab({
           </div>
         </section>
 
-        <section className="mb-12">
+        <section className="mb-6">
           <div className="mb-4 flex items-center gap-2">
             <Wrench className="h-5 w-5 text-sdhq-cyan-400" />
             <h2 className={h2}>Content toolkit</h2>

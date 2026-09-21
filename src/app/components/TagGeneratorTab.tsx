@@ -113,8 +113,8 @@ export default function TagGeneratorTab({
   }
 
   return (
-    <div className="p-0 sm:p-2">
-      <div className="flex justify-center gap-4 mb-2">
+    <div className="p-0">
+      <div className="mb-3 flex justify-center gap-3">
         {bannerLogos.map((platform) => (
           <img
             key={platform.id}
@@ -125,19 +125,19 @@ export default function TagGeneratorTab({
         ))}
       </div>
 
-      <div className="flex flex-col items-center mb-6 text-center">
-        <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
+      <div className="mb-4 flex flex-col items-center text-center">
+        <p className={`mb-1 text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}`}>
           Powered By: Gemini 2.5 Flash
         </p>
-        <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
+        <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}`}>
           Select a platform, describe your content, and generate optimized tags based on
           platform-specific algorithm insights.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div
-          className={`p-6 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-300 shadow-md'}`}
+          className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-cyan-500/30' : 'bg-gray-50 border-sdhq-cyan-300 shadow-md'}`}
         >
           <div className="mb-4">
             <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -232,7 +232,7 @@ export default function TagGeneratorTab({
         </div>
 
         <div
-          className={`p-6 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-300 shadow-md'}`}
+          className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-sdhq-dark-700 border-sdhq-green-500/30' : 'bg-gray-50 border-sdhq-cyan-300 shadow-md'}`}
         >
           <h4 className={`font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
             Generated Tags for {platforms.find((p) => p.id === tagPlatform)?.name}

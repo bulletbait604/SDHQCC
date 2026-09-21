@@ -59,7 +59,6 @@ export default function Post4MeTab({
   refreshBalance,
   onActivityLog,
   isDisabled = false,
-  title,
   description,
 }: Post4MeTabProps) {
   const [selectedPlatformIds, setSelectedPlatformIds] = useState<string[]>(['tiktok'])
@@ -233,8 +232,8 @@ export default function Post4MeTab({
     : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-sdhq-cyan-500'
 
   return (
-    <div className={`relative p-0 sm:p-2 ${isDisabled ? 'pointer-events-none opacity-60' : ''}`}>
-      <div className="flex justify-center gap-4 mb-4">
+    <div className={`relative ${isDisabled ? 'pointer-events-none opacity-60' : ''}`}>
+      <div className="mb-3 flex justify-center gap-3">
         {bannerLogos.map((platform) => (
           <img
             key={platform.id}
@@ -245,21 +244,15 @@ export default function Post4MeTab({
         ))}
       </div>
 
-      <div className="flex flex-col items-center mb-6 text-center">
-        <div className="flex items-center gap-2 mb-2">
-          <Send className="w-8 h-8 text-sdhq-cyan-500" />
-          <h4 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-            {title}
-          </h4>
-        </div>
-        <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-1`}>
+      <div className="mb-4 flex flex-col items-center text-center">
+        <p className={`mb-1 text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}`}>
           Powered By: Gemini 2.5 Flash · 2 coins (free for members)
         </p>
-        <p className={`text-sm max-w-xl ${subtitleClasses}`}>{description}</p>
+        <p className={`max-w-xl text-sm ${subtitleClasses}`}>{description}</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl mx-auto">
-        <div className={`p-6 rounded-xl border-2 space-y-4 ${card}`}>
+      <div className="mx-auto grid max-w-5xl grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className={`space-y-4 rounded-xl border-2 p-4 ${card}`}>
           <div>
             <label
               className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}
@@ -411,10 +404,10 @@ export default function Post4MeTab({
           </Button>
         </div>
 
-        <div className={`p-6 rounded-xl border-2 min-h-[320px] ${card}`}>
+        <div className={`min-h-[240px] rounded-xl border-2 p-4 ${card}`}>
           {!result?.results?.length ? (
             <div
-              className={`flex flex-col items-center justify-center h-full text-center py-12 ${subtitleClasses}`}
+              className={`flex h-full flex-col items-center justify-center py-8 text-center ${subtitleClasses}`}
             >
               <Send className="w-12 h-12 mb-3 opacity-40" />
               <p>Upload a clip of any length, select platforms, and generate copy for each one.</p>

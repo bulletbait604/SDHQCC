@@ -53,13 +53,13 @@ export default function CreateTabHeader({
 
   return (
     <>
-      <div className="mb-5 flex flex-col items-center text-center">
-        <h3 className={`text-3xl font-bold tracking-tight ${darkMode ? 'text-white' : 'text-gray-900'}`}>{title}</h3>
-        <p className={`mt-1 text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}`}>
+      <div className="mb-3 flex flex-col items-center text-center">
+        <h3 className={`text-2xl font-bold tracking-tight ${darkMode ? 'text-white' : 'text-gray-900'}`}>{title}</h3>
+        <p className={`mt-0.5 text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}`}>
           {pickToolLabel}
         </p>
       </div>
-      <TabsList className={cn('mx-auto mb-6 grid w-full max-w-3xl grid-cols-2 rounded-2xl p-1.5 sm:grid-cols-4', tabListClasses)}>
+      <TabsList className={cn('mx-auto mb-4 grid w-full max-w-3xl grid-cols-2 rounded-2xl p-1.5 sm:grid-cols-4', tabListClasses)}>
         {(Object.keys(SUB_TAB_META) as CreateSubTab[]).map((id) => {
           const meta = SUB_TAB_META[id]
           const Icon = meta.icon

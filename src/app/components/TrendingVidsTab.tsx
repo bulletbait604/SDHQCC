@@ -118,7 +118,7 @@ export default function TrendingVidsTab({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <p className={`text-sm ${subtitleClasses}`}>{description}</p>
 
       <section className="space-y-3">

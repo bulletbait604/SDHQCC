@@ -38,6 +38,7 @@ export interface HomeMainTabsProps {
   userType: Role
   darkMode: boolean
   cardClasses: string
+  tabPanelClasses: string
   textClasses: string
   subtitleClasses: string
   tabListClasses: string
@@ -115,6 +116,7 @@ export default function HomeMainTabs({
   userType,
   darkMode,
   cardClasses,
+  tabPanelClasses,
   textClasses,
   subtitleClasses,
   tabListClasses,
@@ -185,7 +187,7 @@ export default function HomeMainTabs({
   }, [rndSubTab, effectiveRndSubTab, onRndSubTabChange])
 
   return (
-    <Tabs value={activeTab} onValueChange={onTabChange} className="space-y-6">
+    <Tabs value={activeTab} onValueChange={onTabChange} className="space-y-3">
       <TabsList
         className={`grid w-full grid-cols-2 ${canAccessRnd ? 'sm:grid-cols-6' : 'sm:grid-cols-5'} ${tabListClasses}`}
       >
@@ -240,9 +242,9 @@ export default function HomeMainTabs({
         <Tabs
           value={createSubTab}
           onValueChange={(v) => onCreateSubTabChange(v as CreateSubTab)}
-          className="space-y-4"
+          className="space-y-3"
         >
-          <div className={`${cardClasses} p-4 sm:p-6`}>
+          <div className={cn(cardClasses, tabPanelClasses)}>
             <CreateTabHeader
               activeSubTab={createSubTab}
               labels={{
@@ -340,9 +342,9 @@ export default function HomeMainTabs({
           <Tabs
             value={effectiveRndSubTab}
             onValueChange={(v) => onRndSubTabChange(v as RdSubTab)}
-            className="space-y-4"
+            className="space-y-3"
           >
-            <div className={cn(cardClasses, 'p-4 sm:p-6')}>
+            <div className={cn(cardClasses, tabPanelClasses)}>
               <RdTabHeader
                 activeSubTab={effectiveRndSubTab}
                 visibleTabs={visibleRdTabs}
@@ -373,7 +375,7 @@ export default function HomeMainTabs({
       )}
 
       <TabsContent value="kick-clips">
-        <div className={cn(cardClasses, 'p-4 sm:p-8')}>
+        <div className={cn(cardClasses, tabPanelClasses)}>
           <UserAppsIdeaTab
             darkMode={darkMode}
             title={t.kickClips}

@@ -22,6 +22,7 @@ export function getHomeThemeClasses(darkMode: boolean) {
     cardClasses: darkMode
       ? 'bg-sdhq-dark-800/70 border border-white/10 rounded-2xl shadow-xl shadow-black/20 backdrop-blur-xl'
       : 'bg-white/85 backdrop-blur-xl border border-sdhq-cyan-100 rounded-2xl shadow-xl shadow-cyan-100/60',
+    tabPanelClasses: 'p-4 sm:p-5',
     tabListClasses,
     tabTriggerClasses,
     createSubTabListClasses,

@@ -76,26 +76,26 @@ export default function UserAppsIdeaTab({
 
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="mb-8 text-center">
+      <div className="mb-4 text-center">
         <div
-          className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl shadow-lg ${
+          className={`mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl shadow-lg ${
             darkMode
               ? 'bg-gradient-to-br from-violet-500/30 via-sdhq-cyan-500/20 to-sdhq-green-500/20 shadow-sdhq-cyan-500/20'
               : 'bg-gradient-to-br from-violet-100 via-cyan-50 to-green-50 shadow-cyan-200/60'
           }`}
         >
-          <Sparkles className="h-8 w-8 text-sdhq-cyan-400" />
+          <Sparkles className="h-6 w-6 text-sdhq-cyan-400" />
         </div>
-        <h3 className={`text-3xl font-bold tracking-tight ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+        <h3 className={`text-2xl font-bold tracking-tight ${darkMode ? 'text-white' : 'text-gray-900'}`}>
           {title}
         </h3>
-        <p className={`mx-auto mt-3 max-w-lg text-sm leading-relaxed sm:text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+        <p className={`mx-auto mt-1.5 max-w-lg text-sm leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
           {intro}
         </p>
       </div>
 
       <div
-        className={`rounded-2xl border p-5 sm:p-7 shadow-xl transition-shadow ${
+        className={`rounded-2xl border p-4 shadow-xl transition-shadow ${
           darkMode
             ? 'border-white/10 bg-sdhq-dark-800/70 shadow-black/30'
             : 'border-sdhq-cyan-100 bg-white/90 shadow-cyan-100/80'
@@ -127,9 +127,9 @@ export default function UserAppsIdeaTab({
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder={bodyPlaceholder}
-          rows={8}
+          rows={6}
           maxLength={8000}
-          className={`mb-4 min-h-[180px] w-full resize-y rounded-xl border px-4 py-3 text-base outline-none transition-all ${field}`}
+          className={`mb-4 min-h-[140px] w-full resize-y rounded-xl border px-4 py-3 text-base outline-none transition-all ${field}`}
         />
 
         {error && (

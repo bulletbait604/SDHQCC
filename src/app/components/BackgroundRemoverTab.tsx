@@ -29,7 +29,6 @@ const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
 export default function BackgroundRemoverTab({
   darkMode,
-  cardClasses,
   textClasses,
   subtitleClasses,
   title,
@@ -125,8 +124,8 @@ export default function BackgroundRemoverTab({
   }
 
   return (
-    <div className={`py-8 ${cardClasses}`}>
-      <div className={`flex flex-col items-center text-center ${title ? 'mb-8' : 'mb-4'}`}>
+    <div>
+      <div className="mb-4 flex flex-col items-center text-center">
         {title ? (
           <div className="flex items-center gap-3 mb-2">
             <Scissors className="w-10 h-10 text-sdhq-cyan-500 shrink-0" />
@@ -142,12 +141,12 @@ export default function BackgroundRemoverTab({
       {!user ? (
         <p className={`text-center ${subtitleClasses}`}>Log in with Kick to remove image backgrounds.</p>
       ) : (
-        <div className="max-w-5xl mx-auto px-4 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="mx-auto grid max-w-5xl gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div className="space-y-4">
             <div
               onDragOver={(event) => event.preventDefault()}
               onDrop={handleDrop}
-              className={`rounded-2xl border-2 border-dashed p-6 text-center transition ${panelClasses}`}
+              className={`rounded-2xl border-2 border-dashed p-4 text-center transition ${panelClasses}`}
             >
               {imageDataUrl ? (
                 <div className="space-y-4">

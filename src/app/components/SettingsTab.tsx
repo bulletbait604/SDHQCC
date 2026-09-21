@@ -120,17 +120,17 @@ export default function SettingsTab({
   isLoadingAlgorithms,
 }: SettingsTabProps) {
   return (
-<div className={`py-8 ${cardClasses}`}>
-  <div className="flex flex-col items-center mb-6">
-    <div className="flex items-center space-x-3 mb-3">
-      <Settings className="w-8 h-8 text-sdhq-cyan-500" />
-      <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{settingsTitle}</h3>
+<div className={`p-4 sm:p-5 ${cardClasses}`}>
+  <div className="mb-4 flex flex-col items-center">
+    <div className="flex items-center gap-2">
+      <Settings className="h-7 w-7 text-sdhq-cyan-500" />
+      <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{settingsTitle}</h3>
     </div>
   </div>
   
-  <div className="max-w-2xl mx-auto space-y-6 px-6">
+  <div className="mx-auto max-w-2xl space-y-4">
     {/* Language Setting */}
-    <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-sdhq-dark-700/60 border-white/10' : 'bg-gray-50 border-sdhq-cyan-200 shadow-sm'}`}>
+    <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-sdhq-dark-700/60 border-white/10' : 'bg-gray-50 border-sdhq-cyan-200 shadow-sm'}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <Globe className="w-5 h-5 text-sdhq-cyan-500" />
@@ -154,7 +154,7 @@ export default function SettingsTab({
     </div>
 
     {/* Dark Mode Setting */}
-    <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-sdhq-dark-700/60 border-white/10' : 'bg-gray-50 border-sdhq-cyan-200 shadow-sm'}`}>
+    <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-sdhq-dark-700/60 border-white/10' : 'bg-gray-50 border-sdhq-cyan-200 shadow-sm'}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <Moon className="w-5 h-5 text-sdhq-cyan-500" />

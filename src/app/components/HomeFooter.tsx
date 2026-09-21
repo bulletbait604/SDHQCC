@@ -21,7 +21,7 @@ export default function HomeFooter({
 }: HomeFooterProps) {
   return (
     <footer
-      className={`relative mt-10 border-t ${
+      className={`relative mt-6 border-t ${
         darkMode
           ? 'border-white/10 bg-sdhq-dark-900/80'
           : 'border-sdhq-cyan-200 bg-white/80'
@@ -30,8 +30,8 @@ export default function HomeFooter({
       <div
         className={`h-1 w-full bg-gradient-to-r from-sdhq-cyan-500 via-violet-400 to-sdhq-green-500`}
       />
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col items-center justify-between gap-6 md:flex-row md:items-start">
+      <div className="container mx-auto px-4 py-5">
+        <div className="flex flex-col items-center justify-between gap-4 md:flex-row md:items-start">
           <div className="text-center md:text-left">
             <p className={`text-base font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
               {footerCopyright}

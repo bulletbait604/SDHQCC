@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import CoinPurchase from '@/app/components/CoinPurchase'
 import BannedUserScreen from '@/app/components/BannedUserScreen'
 import { type CreateSubTab } from '@/app/components/CreateTabHeader'
@@ -34,7 +34,10 @@ import SubscribePopup from '@/app/components/SubscribePopup'
 import LifetimePassPopup from '@/app/components/LifetimePassPopup'
 import { pollSubscriptionVerification } from '@/lib/paypal/pollSubscriptionVerification'
 import { useCoins } from '@/hooks/useCoins'
+import { useOwnerViewAs } from '@/hooks/useOwnerViewAs'
 import { canSeeRndTab } from '@/lib/home/rndAccess'
+import { hasTabAccessForUser } from '@/lib/home/ownerIdentity'
+import { applyOwnerViewAs } from '@/lib/home/ownerViewAs'
 import { startKickLogin } from '@/lib/kick/startKickLogin'
 
 export default function HomePage() {
@@ -121,7 +124,6 @@ export default function HomePage() {
 
   const {
     userRole,
-    userType,
     isOwner,
     isAdmin,
     isSubscribed,
@@ -142,6 +144,31 @@ export default function HomePage() {
     handleGrantCoins,
     refreshRoles,
   } = roles
+
+  const { viewAs, setViewAs } = useOwnerViewAs(isOwner)
+  const preview = applyOwnerViewAs({
+    isOwner,
+    viewAs,
+    userRole,
+    isAdmin,
+    isSubscribed,
+    isLifetimeMember,
+  })
+
+  useEffect(() => {
+    if (!isOwner || viewAs === 'owner') return
+    if (activeTab === 'rnd') setActiveTab('educate')
+  }, [isOwner, viewAs, activeTab])
+
+  const previewHasTabAccess = useCallback(
+    (tabId: string) => {
+      if (isOwner && viewAs !== 'owner') {
+        return hasTabAccessForUser(preview.userRole, tabId, 'preview-user', [])
+      }
+      return hasTabAccess(tabId)
+    },
+    [isOwner, viewAs, preview.userRole, hasTabAccess]
+  )
 
   const {
     activityLog,
@@ -171,7 +198,7 @@ export default function HomePage() {
     handleRefreshAlgorithms,
   } = algorithms
 
-  const feedback = useHomeFeedback(user, userRole, isOwner)
+  const feedback = useHomeFeedback(user, preview.userRole, preview.isOwner)
 
   const {
     balance,
@@ -181,7 +208,7 @@ export default function HomePage() {
     refreshBalance,
   } = useCoins({
     userId: user?.username || '',
-    userRole,
+    userRole: preview.userRole,
   })
 
   const handleMainTabChange = (value: string) => {
@@ -190,11 +217,11 @@ export default function HomePage() {
   }
 
   const t = homeTranslations[language] ?? homeTranslations.en
-  const showRnd = canSeeRndTab(user?.username, rndTabs)
+  const showRnd = preview.isOwner && canSeeRndTab(user?.username, rndTabs)
 
   const clipAnalyzer = useClipAnalyzer({
     user,
-    userType,
+    userType: preview.userRole,
     platforms,
     hasEnoughCoins,
     hasUnlimitedAccess,
@@ -208,6 +235,7 @@ export default function HomePage() {
     themeClasses,
     headerClasses,
     cardClasses,
+    tabPanelClasses,
     tabListClasses,
     tabTriggerClasses,
     createSubTabListClasses,
@@ -270,7 +298,10 @@ export default function HomePage() {
         headerClasses={headerClasses}
         darkMode={darkMode}
         user={user}
-        userRole={userRole}
+        userRole={preview.userRole}
+        showViewAsSwitcher={isOwner}
+        viewAs={viewAs}
+        onViewAsChange={setViewAs}
         balance={balance}
         language={language}
         verifySubscriptionLabel={t.verifySubscription}
@@ -287,7 +318,7 @@ export default function HomePage() {
         onLogin={handleLogin}
       />
 
-      <main className="container mx-auto px-4 pt-2 pb-8">
+      <main className="container mx-auto px-3 pt-1.5 pb-6 sm:px-4">
         {!user ? (
           <LoginHero
             darkMode={darkMode}
@@ -308,13 +339,14 @@ export default function HomePage() {
             onRndSubTabChange={setRndSubTab}
             canAccessRnd={showRnd}
             rndTabs={rndTabs}
-            isOwner={isOwner}
-            isAdmin={isAdmin}
+            isOwner={preview.isOwner}
+            isAdmin={preview.isAdmin}
             user={user}
-            userRole={userRole}
-            userType={userType}
+            userRole={preview.userRole}
+            userType={preview.userRole}
             darkMode={darkMode}
             cardClasses={cardClasses}
+            tabPanelClasses={tabPanelClasses}
             textClasses={textClasses}
             subtitleClasses={subtitleClasses}
             tabListClasses={tabListClasses}
@@ -330,7 +362,7 @@ export default function HomePage() {
             onRefreshAlgorithms={handleRefreshAlgorithms}
             expandedCard={expandedCard}
             onExpandedCardChange={setExpandedCard}
-            hasTabAccess={hasTabAccess}
+            hasTabAccess={previewHasTabAccess}
             hasEnoughCoins={hasEnoughCoins}
             hasUnlimitedAccess={hasUnlimitedAccess}
             coinLoading={coinLoading}
@@ -405,7 +437,7 @@ export default function HomePage() {
           onLanguageChange={handleLanguageChange}
           onToggleDarkMode={toggleDarkMode}
           onClose={() => setShowSettings(false)}
-          showLifetimePass={!isOwner && !isAdmin && !isSubscribed && !isLifetimeMember}
+          showLifetimePass={!preview.isOwner && !preview.isAdmin && !preview.isSubscribed && !preview.isLifetimeMember}
           lifetimeLocalPrice={lifetimeLocalPrice}
           checkoutCurrency={checkoutCurrency}
           onLifetimePassCheckout={handleLifetimePassCheckout}

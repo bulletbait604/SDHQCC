@@ -98,13 +98,13 @@ export default function AlgorithmInsightsSection({
 
   return (
     <>
-      <section className="mb-12">
-        <h3 className={`${sectionTitle} mb-4 flex items-center gap-2`}>
-          <TrendingUp className="w-7 h-7 text-sdhq-cyan-500 shrink-0" />
+      <section className="mb-6">
+        <h3 className={`${sectionTitle} mb-3 flex items-center gap-2`}>
+          <TrendingUp className="w-6 h-6 text-sdhq-cyan-500 shrink-0" />
           Algorithm Insight
         </h3>
 
-        <div className="flex justify-center gap-4 mb-4">
+        <div className="flex justify-center gap-3 mb-3">
           {platformsBannerLogos.map((platform) => (
             <img
               key={platform.id}
@@ -115,7 +115,7 @@ export default function AlgorithmInsightsSection({
           ))}
         </div>
 
-        <div className="flex flex-col items-center mb-6">
+        <div className="flex flex-col items-center mb-4">
           <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
             Powered By: Gemini 2.5 Flash-Lite
           </p>
@@ -175,7 +175,7 @@ export default function AlgorithmInsightsSection({
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {platforms.map((platform) => (
             <div
               key={platform.id}
@@ -188,8 +188,8 @@ export default function AlgorithmInsightsSection({
               <div
                 className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${platformAccentGradient(platform.id)}`}
               />
-              <div className="p-5">
-                <div className="flex items-center space-x-4 mb-5">
+              <div className="p-4">
+                <div className="flex items-center space-x-3 mb-3">
                   <div
                     className={`relative p-2 rounded-xl ${darkMode ? 'bg-sdhq-dark-600' : 'bg-white'} shadow-lg`}
                   >

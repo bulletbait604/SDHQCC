@@ -45,18 +45,20 @@ export default function RdTabHeader({
 
   return (
     <>
-      <div className="mb-5 flex flex-col items-center text-center">
-        <h3 className={`text-3xl font-bold tracking-tight ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+      <div className="mb-3 flex flex-col items-center text-center">
+        <h3 className={`text-2xl font-bold tracking-tight ${darkMode ? 'text-white' : 'text-gray-900'}`}>
           {title}
         </h3>
-        <p className={`mt-1 text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}`}>
-          {pickToolLabel}
-        </p>
+        {count > 1 && (
+          <p className={`mt-0.5 text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}`}>
+            {pickToolLabel}
+          </p>
+        )}
       </div>
       {count > 1 && (
         <TabsList
           className={cn(
-            'mx-auto mb-6 grid h-auto w-full max-w-md rounded-2xl p-1.5',
+            'mx-auto mb-4 grid h-auto w-full max-w-md rounded-2xl p-1.5',
             'grid-cols-1',
             tabListClasses
           )}

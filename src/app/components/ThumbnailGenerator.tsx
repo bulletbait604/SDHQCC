@@ -113,21 +113,11 @@ export default function ThumbnailGenerator({
   ]
   
   // Theme classes matching other tabs
-  const cardClasses = darkMode
-    ? 'bg-sdhq-dark-800/90 border border-sdhq-dark-700 rounded-xl shadow-lg'
-    : 'bg-white/80 backdrop-blur-sm border border-sdhq-cyan-200 rounded-xl shadow-lg'
-  
-  const textClasses = darkMode
-    ? 'text-gray-300'
-    : 'text-gray-600'
-  
-  const subtitleClasses = darkMode
-    ? 'text-gray-400'
-    : 'text-gray-500'
-  
   const card = darkMode
     ? 'bg-sdhq-dark-700 border border-sdhq-dark-600'
     : 'bg-gray-100 border border-gray-200'
+
+  const textClasses = darkMode ? 'text-gray-300' : 'text-gray-600'
   
   const inputClasses = darkMode
     ? 'bg-sdhq-dark-900 border-sdhq-dark-600 text-white placeholder-gray-500 focus:border-sdhq-cyan-500 focus:ring-sdhq-cyan-500/20'
@@ -417,7 +407,7 @@ export default function ThumbnailGenerator({
     (hasUnlimitedAccess || hasEnoughCoins('thumbnail-generator'))
 
   return (
-    <div className={`relative py-8 ${cardClasses} ${isComponentDisabled ? 'pointer-events-none' : ''}`}>
+    <div className={`relative ${isComponentDisabled ? 'pointer-events-none' : ''}`}>
       {/* Disabled Overlay (tab permission only — limits are coin-based) */}
       {isComponentDisabled && (
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 rounded-xl flex flex-col items-center justify-center p-6">
@@ -431,7 +421,7 @@ export default function ThumbnailGenerator({
       )}
       
       {/* Platform Logos (omit youtube-long — same artwork as Shorts in banner strip) */}
-      <div className="flex justify-center gap-4 mb-6">
+      <div className="mb-3 flex justify-center gap-3">
         {platforms.filter((p) => p.id !== 'youtube-long').map((platform) => (
           <Image
             key={platform.id}
@@ -445,22 +435,18 @@ export default function ThumbnailGenerator({
       </div>
 
       {/* Header */}
-      <div className="flex flex-col items-center mb-6">
-        <div className="flex items-center space-x-4 mb-3">
-          <ImageIcon className="w-10 h-10 text-sdhq-cyan-500" />
-          <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Thumbnail Generator</h3>
-        </div>
-        <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
+      <div className="mb-4 flex flex-col items-center text-center">
+        <p className={`mb-1 text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}`}>
           Powered By: Gemini 2.5 Flash
         </p>
-        <p className={`${textClasses} text-base`}>
+        <p className={`${textClasses} text-sm`}>
           Upload a clip — Gemini finds the best frame, then paints text overlays and stickers on top
         </p>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 space-y-6">
+      <div className="mx-auto max-w-5xl space-y-4">
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
           {/* ── Left: Controls ─────────────────────────────────────────────── */}
           <div className="space-y-4">
