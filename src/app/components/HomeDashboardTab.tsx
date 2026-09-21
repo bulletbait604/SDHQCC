@@ -306,7 +306,7 @@ export default function HomeDashboardTab({
                 </a>
               </div>
             </div>
-            <div className="overflow-hidden rounded-xl bg-black shadow-lg">
+            <div className="mx-auto w-[33%] min-w-[12rem] max-w-full overflow-hidden rounded-xl bg-black shadow-lg">
               <div className="aspect-video w-full">
                 <iframe
                   title={`${channel.displayName} on Kick`}
