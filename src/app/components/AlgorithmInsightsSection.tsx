@@ -1,15 +1,17 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Brain,
+  ChevronDown,
   Globe,
   Hash,
   TrendingUp,
   Video,
   X,
 } from 'lucide-react'
+import { toInsightPoints } from '@/lib/home/insightPoints'
 
 export interface AlgorithmData {
   keyChanges: string
@@ -77,6 +79,22 @@ export default function AlgorithmInsightsSection({
   const expandedPlatform = expandedCard
     ? platforms.find((p) => p.id === expandedCard)
     : null
+  const [openSection, setOpenSection] = useState(0)
+
+  useEffect(() => {
+    if (!expandedCard) return
+    setOpenSection(0)
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onExpandedCardChange(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = previous
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [expandedCard, onExpandedCardChange])
 
   return (
     <>
@@ -248,134 +266,152 @@ export default function AlgorithmInsightsSection({
       </section>
 
       {expandedPlatform && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden bg-black/80 p-3 pt-3 backdrop-blur-sm animate-fade-in sm:p-4 sm:pt-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="algorithm-insight-title"
+          onClick={() => onExpandedCardChange(null)}
+        >
           <div
-            className={`relative overflow-hidden rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200 ${
+            className={`relative mt-0 flex max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl flex-col self-start overflow-hidden rounded-3xl shadow-2xl animate-slide-up ${
               darkMode
                 ? 'bg-gradient-to-br from-sdhq-dark-800 to-sdhq-dark-900 border border-sdhq-cyan-500/30'
                 : 'bg-gradient-to-br from-white to-gray-50 border border-sdhq-cyan-200'
             }`}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className={`h-2 bg-gradient-to-r ${platformAccentGradient(expandedPlatform.id)}`} />
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center space-x-4">
-                  <div
-                    className={`relative p-2 rounded-xl ${darkMode ? 'bg-sdhq-dark-700' : 'bg-white'} shadow-lg`}
-                  >
-                    <img
-                      src={expandedPlatform.image}
-                      alt={expandedPlatform.name}
-                      className="w-16 h-16 rounded-lg object-cover"
-                    />
-                  </div>
-                  <div>
-                    <h3 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {expandedPlatform.name}
-                    </h3>
-                    <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'}`}>
-                      Powered By: Gemini 2.5 Flash-Lite
-                    </p>
-                    <p className={`text-base ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
-                      Algorithm Insight
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onExpandedCardChange(null)}
-                  className={`p-3 rounded-full transition-all duration-300 hover:scale-110 ${
-                    darkMode
-                      ? 'bg-sdhq-dark-700 hover:bg-sdhq-dark-600 text-white'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
-                  }`}
+            <div
+              className={`flex shrink-0 items-start justify-between gap-3 border-b px-5 py-4 sm:px-6 ${
+                darkMode
+                  ? 'bg-sdhq-dark-800/95 border-white/10'
+                  : 'bg-white/95 border-sdhq-cyan-100'
+              }`}
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <div
+                  className={`shrink-0 rounded-xl p-1.5 shadow-md ${darkMode ? 'bg-sdhq-dark-700' : 'bg-white'}`}
                 >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              <div className="space-y-5">
-                {expandedPlatform.data ? (
-                  <>
-                    <DetailBlock
-                      darkMode={darkMode}
-                      textClasses={textClasses}
-                      accent="cyan"
-                      icon={<TrendingUp className="w-5 h-5 mr-2" />}
-                      title="Key Changes"
-                      body={
-                        typeof expandedPlatform.data.keyChanges === 'string'
-                          ? expandedPlatform.data.keyChanges
-                          : 'Key changes unavailable.'
-                      }
-                    />
-                    <DetailBlock
-                      darkMode={darkMode}
-                      textClasses={textClasses}
-                      accent="green"
-                      icon={<Video className="w-5 h-5 mr-2" />}
-                      title="Editing Tips"
-                      body={
-                        typeof expandedPlatform.data.editingTips === 'string'
-                          ? expandedPlatform.data.editingTips
-                          : 'Editing tips unavailable.'
-                      }
-                    />
-                    <DetailBlock
-                      darkMode={darkMode}
-                      textClasses={textClasses}
-                      accent="cyan"
-                      icon={<Globe className="w-5 h-5 mr-2" />}
-                      title="Posting Tips"
-                      body={
-                        typeof expandedPlatform.data.postingTips === 'string'
-                          ? expandedPlatform.data.postingTips
-                          : 'Posting tips unavailable.'
-                      }
-                    />
-                    <DetailBlock
-                      darkMode={darkMode}
-                      textClasses={textClasses}
-                      accent="green"
-                      icon={<Hash className="w-5 h-5 mr-2" />}
-                      title="Title Tips"
-                      body={
-                        typeof expandedPlatform.data.titleTips === 'string'
-                          ? expandedPlatform.data.titleTips
-                          : 'Title tips unavailable.'
-                      }
-                    />
-                    <DetailBlock
-                      darkMode={darkMode}
-                      textClasses={textClasses}
-                      accent="cyan"
-                      icon={<Brain className="w-5 h-5 mr-2" />}
-                      title="Description Tips"
-                      body={
-                        typeof expandedPlatform.data.descriptionTips === 'string'
-                          ? expandedPlatform.data.descriptionTips
-                          : 'Description tips unavailable.'
-                      }
-                    />
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12 space-y-3">
-                    <div className="w-10 h-10 border-3 border-sdhq-cyan-500 border-t-transparent rounded-full animate-spin" />
-                    <p className={`${subtitleClasses} text-base`}>Loading algorithm data...</p>
-                  </div>
-                )}
-
-                <div className="pt-6 border-t border-gray-200 dark:border-sdhq-dark-700">
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    onClick={() => onExpandedCardChange(null)}
-                    className="w-full bg-gradient-to-r from-sdhq-cyan-500/10 to-sdhq-green-500/10 hover:from-sdhq-cyan-500/20 hover:to-sdhq-green-500/20 border-sdhq-cyan-500/50 hover:border-sdhq-cyan-500 transition-all duration-300"
+                  <img
+                    src={expandedPlatform.image}
+                    alt=""
+                    className="h-12 w-12 rounded-lg object-cover"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-xs font-semibold uppercase tracking-wide ${darkMode ? 'text-sdhq-cyan-400' : 'text-sdhq-cyan-600'}`}>
+                    Algorithm Insight
+                  </p>
+                  <h3
+                    id="algorithm-insight-title"
+                    className={`truncate text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}
                   >
-                    Close
-                  </Button>
+                    {expandedPlatform.name}
+                  </h3>
+                  <p className={`mt-0.5 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Open a section for the rest of the details
+                  </p>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => onExpandedCardChange(null)}
+                title="Close"
+                className={`shrink-0 rounded-full p-2 transition-all hover:scale-110 ${
+                  darkMode
+                    ? 'bg-sdhq-dark-700 hover:bg-sdhq-dark-600 text-white'
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                }`}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">
+              {expandedPlatform.data ? (
+                <>
+                  <DetailBlock
+                    darkMode={darkMode}
+                    accent="cyan"
+                    icon={<TrendingUp className="h-4 w-4" />}
+                    title="What the algorithm rewards"
+                    open={openSection === 0}
+                    onToggle={() => setOpenSection(openSection === 0 ? -1 : 0)}
+                    body={
+                      typeof expandedPlatform.data.keyChanges === 'string'
+                        ? expandedPlatform.data.keyChanges
+                        : 'Key changes unavailable.'
+                    }
+                  />
+                  <DetailBlock
+                    darkMode={darkMode}
+                    accent="green"
+                    icon={<Video className="h-4 w-4" />}
+                    title="How to edit for it"
+                    open={openSection === 1}
+                    onToggle={() => setOpenSection(openSection === 1 ? -1 : 1)}
+                    body={
+                      typeof expandedPlatform.data.editingTips === 'string'
+                        ? expandedPlatform.data.editingTips
+                        : 'Editing tips unavailable.'
+                    }
+                  />
+                  <DetailBlock
+                    darkMode={darkMode}
+                    accent="cyan"
+                    icon={<Globe className="h-4 w-4" />}
+                    title="When and how often to post"
+                    open={openSection === 2}
+                    onToggle={() => setOpenSection(openSection === 2 ? -1 : 2)}
+                    body={
+                      typeof expandedPlatform.data.postingTips === 'string'
+                        ? expandedPlatform.data.postingTips
+                        : 'Posting tips unavailable.'
+                    }
+                  />
+                  <DetailBlock
+                    darkMode={darkMode}
+                    accent="green"
+                    icon={<Hash className="h-4 w-4" />}
+                    title="Titles that get clicks"
+                    open={openSection === 3}
+                    onToggle={() => setOpenSection(openSection === 3 ? -1 : 3)}
+                    body={
+                      typeof expandedPlatform.data.titleTips === 'string'
+                        ? expandedPlatform.data.titleTips
+                        : 'Title tips unavailable.'
+                    }
+                  />
+                  <DetailBlock
+                    darkMode={darkMode}
+                    accent="cyan"
+                    icon={<Brain className="h-4 w-4" />}
+                    title="Captions, tags & CTAs"
+                    open={openSection === 4}
+                    onToggle={() => setOpenSection(openSection === 4 ? -1 : 4)}
+                    body={
+                      typeof expandedPlatform.data.descriptionTips === 'string'
+                        ? expandedPlatform.data.descriptionTips
+                        : 'Description tips unavailable.'
+                    }
+                  />
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center space-y-3 py-12">
+                  <div className="h-10 w-10 animate-spin rounded-full border-2 border-sdhq-cyan-500 border-t-transparent" />
+                  <p className={`${subtitleClasses} text-base`}>Loading algorithm data...</p>
+                </div>
+              )}
+
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => onExpandedCardChange(null)}
+                className="w-full border-sdhq-cyan-500/50 bg-gradient-to-r from-sdhq-cyan-500/10 to-sdhq-green-500/10 hover:border-sdhq-cyan-500"
+              >
+                Close
+              </Button>
             </div>
           </div>
         </div>
@@ -386,43 +422,77 @@ export default function AlgorithmInsightsSection({
 
 function DetailBlock({
   darkMode,
-  textClasses,
   accent,
   icon,
   title,
   body,
+  open,
+  onToggle,
 }: {
   darkMode: boolean
-  textClasses: string
   accent: 'cyan' | 'green'
   icon: ReactNode
   title: string
   body: string
+  open: boolean
+  onToggle: () => void
 }) {
   const isCyan = accent === 'cyan'
+  const points = toInsightPoints(body)
+  const takeaway = points[0] || body
+  const rest = points.slice(1)
+
   return (
-    <div
-      className={`p-5 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] ${
+    <section
+      className={`rounded-2xl border p-4 sm:p-5 ${
         darkMode
-          ? `bg-sdhq-dark-700/50 ${isCyan ? 'border-sdhq-cyan-500/20 hover:border-sdhq-cyan-500/40' : 'border-sdhq-green-500/20 hover:border-sdhq-green-500/40'}`
-          : `bg-gradient-to-br ${isCyan ? 'from-sdhq-cyan-50 to-white border-sdhq-cyan-200 hover:border-sdhq-cyan-400' : 'from-sdhq-green-50 to-white border-sdhq-green-200 hover:border-sdhq-green-400'}`
+          ? `bg-sdhq-dark-700/50 ${isCyan ? 'border-sdhq-cyan-500/25' : 'border-sdhq-green-500/25'}`
+          : `bg-white ${isCyan ? 'border-sdhq-cyan-200' : 'border-sdhq-green-200'}`
       }`}
     >
-      <h4
-        className={`font-semibold mb-3 flex items-center ${
-          isCyan
-            ? darkMode
-              ? 'text-sdhq-cyan-400'
-              : 'text-sdhq-cyan-600'
-            : darkMode
-              ? 'text-sdhq-green-400'
-              : 'text-sdhq-green-600'
-        }`}
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-start justify-between gap-3 text-left"
       >
-        {icon}
-        {title}
-      </h4>
-      <p className={`${textClasses} text-base leading-relaxed`}>{body}</p>
-    </div>
+        <h4
+          className={`flex items-center gap-2 text-sm font-semibold uppercase tracking-wide ${
+            isCyan
+              ? darkMode
+                ? 'text-sdhq-cyan-400'
+                : 'text-sdhq-cyan-700'
+              : darkMode
+                ? 'text-sdhq-green-400'
+                : 'text-sdhq-green-700'
+          }`}
+        >
+          {icon}
+          {title}
+        </h4>
+        <ChevronDown
+          className={`mt-0.5 h-4 w-4 shrink-0 transition-transform ${
+            open ? 'rotate-180' : ''
+          } ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+        />
+      </button>
+      <p className={`mt-3 text-base leading-relaxed ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+        {takeaway}
+      </p>
+      {open && rest.length > 0 && (
+        <ul className={`mt-3 space-y-2 text-sm leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+          {rest.map((point) => (
+            <li key={point.slice(0, 48)} className="flex gap-2.5">
+              <span
+                className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${
+                  isCyan ? 'bg-sdhq-cyan-400' : 'bg-sdhq-green-400'
+                }`}
+              />
+              <span>{point}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }

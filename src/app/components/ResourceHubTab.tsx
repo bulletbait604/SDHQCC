@@ -1,7 +1,7 @@
 'use client'
 
-import type { ReactNode } from 'react'
-import { BookOpen, ExternalLink } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
+import { BookOpen, ExternalLink, MonitorPlay, Radio, Wrench } from 'lucide-react'
 import AlgorithmInsightsSection, {
   type AlgorithmInsightsSectionProps,
 } from '@/app/components/AlgorithmInsightsSection'
@@ -112,6 +112,47 @@ const STREAMING_SOFTWARE: StreamingRow[] = [
     label: 'xsplit.com',
   },
 ]
+
+const STREAMING_SPECS = [
+  {
+    name: 'Twitch',
+    resolution: '1080p / 60fps',
+    bitrate: '~6–8k Kbps',
+    notes: 'Affiliate often ~50 followers and 3.0 avg viewers — confirm current rules.',
+  },
+  {
+    name: 'YouTube',
+    resolution: 'Up to 1440p',
+    bitrate: '~12–18k Kbps',
+    notes: 'Partner program often 1k subs and 4k watch hours — rules vary.',
+  },
+  {
+    name: 'Kick',
+    resolution: '1080p / 60fps',
+    bitrate: '8k+ Kbps typical',
+    notes: 'Affiliate thresholds change — check Kick’s site.',
+  },
+  {
+    name: 'Trovo',
+    resolution: '1080p / 60fps',
+    bitrate: '~6000 Kbps',
+    notes: 'Trovo 500 program pays by hours watched. Confirm on trovo.live.',
+    url: 'https://trovo.live',
+  },
+  {
+    name: 'Rumble',
+    resolution: '1080p / 60fps',
+    bitrate: '~4000–6000 Kbps',
+    notes: 'Ads and licensing. See rumble.com.',
+    url: 'https://rumble.com',
+  },
+  {
+    name: 'TikTok Live',
+    resolution: '1080p vertical (9:16)',
+    bitrate: 'App-managed',
+    notes: 'PC streaming often needs ~1,000 followers — verify in-app.',
+  },
+] as const
 
 const TOOLKIT_LINKS: ToolkitRow[] = ([
   {
@@ -318,12 +359,13 @@ export default function ResourceHubTab({
   onExpandedCardChange,
 }: Props) {
   const h2 = `text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`
-  const h3 = `text-lg font-semibold ${darkMode ? 'text-sdhq-cyan-300' : 'text-sdhq-cyan-700'}`
   const body = `text-sm leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-600'}`
   const muted = `text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`
   const cardInner = darkMode ? 'bg-sdhq-dark-700/50 border-sdhq-dark-600' : 'bg-cyan-50/40 border-sdhq-cyan-100'
-  const th = `text-left text-xs font-semibold uppercase tracking-wide ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-700'}`
   const sectionDivider = `my-12 border-t-2 ${darkMode ? 'border-sdhq-cyan-500/25' : 'border-sdhq-cyan-200'}`
+  const [toolkitSection, setToolkitSection] = useState<ToolkitSectionId>('audio')
+  const toolkitItems = TOOLKIT_LINKS.filter((row) => row.sectionId === toolkitSection)
+  const toolkitMeta = TOOLKIT_SECTION_META[toolkitSection]
 
   return (
     <div className={`py-8 px-4 sm:px-8 ${cardClasses}`}>
@@ -353,163 +395,159 @@ export default function ResourceHubTab({
       <hr className={sectionDivider} />
 
       <section>
-        <h3 className={`text-2xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-          Resource Hub Information
-        </h3>
-        <p className={`max-w-2xl mb-8 ${body}`}>
-          Free or free-to-use tools for fonts, stickers, audio, clips, B-roll, quotes, and streaming. Always verify
-          licenses for commercial projects. Master reference — May 2026 edition.
-        </p>
-
-      {/* I. Streaming software */}
-      <section className="mb-10">
-        <h2 className={`${h2} mb-4 border-b pb-2 ${darkMode ? 'border-sdhq-cyan-500/30' : 'border-sdhq-cyan-200'}`}>
-          I. Streaming software
-        </h2>
-        <div className="overflow-x-auto rounded-xl border border-inherit">
-          <table className="w-full min-w-[640px] border-collapse text-sm">
-            <thead>
-              <tr className={`${darkMode ? 'bg-sdhq-dark-700/80' : 'bg-cyan-50'}`}>
-                <th className={`p-3 ${th}`}>Software</th>
-                <th className={`p-3 ${th}`}>Pros / cons</th>
-                <th className={`p-3 ${th}`}>Link</th>
-              </tr>
-            </thead>
-            <tbody>
-              {STREAMING_SOFTWARE.map((row) => (
-                <tr
-                  key={row.name}
-                  className={`border-t ${darkMode ? 'border-sdhq-dark-600' : 'border-gray-200'} ${darkMode ? 'hover:bg-sdhq-dark-700/40' : 'hover:bg-cyan-50/60'}`}
-                >
-                  <td className={`p-3 font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{row.name}</td>
-                  <td className={`p-3 ${body}`}>
-                    <span className={darkMode ? 'text-sdhq-green-400/90' : 'text-sdhq-green-700'}>Pros: </span>
-                    {row.pros}{' '}
-                    <span className={darkMode ? 'text-orange-300/90' : 'text-orange-700'}>Cons: </span>
-                    {row.cons}
-                  </td>
-                  <td className="p-3">
-                    <LinkOut href={row.url} darkMode={darkMode}>
-                      {row.label}
-                    </LinkOut>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mb-8">
+          <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            Tools & streaming specs
+          </h3>
+          <p className={`mt-2 max-w-2xl ${body}`}>
+            Pick a category, skim the cards, and open only what you need. Always check licenses before using assets
+            on monetized streams.
+          </p>
         </div>
-      </section>
 
-      {/* II. Content creation toolkit */}
-      <section className="mb-10">
-        <h2 className={`${h2} mb-2 border-b pb-2 ${darkMode ? 'border-sdhq-cyan-500/30' : 'border-sdhq-cyan-200'}`}>
-          II. Content creation toolkit
-        </h2>
-        <p className={`mb-8 ${body}`}>
-          Tools grouped by how you&apos;ll use them (audio, video, graphics, stills, quotes, full editors). Each card
-          still shows a specific type tag.
-        </p>
-
-        <div className="space-y-10">
-          {TOOLKIT_SECTION_ORDER.map((sectionId) => {
-            const meta = TOOLKIT_SECTION_META[sectionId]
-            const items = TOOLKIT_LINKS.filter((r) => r.sectionId === sectionId)
-            if (items.length === 0) return null
-
-            return (
-              <div key={sectionId}>
-                <h3
-                  className={`mb-1 text-lg font-bold tracking-tight ${darkMode ? 'text-white' : 'text-gray-900'}`}
-                >
-                  {meta.title}
-                </h3>
-                <p className={`mb-4 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{meta.subtitle}</p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {items.map((row) => (
-                    <div
-                      key={`${row.category}-${row.name}`}
-                      className={`rounded-2xl border p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg ${cardInner} ${darkMode ? 'hover:border-sdhq-cyan-400/50' : 'hover:border-sdhq-cyan-300 hover:shadow-cyan-100'}`}
-                    >
-                      <div className="mb-1 flex flex-wrap items-center gap-2">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                            darkMode ? 'bg-sdhq-dark-800 text-sdhq-cyan-300' : 'bg-white text-sdhq-cyan-700 shadow-sm'
-                          }`}
-                        >
-                          {row.category}
-                        </span>
-                        <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                          {row.name}
-                        </span>
-                      </div>
-                      <p className={`mb-2 ${body}`}>{row.details}</p>
-                      <LinkOut href={row.url} darkMode={darkMode}>
-                        Open site
-                      </LinkOut>
-                    </div>
-                  ))}
+        <section className="mb-12">
+          <div className="mb-4 flex items-center gap-2">
+            <MonitorPlay className="h-5 w-5 text-sdhq-cyan-400" />
+            <h2 className={h2}>Streaming software</h2>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {STREAMING_SOFTWARE.map((row) => (
+              <article
+                key={row.name}
+                className={`rounded-2xl border p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${cardInner} ${
+                  darkMode ? 'hover:border-sdhq-cyan-400/40' : 'hover:border-sdhq-cyan-300'
+                }`}
+              >
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{row.name}</h3>
+                  <LinkOut href={row.url} darkMode={darkMode}>
+                    {row.label}
+                  </LinkOut>
                 </div>
+                <div className="space-y-2 text-sm">
+                  <p className="flex gap-2">
+                    <span
+                      className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        darkMode ? 'bg-emerald-500/15 text-emerald-300' : 'bg-emerald-50 text-emerald-700'
+                      }`}
+                    >
+                      Pro
+                    </span>
+                    <span className={body}>{row.pros}</span>
+                  </p>
+                  <p className="flex gap-2">
+                    <span
+                      className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        darkMode ? 'bg-orange-500/15 text-orange-300' : 'bg-orange-50 text-orange-700'
+                      }`}
+                    >
+                      Con
+                    </span>
+                    <span className={body}>{row.cons}</span>
+                  </p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-12">
+          <div className="mb-4 flex items-center gap-2">
+            <Wrench className="h-5 w-5 text-sdhq-cyan-400" />
+            <h2 className={h2}>Content toolkit</h2>
+          </div>
+          <p className={`mb-4 ${body}`}>Choose a category to keep the list short. Check licenses before commercial use.</p>
+          <div className="mb-4 flex flex-wrap gap-2">
+            {TOOLKIT_SECTION_ORDER.map((sectionId) => {
+              const active = toolkitSection === sectionId
+              return (
+                <button
+                  key={sectionId}
+                  type="button"
+                  onClick={() => setToolkitSection(sectionId)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                    active
+                      ? 'bg-sdhq-cyan-500 text-sdhq-dark-900 shadow-md'
+                      : darkMode
+                        ? 'bg-sdhq-dark-700 text-gray-300 hover:bg-sdhq-dark-600'
+                        : 'bg-white text-gray-700 shadow-sm hover:bg-cyan-50'
+                  }`}
+                >
+                  {TOOLKIT_SECTION_META[sectionId].title}
+                </button>
+              )
+            })}
+          </div>
+          <p className={`mb-4 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{toolkitMeta.subtitle}</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {toolkitItems.map((row) => (
+              <div
+                key={`${row.category}-${row.name}`}
+                className={`rounded-2xl border p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg ${cardInner} ${
+                  darkMode ? 'hover:border-sdhq-cyan-400/50' : 'hover:border-sdhq-cyan-300 hover:shadow-cyan-100'
+                }`}
+              >
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      darkMode ? 'bg-sdhq-dark-800 text-sdhq-cyan-300' : 'bg-white text-sdhq-cyan-700 shadow-sm'
+                    }`}
+                  >
+                    {row.category}
+                  </span>
+                  <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{row.name}</span>
+                </div>
+                <p className={`mb-2 ${body}`}>{row.details}</p>
+                <LinkOut href={row.url} darkMode={darkMode}>
+                  Open site
+                </LinkOut>
               </div>
-            )
-          })}
-        </div>
-      </section>
-
-      {/* III. Platform guide */}
-      <section className="mb-6">
-        <h2 className={`${h2} mb-4 border-b pb-2 ${darkMode ? 'border-sdhq-cyan-500/30' : 'border-sdhq-cyan-200'}`}>
-          III. 2026 platform guide (streaming specs)
-        </h2>
-        <div className={`space-y-6 ${body}`}>
-          <div className={`rounded-xl border p-5 ${cardInner}`}>
-            <h3 className={`${h3} mb-2`}>The big three (Twitch, YouTube, Kick)</h3>
-            <ul className="list-disc space-y-2 pl-5">
-              <li>
-                <strong className={darkMode ? 'text-white' : 'text-gray-900'}>Twitch:</strong> 1080p / 60fps (~6–8k
-                Kbps). Affiliate: ~50 followers, 3.0 avg viewers (check current Partner/Affiliate rules).
-              </li>
-              <li>
-                <strong className={darkMode ? 'text-white' : 'text-gray-900'}>YouTube:</strong> 1440p often ~12–18k
-                Kbps. Partner: 1k subs & 4k watch hours (program rules vary).
-              </li>
-              <li>
-                <strong className={darkMode ? 'text-white' : 'text-gray-900'}>Kick:</strong> 1080p / 60fps (8k+ Kbps
-                typical). Affiliate thresholds evolve — confirm on Kick&apos;s site.
-              </li>
-            </ul>
+            ))}
           </div>
+        </section>
 
-          <div className={`rounded-xl border p-5 ${cardInner}`}>
-            <h3 className={`${h3} mb-2`}>Trovo (gaming / mobile)</h3>
-            <p>
-              Up to 1080p / 60fps (~6000 Kbps). Revenue: Trovo 500 program (tiers based on hours watched). Confirm
-              eligibility on{' '}
-              <LinkOut href="https://trovo.live" darkMode={darkMode}>
-                trovo.live
-              </LinkOut>
-              .
-            </p>
+        <section className="mb-6">
+          <div className="mb-4 flex items-center gap-2">
+            <Radio className="h-5 w-5 text-sdhq-cyan-400" />
+            <h2 className={h2}>Streaming specs</h2>
           </div>
-
-          <div className={`rounded-xl border p-5 ${cardInner}`}>
-            <h3 className={`${h3} mb-2`}>Rumble (news / alternative)</h3>
-            <p>
-              1080p / 60fps (~4000–6000 Kbps). Monetization: ad-revenue sharing and licensing — see{' '}
-              <LinkOut href="https://rumble.com" darkMode={darkMode}>
-                rumble.com
-              </LinkOut>
-              .
-            </p>
+          <p className={`mb-4 ${body}`}>Quick targets only — partner rules change, so confirm on each platform.</p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {STREAMING_SPECS.map((spec) => (
+              <article key={spec.name} className={`rounded-2xl border p-4 ${cardInner}`}>
+                <h3 className={`mb-3 text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{spec.name}</h3>
+                <dl className="space-y-2 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <dt className={muted}>Resolution</dt>
+                    <dd className={`text-right font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {spec.resolution}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className={muted}>Bitrate</dt>
+                    <dd className={`text-right font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {spec.bitrate}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className={`mb-1 ${muted}`}>Notes</dt>
+                    <dd className={body}>
+                      {spec.notes}
+                      {'url' in spec && spec.url ? (
+                        <>
+                          {' '}
+                          <LinkOut href={spec.url} darkMode={darkMode}>
+                            Open site
+                          </LinkOut>
+                        </>
+                      ) : null}
+                    </dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
           </div>
-
-          <div className={`rounded-xl border p-5 ${cardInner}`}>
-            <h3 className={`${h3} mb-2`}>TikTok Live (vertical)</h3>
-            <p>
-              1080p vertical (9:16). PC streaming often requires follower thresholds (commonly ~1,000 — verify in-app).
-            </p>
-          </div>
-        </div>
-      </section>
+        </section>
 
       <p className={`text-center ${muted}`}>
         Stream Dreams Creator Corner — Resource Hub reference (May 2026). Specs and partner rules change; confirm on

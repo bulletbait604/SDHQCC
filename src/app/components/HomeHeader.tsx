@@ -177,18 +177,17 @@ export default function HomeHeader({
             {user && (
               <div className="flex flex-col items-center gap-2 group max-w-[min(100vw-2rem,28rem)]">
                 <div
-                  className={`relative p-2.5 rounded-xl transition-all duration-300 group-hover:scale-105 ${
-                    darkMode
-                      ? 'bg-sdhq-dark-700 shadow-lg shadow-sdhq-cyan-500/20'
-                      : 'bg-white shadow-lg shadow-cyan-500/20'
+                  className={`relative overflow-hidden rounded-2xl bg-black shadow-lg transition-all duration-300 group-hover:scale-105 ${
+                    darkMode ? 'shadow-sdhq-cyan-500/25' : 'shadow-cyan-500/25 ring-1 ring-black/10'
                   }`}
                 >
                   <Image
-                    src="https://iili.io/BebhdFf.png"
+                    src="/sdhq-header-logo.png"
                     alt="Stream Dreams logo"
-                    width={64}
-                    height={64}
-                    className="w-16 h-16"
+                    width={240}
+                    height={161}
+                    priority
+                    className="h-20 w-[7.5rem] object-contain p-1 sm:h-[5.5rem] sm:w-[8.2rem]"
                   />
                 </div>
                 <span className="font-bold text-xl sm:text-2xl leading-tight bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 bg-clip-text text-transparent transition-all duration-300">
