@@ -161,8 +161,6 @@ export default function HomeDashboardTab({
 
   const visibleClips = useMemo(() => clips.slice(0, clipVisible), [clips, clipVisible])
   const lastLive = formatWhen(channel?.isLive ? channel.startedAt : channel?.lastLiveAt ?? null)
-  const avatar = channel?.profileImageUrl || user.profile_image_url
-  const offlinePreview = channel?.bannerUrl || channel?.liveThumbnailUrl
 
   useEffect(() => {
     setGiftedPeriod(defaultBoardPeriod(leaderboard.giftedSubs))
@@ -308,35 +306,20 @@ export default function HomeDashboardTab({
                 </a>
               </div>
             </div>
-            <div className="mx-auto max-w-xl overflow-hidden rounded-xl bg-black shadow-lg">
-              <div className="relative aspect-video w-full">
-                {channel.isLive ? (
-                  <iframe
-                    title={`${channel.displayName} live on Kick`}
-                    src={`${channel.playerEmbedUrl}?autoplay=true&muted=true`}
-                    className="h-full w-full"
-                    allow="autoplay; fullscreen; picture-in-picture"
-                    allowFullScreen
-                  />
-                ) : (
-                  <>
-                    {offlinePreview ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={offlinePreview} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full flex-col items-center justify-center bg-gradient-to-br from-sdhq-dark-900 to-sdhq-cyan-950 px-4 text-center">
-                        {avatar ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={avatar} alt="" className="mb-3 h-14 w-14 rounded-full object-cover" />
-                        ) : null}
-                        <p className="text-sm font-semibold text-white">{channel.displayName}</p>
-                      </div>
-                    )}
-                    <span className="absolute left-3 top-3 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-200">
-                      Offline
-                    </span>
-                  </>
-                )}
+            <div className="overflow-hidden rounded-xl bg-black shadow-lg">
+              <div className="aspect-video w-full">
+                <iframe
+                  title={`${channel.displayName} on Kick`}
+                  src={
+                    channel.isLive
+                      ? `${channel.playerEmbedUrl}?autoplay=true&muted=true`
+                      : channel.playerEmbedUrl
+                  }
+                  className="h-full w-full border-0"
+                  allow="autoplay; fullscreen; picture-in-picture"
+                  allowFullScreen
+                  scrolling="no"
+                />
               </div>
             </div>
           </div>
