@@ -22,6 +22,7 @@ import type { KickChannelSnapshot, KickClipCard } from '@/lib/kick/channelSnapsh
 import type { ChannelInsights } from '@/lib/home/channelInsightsTypes'
 import { emptyKickLeaderboard, type KickLeaderboard, type KickLeaderboardPeriod } from '@/lib/kick/leaderboard'
 import type { useClipAnalyzer } from '@/hooks/useClipAnalyzer'
+import ClipEditSuggestionsPanel from '@/app/components/ClipEditSuggestionsPanel'
 
 type ClipAnalyzer = ReturnType<typeof useClipAnalyzer>
 
@@ -185,25 +186,13 @@ export default function HomeDashboardTab({
       sourceUrl,
       platform: 'tiktok',
       fileName: `${clip.title || 'kick-clip'}.mp4`,
-      loadingLabel: 'Analyzing for virality…',
+      loadingLabel: 'Finding edit suggestions…',
     })
     setAnalyzingId(null)
     if (!result.ok) setShowAnalysis(true)
   }
 
   const analysis = clipAnalyzer.clipAnalysisResult
-  const editTips = [
-    analysis?.hookAnalysis?.improvement,
-    ...(analysis?.recommendations || [])
-      .slice()
-      .sort((a, b) => {
-        const rank = (p?: string) => (p === 'high' ? 0 : p === 'med' ? 1 : 2)
-        return rank(a.priority) - rank(b.priority)
-      })
-      .map((rec) => rec.text),
-  ]
-    .filter((text): text is string => Boolean(text && text.trim()))
-    .slice(0, 5)
 
   return (
     <div className={`${cardClasses} ${tabPanelClasses} space-y-5`}>
@@ -481,7 +470,7 @@ export default function HomeDashboardTab({
                         </p>
                       </div>
                       <Button
-                        title={hasUnlimitedAccess ? 'Analyze for virality' : 'Analyze for virality · 2 coins'}
+                        title={hasUnlimitedAccess ? 'Get overlay and edit suggestions' : 'Get overlay and edit suggestions · 2 coins'}
                         size="sm"
                         className="h-8 shrink-0 px-2 text-xs"
                         disabled={clipAnalyzer.isAnalyzingClip}
@@ -525,13 +514,13 @@ export default function HomeDashboardTab({
           onClick={() => setShowAnalysis(false)}
         >
           <div
-            className={`mb-8 w-full max-w-xl rounded-2xl border p-5 ${
+            className={`mb-8 w-full max-w-4xl rounded-2xl border p-5 ${
               darkMode ? 'border-white/10 bg-sdhq-dark-900' : 'border-sdhq-cyan-100 bg-white'
             }`}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h3 className={`text-lg font-bold ${title}`}>Virality analysis</h3>
+              <h3 className={`text-lg font-bold ${title}`}>Edit suggestions</h3>
               <Button variant="outline" size="sm" onClick={() => setShowAnalysis(false)}>
                 Close
               </Button>
@@ -539,51 +528,18 @@ export default function HomeDashboardTab({
             {clipAnalyzer.isAnalyzingClip ? (
               <div className="flex flex-col items-center py-10">
                 <Loader2 className="h-8 w-8 animate-spin text-sdhq-cyan-400" />
-                <p className={`mt-3 text-sm ${muted}`}>{clipAnalyzer.loadingStep || 'Analyzing…'}</p>
+                <p className={`mt-3 text-sm ${muted}`}>{clipAnalyzer.loadingStep || 'Finding edit suggestions…'}</p>
               </div>
             ) : clipAnalyzer.clipError ? (
               <p className="text-sm text-red-400">{clipAnalyzer.clipError}</p>
             ) : analysis ? (
-              <div className="space-y-3 text-sm">
-                <p className={`text-2xl font-black ${title}`}>
-                  Score {analysis.score}
-                  {analysis.scoreTitle ? ` · ${analysis.scoreTitle}` : ''}
-                </p>
-                {analysis.scoreSummary ? <p className={muted}>{analysis.scoreSummary}</p> : null}
-                {analysis.hookAnalysis?.summary ? (
-                  <p className={darkMode ? 'text-gray-200' : 'text-gray-700'}>
-                    Hook: {analysis.hookAnalysis.summary}
-                  </p>
-                ) : null}
-                {editTips.length ? (
-                  <div>
-                    <p className={`mb-1 text-xs font-semibold uppercase tracking-wide ${muted}`}>
-                      Edit for virality
-                    </p>
-                    <ul className="space-y-2">
-                      {editTips.map((tip) => (
-                        <li key={tip.slice(0, 48)} className={darkMode ? 'text-gray-200' : 'text-gray-700'}>
-                          {tip}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-                {onOpenTab ? (
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => {
-                      setShowAnalysis(false)
-                      onOpenTab('analyze')
-                    }}
-                  >
-                    Open full Analyze tab
-                  </Button>
-                ) : null}
-              </div>
+              <ClipEditSuggestionsPanel
+                darkMode={darkMode}
+                overlays={analysis.overlays}
+                recommendations={analysis.recommendations}
+              />
             ) : (
-              <p className={`text-sm ${muted}`}>No analysis yet.</p>
+              <p className={`text-sm ${muted}`}>No suggestions yet.</p>
             )}
           </div>
         </div>
