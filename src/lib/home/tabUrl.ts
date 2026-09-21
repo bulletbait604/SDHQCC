@@ -7,19 +7,19 @@ export interface HomeTabState {
   rnd?: RdSubTab
 }
 
-export const DEFAULT_HOME_TAB = 'educate'
+export const DEFAULT_HOME_TAB = 'home'
 export const DEFAULT_CREATE_SUB: CreateSubTab = 'thumbnail'
 export const DEFAULT_RND_SUB: RdSubTab = 'trending-vids'
 
 const TAB_QUERY_KEYS = ['tab', 'create', 'rnd', 'apps'] as const
 
-const MAIN_TABS = new Set(['educate', 'create', 'analyze', 'kick-clips', 'settings', 'rnd', 'user-apps'])
+const MAIN_TABS = new Set(['home', 'educate', 'create', 'analyze', 'kick-clips', 'settings', 'rnd', 'user-apps'])
 const CREATE_SUBS = new Set<CreateSubTab>(['tags', 'thumbnail', 'post4me', 'background'])
 const RND_SUBS = new Set<RdSubTab>(['trending-vids'])
 
 /** Legacy ?tab= names from older links. */
 const LEGACY_TAB_MAP: Record<string, HomeTabState> = {
-  'resource-hub': { tab: DEFAULT_HOME_TAB },
+  'resource-hub': { tab: 'educate' },
   'tag-generator-free': { tab: 'create', create: 'tags' },
   'thumbnail-generator': { tab: 'create', create: 'thumbnail' },
   'background-remover': { tab: 'create', create: 'background' },
@@ -29,7 +29,7 @@ const LEGACY_TAB_MAP: Record<string, HomeTabState> = {
   'robot-talk': { tab: 'rnd', rnd: 'trending-vids' },
   'thumbnail-2': { tab: 'rnd', rnd: 'trending-vids' },
   'panels-banners': { tab: 'rnd', rnd: 'trending-vids' },
-  'new-tool': { tab: DEFAULT_HOME_TAB },
+  'new-tool': { tab: 'educate' },
   'user-apps': { tab: 'kick-clips' },
   'vi-guys-gw-map': { tab: 'kick-clips' },
   'viral-clip-gen': { tab: 'rnd', rnd: 'trending-vids' },

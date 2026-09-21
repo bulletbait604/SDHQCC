@@ -39,9 +39,10 @@ import { canSeeRndTab } from '@/lib/home/rndAccess'
 import { hasTabAccessForUser } from '@/lib/home/ownerIdentity'
 import { applyOwnerViewAs } from '@/lib/home/ownerViewAs'
 import { startKickLogin } from '@/lib/kick/startKickLogin'
+import { DEFAULT_HOME_TAB } from '@/lib/home/tabUrl'
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState('educate')
+  const [activeTab, setActiveTab] = useState(DEFAULT_HOME_TAB)
   const [createSubTab, setCreateSubTab] = useState<CreateSubTab>('thumbnail')
   const [rndSubTab, setRndSubTab] = useState<RdSubTab>('trending-vids')
   const [showSettings, setShowSettings] = useState(false)
@@ -157,7 +158,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!isOwner || viewAs === 'owner') return
-    if (activeTab === 'rnd') setActiveTab('educate')
+    if (activeTab === 'rnd') setActiveTab(DEFAULT_HOME_TAB)
   }, [isOwner, viewAs, activeTab])
 
   const previewHasTabAccess = useCallback(

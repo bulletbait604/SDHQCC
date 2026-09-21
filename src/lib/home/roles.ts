@@ -64,6 +64,7 @@ export const ROLE_CONFIG = {
 
 export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
   free: {
+    home: true,
     educate: true,
     create: true,
     analyze: true,
@@ -76,6 +77,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'background-remover': true,
   },
   subscriber: {
+    home: true,
     educate: true,
     create: true,
     analyze: true,
@@ -88,6 +90,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'background-remover': true,
   },
   subscriber_lifetime: {
+    home: true,
     educate: true,
     create: true,
     analyze: true,
@@ -100,6 +103,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'background-remover': true,
   },
   editor: {
+    home: true,
     educate: true,
     create: true,
     analyze: true,
@@ -112,6 +116,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'background-remover': true,
   },
   admin: {
+    home: true,
     educate: true,
     create: true,
     analyze: true,
@@ -124,6 +129,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'background-remover': true,
   },
   owner: {
+    home: true,
     educate: true,
     create: true,
     analyze: true,
@@ -136,6 +142,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'background-remover': true,
   },
   tester: {
+    home: true,
     educate: true,
     create: true,
     analyze: true,

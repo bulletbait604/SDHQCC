@@ -11,6 +11,7 @@ import {
   normalizeKickUsername,
 } from '@/lib/home/ownerIdentity'
 import { canSeeRndTab } from '@/lib/home/rndAccess'
+import { DEFAULT_HOME_TAB } from '@/lib/home/tabUrl'
 
 interface Subscriber {
   id: string
@@ -83,7 +84,7 @@ export function useHomeRoles({
   useEffect(() => {
     if (activeTab !== 'rnd') return
     if (canSeeRndTab(user?.username, rndTabs)) return
-    setActiveTab('educate')
+    setActiveTab(DEFAULT_HOME_TAB)
   }, [activeTab, user, rndTabs, setActiveTab])
 
   const fetchUsersWithRoles = useCallback(async () => {

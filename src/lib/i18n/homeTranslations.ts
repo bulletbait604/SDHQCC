@@ -34,6 +34,7 @@ export const homeTranslations = {
     post4meDesc:
       'Upload a clip of any length. We analyze a random 5-minute slice and write algorithm-optimized copy for each platform — formatted for TikTok captions or YouTube separate fields.',
     resourceHub: 'Resource Hub',
+    home: 'Home',
     educate: 'Educate',
     create: 'Create',
     analyze: 'Analyze',
@@ -96,6 +97,7 @@ export const homeTranslations = {
     post4meDesc:
       'Sube un clip de cualquier duración. Analizamos un fragmento aleatorio de 5 minutos y generamos título, descripción y etiquetas optimizados.',
     resourceHub: 'Centro de recursos',
+    home: 'Inicio',
     educate: 'Educar',
     create: 'Crear',
     analyze: 'Analizar',
@@ -158,6 +160,7 @@ export const homeTranslations = {
     post4meDesc:
       'Importez un clip de n’importe quelle durée. Nous analysons un extrait aléatoire de 5 minutes et générons titre, description et tags optimisés.',
     resourceHub: 'Centre de ressources',
+    home: 'Accueil',
     educate: 'Éduquer',
     create: 'Créer',
     analyze: 'Analyser',
@@ -220,6 +223,7 @@ export const homeTranslations = {
     post4meDesc:
       'Laden Sie einen Clip beliebiger Länge hoch. Wir analysieren einen zufälligen 5-Minuten-Ausschnitt und liefern Titel, Beschreibung und Tags.',
     resourceHub: 'Ressourcen-Hub',
+    home: 'Start',
     educate: 'Lernen',
     create: 'Erstellen',
     analyze: 'Analysieren',

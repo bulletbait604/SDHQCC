@@ -3,7 +3,8 @@
 import { useEffect, useMemo } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
-import { Settings, LayoutGrid, Wand2, GraduationCap, BarChart3, FlaskConical } from 'lucide-react'
+import { Settings, LayoutGrid, Wand2, GraduationCap, BarChart3, FlaskConical, Home } from 'lucide-react'
+import HomeDashboardTab from '@/app/components/HomeDashboardTab'
 import ResourceHubTab from '@/app/components/ResourceHubTab'
 import CreateTabHeader, { type CreateSubTab } from '@/app/components/CreateTabHeader'
 import RdTabHeader, { ALL_RD_SUBS, type RdSubTab } from '@/app/components/RdTabHeader'
@@ -189,8 +190,12 @@ export default function HomeMainTabs({
   return (
     <Tabs value={activeTab} onValueChange={onTabChange} className="space-y-3">
       <TabsList
-        className={`grid w-full grid-cols-2 ${canAccessRnd ? 'sm:grid-cols-6' : 'sm:grid-cols-5'} ${tabListClasses}`}
+        className={`grid w-full grid-cols-3 ${canAccessRnd ? 'sm:grid-cols-7' : 'sm:grid-cols-6'} ${tabListClasses}`}
       >
+        <TabsTrigger value="home" className={cn('flex items-center space-x-2', tabTriggerClasses)}>
+          <Home className="h-4 w-4" />
+          <span className="hidden sm:inline">{t.home}</span>
+        </TabsTrigger>
         <TabsTrigger value="educate" className={cn('flex items-center space-x-2', tabTriggerClasses)}>
           <GraduationCap className="h-4 w-4" />
           <span className="hidden sm:inline">{t.educate}</span>
@@ -218,6 +223,18 @@ export default function HomeMainTabs({
           </TabsTrigger>
         )}
       </TabsList>
+
+      <TabsContent value="home">
+        <HomeDashboardTab
+          user={user}
+          darkMode={darkMode}
+          cardClasses={cardClasses}
+          tabPanelClasses={tabPanelClasses}
+          clipAnalyzer={clipAnalyzer}
+          hasUnlimitedAccess={hasUnlimitedAccess}
+          onOpenTab={onTabChange}
+        />
+      </TabsContent>
 
       <TabsContent value="educate">
         <ResourceHubTab
