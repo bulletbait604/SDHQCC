@@ -8,7 +8,7 @@ import {
   type KickChannelSnapshot,
   type KickClipCard,
 } from '@/lib/kick/channelSnapshot'
-import { emptyKickLeaderboard, parseKickLeaderboard } from '@/lib/kick/leaderboard'
+import { emptyKickLeaderboard, emptyPeriod, parseGiftedSubsLeaderboard, parseKicksLeaderboard } from '@/lib/kick/leaderboard'
 
 const FETCH_HEADERS = {
   Accept: 'application/json',
@@ -143,16 +143,32 @@ export async function fetchKickClips(
   return []
 }
 
-export async function fetchKickLeaderboards(slug: string) {
+export async function fetchKickLeaderboards(slug: string, channelId?: string | null) {
   const safe = slug.replace(/^@/, '').toLowerCase().trim()
   if (!safe) return emptyKickLeaderboard()
-  try {
-    const payload = await fetchJson(
-      `https://kick.com/api/v2/channels/${encodeURIComponent(safe)}/leaderboards`
-    )
-    return parseKickLeaderboard(payload)
-  } catch (error) {
-    console.warn('[Kick leaderboards] failed:', error)
-    return emptyKickLeaderboard()
+
+  const kicksIds = [channelId, safe].filter((id, index, all): id is string => Boolean(id) && all.indexOf(id) === index)
+
+  const [giftedResult, kicksResult] = await Promise.allSettled([
+    fetchJson(`https://kick.com/api/v2/channels/${encodeURIComponent(safe)}/leaderboards`),
+    (async () => {
+      for (const id of kicksIds) {
+        try {
+          return await fetchJson(`https://kick.com/api/v1/kicks/${encodeURIComponent(id)}/leaderboard`)
+        } catch (error) {
+          console.warn('[Kick KICKs leaderboard] failed:', id, error)
+        }
+      }
+      return null
+    })(),
+  ])
+
+  return {
+    giftedSubs:
+      giftedResult.status === 'fulfilled' ? parseGiftedSubsLeaderboard(giftedResult.value) : emptyPeriod(),
+    kicks:
+      kicksResult.status === 'fulfilled' && kicksResult.value
+        ? parseKicksLeaderboard(kicksResult.value)
+        : emptyPeriod(),
   }
 }

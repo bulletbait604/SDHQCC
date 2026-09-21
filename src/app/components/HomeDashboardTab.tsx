@@ -9,6 +9,7 @@ import {
   Radio,
   RefreshCw,
   Sparkles,
+  Gift,
   Trophy,
   Users,
   Video,
@@ -19,7 +20,7 @@ import { Button } from '@/components/ui/button'
 import type { KickUser } from '@/lib/home/types'
 import type { KickChannelSnapshot, KickClipCard } from '@/lib/kick/channelSnapshot'
 import type { ChannelInsights } from '@/lib/home/channelInsightsTypes'
-import { emptyKickLeaderboard, type KickLeaderboard } from '@/lib/kick/leaderboard'
+import { emptyKickLeaderboard, type KickLeaderboard, type KickLeaderboardPeriod } from '@/lib/kick/leaderboard'
 import type { useClipAnalyzer } from '@/hooks/useClipAnalyzer'
 
 type ClipAnalyzer = ReturnType<typeof useClipAnalyzer>
@@ -58,6 +59,16 @@ function formatWhen(iso: string | null): string | null {
   return date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
+function defaultBoardPeriod(board: KickLeaderboardPeriod): 'week' | 'month' | 'lifetime' {
+  if (board.week.length) return 'week'
+  if (board.month.length) return 'month'
+  return 'lifetime'
+}
+
+function rowsForPeriod(board: KickLeaderboardPeriod, period: 'week' | 'month' | 'lifetime') {
+  return period === 'week' ? board.week : period === 'month' ? board.month : board.lifetime
+}
+
 export default function HomeDashboardTab({
   user,
   darkMode,
@@ -69,7 +80,8 @@ export default function HomeDashboardTab({
 }: Props) {
   const [channel, setChannel] = useState<KickChannelSnapshot | null>(null)
   const [leaderboard, setLeaderboard] = useState<KickLeaderboard>(emptyKickLeaderboard)
-  const [boardPeriod, setBoardPeriod] = useState<'week' | 'month' | 'lifetime'>('week')
+  const [giftedPeriod, setGiftedPeriod] = useState<'week' | 'month' | 'lifetime'>('week')
+  const [kicksPeriod, setKicksPeriod] = useState<'week' | 'month' | 'lifetime'>('week')
   const [channelError, setChannelError] = useState('')
   const [channelLoading, setChannelLoading] = useState(true)
   const [insights, setInsights] = useState<ChannelInsights | null>(null)
@@ -97,7 +109,7 @@ export default function HomeDashboardTab({
       if (!res.ok) throw new Error(data.error || 'Could not load channel')
       setChannel(data.channel as KickChannelSnapshot)
       setLeaderboard(
-        data.leaderboard && typeof data.leaderboard === 'object'
+        data.leaderboard?.giftedSubs && data.leaderboard?.kicks
           ? (data.leaderboard as KickLeaderboard)
           : emptyKickLeaderboard()
       )
@@ -150,16 +162,12 @@ export default function HomeDashboardTab({
   const visibleClips = useMemo(() => clips.slice(0, clipVisible), [clips, clipVisible])
   const lastLive = formatWhen(channel?.isLive ? channel.startedAt : channel?.lastLiveAt ?? null)
   const avatar = channel?.profileImageUrl || user.profile_image_url
-  const boardRows =
-    boardPeriod === 'week' ? leaderboard.week : boardPeriod === 'month' ? leaderboard.month : leaderboard.lifetime
-  const hasLeaderboard =
-    leaderboard.week.length + leaderboard.month.length + leaderboard.lifetime.length > 0
+  const offlinePreview = channel?.bannerUrl || channel?.liveThumbnailUrl
 
   useEffect(() => {
-    if (leaderboard.week.length) setBoardPeriod('week')
-    else if (leaderboard.month.length) setBoardPeriod('month')
-    else setBoardPeriod('lifetime')
-  }, [leaderboard.week.length, leaderboard.month.length, leaderboard.lifetime.length])
+    setGiftedPeriod(defaultBoardPeriod(leaderboard.giftedSubs))
+    setKicksPeriod(defaultBoardPeriod(leaderboard.kicks))
+  }, [leaderboard])
   const socials = useMemo(() => {
     const rows = [...(channel?.socials || []), ...(insights?.socials || [])]
     const seen = new Set<string>()
@@ -266,150 +274,103 @@ export default function HomeDashboardTab({
               Retry
             </Button>
           </div>
-        ) : channel?.isLive ? (
+        ) : channel ? (
           <div className="p-4 sm:p-5">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-red-400">
-                <Radio className="h-4 w-4 animate-pulse" />
-                LIVE · {channel.streamTitle || 'Streaming now'}
-              </div>
+              {channel.isLive ? (
+                <div className="flex items-center gap-2 text-sm font-semibold text-red-400">
+                  <Radio className="h-4 w-4 animate-pulse" />
+                  LIVE · {channel.streamTitle || 'Streaming now'}
+                </div>
+              ) : (
+                <div className={`flex items-center gap-2 text-sm font-semibold ${muted}`}>
+                  <Video className="h-4 w-4" />
+                  Offline preview
+                  {lastLive ? ` · last live ${lastLive}` : ''}
+                </div>
+              )}
               <div className={`flex items-center gap-3 text-xs ${muted}`}>
                 {channel.category ? <span>{channel.category}</span> : null}
-                <span className="inline-flex items-center gap-1">
-                  <Users className="h-3.5 w-3.5" />
-                  {formatCount(channel.viewerCount)}
-                </span>
+                {channel.isLive ? (
+                  <span className="inline-flex items-center gap-1">
+                    <Users className="h-3.5 w-3.5" />
+                    {formatCount(channel.viewerCount)}
+                  </span>
+                ) : null}
                 <a
                   href={channel.channelUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 font-semibold text-sdhq-cyan-300 hover:underline"
                 >
-                  Watch on Kick
+                  {channel.isLive ? 'Watch on Kick' : 'Open Kick channel'}
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>
               </div>
             </div>
             <div className="mx-auto max-w-xl overflow-hidden rounded-xl bg-black shadow-lg">
-              <div className="aspect-video w-full">
-                <iframe
-                  title={`${channel.displayName} live on Kick`}
-                  src={`${channel.playerEmbedUrl}?autoplay=true&muted=true`}
-                  className="h-full w-full"
-                  allow="autoplay; fullscreen; picture-in-picture"
-                  allowFullScreen
-                />
+              <div className="relative aspect-video w-full">
+                {channel.isLive ? (
+                  <iframe
+                    title={`${channel.displayName} live on Kick`}
+                    src={`${channel.playerEmbedUrl}?autoplay=true&muted=true`}
+                    className="h-full w-full"
+                    allow="autoplay; fullscreen; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <>
+                    {offlinePreview ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={offlinePreview} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full flex-col items-center justify-center bg-gradient-to-br from-sdhq-dark-900 to-sdhq-cyan-950 px-4 text-center">
+                        {avatar ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={avatar} alt="" className="mb-3 h-14 w-14 rounded-full object-cover" />
+                        ) : null}
+                        <p className="text-sm font-semibold text-white">{channel.displayName}</p>
+                      </div>
+                    )}
+                    <span className="absolute left-3 top-3 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-200">
+                      Offline
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
-        ) : (
-          <div className="relative min-h-[14rem] overflow-hidden">
-            {channel?.bannerUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={channel.bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-sdhq-dark-900 to-sdhq-cyan-950" />
-            )}
-            <div className="absolute inset-0 bg-black/55" />
-            <div className="relative flex min-h-[14rem] flex-col items-center justify-center px-4 py-8 text-center">
-              {avatar ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={avatar}
-                  alt=""
-                  className="mb-3 h-16 w-16 rounded-full border-2 border-white/40 object-cover"
-                />
-              ) : null}
-              <p className="rounded-full bg-black/50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-200">
-                Offline
-              </p>
-              <p className="mt-3 text-lg font-bold text-white">{channel?.displayName || user.display_name}</p>
-              <p className="mt-1 text-sm text-gray-300">
-                {lastLive ? `Last live ${lastLive}` : 'Kick offline screen · go live to preview the player here'}
-              </p>
-              {channel?.channelUrl ? (
-                <a
-                  href={channel.channelUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-sdhq-cyan-300 hover:underline"
-                >
-                  Open Kick channel
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              ) : null}
-            </div>
-          </div>
-        )}
+        ) : null}
       </section>
 
       <section className={`${panel} p-4 sm:p-5`}>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className={`flex items-center gap-2 text-xl font-bold ${title}`}>
-              <Trophy className="h-5 w-5 text-sdhq-cyan-400" />
-              Gift Leaderboard
-            </h3>
-            <p className={`mt-1 text-xs ${muted}`}>Top gifters on your Kick channel</p>
-          </div>
-          <div className="flex gap-1">
-            {(
-              [
-                { id: 'week' as const, label: 'Week' },
-                { id: 'month' as const, label: 'Month' },
-                { id: 'lifetime' as const, label: 'Lifetime' },
-              ]
-            ).map((period) => (
-              <button
-                key={period.id}
-                type="button"
-                onClick={() => setBoardPeriod(period.id)}
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                  boardPeriod === period.id
-                    ? 'bg-sdhq-cyan-500 text-black'
-                    : darkMode
-                      ? 'bg-white/10 text-gray-300'
-                      : 'bg-sdhq-cyan-50 text-sdhq-cyan-800'
-                }`}
-              >
-                {period.label}
-              </button>
-            ))}
-          </div>
+        <div className="mb-4">
+          <h3 className={`flex items-center gap-2 text-xl font-bold ${title}`}>
+            <Trophy className="h-5 w-5 text-sdhq-cyan-400" />
+            Channel Leaderboards
+          </h3>
+          <p className={`mt-1 text-xs ${muted}`}>Gifted subs and KICKs, each with week / month / lifetime</p>
         </div>
-        {!hasLeaderboard ? (
-          <p className={`text-sm ${muted}`}>
-            No public gift leaderboard yet. This fills in as viewers gift KICKs on your channel.
-          </p>
-        ) : boardRows.length === 0 ? (
-          <p className={`text-sm ${muted}`}>No gifters in this period yet. Try Month or Lifetime.</p>
-        ) : (
-          <ol className="space-y-2">
-            {boardRows.map((entry) => (
-              <li
-                key={`${boardPeriod}-${entry.userId || entry.username}`}
-                className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                  darkMode ? 'border-white/10 bg-sdhq-dark-900/40' : 'border-sdhq-cyan-100 bg-cyan-50/40'
-                }`}
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className={`w-6 text-center text-sm font-black ${entry.rank === 1 ? 'text-sdhq-cyan-400' : muted}`}>
-                    {entry.rank}
-                  </span>
-                  <a
-                    href={entry.profileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`truncate text-sm font-semibold hover:underline ${title}`}
-                  >
-                    {entry.username}
-                  </a>
-                </div>
-                <span className={`shrink-0 text-sm font-bold ${title}`}>{formatCount(entry.quantity)} KICKs</span>
-              </li>
-            ))}
-          </ol>
-        )}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <LeaderboardCard
+            darkMode={darkMode}
+            title="Gifted Subs"
+            icon={<Gift className="h-4 w-4" />}
+            unit="subs"
+            board={leaderboard.giftedSubs}
+            period={giftedPeriod}
+            onPeriodChange={setGiftedPeriod}
+          />
+          <LeaderboardCard
+            darkMode={darkMode}
+            title="KICKs"
+            icon={<Trophy className="h-4 w-4" />}
+            unit="KICKs"
+            board={leaderboard.kicks}
+            period={kicksPeriod}
+            onPeriodChange={setKicksPeriod}
+          />
+        </div>
       </section>
 
       <section className={`${panel} p-4 sm:p-5`}>
@@ -688,6 +649,84 @@ function StatChip({
         {label}
       </p>
       <p className={`truncate text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{value}</p>
+    </div>
+  )
+}
+
+function LeaderboardCard({
+  darkMode,
+  title,
+  icon,
+  unit,
+  board,
+  period,
+  onPeriodChange,
+}: {
+  darkMode: boolean
+  title: string
+  icon: ReactNode
+  unit: string
+  board: KickLeaderboardPeriod
+  period: 'week' | 'month' | 'lifetime'
+  onPeriodChange: (next: 'week' | 'month' | 'lifetime') => void
+}) {
+  const muted = darkMode ? 'text-gray-400' : 'text-gray-500'
+  const heading = darkMode ? 'text-white' : 'text-gray-900'
+  const rows = rowsForPeriod(board, period)
+  return (
+    <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-sdhq-dark-900/40' : 'border-sdhq-cyan-100 bg-cyan-50/30'}`}>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <p className={`inline-flex items-center gap-1.5 text-sm font-bold ${heading}`}>
+          {icon}
+          {title}
+        </p>
+        <div className="flex gap-1">
+          {(['week', 'month', 'lifetime'] as const).map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onPeriodChange(id)}
+              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${
+                period === id
+                  ? 'bg-sdhq-cyan-500 text-black'
+                  : darkMode
+                    ? 'bg-white/10 text-gray-300'
+                    : 'bg-white text-sdhq-cyan-800'
+              }`}
+            >
+              {id}
+            </button>
+          ))}
+        </div>
+      </div>
+      {!board.enabled && rows.length === 0 ? (
+        <p className={`text-sm ${muted}`}>No {title.toLowerCase()} leaderboard yet.</p>
+      ) : rows.length === 0 ? (
+        <p className={`text-sm ${muted}`}>No entries in this period. Try another tab.</p>
+      ) : (
+        <ol className="space-y-1.5">
+          {rows.map((entry) => (
+            <li key={`${title}-${entry.userId || entry.username}`} className="flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className={`w-5 text-center text-xs font-black ${entry.rank === 1 ? 'text-sdhq-cyan-400' : muted}`}>
+                  {entry.rank}
+                </span>
+                <a
+                  href={entry.profileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`truncate text-sm font-semibold hover:underline ${heading}`}
+                >
+                  {entry.username}
+                </a>
+              </div>
+              <span className={`shrink-0 text-xs font-bold ${heading}`}>
+                {formatCount(entry.quantity)} {unit}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   )
 }

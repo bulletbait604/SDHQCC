@@ -9,10 +9,8 @@ export async function GET(request: NextRequest) {
   try {
     const user = await verifyAuth(request)
     const slug = user.username
-    const [channel, leaderboard] = await Promise.all([
-      fetchKickChannel(slug),
-      fetchKickLeaderboards(slug),
-    ])
+    const channel = await fetchKickChannel(slug)
+    const leaderboard = await fetchKickLeaderboards(slug, channel.channelId)
 
     try {
       const mongo = await clientPromise

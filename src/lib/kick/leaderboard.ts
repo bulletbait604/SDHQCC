@@ -6,11 +6,16 @@ export type KickLeaderboardEntry = {
   profileUrl: string
 }
 
-export type KickLeaderboard = {
-  lifetime: KickLeaderboardEntry[]
-  month: KickLeaderboardEntry[]
+export type KickLeaderboardPeriod = {
   week: KickLeaderboardEntry[]
-  giftsEnabled: boolean
+  month: KickLeaderboardEntry[]
+  lifetime: KickLeaderboardEntry[]
+  enabled: boolean
+}
+
+export type KickLeaderboard = {
+  giftedSubs: KickLeaderboardPeriod
+  kicks: KickLeaderboardPeriod
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -59,25 +64,69 @@ function mapEntries(value: unknown): KickLeaderboardEntry[] {
   return out.slice(0, 10)
 }
 
+export function emptyPeriod(): KickLeaderboardPeriod {
+  return { week: [], month: [], lifetime: [], enabled: false }
+}
+
 export function emptyKickLeaderboard(): KickLeaderboard {
-  return { lifetime: [], month: [], week: [], giftsEnabled: false }
+  return { giftedSubs: emptyPeriod(), kicks: emptyPeriod() }
+}
+
+function firstList(nested: Record<string, unknown>, keys: string[]): KickLeaderboardEntry[] {
+  for (const key of keys) {
+    const mapped = mapEntries(nested[key])
+    if (mapped.length) return mapped
+  }
+  return []
+}
+
+function parsePeriod(
+  nested: Record<string, unknown>,
+  keys: { week: string[]; month: string[]; lifetime: string[]; enabled: string[] }
+): KickLeaderboardPeriod {
+  const week = firstList(nested, keys.week)
+  const month = firstList(nested, keys.month)
+  const lifetime = firstList(nested, keys.lifetime)
+  return {
+    week,
+    month,
+    lifetime,
+    enabled: keys.enabled.some((key) => asBool(nested[key])) || week.length + month.length + lifetime.length > 0,
+  }
+}
+
+export function parseGiftedSubsLeaderboard(payload: unknown): KickLeaderboardPeriod {
+  const root = asRecord(payload)
+  const nested = asRecord(root?.data) || root
+  if (!nested) return emptyPeriod()
+  return parsePeriod(nested, {
+    week: ['gifts_week', 'weekly_leaderboard'],
+    month: ['gifts_month', 'monthly_leaderboard'],
+    lifetime: ['gifts', 'leaderboard', 'lifetime'],
+    enabled: ['gifts_enabled', 'gifts_week_enabled', 'gifts_month_enabled'],
+  })
+}
+
+export function parseKicksLeaderboard(payload: unknown): KickLeaderboardPeriod {
+  const root = asRecord(payload)
+  const nested = asRecord(root?.data) || root
+  if (!nested) return emptyPeriod()
+  return parsePeriod(nested, {
+    week: ['kicks_gifts_week', 'kicks_week', 'week', 'gifts_week'],
+    month: ['kicks_gifts_month', 'kicks_month', 'month', 'gifts_month'],
+    lifetime: ['kicks_gifts_lifetime', 'kicks_lifetime', 'lifetime', 'gifts'],
+    enabled: [
+      'kicks_gifts_week_enabled',
+      'kicks_gifts_month_enabled',
+      'kicks_gifts_lifetime_enabled',
+      'gifts_enabled',
+    ],
+  })
 }
 
 export function parseKickLeaderboard(payload: unknown): KickLeaderboard {
-  const root = asRecord(payload)
-  const nested = asRecord(root?.data) || root
-  if (!nested) return emptyKickLeaderboard()
-  const lifetime = mapEntries(nested.gifts || nested.lifetime)
-  const month = mapEntries(nested.gifts_month || nested.month)
-  const week = mapEntries(nested.gifts_week || nested.week)
   return {
-    lifetime,
-    month,
-    week,
-    giftsEnabled:
-      asBool(nested.gifts_enabled) ||
-      asBool(nested.gifts_week_enabled) ||
-      asBool(nested.gifts_month_enabled) ||
-      lifetime.length + month.length + week.length > 0,
+    giftedSubs: parseGiftedSubsLeaderboard(payload),
+    kicks: emptyPeriod(),
   }
 }
