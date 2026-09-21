@@ -24,13 +24,15 @@ test('parseKicksLeaderboard reads Kick KICKs board fields', () => {
     data: {
       kicks_gifts_lifetime: [{ username: 'kicker', quantity: 400 }],
       kicks_gifts_week: [{ username: 'weekkicker', quantity: 12 }],
-      kicks_gifts_month: [],
+      kicks_gifts_month: [{ username: 'monthkicker', quantity: 90 }],
       kicks_gifts_lifetime_enabled: true,
       kicks_gifts_week_enabled: true,
+      kicks_gifts_month_enabled: true,
     },
   })
   assert.equal(board.lifetime[0]?.username, 'kicker')
   assert.equal(board.lifetime[0]?.quantity, 400)
   assert.equal(board.week[0]?.username, 'weekkicker')
+  assert.equal(board.month[0]?.quantity, 90)
   assert.equal(board.enabled, true)
 })

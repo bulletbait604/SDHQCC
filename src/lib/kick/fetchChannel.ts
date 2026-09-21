@@ -147,20 +147,27 @@ export async function fetchKickLeaderboards(slug: string, channelId?: string | n
   const safe = slug.replace(/^@/, '').toLowerCase().trim()
   if (!safe) return emptyKickLeaderboard()
 
-  const kicksIds = [channelId, safe].filter((id, index, all): id is string => Boolean(id) && all.indexOf(id) === index)
+  let numericId = channelId && /^\d+$/.test(channelId) ? channelId : null
+  if (!numericId) {
+    try {
+      const web = asRecord(await fetchJson(`https://kick.com/api/v2/channels/${encodeURIComponent(safe)}`))
+      const rawId = web?.id
+      numericId =
+        typeof rawId === 'number' && Number.isFinite(rawId)
+          ? String(rawId)
+          : typeof rawId === 'string' && /^\d+$/.test(rawId)
+            ? rawId
+            : null
+    } catch (error) {
+      console.warn('[Kick KICKs leaderboard] channel id lookup failed:', error)
+    }
+  }
 
   const [giftedResult, kicksResult] = await Promise.allSettled([
     fetchJson(`https://kick.com/api/v2/channels/${encodeURIComponent(safe)}/leaderboards`),
-    (async () => {
-      for (const id of kicksIds) {
-        try {
-          return await fetchJson(`https://kick.com/api/v1/kicks/${encodeURIComponent(id)}/leaderboard`)
-        } catch (error) {
-          console.warn('[Kick KICKs leaderboard] failed:', id, error)
-        }
-      }
-      return null
-    })(),
+    numericId
+      ? fetchJson(`https://web.kick.com/api/v1/kicks/${encodeURIComponent(numericId)}/leaderboard`)
+      : Promise.resolve(null),
   ])
 
   return {
