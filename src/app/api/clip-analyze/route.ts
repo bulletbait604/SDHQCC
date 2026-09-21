@@ -30,6 +30,7 @@ import {
   recalibrateClipAnalysisScores,
   resolveClipAnalyzeModel,
 } from '@/lib/clipAnalyzePrompt'
+import { downloadHlsClip, isHlsSource } from '@/lib/hlsClipDownload'
 
 // Force dynamic rendering to prevent static optimization
 export const dynamic = 'force-dynamic'
@@ -62,7 +63,8 @@ type ClipIngestionMode =
   | 'external-url-gemini-files'
 
 const CLIP_FETCH_HEADERS = {
-  Accept: 'video/mp4,video/webm,video/*,application/octet-stream,*/*',
+  Accept:
+    'application/vnd.apple.mpegurl,application/x-mpegURL,video/mp4,video/webm,video/*,application/octet-stream,*/*',
   'User-Agent': 'SDHQCC/1.0 (Creator Corner clip analyze)',
   Referer: 'https://kick.com/',
 }
@@ -87,7 +89,7 @@ function mimeFromClipResponse(contentType: string | null, url: string): string {
 }
 
 async function downloadPublicClipForGemini(sourceUrl: string): Promise<{ buffer: Buffer; mimeType: string }> {
-  if (isHtmlClipPageUrl(sourceUrl)) {
+  if (isHtmlClipPageUrl(sourceUrl) && !isHlsSource(sourceUrl)) {
     throw new Error('This clip has no downloadable video file. Try another clip.')
   }
   const response = await fetch(sourceUrl, {
@@ -100,17 +102,23 @@ async function downloadPublicClipForGemini(sourceUrl: string): Promise<{ buffer:
   }
   const contentType = response.headers.get('content-type')
   const type = (contentType || '').toLowerCase()
+  const buffer = Buffer.from(await response.arrayBuffer())
+  const preview = buffer.subarray(0, 64).toString('utf8')
+  if (isHlsSource(sourceUrl, contentType, preview)) {
+    return downloadHlsClip({
+      playlistUrl: sourceUrl,
+      playlistText: buffer.toString('utf8'),
+      headers: CLIP_FETCH_HEADERS,
+      maxBytes: CLIP_MAX_BYTES,
+    })
+  }
   if (type.includes('text/html') || type.includes('application/json')) {
     throw new Error('This clip URL is a page, not a video file. Try another clip.')
-  }
-  if (type.includes('mpegurl') || type.includes('m3u8') || sourceUrl.toLowerCase().includes('.m3u8')) {
-    throw new Error('This clip is a live stream playlist and cannot be analyzed as a file.')
   }
   const lengthHeader = Number(response.headers.get('content-length') || '0')
   if (Number.isFinite(lengthHeader) && lengthHeader > CLIP_MAX_BYTES) {
     throw new Error('File too large (max 250MB)')
   }
-  const buffer = Buffer.from(await response.arrayBuffer())
   if (buffer.length < 1024) {
     throw new Error('Clip file was too small to analyze.')
   }
