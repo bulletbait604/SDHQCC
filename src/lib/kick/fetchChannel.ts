@@ -8,6 +8,7 @@ import {
   type KickChannelSnapshot,
   type KickClipCard,
 } from '@/lib/kick/channelSnapshot'
+import { emptyKickLeaderboard, parseKickLeaderboard } from '@/lib/kick/leaderboard'
 
 const FETCH_HEADERS = {
   Accept: 'application/json',
@@ -69,6 +70,13 @@ async function fetchOfficialChannel(slug: string): Promise<KickChannelSnapshot |
 }
 
 async function fetchWebChannel(slug: string): Promise<KickChannelSnapshot | null> {
+  try {
+    const v1 = await fetchJson(`https://kick.com/api/v1/channels/${encodeURIComponent(slug)}`)
+    const row = asRecord(v1)
+    if (row) return mapWebChannel(row, slug)
+  } catch (error) {
+    console.warn('[Kick channel] Web v1 failed, trying v2:', error)
+  }
   const web = await fetchJson(`https://kick.com/api/v2/channels/${encodeURIComponent(slug)}`)
   const row = asRecord(web)
   if (!row) return null
@@ -133,4 +141,18 @@ export async function fetchKickClips(
   }
 
   return []
+}
+
+export async function fetchKickLeaderboards(slug: string) {
+  const safe = slug.replace(/^@/, '').toLowerCase().trim()
+  if (!safe) return emptyKickLeaderboard()
+  try {
+    const payload = await fetchJson(
+      `https://kick.com/api/v2/channels/${encodeURIComponent(safe)}/leaderboards`
+    )
+    return parseKickLeaderboard(payload)
+  } catch (error) {
+    console.warn('[Kick leaderboards] failed:', error)
+    return emptyKickLeaderboard()
+  }
 }

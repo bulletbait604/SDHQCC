@@ -1,3 +1,11 @@
+import {
+  extractSocialsFromKickLinks,
+  extractSocialsFromKickUser,
+  extractSocialsFromText,
+  mergeSocials,
+  type ExtractedSocial,
+} from '@/lib/kick/extractSocials'
+
 export type KickChannelSnapshot = {
   slug: string
   displayName: string
@@ -15,6 +23,7 @@ export type KickChannelSnapshot = {
   followersCount: number | null
   channelId: string | null
   recentCategories: string[]
+  socials: ExtractedSocial[]
   playerEmbedUrl: string
   channelUrl: string
   source: 'kick-public-api' | 'kick-web-api' | 'kick-merged'
@@ -76,6 +85,7 @@ export function mapOfficialChannel(
     followersCount: null,
     channelId: asString(row.id),
     recentCategories: [],
+    socials: [],
     playerEmbedUrl: `https://player.kick.com/${encodeURIComponent(slug)}`,
     channelUrl: `https://kick.com/${slug}`,
     source: 'kick-public-api',
@@ -100,13 +110,20 @@ export function mapWebChannel(
 ): KickChannelSnapshot {
   const user = asRecord(row.user) || {}
   const livestream = asRecord(row.livestream)
-  const previous = asRecord(row.previous_livestream)
+  const previousList = Array.isArray(row.previous_livestreams) ? row.previous_livestreams : []
+  const previous = asRecord(row.previous_livestream) || asRecord(previousList[0])
   const liveBlock = livestream || previous
   const offlineBanner = asRecord(row.offline_banner_image)
   const liveBanner = asRecord(row.banner_image) || asRecord(row.banner)
   const slug = asString(row.slug) || asString(user.username) || fallbackSlug
   const isLive = Boolean(livestream)
   const recentCategories = recentCategoryNames(row)
+  const description = asString(user.bio) || asString(row.bio) || ''
+  const socials = mergeSocials(
+    extractSocialsFromKickUser(user),
+    extractSocialsFromKickLinks(row.ascending_links),
+    extractSocialsFromText(description)
+  )
   return {
     slug,
     displayName: asString(user.username) || slug,
@@ -114,7 +131,7 @@ export function mapWebChannel(
     bannerUrl: isLive
       ? asString(liveBanner?.url) || asString(offlineBanner?.src)
       : asString(offlineBanner?.src) || asString(liveBanner?.url) || asString(liveBanner?.src),
-    description: asString(user.bio) || asString(row.bio) || '',
+    description,
     isLive,
     streamTitle:
       asString(liveBlock?.session_title) ||
@@ -138,9 +155,11 @@ export function mapWebChannel(
       asString(liveBlock?.thumbnail) ||
       asString(asRecord(liveBlock?.thumbnail)?.src),
     subscriberCount: asNumber(row.subscription_count) || asNumber(row.subscriber_count),
-    followersCount: asNumber(row.followers_count) || asNumber(row.follower_count),
+    followersCount:
+      asNumber(row.followers_count) || asNumber(row.follower_count) || asNumber(row.followersCount),
     channelId: asString(row.id) || (asNumber(row.id) != null ? String(asNumber(row.id)) : null),
     recentCategories,
+    socials,
     playerEmbedUrl: `https://player.kick.com/${encodeURIComponent(slug)}`,
     channelUrl: `https://kick.com/${slug}`,
     source: 'kick-web-api',
@@ -173,6 +192,7 @@ export function mergeKickChannels(
     followersCount: web.followersCount ?? official.followersCount,
     channelId: web.channelId || official.channelId,
     recentCategories: web.recentCategories.length ? web.recentCategories : official.recentCategories,
+    socials: web.socials.length ? web.socials : official.socials,
     playerEmbedUrl: official.playerEmbedUrl || web.playerEmbedUrl,
     channelUrl: official.channelUrl || web.channelUrl,
     source: 'kick-merged',

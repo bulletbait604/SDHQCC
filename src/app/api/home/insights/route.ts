@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
       displayName: channel.displayName,
       description: channel.description,
       recentCategories: channel.recentCategories,
+      socials: channel.socials,
     })
     const updatedAt = new Date().toISOString()
     await col.updateOne(

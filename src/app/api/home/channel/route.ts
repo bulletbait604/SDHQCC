@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
-import { fetchKickChannel } from '@/lib/kick/fetchChannel'
+import { fetchKickChannel, fetchKickLeaderboards } from '@/lib/kick/fetchChannel'
 import clientPromise from '@/lib/mongodb'
 
 export const dynamic = 'force-dynamic'
@@ -9,7 +9,10 @@ export async function GET(request: NextRequest) {
   try {
     const user = await verifyAuth(request)
     const slug = user.username
-    const channel = await fetchKickChannel(slug)
+    const [channel, leaderboard] = await Promise.all([
+      fetchKickChannel(slug),
+      fetchKickLeaderboards(slug),
+    ])
 
     try {
       const mongo = await clientPromise
@@ -27,7 +30,7 @@ export async function GET(request: NextRequest) {
       /* Mongo is optional for the live/offline card */
     }
 
-    return NextResponse.json({ channel })
+    return NextResponse.json({ channel, leaderboard })
   } catch (error) {
     if (error instanceof AuthError) return createAuthErrorResponse(error)
     const message = error instanceof Error ? error.message : 'Could not load Kick channel'

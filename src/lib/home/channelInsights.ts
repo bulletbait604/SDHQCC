@@ -3,6 +3,7 @@ import {
   extractSocialsFromText,
   extractUrls,
   isFetchableProfilePage,
+  mergeSocials,
   type ExtractedSocial,
 } from '@/lib/kick/extractSocials'
 import type { ChannelInsights } from '@/lib/home/channelInsightsTypes'
@@ -80,7 +81,7 @@ function parseInsightsJson(raw: string, fallbackSocials: ExtractedSocial[]): Cha
     schedule:
       (typeof parsed.schedule === 'string' && parsed.schedule.trim()) ||
       'No public schedule found.',
-    socials: (socialsFromModel.length ? socialsFromModel : fallbackSocials).slice(0, 12),
+    socials: mergeSocials(fallbackSocials, socialsFromModel).slice(0, 12),
     sourceNotes:
       (typeof parsed.sourceNotes === 'string' && parsed.sourceNotes.trim()) ||
       'Summarized from the Kick about section and public profile links.',
@@ -92,8 +93,9 @@ export async function buildChannelInsights(input: {
   displayName: string
   description: string
   recentCategories?: string[]
+  socials?: ExtractedSocial[]
 }): Promise<ChannelInsights> {
-  const linked = extractSocialsFromText(input.description)
+  const linked = mergeSocials(input.socials || [], extractSocialsFromText(input.description))
   const extraPages: string[] = []
   for (const social of linked) {
     if (!isFetchableProfilePage(social.url)) continue
@@ -132,6 +134,8 @@ Do not invent games, times, or usernames that are not supported by the text.
 Kick username: ${input.username}
 Display name: ${input.displayName}
 Recent Kick categories: ${recentCategories.join(', ') || '(none)'}
+Linked Kick socials:
+${linked.map((s) => `${s.network} ${s.username || ''} ${s.url}`).join('\n') || '(none)'}
 About text:
 ${input.description.slice(0, 3500)}
 

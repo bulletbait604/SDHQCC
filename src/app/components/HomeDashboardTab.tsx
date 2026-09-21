@@ -9,6 +9,7 @@ import {
   Radio,
   RefreshCw,
   Sparkles,
+  Trophy,
   Users,
   Video,
   Wand2,
@@ -18,6 +19,7 @@ import { Button } from '@/components/ui/button'
 import type { KickUser } from '@/lib/home/types'
 import type { KickChannelSnapshot, KickClipCard } from '@/lib/kick/channelSnapshot'
 import type { ChannelInsights } from '@/lib/home/channelInsightsTypes'
+import { emptyKickLeaderboard, type KickLeaderboard } from '@/lib/kick/leaderboard'
 import type { useClipAnalyzer } from '@/hooks/useClipAnalyzer'
 
 type ClipAnalyzer = ReturnType<typeof useClipAnalyzer>
@@ -66,6 +68,8 @@ export default function HomeDashboardTab({
   onOpenTab,
 }: Props) {
   const [channel, setChannel] = useState<KickChannelSnapshot | null>(null)
+  const [leaderboard, setLeaderboard] = useState<KickLeaderboard>(emptyKickLeaderboard)
+  const [boardPeriod, setBoardPeriod] = useState<'week' | 'month' | 'lifetime'>('week')
   const [channelError, setChannelError] = useState('')
   const [channelLoading, setChannelLoading] = useState(true)
   const [insights, setInsights] = useState<ChannelInsights | null>(null)
@@ -92,6 +96,11 @@ export default function HomeDashboardTab({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Could not load channel')
       setChannel(data.channel as KickChannelSnapshot)
+      setLeaderboard(
+        data.leaderboard && typeof data.leaderboard === 'object'
+          ? (data.leaderboard as KickLeaderboard)
+          : emptyKickLeaderboard()
+      )
     } catch (error) {
       setChannelError(error instanceof Error ? error.message : 'Could not load channel')
     } finally {
@@ -141,6 +150,26 @@ export default function HomeDashboardTab({
   const visibleClips = useMemo(() => clips.slice(0, clipVisible), [clips, clipVisible])
   const lastLive = formatWhen(channel?.isLive ? channel.startedAt : channel?.lastLiveAt ?? null)
   const avatar = channel?.profileImageUrl || user.profile_image_url
+  const boardRows =
+    boardPeriod === 'week' ? leaderboard.week : boardPeriod === 'month' ? leaderboard.month : leaderboard.lifetime
+  const hasLeaderboard =
+    leaderboard.week.length + leaderboard.month.length + leaderboard.lifetime.length > 0
+
+  useEffect(() => {
+    if (leaderboard.week.length) setBoardPeriod('week')
+    else if (leaderboard.month.length) setBoardPeriod('month')
+    else setBoardPeriod('lifetime')
+  }, [leaderboard.week.length, leaderboard.month.length, leaderboard.lifetime.length])
+  const socials = useMemo(() => {
+    const rows = [...(channel?.socials || []), ...(insights?.socials || [])]
+    const seen = new Set<string>()
+    return rows.filter((social) => {
+      const key = `${social.network}:${social.url}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }, [channel?.socials, insights?.socials])
 
   const analyzeClip = async (clip: KickClipCard) => {
     const sourceUrl = clip.videoUrl || clip.clipUrl
@@ -315,6 +344,75 @@ export default function HomeDashboardTab({
       </section>
 
       <section className={`${panel} p-4 sm:p-5`}>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className={`flex items-center gap-2 text-xl font-bold ${title}`}>
+              <Trophy className="h-5 w-5 text-sdhq-cyan-400" />
+              Gift Leaderboard
+            </h3>
+            <p className={`mt-1 text-xs ${muted}`}>Top gifters on your Kick channel</p>
+          </div>
+          <div className="flex gap-1">
+            {(
+              [
+                { id: 'week' as const, label: 'Week' },
+                { id: 'month' as const, label: 'Month' },
+                { id: 'lifetime' as const, label: 'Lifetime' },
+              ]
+            ).map((period) => (
+              <button
+                key={period.id}
+                type="button"
+                onClick={() => setBoardPeriod(period.id)}
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  boardPeriod === period.id
+                    ? 'bg-sdhq-cyan-500 text-black'
+                    : darkMode
+                      ? 'bg-white/10 text-gray-300'
+                      : 'bg-sdhq-cyan-50 text-sdhq-cyan-800'
+                }`}
+              >
+                {period.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {!hasLeaderboard ? (
+          <p className={`text-sm ${muted}`}>
+            No public gift leaderboard yet. This fills in as viewers gift KICKs on your channel.
+          </p>
+        ) : boardRows.length === 0 ? (
+          <p className={`text-sm ${muted}`}>No gifters in this period yet. Try Month or Lifetime.</p>
+        ) : (
+          <ol className="space-y-2">
+            {boardRows.map((entry) => (
+              <li
+                key={`${boardPeriod}-${entry.userId || entry.username}`}
+                className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
+                  darkMode ? 'border-white/10 bg-sdhq-dark-900/40' : 'border-sdhq-cyan-100 bg-cyan-50/40'
+                }`}
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className={`w-6 text-center text-sm font-black ${entry.rank === 1 ? 'text-sdhq-cyan-400' : muted}`}>
+                    {entry.rank}
+                  </span>
+                  <a
+                    href={entry.profileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`truncate text-sm font-semibold hover:underline ${title}`}
+                  >
+                    {entry.username}
+                  </a>
+                </div>
+                <span className={`shrink-0 text-sm font-bold ${title}`}>{formatCount(entry.quantity)} KICKs</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+
+      <section className={`${panel} p-4 sm:p-5`}>
         <div className="mb-4 flex items-center justify-between gap-3">
           <h3 className={`text-xl font-bold ${title}`}>Your Channel Insights</h3>
           <Button
@@ -327,33 +425,37 @@ export default function HomeDashboardTab({
             Refresh
           </Button>
         </div>
-        {insightsLoading && !insights ? (
+        {insightsLoading && !insights && socials.length === 0 ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-sdhq-cyan-400" />
           </div>
-        ) : insightsError ? (
+        ) : insightsError && !insights && socials.length === 0 ? (
           <p className="text-sm text-red-400">{insightsError}</p>
-        ) : insights ? (
+        ) : insights || socials.length ? (
           <div className="grid gap-3 sm:grid-cols-2">
-            <InsightCard darkMode={darkMode} label="Streamer Background" body={insights.streamerBackground} />
-            <InsightCard darkMode={darkMode} label="Game Styles" body={insights.gameStyles} />
-            <InsightCard
-              darkMode={darkMode}
-              label="Fav Games"
-              body={insights.favoriteGames.length ? insights.favoriteGames.join(' · ') : 'None listed yet'}
-            />
-            <InsightCard darkMode={darkMode} label="Schedule" body={insights.schedule} />
+            {insights ? (
+              <>
+                <InsightCard darkMode={darkMode} label="Streamer Background" body={insights.streamerBackground} />
+                <InsightCard darkMode={darkMode} label="Game Styles" body={insights.gameStyles} />
+                <InsightCard
+                  darkMode={darkMode}
+                  label="Fav Games"
+                  body={insights.favoriteGames.length ? insights.favoriteGames.join(' · ') : 'None listed yet'}
+                />
+                <InsightCard darkMode={darkMode} label="Schedule" body={insights.schedule} />
+              </>
+            ) : null}
             <div
               className={`sm:col-span-2 rounded-xl border p-4 ${
                 darkMode ? 'border-white/10 bg-sdhq-dark-900/40' : 'border-sdhq-cyan-100 bg-cyan-50/40'
               }`}
             >
               <p className={`mb-2 text-xs font-semibold uppercase tracking-wide ${muted}`}>Socials</p>
-              {insights.socials.length === 0 ? (
-                <p className={`text-sm ${muted}`}>No public social links found in the Kick about section.</p>
+              {socials.length === 0 ? (
+                <p className={`text-sm ${muted}`}>No public social links found on the Kick profile.</p>
               ) : (
                 <ul className="flex flex-wrap gap-2">
-                  {insights.socials.map((social) => (
+                  {socials.map((social) => (
                     <li key={`${social.network}-${social.url}`}>
                       {social.url ? (
                         <a
@@ -377,7 +479,9 @@ export default function HomeDashboardTab({
                   ))}
                 </ul>
               )}
-              <p className={`mt-3 text-xs ${muted}`}>{insights.sourceNotes}</p>
+              <p className={`mt-3 text-xs ${muted}`}>
+                {insights?.sourceNotes || 'Pulled from Kick profile social fields and about links.'}
+              </p>
             </div>
           </div>
         ) : null}

@@ -6,7 +6,13 @@ test('mapWebChannel treats livestream presence as live and keeps previous livest
   const mapped = mapWebChannel(
     {
       slug: 'demo',
-      user: { username: 'Demo', profile_pic: 'https://files.kick.com/pic.png', bio: 'FPS nights' },
+      user: {
+        username: 'Demo',
+        profile_pic: 'https://files.kick.com/pic.png',
+        bio: 'FPS nights',
+        instagram: 'demo.ig',
+        twitter: 'demo_x',
+      },
       livestream: null,
       previous_livestream: { created_at: '2026-09-20T01:00:00Z', session_title: 'Ranked' },
       followers_count: 1200,
@@ -28,6 +34,9 @@ test('mapWebChannel treats livestream presence as live and keeps previous livest
   assert.equal(mapped.bannerUrl, 'https://files.kick.com/offline.png')
   assert.deepEqual(mapped.recentCategories, ['Wardogs'])
   assert.equal(mapped.category, 'Wardogs')
+  assert.equal(mapped.socials[0]?.network, 'Instagram')
+  assert.equal(mapped.socials[0]?.username, 'demo.ig')
+  assert.equal(mapped.socials[1]?.network, 'X')
 })
 
 test('mergeKickChannels prefers official live state and web bio/followers', () => {

@@ -31,7 +31,24 @@ const HOST_NETWORK: Record<string, string> = {
   'patreon.com': 'Patreon',
 }
 
+const KICK_USER_SOCIALS: Array<{
+  key: string
+  network: string
+  toUrl: (handle: string) => string
+}> = [
+  { key: 'instagram', network: 'Instagram', toUrl: (h) => `https://instagram.com/${stripAt(h)}` },
+  { key: 'twitter', network: 'X', toUrl: (h) => `https://x.com/${stripAt(h)}` },
+  { key: 'youtube', network: 'YouTube', toUrl: (h) => `https://youtube.com/${h.startsWith('@') ? h : `@${stripAt(h)}`}` },
+  { key: 'discord', network: 'Discord', toUrl: (h) => `https://discord.gg/${stripAt(h)}` },
+  { key: 'tiktok', network: 'TikTok', toUrl: (h) => `https://tiktok.com/@${stripAt(h)}` },
+  { key: 'facebook', network: 'Facebook', toUrl: (h) => `https://facebook.com/${stripAt(h)}` },
+]
+
 const URL_RE = /https?:\/\/[^\s<>"'`)\]},]+/gi
+
+function stripAt(value: string): string {
+  return value.replace(/^@/, '').trim()
+}
 
 function stripTrailingPunct(url: string): string {
   return url.replace(/[).,;!?]+$/g, '')
@@ -63,6 +80,21 @@ function usernameFromPath(url: string, network: string): string | null {
   }
 }
 
+function socialFromUrl(url: string): ExtractedSocial | null {
+  const cleaned = stripTrailingPunct(url)
+  const host = hostOf(cleaned)
+  if (!host) return null
+  const network =
+    HOST_NETWORK[host] ||
+    HOST_NETWORK[`www.${host}`] ||
+    (host.endsWith('.carrd.co') ? 'Carrd' : host)
+  return {
+    network,
+    username: usernameFromPath(cleaned, network),
+    url: cleaned,
+  }
+}
+
 export function extractUrls(text: string): string[] {
   const matches = text.match(URL_RE) || []
   const seen = new Set<string>()
@@ -81,19 +113,61 @@ export function extractSocialsFromText(text: string): ExtractedSocial[] {
   const seen = new Set<string>()
   const out: ExtractedSocial[] = []
   for (const url of urls) {
-    const host = hostOf(url)
-    const network =
-      HOST_NETWORK[host] ||
-      HOST_NETWORK[`www.${host}`] ||
-      (host.endsWith('.carrd.co') ? 'Carrd' : host ? host : 'Link')
-    const key = `${network}:${url}`
+    const social = socialFromUrl(url)
+    if (!social) continue
+    const key = `${social.network}:${social.url}`
     if (seen.has(key)) continue
     seen.add(key)
+    out.push(social)
+  }
+  return out.slice(0, 12)
+}
+
+/** Kick stores linked socials as usernames on user.*, not as URLs in the bio. */
+export function extractSocialsFromKickUser(user: Record<string, unknown> | null | undefined): ExtractedSocial[] {
+  if (!user) return []
+  const out: ExtractedSocial[] = []
+  for (const row of KICK_USER_SOCIALS) {
+    const raw = user[row.key]
+    if (typeof raw !== 'string' || !raw.trim()) continue
+    const handle = raw.trim()
+    const url = /^https?:\/\//i.test(handle) ? handle : row.toUrl(handle)
     out.push({
-      network,
-      username: usernameFromPath(url, network),
+      network: row.network,
+      username: /^https?:\/\//i.test(handle) ? usernameFromPath(handle, row.network) : handle,
       url,
     })
+  }
+  return out
+}
+
+export function extractSocialsFromKickLinks(links: unknown): ExtractedSocial[] {
+  if (!Array.isArray(links)) return []
+  const out: ExtractedSocial[] = []
+  for (const item of links) {
+    const rec = item && typeof item === 'object' ? (item as Record<string, unknown>) : null
+    const url = typeof rec?.link === 'string' ? rec.link.trim() : ''
+    if (!url) continue
+    const social = socialFromUrl(url)
+    if (social) out.push(social)
+  }
+  return out
+}
+
+export function mergeSocials(...groups: ExtractedSocial[][]): ExtractedSocial[] {
+  const seenNetwork = new Set<string>()
+  const seenUrl = new Set<string>()
+  const out: ExtractedSocial[] = []
+  for (const group of groups) {
+    for (const social of group) {
+      const urlKey = social.url.toLowerCase()
+      if (seenUrl.has(urlKey)) continue
+      const known = KICK_USER_SOCIALS.some((row) => row.network === social.network)
+      if (known && seenNetwork.has(social.network)) continue
+      seenUrl.add(urlKey)
+      if (known) seenNetwork.add(social.network)
+      out.push(social)
+    }
   }
   return out.slice(0, 12)
 }
