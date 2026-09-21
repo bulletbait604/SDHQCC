@@ -232,6 +232,7 @@ export default function HomeMainTabs({
           tabPanelClasses={tabPanelClasses}
           clipAnalyzer={clipAnalyzer}
           hasUnlimitedAccess={hasUnlimitedAccess}
+          hasEnoughCoins={hasEnoughCoins}
           onOpenTab={onTabChange}
         />
       </TabsContent>

@@ -34,7 +34,13 @@ export interface ClipAnalysisResult {
   titles?: string[]
   description?: string
   tags?: string[]
-  overlays?: Array<{ type: string; timing: string; description?: string }>
+  overlays?: Array<{
+    type: string
+    timing: string
+    description?: string
+    details?: string[]
+    proTips?: string[]
+  }>
   insights?: ClipAnalysisInsight[]
   recommendations?: ClipAnalysisRecommendation[]
   hookAnalysis?: {
@@ -75,7 +81,7 @@ interface UseClipAnalyzerOptions {
   user: KickUser | null
   userType: string
   platforms: Platform[]
-  hasEnoughCoins: (tool: 'clip-analyzer') => boolean
+  hasEnoughCoins: (tool: 'clip-analyzer' | 'home-clip-analyze') => boolean
   hasUnlimitedAccess: boolean
   refreshBalance: () => void
   onActivityLog?: (entry: ActivityLogEntry) => void
@@ -135,7 +141,10 @@ export function useClipAnalyzer({
   const logClipAnalysis = useCallback(
     (platform: string, data: ClipAnalysisResult) => {
       if (!user) return
-      const detailLine = `Analyzed clip for ${platform} (score: ${data.score})`
+      const detailLine =
+        typeof data.score === 'number' && Number.isFinite(data.score)
+          ? `Analyzed clip for ${platform} (score: ${data.score})`
+          : `AI overlay and edit suggestions for ${platform}`
       const clipEstUsd =
         typeof data.estimatedCostUsd === 'number' && Number.isFinite(data.estimatedCostUsd)
           ? data.estimatedCostUsd
@@ -308,8 +317,10 @@ export function useClipAnalyzer({
       platform: string
       fileName: string
       loadingLabel?: string
+      tool?: 'clip-analyzer' | 'home-clip-analyze'
     }): Promise<{ ok: true; data: ClipAnalysisResult } | { ok: false; error: string }> => {
-      if (!hasUnlimitedAccess && !hasEnoughCoins('clip-analyzer')) {
+      const tool = params.tool || 'clip-analyzer'
+      if (!hasUnlimitedAccess && !hasEnoughCoins(tool)) {
         return {
           ok: false,
           error:
@@ -336,6 +347,7 @@ export function useClipAnalyzer({
             mimeType: 'video/mp4',
             fileName: params.fileName,
             platform: params.platform,
+            tool,
             userId: user?.id || '',
             userType,
           }),

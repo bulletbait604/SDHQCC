@@ -160,6 +160,105 @@ Return ONLY this JSON (no markdown, no preamble):
 }`
 }
 
+export type HomeClipOverlaySuggestion = {
+  type: string
+  timing: string
+  description?: string
+  details?: string[]
+  proTips?: string[]
+}
+
+function asTrimmedStrings(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
+    .map((item) => item.trim())
+    .slice(0, 8)
+}
+
+export function normalizeHomeClipOverlays(value: unknown): HomeClipOverlaySuggestion[] {
+  const rows = Array.isArray(value) ? value : []
+  const out: HomeClipOverlaySuggestion[] = []
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue
+    const rec = row as Record<string, unknown>
+    const type = typeof rec.type === 'string' && rec.type.trim() ? rec.type.trim().toLowerCase() : ''
+    const timing = typeof rec.timing === 'string' && rec.timing.trim() ? rec.timing.trim() : ''
+    if (!type || !timing) continue
+    const description =
+      typeof rec.description === 'string' && rec.description.trim() ? rec.description.trim() : undefined
+    out.push({
+      type,
+      timing,
+      description,
+      details: asTrimmedStrings(rec.details),
+      proTips: asTrimmedStrings(rec.proTips),
+    })
+  }
+  return out.slice(0, 8)
+}
+
+/** Home Analyze button: watch the clip and return clip-specific overlays + edits (no score UI). */
+export function buildHomeClipEditSuggestionsPrompt(params: {
+  platformLabel: string
+  targetPlatform: TargetPlatform
+}): string {
+  return `You are a video editor watching THIS exact clip. Analyze the video (visuals, audio, pacing, on-screen text, game/UI, speech). Every suggestion must be specific to what happens in this clip — names, quotes, weapons, jokes, HUD, music. Do not write generic CapCut tutorials that would apply to any video.
+
+Platform to edit for: ${params.platformLabel}
+${platformEditingDirective(params.targetPlatform)}
+
+Return ONLY this JSON (no markdown, no preamble, no scores):
+{
+  "recommendations": [
+    { "priority": "high", "category": "Hook", "text": "<timestamped edit that cites what is on screen>" },
+    { "priority": "high", "category": "Cut", "text": "<timestamped edit>" },
+    { "priority": "med", "category": "Audio", "text": "<timestamped edit>" },
+    { "priority": "med", "category": "Text", "text": "<timestamped edit>" },
+    { "priority": "med", "category": "CTA", "text": "<timestamped edit>" },
+    { "priority": "low", "category": "Pacing", "text": "<timestamped edit>" }
+  ],
+  "overlays": [
+    {
+      "type": "text",
+      "timing": "<e.g. 0:03-0:07>",
+      "description": "<exact words/moment this overlay is for>",
+      "details": ["<clip-specific step>", "<clip-specific step>", "<clip-specific step>", "<clip-specific step>"],
+      "proTips": ["<clip-specific tip>", "<clip-specific tip>"]
+    },
+    {
+      "type": "sound",
+      "timing": "<e.g. 0:00-0:12>",
+      "description": "<what in the audio/this moment to change>",
+      "details": ["<clip-specific step>", "<clip-specific step>", "<clip-specific step>", "<clip-specific step>"],
+      "proTips": ["<clip-specific tip>", "<clip-specific tip>"]
+    },
+    {
+      "type": "visual",
+      "timing": "<e.g. 0:08-0:11>",
+      "description": "<what is on screen at this cut>",
+      "details": ["<clip-specific step>", "<clip-specific step>", "<clip-specific step>", "<clip-specific step>"],
+      "proTips": ["<clip-specific tip>", "<clip-specific tip>"]
+    },
+    {
+      "type": "cta",
+      "timing": "<e.g. last 2s>",
+      "description": "<CTA tied to this clip's punchline or outcome>",
+      "details": ["<clip-specific step>", "<clip-specific step>", "<clip-specific step>", "<clip-specific step>"],
+      "proTips": ["<clip-specific tip>", "<clip-specific tip>"]
+    }
+  ]
+}
+
+RULES:
+1. Watch the clip. If dialogue is unclear, describe visible action instead of inventing quotes.
+2. recommendations: 5–8 items. Each text MUST include a timestamp and a concrete edit (cut, overlay copy, zoom, mute, crop).
+3. overlays: include text, sound, visual, and cta unless a type truly does not fit this clip.
+4. details[] and proTips[] must mention THIS clip's content. Forbidden: "open your editor", "use CapCut", "test on mobile" as the only advice.
+5. Overlay description is the actual on-screen copy or moment, not a generic label.
+}`
+}
+
 function clampScore(n: unknown, fallback = 50): number {
   const x = typeof n === 'number' ? n : Number(n)
   if (!Number.isFinite(x)) return fallback

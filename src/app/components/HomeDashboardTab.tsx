@@ -23,6 +23,7 @@ import type { ChannelInsights } from '@/lib/home/channelInsightsTypes'
 import { emptyKickLeaderboard, type KickLeaderboard, type KickLeaderboardPeriod } from '@/lib/kick/leaderboard'
 import type { useClipAnalyzer } from '@/hooks/useClipAnalyzer'
 import ClipEditSuggestionsPanel from '@/app/components/ClipEditSuggestionsPanel'
+import { toolCoinCost } from '@/lib/coins/toolCosts'
 
 type ClipAnalyzer = ReturnType<typeof useClipAnalyzer>
 
@@ -33,9 +34,11 @@ type Props = {
   tabPanelClasses: string
   clipAnalyzer: ClipAnalyzer
   hasUnlimitedAccess: boolean
+  hasEnoughCoins: (tool: 'home-clip-analyze') => boolean
   onOpenTab?: (tab: string) => void
 }
 
+const HOME_ANALYZE_COINS = toolCoinCost('home-clip-analyze') ?? 3
 const INITIAL_CLIPS = 5
 const PAGE_SIZE = 25
 
@@ -77,6 +80,7 @@ export default function HomeDashboardTab({
   tabPanelClasses,
   clipAnalyzer,
   hasUnlimitedAccess,
+  hasEnoughCoins,
   onOpenTab,
 }: Props) {
   const [channel, setChannel] = useState<KickChannelSnapshot | null>(null)
@@ -179,14 +183,19 @@ export default function HomeDashboardTab({
   }, [channel?.socials, insights?.socials])
 
   const analyzeClip = async (clip: KickClipCard) => {
-    const sourceUrl = clip.videoUrl || clip.clipUrl
     setAnalyzingId(clip.id)
     setShowAnalysis(true)
+    if (!clip.videoUrl) {
+      clipAnalyzer.setClipError('This clip has no downloadable video file to analyze.')
+      setAnalyzingId(null)
+      return
+    }
     const result = await clipAnalyzer.analyzeFromSourceUrl({
-      sourceUrl,
+      sourceUrl: clip.videoUrl,
       platform: 'tiktok',
       fileName: `${clip.title || 'kick-clip'}.mp4`,
-      loadingLabel: 'Finding edit suggestions…',
+      loadingLabel: 'Watching your clip and writing edit suggestions…',
+      tool: 'home-clip-analyze',
     })
     setAnalyzingId(null)
     if (!result.ok) setShowAnalysis(true)
@@ -470,10 +479,20 @@ export default function HomeDashboardTab({
                         </p>
                       </div>
                       <Button
-                        title={hasUnlimitedAccess ? 'Get overlay and edit suggestions' : 'Get overlay and edit suggestions · 2 coins'}
+                        title={
+                          !clip.videoUrl
+                            ? 'This clip has no downloadable video file'
+                            : hasUnlimitedAccess
+                            ? 'AI overlay and edit suggestions for this clip'
+                            : `AI overlay and edit suggestions · ${HOME_ANALYZE_COINS} coins`
+                        }
                         size="sm"
                         className="h-8 shrink-0 px-2 text-xs"
-                        disabled={clipAnalyzer.isAnalyzingClip}
+                        disabled={
+                          !clip.videoUrl ||
+                          clipAnalyzer.isAnalyzingClip ||
+                          (!hasUnlimitedAccess && !hasEnoughCoins('home-clip-analyze'))
+                        }
                         onClick={() => void analyzeClip(clip)}
                       >
                         {analyzingId === clip.id ? (
@@ -481,7 +500,9 @@ export default function HomeDashboardTab({
                         ) : (
                           <Sparkles className="h-3.5 w-3.5" />
                         )}
-                        <span className="ml-1">Analyze</span>
+                        <span className="ml-1">
+                          {hasUnlimitedAccess ? 'Analyze' : `Analyze (${HOME_ANALYZE_COINS})`}
+                        </span>
                       </Button>
                     </div>
                   </article>

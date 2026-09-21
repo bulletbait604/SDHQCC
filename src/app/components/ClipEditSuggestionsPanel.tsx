@@ -2,7 +2,13 @@
 
 import type { ClipAnalysisRecommendation } from '@/hooks/useClipAnalyzer'
 
-type Overlay = { type: string; timing: string; description?: string }
+type Overlay = {
+  type: string
+  timing: string
+  description?: string
+  details?: string[]
+  proTips?: string[]
+}
 
 const OVERLAY_ICONS: Record<string, string> = {
   text: '✏️',
@@ -135,7 +141,11 @@ export default function ClipEditSuggestionsPanel({
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {rows.map((overlay, idx) => {
-              const content = overlayGuide(overlay.type, overlay.timing)
+              const fallback = overlayGuide(overlay.type, overlay.timing)
+              const content = {
+                details: overlay.details?.length ? overlay.details : fallback.details,
+                proTips: overlay.proTips?.length ? overlay.proTips : fallback.proTips,
+              }
               return (
                 <div
                   key={`${overlay.type}-${overlay.timing}-${idx}`}

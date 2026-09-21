@@ -24,7 +24,9 @@ import { formatAlgorithmContextForPlatform } from '@/lib/algorithmContext'
 import { geoPromptBlock, resolveRequestGeo } from '@/lib/requestGeo'
 import {
   buildClipAnalyzePrompt,
+  buildHomeClipEditSuggestionsPrompt,
   clipAnalyzeTimeoutMs,
+  normalizeHomeClipOverlays,
   recalibrateClipAnalysisScores,
   resolveClipAnalyzeModel,
 } from '@/lib/clipAnalyzePrompt'
@@ -34,6 +36,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 const CLIP_ANALYZE_COIN_COST = toolCoinCost('clip-analyzer') ?? 2
+const HOME_CLIP_ANALYZE_COIN_COST = toolCoinCost('home-clip-analyze') ?? 3
 
 /** Gemini can fetch HTTPS / signed URLs directly; larger clips still use the Files API after R2. */
 const GEMINI_EXTERNAL_URL_MAX_BYTES = 100 * 1024 * 1024
@@ -56,7 +59,66 @@ type ClipIngestionMode =
   | 'r2-presigned-url'
   | 'r2-gemini-files'
   | 'legacy-gemini-file'
-  | 'external-url'
+  | 'external-url-gemini-files'
+
+const CLIP_FETCH_HEADERS = {
+  Accept: 'video/mp4,video/webm,video/*,application/octet-stream,*/*',
+  'User-Agent': 'SDHQCC/1.0 (Creator Corner clip analyze)',
+  Referer: 'https://kick.com/',
+}
+
+function isHtmlClipPageUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    const host = parsed.hostname.toLowerCase()
+    if (host === 'kick.com' || host === 'www.kick.com' || host === 'player.kick.com') return true
+    return false
+  } catch {
+    return true
+  }
+}
+
+function mimeFromClipResponse(contentType: string | null, url: string): string {
+  const raw = (contentType || '').split(';')[0].trim().toLowerCase()
+  if (raw.startsWith('video/')) return raw
+  if (url.toLowerCase().includes('.webm')) return 'video/webm'
+  if (url.toLowerCase().includes('.mov')) return 'video/quicktime'
+  return 'video/mp4'
+}
+
+async function downloadPublicClipForGemini(sourceUrl: string): Promise<{ buffer: Buffer; mimeType: string }> {
+  if (isHtmlClipPageUrl(sourceUrl)) {
+    throw new Error('This clip has no downloadable video file. Try another clip.')
+  }
+  const response = await fetch(sourceUrl, {
+    headers: CLIP_FETCH_HEADERS,
+    cache: 'no-store',
+    redirect: 'follow',
+  })
+  if (!response.ok) {
+    throw new Error(`Could not download clip for analysis (${response.status}).`)
+  }
+  const contentType = response.headers.get('content-type')
+  const type = (contentType || '').toLowerCase()
+  if (type.includes('text/html') || type.includes('application/json')) {
+    throw new Error('This clip URL is a page, not a video file. Try another clip.')
+  }
+  if (type.includes('mpegurl') || type.includes('m3u8') || sourceUrl.toLowerCase().includes('.m3u8')) {
+    throw new Error('This clip is a live stream playlist and cannot be analyzed as a file.')
+  }
+  const lengthHeader = Number(response.headers.get('content-length') || '0')
+  if (Number.isFinite(lengthHeader) && lengthHeader > CLIP_MAX_BYTES) {
+    throw new Error('File too large (max 250MB)')
+  }
+  const buffer = Buffer.from(await response.arrayBuffer())
+  if (buffer.length < 1024) {
+    throw new Error('Clip file was too small to analyze.')
+  }
+  if (buffer.length > CLIP_MAX_BYTES) {
+    throw new Error('File too large (max 250MB)')
+  }
+  return { buffer, mimeType: mimeFromClipResponse(contentType, sourceUrl) }
+}
 
 /**
  * Gemini sometimes returns valid JSON plus trailing prose or a duplicate blob.
@@ -101,7 +163,7 @@ export async function POST(request: NextRequest) {
 
     console.log('[DEBUG] Clip Analyze API: Parsing request body...')
     const body = await request.json()
-    const { fileUri, r2FileKey, sourceUrl, mimeType, fileName, fileSize, platform } = body as {
+    const { fileUri, r2FileKey, sourceUrl, mimeType, fileName, fileSize, platform, tool } = body as {
       fileUri?: string
       r2FileKey?: string
       sourceUrl?: string
@@ -109,7 +171,11 @@ export async function POST(request: NextRequest) {
       fileName?: string
       fileSize?: number
       platform?: string
+      tool?: string
     }
+    const spendTool = tool === 'home-clip-analyze' ? 'home-clip-analyze' : 'clip-analyzer'
+    const coinCost = spendTool === 'home-clip-analyze' ? HOME_CLIP_ANALYZE_COIN_COST : CLIP_ANALYZE_COIN_COST
+    const editSuggestionsOnly = spendTool === 'home-clip-analyze'
 
     console.log('[DEBUG] Clip Analyze API: Request data:', {
       hasR2Key: !!r2FileKey,
@@ -144,11 +210,11 @@ export async function POST(request: NextRequest) {
       const balanceKey = await resolveCoinBalanceUserId(db, user)
       const row = await db.collection('coinBalances').findOne({ userId: balanceKey })
       const coins = typeof row?.coins === 'number' ? row.coins : 0
-      if (coins < CLIP_ANALYZE_COIN_COST) {
+      if (coins < coinCost) {
         return NextResponse.json(
           {
             error: 'Not enough coins',
-            userMessage: `Clip Analyzer needs at least ${CLIP_ANALYZE_COIN_COST} coins. Purchase coins or upgrade for unlimited access.`,
+            userMessage: `This analyze needs at least ${coinCost} coins. Purchase coins or upgrade for unlimited access.`,
           },
           { status: 403 }
         )
@@ -260,9 +326,34 @@ export async function POST(request: NextRequest) {
       clipIngestionMode = 'legacy-gemini-file'
       console.log('[DEBUG] Clip Analyze: Using client-provided Gemini fileUri (legacy)')
     } else if (typeof sourceUrl === 'string' && /^https?:\/\//i.test(sourceUrl)) {
-      analysisFileUri = sourceUrl
-      clipIngestionMode = 'external-url'
-      console.log('[DEBUG] Clip Analyze: Using client-provided external sourceUrl')
+      let downloaded: { buffer: Buffer; mimeType: string }
+      try {
+        downloaded = await downloadPublicClipForGemini(sourceUrl)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Could not load clip video for analysis.'
+        return NextResponse.json(
+          {
+            error: 'Clip download failed',
+            userMessage: message,
+          },
+          { status: 400 }
+        )
+      }
+      effectiveMime = downloaded.mimeType
+      const uploaded = await uploadBufferToGeminiFilesApi({
+        apiKey: geminiApiKey,
+        buffer: downloaded.buffer,
+        mimeType: downloaded.mimeType,
+        displayName: typeof fileName === 'string' ? fileName : 'clip.mp4',
+      })
+      cleanupGeminiName = uploaded.name
+      await pollGeminiFileUntilActive(geminiApiKey, uploaded.uri)
+      analysisFileUri = uploaded.uri
+      clipIngestionMode = 'external-url-gemini-files'
+      console.log(
+        '[DEBUG] Clip Analyze: Downloaded sourceUrl and uploaded to Gemini Files API, size:',
+        downloaded.buffer.length
+      )
     } else {
       return NextResponse.json(
         {
@@ -282,8 +373,8 @@ export async function POST(request: NextRequest) {
         ? 'r2-presigned-url'
         : clipIngestionMode === 'r2-gemini-files'
           ? 'r2-then-gemini-files'
-          : clipIngestionMode === 'external-url'
-            ? 'external-url'
+          : clipIngestionMode === 'external-url-gemini-files'
+            ? 'external-url-gemini-files'
           : 'legacy-gemini-file-uri'
 
     // Create basic extracted data from file metadata
@@ -311,15 +402,21 @@ export async function POST(request: NextRequest) {
     const locationBlock = geoPromptBlock(geo)
     const modelName = resolveClipAnalyzeModel()
     const analyzeTimeoutMs = clipAnalyzeTimeoutMs()
-    const analyzePrompt = buildClipAnalyzePrompt({
-      platformLabel: platform,
-      targetPlatform,
-      algoBlock: algoCtx.block,
-      locationBlock,
-      timezone: geo.timezone,
-      algorithmPlatformId: algoCtx.algorithmPlatformId,
-      algorithmUpdatedAt: algoCtx.lastUpdated,
-    })
+    const maxOutputTokens = editSuggestionsOnly ? 8192 : 4096
+    const analyzePrompt = editSuggestionsOnly
+      ? buildHomeClipEditSuggestionsPrompt({
+          platformLabel: platform,
+          targetPlatform,
+        })
+      : buildClipAnalyzePrompt({
+          platformLabel: platform,
+          targetPlatform,
+          algoBlock: algoCtx.block,
+          locationBlock,
+          timezone: geo.timezone,
+          algorithmPlatformId: algoCtx.algorithmPlatformId,
+          algorithmUpdatedAt: algoCtx.lastUpdated,
+        })
 
       const genAI = new GoogleGenAI({ apiKey: geminiApiKey })
 
@@ -364,7 +461,7 @@ export async function POST(request: NextRequest) {
             contents,
             config: {
               temperature: 0.35,
-              maxOutputTokens: 4096,
+              maxOutputTokens,
               thinkingConfig: { thinkingBudget: 0 },
             } as {
               temperature?: number
@@ -379,7 +476,7 @@ export async function POST(request: NextRequest) {
           genAI.models.generateContent({
             model: modelName,
             contents,
-            config: { temperature: 0.35, maxOutputTokens: 4096 },
+            config: { temperature: 0.35, maxOutputTokens },
           })
         )
       }
@@ -537,21 +634,32 @@ export async function POST(request: NextRequest) {
     }
 
     if (analysisResult && typeof analysisResult === 'object') {
-      const calibrated = recalibrateClipAnalysisScores(
-        analysisResult as Record<string, unknown>
+      const overlays = normalizeHomeClipOverlays(
+        (analysisResult as Record<string, unknown>).overlays
       )
-      const meta = normalizeClipAnalysisMetadata(platform, {
-        title: calibrated.title,
-        titles: calibrated.titles,
-        description: calibrated.description,
-        tags: calibrated.tags,
-      })
-      analysisResult = {
-        ...calibrated,
-        title: meta.title,
-        titles: meta.titles,
-        description: meta.description,
-        tags: meta.tags,
+      if (editSuggestionsOnly) {
+        analysisResult = {
+          ...(analysisResult as Record<string, unknown>),
+          overlays,
+        }
+      } else {
+        const calibrated = recalibrateClipAnalysisScores(
+          analysisResult as Record<string, unknown>
+        )
+        const meta = normalizeClipAnalysisMetadata(platform, {
+          title: calibrated.title,
+          titles: calibrated.titles,
+          description: calibrated.description,
+          tags: calibrated.tags,
+        })
+        analysisResult = {
+          ...calibrated,
+          title: meta.title,
+          titles: meta.titles,
+          description: meta.description,
+          tags: meta.tags,
+          overlays: overlays.length ? overlays : calibrated.overlays,
+        }
       }
     }
 
@@ -566,7 +674,7 @@ export async function POST(request: NextRequest) {
     const clipCost = estimateClipAnalysisUsd()
 
     if (!hasUnlimitedAccess(user)) {
-      const spend = await spendToolCoins(user, 'clip-analyzer')
+      const spend = await spendToolCoins(user, spendTool)
       if (!spend.ok) {
         return NextResponse.json(
           { error: spend.reason, required: spend.required, available: spend.available },
