@@ -8,6 +8,7 @@ import {
   extractSessionToken,
 } from '@/lib/auth/verifyAuth'
 import { isSiteOwner } from '@/lib/home/ownerIdentity'
+import { isProTrialActive, readTrialEnd } from '@/lib/billing/trial'
 import { allGrantableRndTabs, readGrantedRndTabs } from '@/lib/home/rndGrants'
 
 export const dynamic = 'force-dynamic'
@@ -34,6 +35,8 @@ export async function GET(req: NextRequest) {
       subscription: {
         isVerified: false,
         isLifetime: false,
+        isProTrial: false,
+        proTrialEndsAt: null,
       },
       preferences: {
         language: 'en',
@@ -91,11 +94,15 @@ export async function GET(req: NextRequest) {
       ? allGrantableRndTabs()
       : await readGrantedRndTabs(authUser.username)
 
+    const proTrialEndsAt = readTrialEnd(dbUser?.proTrialEndsAt)
+
     return NextResponse.json({
       user: kickUser,
       subscription: {
         isVerified: !!subDoc,
         isLifetime: !!lifeDoc,
+        isProTrial: isProTrialActive(proTrialEndsAt),
+        proTrialEndsAt,
       },
       preferences: {
         language: prefs.language || 'en',
@@ -109,7 +116,7 @@ export async function GET(req: NextRequest) {
         user: null,
         banned: true,
         message: error.message,
-        subscription: { isVerified: false, isLifetime: false },
+        subscription: { isVerified: false, isLifetime: false, isProTrial: false, proTrialEndsAt: null },
         preferences: { language: 'en', darkMode: false },
       })
     }

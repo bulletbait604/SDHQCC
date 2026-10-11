@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import {
   isPayPalSandbox,
+  paypalAnnualPlanId,
   paypalClientCredentials,
   paypalMode,
   paypalSandboxUsingGenericPlanFallback,
@@ -8,6 +9,7 @@ import {
   paypalSdkPlanId,
   paypalSubscriptionPlanIdFormatOk,
 } from '@/lib/paypalEnv'
+import { PRO_ANNUAL, PRO_MONTHLY, PRO_TRIAL_DAYS } from '@/lib/billing/plans'
 import { getPayPalBillingPlan } from '@/lib/paypalServerApi'
 
 /**
@@ -18,6 +20,7 @@ export async function GET() {
   const sandbox = isPayPalSandbox()
   const clientId = paypalSdkClientId() ?? null
   const planId = paypalSdkPlanId() ?? null
+  const annualPlanId = paypalAnnualPlanId() ?? null
 
   /** SDK / client-ID issues that affect all PayPal flows (Subscribe, coins, donations). */
   const sdkWarnings: string[] = []
@@ -83,6 +86,23 @@ export async function GET() {
     }
   }
 
+  let annualPlanResolvedOnPayPal: boolean | null = null
+  let annualWarning: string | null = null
+  if (!annualPlanId) {
+    annualWarning = sandbox
+      ? 'Annual Pro needs NEXT_PUBLIC_PAYPAL_PLAN_ID_ANNUAL_SANDBOX. Run npm run create-paypal-plan:sandbox and paste the annual Plan ID. Monthly checkout is unchanged.'
+      : 'Annual Pro needs NEXT_PUBLIC_PAYPAL_PLAN_ID_ANNUAL. Run npm run create-paypal-plan and paste the annual Plan ID. Monthly checkout keeps using NEXT_PUBLIC_PAYPAL_PLAN_ID.'
+  } else if (!paypalSubscriptionPlanIdFormatOk(annualPlanId)) {
+    annualWarning = 'Annual plan ID must be a Billing Plan ID starting with P-.'
+  } else if (secretPresent) {
+    const ar = await getPayPalBillingPlan(annualPlanId)
+    annualPlanResolvedOnPayPal = ar.ok
+    if (!ar.ok) {
+      annualWarning =
+        'PayPal could not load the annual Plan ID for this app. Create a yearly plan with npm run create-paypal-plan and set NEXT_PUBLIC_PAYPAL_PLAN_ID_ANNUAL (sandbox: NEXT_PUBLIC_PAYPAL_PLAN_ID_ANNUAL_SANDBOX).'
+    }
+  }
+
   const allWarnings = [...sdkWarnings, ...subscribePlanWarnings]
 
   return NextResponse.json({
@@ -99,6 +119,13 @@ export async function GET() {
     planVerifyIssue,
     /** Sub-reason when planVerifyIssue === oauth */
     oauthFailureDetail,
+    annualPlanId,
+    annualPlanIdFormatOk: annualPlanId ? paypalSubscriptionPlanIdFormatOk(annualPlanId) : null,
+    annualPlanResolvedOnPayPal,
+    annualWarning,
+    trialDays: PRO_TRIAL_DAYS,
+    monthlyPriceCad: PRO_MONTHLY.priceCad,
+    annualPriceCad: PRO_ANNUAL.priceCad,
     /** All warnings (Subscribe popup, diagnostics). */
     warning: allWarnings.length ? allWarnings.join(' ') : null,
     /** One-time checkout only (coins, donations) — excludes subscription plan messages. */

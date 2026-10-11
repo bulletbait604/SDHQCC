@@ -44,6 +44,7 @@ function thumbnailImageSrc(key: string): string {
 interface Props {
   userId?: string
   userType?: string
+  proAccess?: boolean
   darkMode?: boolean
   platforms: Platform[]
   user?: { username: string } | null
@@ -61,6 +62,7 @@ interface Props {
 export default function ThumbnailGenerator({ 
   userId, 
   userType, 
+  proAccess = false,
   darkMode = true, 
   platforms, 
   user, 
@@ -94,7 +96,8 @@ export default function ThumbnailGenerator({
     loading: coinLoading 
   } = useCoins({ 
     userId: userId || '', 
-    userRole: userType 
+    userRole: userType,
+    proAccess,
   })
   
   const COIN_COST = 2 // Thumbnail generator costs 2 coins

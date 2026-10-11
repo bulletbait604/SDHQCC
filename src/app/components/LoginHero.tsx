@@ -86,6 +86,14 @@ export default function LoginHero({
         <Button onClick={onLogin} className="sdhq-button px-8 py-3 text-lg">
           {loginButtonLabel}
         </Button>
+        <a
+          href="/pricing"
+          className={`mt-4 text-sm font-semibold underline-offset-4 hover:underline ${
+            darkMode ? 'text-sdhq-cyan-300' : 'text-sdhq-cyan-700'
+          }`}
+        >
+          See plans and pricing
+        </a>
       </div>
     </div>
   )

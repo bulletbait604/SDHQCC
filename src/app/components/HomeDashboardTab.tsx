@@ -35,6 +35,7 @@ type Props = {
   clipAnalyzer: ClipAnalyzer
   hasUnlimitedAccess: boolean
   hasEnoughCoins: (tool: 'home-clip-analyze') => boolean
+  analysisRemaining?: number
   onOpenTab?: (tab: string) => void
 }
 
@@ -81,6 +82,7 @@ export default function HomeDashboardTab({
   clipAnalyzer,
   hasUnlimitedAccess,
   hasEnoughCoins,
+  analysisRemaining = 0,
   onOpenTab,
 }: Props) {
   const [channel, setChannel] = useState<KickChannelSnapshot | null>(null)
@@ -484,7 +486,9 @@ export default function HomeDashboardTab({
                             ? 'This clip has no downloadable video file'
                             : hasUnlimitedAccess
                             ? 'AI overlay and edit suggestions for this clip'
-                            : `AI overlay and edit suggestions · ${HOME_ANALYZE_COINS} coins`
+                            : analysisRemaining > 0
+                              ? `AI overlay and edit suggestions · ${analysisRemaining} free today`
+                              : `AI overlay and edit suggestions · ${HOME_ANALYZE_COINS} coins`
                         }
                         size="sm"
                         className="h-8 shrink-0 px-2 text-xs"
@@ -501,7 +505,11 @@ export default function HomeDashboardTab({
                           <Sparkles className="h-3.5 w-3.5" />
                         )}
                         <span className="ml-1">
-                          {hasUnlimitedAccess ? 'Analyze' : `Analyze (${HOME_ANALYZE_COINS})`}
+                          {hasUnlimitedAccess
+                            ? 'Analyze'
+                            : analysisRemaining > 0
+                              ? `Analyze (${analysisRemaining} free)`
+                              : `Analyze (${HOME_ANALYZE_COINS})`}
                         </span>
                       </Button>
                     </div>

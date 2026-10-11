@@ -31,7 +31,14 @@ export async function fulfillSubscriberMembership(username: string): Promise<voi
   await Promise.all([
     db.collection('users').updateOne(
       { username: normalized },
-      { $set: { username: normalized, role: 'subscriber', updatedAt: now } },
+      {
+        $set: {
+          username: normalized,
+          role: 'subscriber',
+          proTrialUsed: true,
+          updatedAt: now,
+        },
+      },
       { upsert: true }
     ),
     db.collection('subscribers').updateOne(

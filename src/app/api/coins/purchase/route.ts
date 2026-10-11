@@ -3,6 +3,7 @@ import clientPromise from '@/lib/mongodb'
 import { verifyAuth, AuthError } from '@/lib/auth/verifyAuth'
 import { paypalApiBase, paypalClientCredentials } from '@/lib/paypalEnv'
 import { convertCadAmount, SUPPORTED_PAYPAL_CURRENCIES } from '@/lib/currency'
+import { coinPack } from '@/lib/billing/plans'
 
 async function getPayPalAccessToken(): Promise<string | null> {
   const { clientId, clientSecret } = paypalClientCredentials()
@@ -39,12 +40,6 @@ async function getPayPalAccessToken(): Promise<string | null> {
   }
 }
 
-const COIN_PACKAGES = {
-  small: { coins: 12, price: 5, label: 'Starter Pack' },
-  medium: { coins: 30, price: 10, label: 'Value Pack' },
-  large: { coins: 80, price: 20, label: 'Pro Pack' },
-} as const
-
 export async function POST(req: NextRequest) {
   try {
     const user = await verifyAuth(req)
@@ -57,16 +52,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Package type required' }, { status: 400 })
     }
 
-    const pkg = COIN_PACKAGES[packageType as keyof typeof COIN_PACKAGES]
-    if (!pkg) {
+    const selected = coinPack(packageType)
+    if (!selected) {
       return NextResponse.json(
         {
           error: 'Invalid package type',
-          validPackages: Object.keys(COIN_PACKAGES),
+          validPackages: ['small', 'medium', 'large'],
         },
         { status: 400 }
       )
     }
+    const pkg = { coins: selected.coins, price: selected.priceCad, label: selected.label }
     const currencyCandidate =
       typeof preferredCurrency === 'string' ? preferredCurrency.toUpperCase().trim() : 'CAD'
     const currency = SUPPORTED_PAYPAL_CURRENCIES.has(currencyCandidate) ? currencyCandidate : 'CAD'

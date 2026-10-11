@@ -40,6 +40,7 @@ import { hasTabAccessForUser } from '@/lib/home/ownerIdentity'
 import { applyOwnerViewAs } from '@/lib/home/ownerViewAs'
 import { startKickLogin } from '@/lib/kick/startKickLogin'
 import { DEFAULT_HOME_TAB } from '@/lib/home/tabUrl'
+import type { SubscriptionInterval } from '@/lib/billing/plans'
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState(DEFAULT_HOME_TAB)
@@ -57,11 +58,13 @@ export default function HomePage() {
   const [showDonatePopup, setShowDonatePopup] = useState(false)
   const [showCoinPurchase, setShowCoinPurchase] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
+  const [subscribeInterval, setSubscribeInterval] = useState<SubscriptionInterval>('month')
+  const [trialNotice, setTrialNotice] = useState<string | null>(null)
 
   const closeCoinPurchase = useCallback(() => setShowCoinPurchase(false), [])
 
   const { config: paypalCfg, loading: paypalCfgLoading, error: paypalCfgError } = usePayPalPublicConfig()
-  const { checkoutCurrency, subscriptionLocalPrice, lifetimeLocalPrice, currencyQuoteNote } =
+  const { checkoutCurrency, subscriptionLocalPrice, annualLocalPrice, lifetimeLocalPrice, currencyQuoteNote } =
     useCheckoutPricing()
 
   const fetchUserRoleRef = useRef<() => void | Promise<void>>(() => {})
@@ -85,6 +88,9 @@ export default function HomePage() {
     setIsVerified,
     isLifetime,
     setIsLifetime,
+    isProTrial,
+    setIsProTrial,
+    proTrialEndsAt,
     rndTabs,
     handleLanguageChange,
     toggleDarkMode,
@@ -201,15 +207,18 @@ export default function HomePage() {
 
   const feedback = useHomeFeedback(user, preview.userRole, preview.isOwner)
 
+  const trialProAccess = isProTrial && (!isOwner || viewAs === 'owner')
   const {
     balance,
     hasEnoughCoins,
     hasUnlimitedAccess,
+    freeQuota,
     loading: coinLoading,
     refreshBalance,
   } = useCoins({
     userId: user?.username || '',
     userRole: preview.userRole,
+    proAccess: trialProAccess,
   })
 
   const handleMainTabChange = (value: string) => {
@@ -254,8 +263,63 @@ export default function HomePage() {
   }
 
   const handleVerifySubscription = () => {
+    setSubscribeInterval('month')
     setShowSubscribePopup(true)
   }
+
+  useEffect(() => {
+    if (!mounted || !sessionChecked || !user) return
+    const params = new URLSearchParams(window.location.search)
+    const checkout = params.get('checkout')
+    if (!checkout) return
+    params.delete('checkout')
+    const next = params.toString()
+    window.history.replaceState({}, '', next ? `/?${next}` : '/')
+
+    if (checkout === 'pro-annual') {
+      setSubscribeInterval('year')
+      setShowSubscribePopup(true)
+      return
+    }
+    if (checkout === 'pro-monthly') {
+      setSubscribeInterval('month')
+      setShowSubscribePopup(true)
+      return
+    }
+    if (checkout === 'lifetime') {
+      setShowLifetimePopup(true)
+      return
+    }
+    if (checkout === 'coins') {
+      setShowCoinPurchase(true)
+      return
+    }
+    if (checkout === 'trial') {
+      void (async () => {
+        const res = await fetch('/api/trial/start', { method: 'POST', credentials: 'include' })
+        const data = (await res.json().catch(() => ({}))) as {
+          trialEndsAt?: string
+          alreadyPro?: boolean
+          alreadyActive?: boolean
+          error?: string
+        }
+        if (res.ok && data.trialEndsAt) {
+          setIsProTrial(true)
+          setTrialNotice(
+            data.alreadyActive
+              ? `Your Pro trial runs until ${new Date(data.trialEndsAt).toLocaleDateString()}.`
+              : `Pro trial started. It runs until ${new Date(data.trialEndsAt).toLocaleDateString()}.`
+          )
+          return
+        }
+        if (data.alreadyPro) {
+          setTrialNotice('This account already has Pro access.')
+          return
+        }
+        setTrialNotice(data.error || 'Could not start the Pro trial.')
+      })()
+    }
+  }, [mounted, sessionChecked, user, setIsProTrial])
 
   const handleLifetimePassCheckout = () => {
     setShowLifetimePopup(true)
@@ -320,6 +384,26 @@ export default function HomePage() {
       />
 
       <main className="container mx-auto px-3 pt-1.5 pb-6 sm:px-4">
+        {trialNotice ? (
+          <div
+            className={`mb-3 rounded-2xl border px-4 py-3 text-sm ${
+              darkMode
+                ? 'border-sdhq-cyan-400/40 bg-sdhq-cyan-500/10 text-sdhq-cyan-100'
+                : 'border-sdhq-cyan-300 bg-white text-sdhq-cyan-900'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <p>{trialNotice}</p>
+              <button type="button" className="text-xs uppercase tracking-wide" onClick={() => setTrialNotice(null)}>
+                Dismiss
+              </button>
+            </div>
+          </div>
+        ) : isProTrial && proTrialEndsAt ? (
+          <p className={`mb-3 text-sm ${darkMode ? 'text-sdhq-cyan-200' : 'text-sdhq-cyan-800'}`}>
+            Pro trial active until {new Date(proTrialEndsAt).toLocaleDateString()}.
+          </p>
+        ) : null}
         {!user ? (
           <LoginHero
             darkMode={darkMode}
@@ -366,6 +450,8 @@ export default function HomePage() {
             hasTabAccess={previewHasTabAccess}
             hasEnoughCoins={hasEnoughCoins}
             hasUnlimitedAccess={hasUnlimitedAccess}
+            freeQuota={freeQuota}
+            proAccess={trialProAccess}
             coinLoading={coinLoading}
             refreshBalance={refreshBalance}
             onActivityLog={appendActivityLog}
@@ -461,6 +547,8 @@ export default function HomePage() {
           paypalCfgLoading={paypalCfgLoading}
           paypalCfgError={paypalCfgError}
           subscriptionLocalPrice={subscriptionLocalPrice}
+          annualLocalPrice={annualLocalPrice}
+          billingInterval={subscribeInterval}
           checkoutCurrency={checkoutCurrency}
           lifetimeLocalPrice={lifetimeLocalPrice}
           onClose={() => setShowSubscribePopup(false)}

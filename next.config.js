@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    experimental: {
+      outputFileTracingIncludes: {
+        '/api/streamdeck/download': ['./streamdeck-plugin/**/*'],
+      },
+    },
     images: {
       domains: [
         'kick.com',

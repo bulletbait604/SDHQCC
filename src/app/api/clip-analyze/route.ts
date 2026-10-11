@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 import clientPromise from '@/lib/mongodb'
-import { verifyAuth, hasUnlimitedAccess, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
-import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
-import { spendToolCoins } from '@/lib/coins/spendToolCoins'
+import { verifyAuth, hasProAccess, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { toolCoinCost } from '@/lib/coins/toolCosts'
+import { chargeForTool, previewToolAccess } from '@/lib/billing/toolAccess'
 import {
   getFileFromR2,
   deleteFileFromR2,
@@ -208,21 +207,19 @@ export async function POST(request: NextRequest) {
     // Note: 150MB limit is enforced on the frontend for direct URLs
     // Videos larger than 150MB may not be accessible for analysis
 
-    // Access: paid tiers unlimited; free tier gated by coin balance (coins deducted client-side after success)
-    if (!hasUnlimitedAccess(user)) {
+    // Pro (paid role or active trial) is unlimited. Free accounts use a daily analysis quota, then coins.
+    if (!hasProAccess(user)) {
       if (user.role !== 'free') {
         return NextResponse.json({ error: 'Access denied. Subscription required.' }, { status: 403 })
       }
       const client = await clientPromise
       const db = client.db('sdhq')
-      const balanceKey = await resolveCoinBalanceUserId(db, user)
-      const row = await db.collection('coinBalances').findOne({ userId: balanceKey })
-      const coins = typeof row?.coins === 'number' ? row.coins : 0
-      if (coins < coinCost) {
+      const preview = await previewToolAccess(db, user, spendTool)
+      if (!preview.ok) {
         return NextResponse.json(
           {
             error: 'Not enough coins',
-            userMessage: `This analyze needs at least ${coinCost} coins. Purchase coins or upgrade for unlimited access.`,
+            userMessage: `This analyze needs a free daily analysis or at least ${coinCost} coins. Purchase coins or upgrade for unlimited access.`,
           },
           { status: 403 }
         )
@@ -681,8 +678,8 @@ export async function POST(request: NextRequest) {
 
     const clipCost = estimateClipAnalysisUsd()
 
-    if (!hasUnlimitedAccess(user)) {
-      const spend = await spendToolCoins(user, spendTool)
+    if (!hasProAccess(user)) {
+      const spend = await chargeForTool(user, spendTool)
       if (!spend.ok) {
         return NextResponse.json(
           { error: spend.reason, required: spend.required, available: spend.available },

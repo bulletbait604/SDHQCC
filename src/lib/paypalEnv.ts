@@ -102,6 +102,23 @@ export function paypalSandboxUsingGenericPlanFallback(): boolean {
   return !explicit && !!generic
 }
 
+/**
+ * Annual Pro billing plan. Separate from the monthly plan so an old monthly Plan ID
+ * is never reused as the yearly price.
+ */
+export function paypalAnnualPlanId(): string | undefined {
+  if (isPayPalSandbox()) {
+    const p =
+      normalizePlanIdEnv(process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_ANNUAL_SANDBOX) ||
+      normalizePlanIdEnv(process.env.PAYPAL_PLAN_ID_ANNUAL_SANDBOX)
+    return p || undefined
+  }
+  const live =
+    normalizePlanIdEnv(process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_ANNUAL) ||
+    normalizePlanIdEnv(process.env.PAYPAL_PLAN_ID_ANNUAL)
+  return live || undefined
+}
+
 /** @deprecated Prefer /api/paypal-public-config in client components (runtime env). */
 export function publicPayPalClientId(): string | undefined {
   return paypalSdkClientId()

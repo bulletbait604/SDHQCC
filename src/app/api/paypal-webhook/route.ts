@@ -170,7 +170,10 @@ export async function POST(req: NextRequest) {
       ipnData[key] = value
     })
     
-    // Check if this is a subscription webhook (JSON format)
+    // Subscription webhooks are JSON. This route does not check PAYPAL-TRANSMISSION-SIG.
+    // Grant and revoke paths re-fetch the subscription or order from PayPal before changing access.
+    // A forged BILLING.SUBSCRIPTION.UPDATED used to downgrade from the body alone; that path now
+    // uses the PayPal API status. Signature verification still needs PAYPAL_WEBHOOK_ID from the owner.
     const contentType = req.headers.get('content-type')
     if (contentType && contentType.includes('application/json')) {
       // Handle PayPal subscription webhook events
@@ -200,8 +203,16 @@ export async function POST(req: NextRequest) {
           
           // Only proceed if PayPal confirms the subscription is ACTIVE
           if (verifiedSubscription.status !== 'ACTIVE') {
-            console.error(`❌ Subscription ${subscriptionId} status is ${verifiedSubscription.status}, not ACTIVE - webhook rejected`)
-            return NextResponse.json({ status: 'error', message: 'Subscription not active' }, { status: 400 })
+            // BILLING.SUBSCRIPTION.CREATED commonly arrives while the subscription is
+            // APPROVAL_PENDING. Returning 400 makes PayPal retry a normal event.
+            console.log(
+              `Subscription ${subscriptionId} is ${verifiedSubscription.status}, not ACTIVE — ignoring until activation`
+            )
+            return NextResponse.json({
+              status: 'ignored',
+              message: 'Subscription is not ACTIVE yet',
+              subscriptionStatus: verifiedSubscription.status,
+            })
           }
           
           // Use verified data from PayPal, not just webhook data
@@ -253,7 +264,7 @@ export async function POST(req: NextRequest) {
               console.log(`✅ Subscription ${subscriptionId} VERIFIED and activated for ${username}, role upgraded to subscriber`)
               
               // Log subscription payment
-              await logActivity(username.toLowerCase(), 'subscription_payment', `Subscribed - $6.99/month (ID: ${subscriptionId})`)
+              await logActivity(username.toLowerCase(), 'subscription_payment', `Pro subscription recorded (ID: ${subscriptionId}, plan ${planId || 'unknown'})`)
               await logActivity(
                 username.toLowerCase(),
                 'subscription_activated',
@@ -598,26 +609,33 @@ export async function POST(req: NextRequest) {
           }
         }
         
-        // Handle subscription update (e.g., payment failure)
+        // Handle subscription update (e.g., payment failure).
+        // Trust PayPal's API status, not the unsigned webhook body, before removing Pro.
         if (eventType === 'BILLING.SUBSCRIPTION.UPDATED') {
           const subscriptionId = eventData.resource?.id
-          const newStatus = eventData.resource?.status
-          
-          if (subscriptionId && newStatus) {
+
+          if (subscriptionId) {
+            const verifiedSubscription = await verifySubscriptionWithPayPal(subscriptionId)
+            if (!verifiedSubscription) {
+              console.error(`❌ Update webhook for ${subscriptionId} rejected - PayPal verification failed`)
+              return NextResponse.json({ status: 'error', message: 'Verification failed' }, { status: 400 })
+            }
+
+            const newStatus = verifiedSubscription.status
             const client = await clientPromise
             const db = client.db('sdhq')
-            
+
             await db.collection('subscriptions').updateOne(
               { subscriptionId },
               {
                 $set: {
                   status: newStatus,
+                  verifiedWithPayPal: true,
                   updatedAt: new Date().toISOString()
                 }
               }
             )
-            
-            // If status is no longer ACTIVE, downgrade user
+
             if (newStatus !== 'ACTIVE') {
               const subscription = await db.collection('subscriptions').findOne({ subscriptionId })
               if (subscription) {
@@ -630,7 +648,7 @@ export async function POST(req: NextRequest) {
                 console.log(`Subscription ${subscriptionId} status changed to ${newStatus}, user ${subscription.username} downgraded`)
               }
             }
-            
+
             return NextResponse.json({ status: 'success', subscriptionId, action: 'updated', newStatus })
           }
         }

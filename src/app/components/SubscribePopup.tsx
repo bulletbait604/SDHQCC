@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Crown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { PayPalPublicConfig } from '@/hooks/usePayPalPublicConfig'
+import type { SubscriptionInterval } from '@/lib/billing/plans'
 import type { KickUser } from '@/lib/home/types'
 import PayPalModalShell from '@/app/components/PayPalModalShell'
 
@@ -14,6 +15,8 @@ export interface SubscribePopupProps {
   paypalCfgLoading: boolean
   paypalCfgError: string | null
   subscriptionLocalPrice: number
+  annualLocalPrice: number
+  billingInterval?: SubscriptionInterval
   checkoutCurrency: string
   lifetimeLocalPrice: number
   onClose: () => void
@@ -29,6 +32,8 @@ export default function SubscribePopup({
   paypalCfgLoading,
   paypalCfgError,
   subscriptionLocalPrice,
+  annualLocalPrice,
+  billingInterval = 'month',
   checkoutCurrency,
   lifetimeLocalPrice,
   onClose,
@@ -54,21 +59,27 @@ export default function SubscribePopup({
   }, [])
 
   useEffect(() => {
+    setPaypalLoaded(false)
+  }, [billingInterval])
+
+  useEffect(() => {
     if (paypalLoaded) return
     if (paypalCfgLoading) return
 
     const paypalClientId = paypalCfg?.clientId
-    const planId = paypalCfg?.planId
+    const planId = billingInterval === 'year' ? paypalCfg?.annualPlanId : paypalCfg?.planId
+    const planFormatOk = billingInterval === 'year' ? paypalCfg?.annualPlanIdFormatOk : paypalCfg?.planIdFormatOk
+    const planResolved = billingInterval === 'year' ? paypalCfg?.annualPlanResolvedOnPayPal : paypalCfg?.planResolvedOnPayPal
 
     if (!paypalClientId || !planId) {
       console.error('PayPal: client ID or plan ID missing — check /api/paypal-public-config and Vercel env.')
       return
     }
-    if (paypalCfg?.planIdFormatOk === false) {
+    if (planFormatOk === false) {
       console.error('PayPal: Plan ID must start with P- (billing plan), not PROD-. Skipping Subscribe button.')
       return
     }
-    if (paypalCfg?.planResolvedOnPayPal === false) {
+    if (planResolved === false) {
       console.error(
         'PayPal: Plan ID not found for this REST app / environment — fix NEXT_PUBLIC_PAYPAL_PLAN_ID_SANDBOX (sandbox) or create plan with same app. Skipping Subscribe button.'
       )
@@ -235,29 +246,40 @@ export default function SubscribePopup({
     paypalCfgLoading,
     paypalCfg?.clientId,
     paypalCfg?.planId,
+    paypalCfg?.annualPlanId,
     paypalCfg?.sandbox,
     paypalCfg?.planIdFormatOk,
+    paypalCfg?.annualPlanIdFormatOk,
     paypalCfg?.planResolvedOnPayPal,
+    paypalCfg?.annualPlanResolvedOnPayPal,
+    billingInterval,
   ])
 
   return (
     <PayPalModalShell darkMode={darkMode} title="Unlock Premium Features" onClose={onClose}>
       <div className="space-y-4">
         <p className={`text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-          Subscribe to unlock all premium features for{' '}
-          {subscriptionLocalPrice.toLocaleString(undefined, { style: 'currency', currency: checkoutCurrency })}
-          /month.
+          {billingInterval === 'year' ? 'Pro annual' : 'Pro monthly'} unlocks every tool for{' '}
+          {(billingInterval === 'year' ? annualLocalPrice : subscriptionLocalPrice).toLocaleString(undefined, {
+            style: 'currency',
+            currency: checkoutCurrency,
+          })}
+          /{billingInterval === 'year' ? 'year' : 'month'}. A 7-day Pro trial is available from the pricing page
+          before you subscribe.
         </p>
 
         <div
           className={`p-4 rounded-lg border ${darkMode ? 'border-sdhq-cyan-500 bg-sdhq-dark-700' : 'border-sdhq-cyan-500 bg-gray-50'}`}
         >
           <p className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-            PayPal Subscription plan (monthly):
+            PayPal Subscription plan ({billingInterval === 'year' ? 'annual' : 'monthly'}):
           </p>
           <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-            {subscriptionLocalPrice.toLocaleString(undefined, { style: 'currency', currency: checkoutCurrency })} / month
-            — Premium Access
+            {(billingInterval === 'year' ? annualLocalPrice : subscriptionLocalPrice).toLocaleString(undefined, {
+              style: 'currency',
+              currency: checkoutCurrency,
+            })}{' '}
+            / {billingInterval === 'year' ? 'year' : 'month'} — Pro
           </p>
           {checkoutCurrency !== 'CAD' ? (
             <p className={`text-xs mt-2 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
@@ -270,6 +292,9 @@ export default function SubscribePopup({
           <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Loading PayPal configuration…</p>
         ) : null}
         {paypalCfgError ? <p className="text-sm text-red-500">{paypalCfgError}</p> : null}
+        {billingInterval === 'year' && paypalCfg?.annualWarning ? (
+          <p className={`text-sm ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>{paypalCfg.annualWarning}</p>
+        ) : null}
         {paypalCfg?.warning ? (
           <p className={`text-sm ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>{paypalCfg.warning}</p>
         ) : null}

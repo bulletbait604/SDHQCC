@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { verifyAuth, hasUnlimitedAccess, AuthError } from '@/lib/auth/verifyAuth'
+import { verifyAuth, hasProAccess, AuthError } from '@/lib/auth/verifyAuth'
 import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
 import {
   DAILY_FREE_COINS,
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
     const balanceUserId = await resolveCoinBalanceUserId(db, user)
 
-    if (hasUnlimitedAccess(user)) {
+    if (hasProAccess(user)) {
       return NextResponse.json({
         success: true,
         coins: 999999,

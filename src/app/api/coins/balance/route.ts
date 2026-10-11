@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 import clientPromise from '@/lib/mongodb'
-import { verifyAuth, hasUnlimitedAccess, AuthError } from '@/lib/auth/verifyAuth'
+import { verifyAuth, hasProAccess, AuthError } from '@/lib/auth/verifyAuth'
+import { readFreeQuota } from '@/lib/billing/freeQuota'
 import { Document, WithId } from 'mongodb'
 import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
 import {
@@ -29,11 +30,12 @@ export async function GET(req: NextRequest) {
     const client = await clientPromise
     const db = client.db('sdhq')
 
-    if (hasUnlimitedAccess(user)) {
+    if (hasProAccess(user)) {
       return NextResponse.json({
         coins: 999999,
         unlimited: true,
         role: user.role,
+        proTrial: !['subscriber', 'subscriber_lifetime', 'admin', 'owner', 'tester'].includes(user.role),
       })
     }
 
@@ -110,6 +112,8 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    const freeQuota = await readFreeQuota(user.username)
+
     return NextResponse.json({
       coins: balance.coins,
       lastDailyReset: balance.lastDailyReset,
@@ -117,6 +121,7 @@ export async function GET(req: NextRequest) {
       totalEarned: balance.totalEarned || 0,
       totalSpent: balance.totalSpent || 0,
       unlimited: false,
+      freeQuota,
     })
   } catch (error: unknown) {
     if (error instanceof AuthError) {

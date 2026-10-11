@@ -4,7 +4,7 @@ import { buildTagGeneratorPrompt } from '@/lib/tagGeneratorPrompt'
 import { estimateTagGenerationUsd } from '@/lib/estimatedInferenceCost'
 import { sanitizeGeneratedTag } from '@/lib/home/tagUtils'
 import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
-import { spendToolCoins } from '@/lib/coins/spendToolCoins'
+import { chargeForTool, refundToolCharge } from '@/lib/billing/toolAccess'
 import { verifyStaffUser } from '@/lib/auth/staffAccess'
 
 // Force dynamic rendering to prevent static optimization
@@ -256,21 +256,23 @@ export async function DELETE(request: NextRequest) {
 
 // POST endpoint - generate tags from description
 export async function POST(request: NextRequest) {
+  let user: Awaited<ReturnType<typeof verifyAuth>> | null = null
+  let spend: Awaited<ReturnType<typeof chargeForTool>> | null = null
   try {
-    const user = await verifyAuth(request)
-    const spend = await spendToolCoins(user, 'tag-generator')
-    if (!spend.ok) {
-      return NextResponse.json(
-        { error: spend.reason, required: spend.required, available: spend.available },
-        { status: spend.status }
-      )
-    }
-
+    user = await verifyAuth(request)
     const body = await request.json()
     const { description, platform, count = 10 } = body
 
     if (!description || !platform) {
       return NextResponse.json({ error: 'Description and platform are required' }, { status: 400 })
+    }
+
+    spend = await chargeForTool(user, 'tag-generator')
+    if (!spend.ok) {
+      return NextResponse.json(
+        { error: spend.reason, required: spend.required, available: spend.available },
+        { status: spend.status }
+      )
     }
 
     const { tags, provider } = await generateTags(description, platform, count)
@@ -286,12 +288,18 @@ export async function POST(request: NextRequest) {
       generatedAt: new Date().toISOString(),
       estimatedCostUsd: tagCost.estimatedCostUsd,
       estimatedCostNote: tagCost.estimatedCostNote,
+      access: spend.via,
     })
 
     response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
 
     return response
   } catch (error: unknown) {
+    if (user && spend?.ok) {
+      await refundToolCharge(user, 'tag-generator', spend).catch((refundError) => {
+        console.error('[Tags API] refund failed:', refundError)
+      })
+    }
     if (error instanceof AuthError) return createAuthErrorResponse(error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     console.error('[Tags API] Final error:', errorMessage)

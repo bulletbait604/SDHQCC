@@ -205,6 +205,14 @@ export default function HomeHeader({
           </div>
 
           <div className="flex items-center justify-end flex-wrap gap-x-3 gap-y-2 justify-self-end">
+            <a
+              href="/pricing"
+              className={`rounded-xl px-3 py-1.5 text-sm font-semibold ${
+                darkMode ? 'text-sdhq-cyan-200 hover:bg-white/10' : 'text-sdhq-cyan-800 hover:bg-cyan-50'
+              }`}
+            >
+              Pricing
+            </a>
             <Button
               variant="outline"
               size="sm"

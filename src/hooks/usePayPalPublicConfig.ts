@@ -9,6 +9,13 @@ export type PayPalPublicConfig = {
   planId: string | null
   /** null if no planId; false if ID doesn’t look like PayPal Billing Plan `P-…` */
   planIdFormatOk?: boolean | null
+  annualPlanId?: string | null
+  annualPlanIdFormatOk?: boolean | null
+  annualPlanResolvedOnPayPal?: boolean | null
+  annualWarning?: string | null
+  trialDays?: number
+  monthlyPriceCad?: number
+  annualPriceCad?: number
   /** null = server did not verify (no Client Secret); false = PayPal API could not load this Plan ID */
   planResolvedOnPayPal?: boolean | null
   /** Set when planResolvedOnPayPal === false after server verification attempt */

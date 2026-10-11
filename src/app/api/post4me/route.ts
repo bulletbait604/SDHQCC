@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
-import { verifyAuth, hasUnlimitedAccess, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
-import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
-import { spendToolCoins } from '@/lib/coins/spendToolCoins'
+import { verifyAuth, hasProAccess, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
+import { chargeForTool, previewToolAccess } from '@/lib/billing/toolAccess'
 import { toolCoinCost } from '@/lib/coins/toolCosts'
 import { deleteFileFromR2, getR2ObjectMetadata } from '@/lib/r2'
 import { isSafeR2ObjectKey } from '@/lib/r2KeyValidation'
@@ -107,16 +106,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Clip upload is required' }, { status: 400 })
     }
 
-    if (!hasUnlimitedAccess(user)) {
+    if (!hasProAccess(user)) {
       if (user.role !== 'free') {
         return NextResponse.json({ error: 'Access denied. Subscription required.' }, { status: 403 })
       }
       const client = await clientPromise
       const db = client.db('sdhq')
-      const balanceKey = await resolveCoinBalanceUserId(db, user)
-      const row = await db.collection('coinBalances').findOne({ userId: balanceKey })
-      const coins = typeof row?.coins === 'number' ? row.coins : 0
-      if (coins < POST4ME_COIN_COST) {
+      const preview = await previewToolAccess(db, user, 'post4me')
+      if (!preview.ok) {
         return NextResponse.json(
           {
             error: 'Not enough coins',
@@ -191,8 +188,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!hasUnlimitedAccess(user)) {
-      const spend = await spendToolCoins(user, 'post4me')
+    if (!hasProAccess(user)) {
+      const spend = await chargeForTool(user, 'post4me')
       if (!spend.ok) {
         return NextResponse.json(
           { error: spend.reason, required: spend.required, available: spend.available },

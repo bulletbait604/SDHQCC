@@ -3,6 +3,7 @@ import {
   INTERNAL_API_SECRET_HEADER,
   getInternalApiSecret,
 } from '@/lib/internalApi'
+import { LIFETIME_PASS } from '@/lib/billing/plans'
 import { upsertUserRole } from '@/lib/subscriptionFulfillmentDb'
 
 export type FulfillLifetimeParams = {
@@ -63,7 +64,7 @@ export async function fulfillVerifiedLifetimePurchase(
   const username = rawUser.replace(/^@/, '').toLowerCase()
   const amountFromCustomId = parts[2]
   const currencyFromCustomId = parts[3]
-  const settledAmount = amountFromCustomId || amount || '89.99'
+  const settledAmount = amountFromCustomId || amount || LIFETIME_PASS.priceCad.toFixed(2)
   const settledCurrency = (currencyFromCustomId || amountCurrency || 'CAD').toUpperCase()
 
   if (assertUsername !== undefined) {
@@ -118,6 +119,10 @@ export async function fulfillVerifiedLifetimePurchase(
   )
 
   await upsertUserRole(username, 'subscriber_lifetime')
+  await db.collection('users').updateOne(
+    { username },
+    { $set: { proTrialUsed: true, updatedAt: now } }
+  )
 
   await db.collection('lifetimeMembers').updateOne(
     { username },
