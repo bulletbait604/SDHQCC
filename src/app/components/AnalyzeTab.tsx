@@ -22,6 +22,7 @@ export interface AnalyzeTabProps {
   platforms: Platform[]
   user: KickUser | null
   hasUnlimitedAccess: boolean
+  analysisRemaining?: number
   hasEnoughCoins: (tool: 'clip-analyzer') => boolean
   analyzeTitle: string
   clipAnalyzerDesc: string
@@ -38,6 +39,7 @@ export default function AnalyzeTab({
   user,
   hasUnlimitedAccess,
   hasEnoughCoins,
+  analysisRemaining = 0,
   analyzeTitle,
   clipAnalyzerDesc,
   analyzer,
@@ -287,7 +289,13 @@ export default function AnalyzeTab({
               disabled={isAnalyzingClip || !clipFile || (!hasUnlimitedAccess && !hasEnoughCoins('clip-analyzer'))}
               className="bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black font-semibold px-6 rounded-xl hover:shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all duration-300 flex items-center gap-2"
             >
-              <span>{hasUnlimitedAccess ? 'Analyze' : 'Analyze (2 coins)'}</span>
+              <span>
+                {hasUnlimitedAccess
+                  ? 'Analyze'
+                  : analysisRemaining > 0
+                    ? `Analyze (${analysisRemaining} free today)`
+                    : 'Analyze (2 coins)'}
+              </span>
               <span>→</span>
             </Button>
           </div>

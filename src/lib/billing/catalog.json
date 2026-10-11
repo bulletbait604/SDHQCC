@@ -1,0 +1,37 @@
+{
+  "currency": "CAD",
+  "trialDays": 7,
+  "paypalTrialDays": 7,
+  "proMonthly": {
+    "id": "pro_monthly",
+    "name": "Pro",
+    "priceCad": 9.5,
+    "intervalUnit": "MONTH",
+    "intervalCount": 1,
+    "envLive": "NEXT_PUBLIC_PAYPAL_PLAN_ID",
+    "envSandbox": "NEXT_PUBLIC_PAYPAL_PLAN_ID_SANDBOX"
+  },
+  "proAnnual": {
+    "id": "pro_annual",
+    "name": "Pro Annual",
+    "priceCad": 79,
+    "intervalUnit": "YEAR",
+    "intervalCount": 1,
+    "envLive": "NEXT_PUBLIC_PAYPAL_PLAN_ID_ANNUAL",
+    "envSandbox": "NEXT_PUBLIC_PAYPAL_PLAN_ID_ANNUAL_SANDBOX"
+  },
+  "lifetime": {
+    "id": "lifetime",
+    "name": "Lifetime Pass",
+    "priceCad": 89.99
+  },
+  "coinPacks": {
+    "small": { "coins": 12, "priceCad": 5, "label": "Starter Pack" },
+    "medium": { "coins": 30, "priceCad": 10, "label": "Value Pack" },
+    "large": { "coins": 80, "priceCad": 20, "label": "Pro Pack" }
+  },
+  "freeDailyQuota": {
+    "analysis": 3,
+    "tagGenerator": 5
+  }
+}

@@ -58,6 +58,8 @@ export interface HomeMainTabsProps {
   hasTabAccess: (tabId: string) => boolean
   hasEnoughCoins: (tool: ToolType) => boolean
   hasUnlimitedAccess: boolean
+  freeQuota?: { analysisRemaining: number; tagRemaining: number }
+  proAccess?: boolean
   coinLoading: boolean
   refreshBalance: () => void
   onActivityLog: (entry: ActivityLogEntry) => void
@@ -136,6 +138,8 @@ export default function HomeMainTabs({
   hasTabAccess,
   hasEnoughCoins,
   hasUnlimitedAccess,
+  freeQuota,
+  proAccess = false,
   coinLoading,
   refreshBalance,
   onActivityLog,
@@ -233,6 +237,7 @@ export default function HomeMainTabs({
           clipAnalyzer={clipAnalyzer}
           hasUnlimitedAccess={hasUnlimitedAccess}
           hasEnoughCoins={hasEnoughCoins}
+          analysisRemaining={freeQuota?.analysisRemaining ?? 0}
           onOpenTab={onTabChange}
         />
       </TabsContent>
@@ -285,6 +290,7 @@ export default function HomeMainTabs({
                 user={user}
                 hasEnoughCoins={hasEnoughCoins}
                 hasUnlimitedAccess={hasUnlimitedAccess}
+                tagRemaining={freeQuota?.tagRemaining ?? 0}
                 coinLoading={coinLoading}
                 refreshBalance={refreshBalance}
                 onActivityLog={onActivityLog}
@@ -295,6 +301,7 @@ export default function HomeMainTabs({
               <ThumbnailGenerator
                 userId={user.username}
                 userType={userType}
+                proAccess={proAccess}
                 darkMode={darkMode}
                 platforms={platforms}
                 user={user}
@@ -349,6 +356,7 @@ export default function HomeMainTabs({
           user={user}
           hasUnlimitedAccess={hasUnlimitedAccess}
           hasEnoughCoins={hasEnoughCoins}
+          analysisRemaining={freeQuota?.analysisRemaining ?? 0}
           analyzeTitle={t.analyze}
           clipAnalyzerDesc={t.clipAnalyzerDesc}
           analyzer={clipAnalyzer}

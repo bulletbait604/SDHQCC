@@ -1,4 +1,5 @@
 import clientPromise from '@/lib/mongodb'
+import { coinPack } from '@/lib/billing/plans'
 import {
   INTERNAL_API_SECRET_HEADER,
   getInternalApiSecret,
@@ -18,24 +19,18 @@ export type FulfillVerifiedCoinPurchaseResult =
   | { ok: false; error: string; forbidden?: boolean }
 
 /** Must match CoinPurchase.tsx, /api/coins/purchase, and paypal-webhook custom_id parsing */
-const COIN_CATALOG: Record<string, { coins: number; price: number }> = {
-  small: { coins: 12, price: 5 },
-  medium: { coins: 30, price: 10 },
-  large: { coins: 80, price: 20 },
-}
-
 function verifyCatalogAndPayPalAmount(
   packageType: string,
   coinCount: number,
   pricePart: string | undefined,
   amountFromPayPal: string | undefined
 ): { ok: true } | { ok: false; error: string } {
-  const def = COIN_CATALOG[packageType]
+  const def = coinPack(packageType)
   if (!def) return { ok: false, error: 'Unknown coin package' }
   if (def.coins !== coinCount) {
     return { ok: false, error: 'Coin count does not match package' }
   }
-  const expected = pricePart !== undefined && pricePart !== '' ? parseFloat(pricePart) : def.price
+  const expected = pricePart !== undefined && pricePart !== '' ? parseFloat(pricePart) : def.priceCad
   if (Number.isNaN(expected) || expected <= 0) {
     return { ok: false, error: 'Package price in order metadata is invalid' }
   }

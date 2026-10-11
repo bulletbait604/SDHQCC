@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Coins, X, Loader2 } from 'lucide-react'
 import { usePayPalPublicConfig } from '@/hooks/usePayPalPublicConfig'
 import { captureCheckoutOrderOnServer } from '@/lib/paypalCaptureOrderClient'
+import { listCoinPacks } from '@/lib/billing/plans'
 
 interface CoinPackage {
   id: 'small' | 'medium' | 'large'
@@ -18,12 +19,13 @@ type PackageQuote = {
   amountLocal: number
 }
 
-/** Must match /api/coins/purchase COIN_PACKAGES and paypal-webhook custom_id parsing */
-const COIN_PACKAGES: CoinPackage[] = [
-  { id: 'small', coins: 12, price: 5, label: 'Starter Pack' },
-  { id: 'medium', coins: 30, price: 10, label: 'Value Pack' },
-  { id: 'large', coins: 80, price: 20, label: 'Pro Pack' },
-]
+/** Must match /api/coins/purchase and paypal-webhook custom_id parsing */
+const COIN_PACKAGES: CoinPackage[] = listCoinPacks().map((pack) => ({
+  id: pack.id,
+  coins: pack.coins,
+  price: pack.priceCad,
+  label: pack.label,
+}))
 
 interface CoinPurchaseProps {
   isOpen: boolean

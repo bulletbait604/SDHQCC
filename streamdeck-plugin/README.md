@@ -10,13 +10,31 @@ Monitor KICK streamers' live status with color-coded buttons on your StreamDeck.
 - **Auto-Refresh**: Checks live status every 30 seconds
 - **Browser Selection**: Choose Chrome, Firefox, Edge, Brave, Opera, or system default
 
-## Installation
+## Packaging a distributable build
 
-1. Download the plugin folder
-2. Double-click `com.sdhqcreator.kicklive.streamDeckPlugin` file (after packaging) or:
+From the repo root:
+
+```bash
+npm run package:streamdeck
+npm run package:streamdeck:pro
+```
+
+This writes:
+
+- `dist/streamdeck/SDHQCC-Kick-Live.streamDeckPlugin` — standard build, 30 second refresh
+- `dist/streamdeck/SDHQCC-Kick-Live-Pro.streamDeckPlugin` — Pro build (`com.sdhqcreator.kicklive.pro`), 15 second refresh
+
+The Pro file is the Gumroad / one-time download. It does not embed API secrets. Pro, lifetime, and trial users can also download it from the site at `/api/streamdeck/download` after signing in with Kick.
+
+Double-click a `.streamDeckPlugin` file to install it, then restart the Stream Deck app. The two editions use different plugin ids, so both can be installed.
+
+## Installation from a folder
+
+1. Package the plugin with the commands above, or copy this folder
+2. Double-click the `.streamDeckPlugin` file, or:
    - Copy the plugin folder to `%APPDATA%\Elgato\StreamDeck\Plugins\` on Windows
    - Or `~/Library/Application Support/com.elgato.StreamDeck/Plugins/` on Mac
-3. Restart StreamDeck software
+3. Restart Stream Deck software
 
 ## Setup
 
@@ -27,7 +45,7 @@ Monitor KICK streamers' live status with color-coded buttons on your StreamDeck.
 
 ## Configuration
 
-The plugin stores your KICK Client ID and Client Secret internally for API authentication with Cloudflare protection.
+The plugin calls Kick's public channel endpoint. Do not commit client secrets into this folder.
 
 ## File Structure
 
@@ -58,7 +76,7 @@ streamdeck-plugin/
 Uses KICK API v2 endpoints:
 - `GET https://kick.com/api/v2/channels/{username}`
 
-The plugin includes Cloudflare authentication headers using your provided credentials.
+The plugin reads the public channel payload. A missing or private channel is treated as offline.
 
 ## Browser Support
 

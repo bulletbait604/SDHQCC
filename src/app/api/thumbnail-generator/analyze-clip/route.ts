@@ -9,7 +9,7 @@ import {
   thumbnailClipDurationExceededMessage,
   thumbnailClipMaxDurationSeconds,
 } from '@/lib/thumbnailClipLimits'
-import { verifyAuth, AuthError, createAuthErrorResponse, hasUnlimitedAccess } from '@/lib/auth/verifyAuth'
+import { verifyAuth, AuthError, createAuthErrorResponse, hasProAccess } from '@/lib/auth/verifyAuth'
 import { isSafeR2ObjectKey } from '@/lib/r2KeyValidation'
 
 export const maxDuration = 300
@@ -76,10 +76,10 @@ export async function POST(req: NextRequest) {
         ? referenceClipDurationSeconds
         : undefined
 
-    const maxDurationSec = thumbnailClipMaxDurationSeconds(hasUnlimitedAccess(user))
+    const maxDurationSec = thumbnailClipMaxDurationSeconds(hasProAccess(user))
     if (durationSec != null && durationSec > maxDurationSec) {
       return NextResponse.json(
-        { error: thumbnailClipDurationExceededMessage(hasUnlimitedAccess(user)) },
+        { error: thumbnailClipDurationExceededMessage(hasProAccess(user)) },
         { status: 400 }
       )
     }

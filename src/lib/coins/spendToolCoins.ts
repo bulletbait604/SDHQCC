@@ -1,6 +1,6 @@
 import clientPromise from '@/lib/mongodb'
 import type { VerifiedUser } from '@/lib/auth/verifyAuth'
-import { hasUnlimitedAccess } from '@/lib/auth/verifyAuth'
+import { hasProAccess } from '@/lib/auth/verifyAuth'
 import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
 import { splitCoinSpend } from '@/lib/coinPurchasedBalance'
 import { toolCoinCost, type ToolCoinName } from '@/lib/coins/toolCosts'
@@ -27,7 +27,7 @@ export async function spendToolCoins(
   const client = await clientPromise
   const db = client.db('sdhq')
 
-  if (hasUnlimitedAccess(user)) {
+  if (hasProAccess(user)) {
     await db.collection('coinTransactions').insertOne({
       userId: user.username.toLowerCase(),
       username: user.username,
@@ -118,7 +118,7 @@ export async function refundToolCoins(
   amount: number
 ): Promise<void> {
   if (!Number.isFinite(amount) || amount <= 0) return
-  if (hasUnlimitedAccess(user)) return
+  if (hasProAccess(user)) return
 
   const client = await clientPromise
   const db = client.db('sdhq')

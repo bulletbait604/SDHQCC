@@ -4,13 +4,14 @@
 /// <reference path="libs/js/utils.js" />
 /// <reference path="libs/js/events.js" />
 
-const KICK_CLIENT_ID = '01KMBAZAAATS4VPGDAJDJG1X3T';
-const KICK_CLIENT_SECRET = 'aa29e3824f2b063c1f97c144f164cd14da413bdeb9b31c138504a2f2e179f726';
+// standard | pro — the Pro packager rewrites this line before zipping.
+const PLUGIN_EDITION = 'standard';
+const ACTION_UUID = PLUGIN_EDITION === 'pro'
+    ? 'com.sdhqcreator.kicklive.pro.action'
+    : 'com.sdhqcreator.kicklive.action';
+const REFRESH_MS = PLUGIN_EDITION === 'pro' ? 15000 : 30000;
 
 let refreshInterval = null;
-
-// Action UUID
-const ACTION_UUID = 'com.sdhqcreator.kicklive.action';
 
 // Store for all buttons and their settings
 const buttons = new Map();
@@ -38,7 +39,7 @@ $SD.onWillAppear((jsn) => {
     
     // Start refresh interval if not already running
     if (!refreshInterval) {
-        refreshInterval = setInterval(refreshAllStatuses, 30000); // Refresh every 30 seconds
+        refreshInterval = setInterval(refreshAllStatuses, REFRESH_MS);
     }
     
     // Initial status check
@@ -118,41 +119,9 @@ async function checkLiveStatus(context) {
     }
 }
 
-// Fetch live status from KICK API
+// Public Kick channel endpoint. Do not embed client secrets in this plugin.
 async function fetchKickLiveStatus(username) {
-    try {
-        // KICK API endpoint for channel info
-        // Using the public API endpoint
-        const response = await fetch(`https://api.kick.com/api/v2/channels/${username}`, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'User-Agent': 'SDHQ-KickLive-Plugin/1.0',
-                'Authorization': `Bearer ${KICK_CLIENT_ID}`,
-                'X-Client-Secret': KICK_CLIENT_SECRET
-            }
-        });
-        
-        if (!response.ok) {
-            // If API fails, try fallback to check live status via public endpoint
-            return await checkLiveStatusFallback(username);
-        }
-        
-        const data = await response.json();
-        
-        // Check if stream is live based on API response structure
-        // The API returns livestream data if the user is live
-        if (data && data.data && data.data.livestream) {
-            return true;
-        }
-        
-        return false;
-    } catch (error) {
-        console.error('API Error:', error);
-        // Fallback method
-        return await checkLiveStatusFallback(username);
-    }
+    return checkLiveStatusFallback(username);
 }
 
 // Fallback method using alternative approach

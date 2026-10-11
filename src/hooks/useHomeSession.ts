@@ -26,6 +26,8 @@ export function useHomeSession({ onSessionReady, fetchUserRole }: UseHomeSession
   const [bannedMessage, setBannedMessage] = useState('')
   const [isVerified, setIsVerified] = useState(false)
   const [isLifetime, setIsLifetime] = useState(false)
+  const [isProTrial, setIsProTrial] = useState(false)
+  const [proTrialEndsAt, setProTrialEndsAt] = useState<string | null>(null)
   const [rndTabs, setRndTabs] = useState<string[]>([])
 
   useEffect(() => {
@@ -64,6 +66,8 @@ export function useHomeSession({ onSessionReady, fetchUserRole }: UseHomeSession
             setUser(null)
             setIsVerified(false)
             setIsLifetime(false)
+            setIsProTrial(false)
+            setProTrialEndsAt(null)
             setRndTabs([])
             applyAnonymousUiFromCookies()
           } else if (!me.user) {
@@ -72,6 +76,8 @@ export function useHomeSession({ onSessionReady, fetchUserRole }: UseHomeSession
             setUser(null)
             setIsVerified(false)
             setIsLifetime(false)
+            setIsProTrial(false)
+            setProTrialEndsAt(null)
             setRndTabs([])
             applyAnonymousUiFromCookies()
           } else {
@@ -87,6 +93,10 @@ export function useHomeSession({ onSessionReady, fetchUserRole }: UseHomeSession
             }
             setIsVerified(!!me.subscription?.isVerified)
             setIsLifetime(!!me.subscription?.isLifetime)
+            setIsProTrial(!!me.subscription?.isProTrial)
+            setProTrialEndsAt(
+              typeof me.subscription?.proTrialEndsAt === 'string' ? me.subscription.proTrialEndsAt : null
+            )
 
             if (isPostVerification && me.user?.username) {
               urlParams.delete('verified')
@@ -191,6 +201,9 @@ export function useHomeSession({ onSessionReady, fetchUserRole }: UseHomeSession
     setIsVerified,
     isLifetime,
     setIsLifetime,
+    isProTrial,
+    setIsProTrial,
+    proTrialEndsAt,
     rndTabs,
     handleLanguageChange,
     toggleDarkMode,

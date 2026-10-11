@@ -1,10 +1,20 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { coinPack } from '@/lib/billing/plans'
 
 interface UseCoinsOptions {
   userId: string
   userRole?: string
+  /** Active app-side Pro trial. Paid roles are already unlimited via userRole. */
+  proAccess?: boolean
+}
+
+export type FreeQuotaSnapshot = {
+  analysisRemaining: number
+  tagRemaining: number
+  analysisLimit: number
+  tagLimit: number
 }
 
 // Roles that get unlimited access (no coin deduction)
@@ -31,12 +41,19 @@ interface CoinBalance {
   totalSpent: number
 }
 
-export function useCoins({ userId, userRole }: UseCoinsOptions) {
+export function useCoins({ userId, userRole, proAccess = false }: UseCoinsOptions) {
   const [balance, setBalance] = useState<number>(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [quotaLoaded, setQuotaLoaded] = useState(false)
+  const [freeQuota, setFreeQuota] = useState<FreeQuotaSnapshot>({
+    analysisRemaining: 0,
+    tagRemaining: 0,
+    analysisLimit: 0,
+    tagLimit: 0,
+  })
   
-  const hasUnlimitedAccess = userRole ? UNLIMITED_ROLES.includes(userRole) : false
+  const hasUnlimitedAccess = (userRole ? UNLIMITED_ROLES.includes(userRole) : false) || proAccess
 
   // Fetch coin balance
   const fetchBalance = useCallback(async () => {
@@ -63,6 +80,23 @@ export function useCoins({ userId, userRole }: UseCoinsOptions) {
 
       const data = await response.json()
       setBalance(data.coins || 0)
+      const quota = data.freeQuota as
+        | {
+            analysisRemaining?: number
+            tagRemaining?: number
+            analysisLimit?: number
+            tagLimit?: number
+          }
+        | undefined
+      if (quota) {
+        setFreeQuota({
+          analysisRemaining: quota.analysisRemaining ?? 0,
+          tagRemaining: quota.tagRemaining ?? 0,
+          analysisLimit: quota.analysisLimit ?? 0,
+          tagLimit: quota.tagLimit ?? 0,
+        })
+      }
+      setQuotaLoaded(true)
       setError(null)
     } catch (err) {
       console.warn('[Coins] Balance fetch failed:', err)
@@ -78,9 +112,16 @@ export function useCoins({ userId, userRole }: UseCoinsOptions) {
   // Check if user has enough coins for a tool (use ref to avoid dependency issues)
   const hasEnoughCoins = useCallback((tool: ToolType): boolean => {
     if (hasUnlimitedAccess) return true
+    const usesAnalysisQuota = tool === 'clip-analyzer' || tool === 'home-clip-analyze' || tool === 'content-analyzer'
+    const usesTagQuota = tool === 'tag-generator'
+    if (usesAnalysisQuota || usesTagQuota) {
+      if (!quotaLoaded) return true
+      const remaining = usesTagQuota ? freeQuota.tagRemaining : freeQuota.analysisRemaining
+      if (remaining > 0) return true
+    }
     const cost = COIN_COSTS[tool]
     return balance >= cost
-  }, [balance, hasUnlimitedAccess])
+  }, [balance, freeQuota.analysisRemaining, freeQuota.tagRemaining, hasUnlimitedAccess, quotaLoaded])
 
   // Deduct coins for tool usage
   const deductCoins = useCallback(async (tool: ToolType): Promise<boolean> => {
@@ -154,20 +195,18 @@ export function useCoins({ userId, userRole }: UseCoinsOptions) {
     }
   }, [userId])
 
-  // Purchase coins via PayPal (12, 35, 100 coins)
   const purchaseCoins = useCallback(async (packageType: 'small' | 'medium' | 'large'): Promise<string | null> => {
     if (!userId || userId === 'anon') {
       setError('Must be logged in to purchase coins')
       return null
     }
 
-    const packages = {
-      small: { coins: 12, price: 5 },    // $5 = 12 coins
-      medium: { coins: 35, price: 10 },  // $10 = 35 coins
-      large: { coins: 100, price: 20 }   // $20 = 100 coins
+    const selected = coinPack(packageType)
+    if (!selected) {
+      setError('Unknown coin pack')
+      return null
     }
-
-    const pkg = packages[packageType]
+    const pkg = { coins: selected.coins, price: selected.priceCad }
 
     setLoading(true)
     try {
@@ -206,6 +245,8 @@ export function useCoins({ userId, userRole }: UseCoinsOptions) {
     error,
     hasUnlimitedAccess,
     hasEnoughCoins,
+    freeQuota,
+    quotaLoaded,
     deductCoins,
     claimDailyCoins,
     purchaseCoins,

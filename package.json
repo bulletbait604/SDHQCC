@@ -9,8 +9,10 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "create-paypal-plan": "node scripts/create-paypal-plan.js",
-    "create-paypal-plan:sandbox": "node -e \"process.env.PAYPAL_MODE='sandbox'; require('./scripts/create-paypal-plan.js')\""
+    "create-paypal-plan": "tsx scripts/create-paypal-plan.ts",
+    "create-paypal-plan:sandbox": "tsx scripts/create-paypal-plan.ts --sandbox",
+    "package:streamdeck": "tsx scripts/package-streamdeck.ts",
+    "package:streamdeck:pro": "tsx scripts/package-streamdeck.ts --pro"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.450.0",

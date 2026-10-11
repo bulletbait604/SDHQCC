@@ -16,6 +16,7 @@ export interface TagGeneratorTabProps {
   user: KickUser | null
   hasEnoughCoins: (tool: 'tag-generator') => boolean
   hasUnlimitedAccess: boolean
+  tagRemaining?: number
   coinLoading: boolean
   refreshBalance: () => void
   onActivityLog?: (entry: ActivityLogEntry) => void
@@ -28,6 +29,7 @@ export default function TagGeneratorTab({
   user,
   hasEnoughCoins,
   hasUnlimitedAccess,
+  tagRemaining = 0,
   coinLoading,
   refreshBalance,
   onActivityLog,
@@ -225,7 +227,11 @@ export default function TagGeneratorTab({
             ) : (
               <>
                 <Sparkles className="w-4 h-4 mr-2" />
-                {hasUnlimitedAccess ? 'Generate Tags' : 'Generate Tags (1 coin)'}
+                {hasUnlimitedAccess
+                  ? 'Generate Tags'
+                  : tagRemaining > 0
+                    ? `Generate Tags (${tagRemaining} free today)`
+                    : 'Generate Tags (1 coin)'}
               </>
             )}
           </Button>

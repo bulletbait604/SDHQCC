@@ -4,6 +4,7 @@ import { verifySessionJwt, getSessionSecret } from '@/lib/auth/sessionJwt'
 import { BANNED_USER_MESSAGE, isUserBanned } from '@/lib/bannedUsers'
 import { isAllowlistedOwner } from '@/lib/ownerAllowlist'
 import { resolveSiteRole } from '@/lib/home/ownerIdentity'
+import { isProTrialActive, readTrialEnd } from '@/lib/billing/trial'
 
 export type UserRole =
   | 'free'
@@ -20,6 +21,8 @@ export interface VerifiedUser {
   role: UserRole
   email?: string
   provider: 'kick' | 'credentials'
+  /** ISO timestamp. Pro access continues until this instant even when role is still `free`. */
+  proTrialEndsAt?: string | null
 }
 
 const UNLIMITED_ROLES: UserRole[] = ['subscriber', 'subscriber_lifetime', 'admin', 'owner', 'tester']
@@ -122,6 +125,8 @@ export async function verifyAuth(req: NextRequest): Promise<VerifiedUser> {
     }
   }
 
+  user.proTrialEndsAt = readTrialEnd(dbUser.proTrialEndsAt)
+
   const resolvedRole = resolveSiteRole(user.username, (dbUser.role as UserRole) || user.role || 'free')
   user.role = resolvedRole
   if (dbUser.role !== resolvedRole) {
@@ -160,6 +165,15 @@ export function requireRole(
 export function hasUnlimitedAccess(user: VerifiedUser): boolean {
   if (isAllowlistedOwner(user.username)) return true
   return UNLIMITED_ROLES.includes(user.role)
+}
+
+/**
+ * Paid roles, staff, and an unexpired app-side Pro trial.
+ * Paying subscribers keep unlimited access through their role; the trial does not replace that.
+ */
+export function hasProAccess(user: VerifiedUser): boolean {
+  if (hasUnlimitedAccess(user)) return true
+  return isProTrialActive(user.proTrialEndsAt)
 }
 
 /**

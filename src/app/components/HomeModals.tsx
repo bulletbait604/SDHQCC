@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button'
 import { Crown, Sun, Moon, Trash2, X } from 'lucide-react'
 import type { HomeLanguage } from '@/lib/home/types'
+import { formatCad, LIFETIME_PASS } from '@/lib/billing/plans'
 
 interface ModalShellProps {
   darkMode: boolean
@@ -196,7 +197,7 @@ export function SettingsQuickModal({
             </h4>
             <p className={`text-sm mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
               One-time payment of {lifetimeLocalPrice.toLocaleString(undefined, { style: 'currency', currency: checkoutCurrency })}
-              {checkoutCurrency !== 'CAD' ? ' (base $89.99 CAD)' : ''}.
+              {checkoutCurrency !== 'CAD' ? ` (base ${formatCad(LIFETIME_PASS.priceCad)})` : ''}.
             </p>
             <Button onClick={onLifetimePassCheckout} className="w-full bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 text-black">
               <Crown className="w-4 h-4 mr-2" />

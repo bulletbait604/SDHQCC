@@ -1,5 +1,9 @@
 import type { HomeLanguage } from '@/lib/home/types'
 
+import { formatCad, PRO_MONTHLY } from '@/lib/billing/plans'
+
+const proMonthlyLabel = formatCad(PRO_MONTHLY.priceCad)
+
 export const homeTranslations = {
   en: {
     welcome: 'Welcome to Stream Dreams Creator Corner',
@@ -43,7 +47,7 @@ export const homeTranslations = {
     createPickTool: 'Create — pick a tool below',
     settings: 'Settings',
     logout: 'Logout',
-    verifySubscription: 'Subscribe · $9.50 CAD/mo',
+    verifySubscription: `Subscribe · ${proMonthlyLabel}/mo`,
     admin: 'Admin',
     subscribers: 'Subscribers',
     addSubscriber: 'Add Subscriber',
@@ -106,7 +110,7 @@ export const homeTranslations = {
     createPickTool: 'Crear — elige una herramienta abajo',
     settings: 'Configuración',
     logout: 'Cerrar sesión',
-    verifySubscription: 'Suscribirse · $9.50 CAD/mes',
+    verifySubscription: `Suscribirse · ${proMonthlyLabel}/mes`,
     admin: 'Admin',
     subscribers: 'Suscriptores',
     addSubscriber: 'Agregar Suscriptor',
@@ -169,7 +173,7 @@ export const homeTranslations = {
     createPickTool: 'Créer — choisissez un outil ci-dessous',
     settings: 'Paramètres',
     logout: 'Déconnexion',
-    verifySubscription: "S'abonner · $9,50 CAD/mois",
+    verifySubscription: `S'abonner · ${proMonthlyLabel}/mois`,
     admin: 'Admin',
     subscribers: 'Abonnés',
     addSubscriber: 'Ajouter Abonné',
@@ -232,7 +236,7 @@ export const homeTranslations = {
     createPickTool: 'Erstellen — Werkzeug unten wählen',
     settings: 'Einstellungen',
     logout: 'Abmelden',
-    verifySubscription: 'Abonnieren · $9,50 CAD/Monat',
+    verifySubscription: `Abonnieren · ${proMonthlyLabel}/Monat`,
     admin: 'Admin',
     subscribers: 'Abonnenten',
     addSubscriber: 'Abonnent Hinzufügen',

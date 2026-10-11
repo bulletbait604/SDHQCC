@@ -288,7 +288,7 @@ export async function POST(req: NextRequest) {
             await logSubscriptionActivity(
               uname,
               'subscription_payment',
-              `Subscribed - $6.99/month (ID: ${subscription.id})`
+              `Pro subscription recorded (ID: ${subscription.id})`
             )
 
             // Store in webhook storage for future reference (legacy)
@@ -359,7 +359,7 @@ export async function POST(req: NextRequest) {
           await logSubscriptionActivity(
             uname,
             'subscription_payment',
-            `Subscribed - $6.99/month (ID: ${sub.id})`
+            `Pro subscription recorded (ID: ${sub.id})`
           )
 
           // Store in webhook storage for future reference (legacy)

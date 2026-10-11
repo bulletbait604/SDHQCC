@@ -59,6 +59,16 @@ export default function HomeFooter({
             </a>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3">
+            <a
+              href="/pricing"
+              className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all hover:-translate-y-0.5 ${
+                darkMode
+                  ? 'bg-white/5 text-sdhq-cyan-300 hover:bg-white/10'
+                  : 'border border-sdhq-cyan-300 bg-white text-sdhq-cyan-800 hover:bg-cyan-50 shadow-sm'
+              }`}
+            >
+              Pricing
+            </a>
             <button
               type="button"
               onClick={onOpenPrivacy}
