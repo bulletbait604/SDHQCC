@@ -51,7 +51,7 @@ async function runAlgorithmsUpdate(): Promise<Response> {
 }
 
 async function authorizeAndRun(req: NextRequest): Promise<Response> {
-  // Monthly Vercel Cron sets x-vercel-cron: 1 (no env var needed).
+  // Monthly Vercel Cron: Authorization: Bearer $CRON_SECRET only.
   if (isValidCronRequest(req)) {
     return await runAlgorithmsUpdate()
   }
@@ -63,7 +63,7 @@ async function authorizeAndRun(req: NextRequest): Promise<Response> {
   return await runAlgorithmsUpdate()
 }
 
-/** Vercel Cron (1st of month) — authorized via x-vercel-cron header */
+/** Vercel Cron (1st of month) — authorized via Bearer CRON_SECRET (or staff / internal secret) */
 export async function GET(req: NextRequest) {
   try {
     return await authorizeAndRun(req)

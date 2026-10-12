@@ -1,25 +1,30 @@
 'use client'
+import dynamic from 'next/dynamic'
 
 import { useEffect, useMemo } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { Settings, LayoutGrid, Wand2, GraduationCap, BarChart3, FlaskConical, Home } from 'lucide-react'
 import HomeDashboardTab from '@/app/components/HomeDashboardTab'
-import ResourceHubTab from '@/app/components/ResourceHubTab'
+const ResourceHubTab = dynamic(() => import('@/app/components/ResourceHubTab'), { loading: TabLoading })
 import CreateTabHeader, { type CreateSubTab } from '@/app/components/CreateTabHeader'
 import RdTabHeader, { ALL_RD_SUBS, type RdSubTab } from '@/app/components/RdTabHeader'
-import UserAppsIdeaTab from '@/app/components/UserAppsIdeaTab'
-import TagGeneratorTab from '@/app/components/TagGeneratorTab'
-import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
-import Post4MeTab from '@/app/components/Post4MeTab'
-import BackgroundRemoverTab from '@/app/components/BackgroundRemoverTab'
-import AnalyzeTab from '@/app/components/AnalyzeTab'
-import TrendingVidsTab from '@/app/components/TrendingVidsTab'
-import SettingsTab from '@/app/components/SettingsTab'
+const UserAppsIdeaTab = dynamic(() => import('@/app/components/UserAppsIdeaTab'), { loading: TabLoading })
+const TagGeneratorTab = dynamic(() => import('@/app/components/TagGeneratorTab'), { loading: TabLoading })
+const ThumbnailGenerator = dynamic(() => import('@/app/components/ThumbnailGenerator'), { loading: TabLoading })
+const Post4MeTab = dynamic(() => import('@/app/components/Post4MeTab'), { loading: TabLoading })
+const BackgroundRemoverTab = dynamic(() => import('@/app/components/BackgroundRemoverTab'), { loading: TabLoading })
+const AnalyzeTab = dynamic(() => import('@/app/components/AnalyzeTab'), { loading: TabLoading })
+const TrendingVidsTab = dynamic(() => import('@/app/components/TrendingVidsTab'), { loading: TabLoading })
+const SettingsTab = dynamic(() => import('@/app/components/SettingsTab'), { loading: TabLoading })
 import type { ActivityLogEntry, HomeLanguage, KickUser, Platform } from '@/lib/home/types'
 import type { Role } from '@/lib/home/roles'
 import type { ToolType } from '@/hooks/useCoins'
 import type { useClipAnalyzer } from '@/hooks/useClipAnalyzer'
+
+function TabLoading() {
+  return <div className="p-8 text-center text-sm opacity-60">Loading…</div>
+}
 
 type ClipAnalyzer = ReturnType<typeof useClipAnalyzer>
 

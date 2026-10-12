@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image'
 
 import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -235,7 +236,9 @@ export default function Post4MeTab({
     <div className={`relative ${isDisabled ? 'pointer-events-none opacity-60' : ''}`}>
       <div className="mb-3 flex justify-center gap-3">
         {bannerLogos.map((platform) => (
-          <img
+          <Image
+            width={40}
+            height={40}
             key={platform.id}
             src={platform.image}
             alt={platform.name}
@@ -278,7 +281,9 @@ export default function Post4MeTab({
                           : 'border-gray-300 bg-white hover:border-sdhq-cyan-400'
                     }`}
                   >
-                    <img
+                    <Image
+                      width={32}
+                      height={32}
                       src={p.image}
                       alt=""
                       className="w-8 h-8 rounded-md object-cover shrink-0"

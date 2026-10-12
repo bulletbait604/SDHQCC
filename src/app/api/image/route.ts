@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { isSafeR2ObjectKey } from '@/lib/r2KeyValidation'
 import { verifyAuth, AuthError } from '@/lib/auth/verifyAuth'
+import { verifyImageSignature, userOwnsThumbnailKey } from '@/lib/thumbnailAccess'
+import { isStaffRole } from '@/lib/auth/staffAccess'
+import { isAllowlistedOwner } from '@/lib/ownerAllowlist'
+
+export const dynamic = 'force-dynamic'
 
 const r2 = new S3Client({
   region: 'auto',
@@ -53,6 +58,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid key' }, { status: 403 })
     }
 
+    if (key.startsWith('thumbnails/')) {
+      // Private: signed short-lived URL, or the owning user / staff via session cookie.
+      const signed = verifyImageSignature(key, searchParams.get('exp'), searchParams.get('sig'))
+      if (!signed) {
+        try {
+          const user = await verifyAuth(request)
+          const staff = isStaffRole(user.role) || isAllowlistedOwner(user.username)
+          if (!staff && !userOwnsThumbnailKey(key, user.username)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+          }
+        } catch (error) {
+          if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.statusCode })
+          }
+          return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+        }
+      }
+    }
+
     if (key.startsWith('uploads/')) {
       try {
         const user = await verifyAuth(request)
@@ -84,9 +108,7 @@ export async function GET(request: NextRequest) {
     }
     const buffer = Buffer.concat(chunks)
 
-    const cacheControl = key.startsWith('thumbnails/')
-      ? 'public, max-age=31536000'
-      : 'private, max-age=3600'
+    const cacheControl = 'private, max-age=3600'
 
     const contentType = contentTypeForKey(key, response.ContentType)
     const headers: Record<string, string> = {

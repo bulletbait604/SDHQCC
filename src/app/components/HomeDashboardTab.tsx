@@ -458,7 +458,7 @@ export default function HomeDashboardTab({
                     <a href={clip.clipUrl} target="_blank" rel="noopener noreferrer" className="relative block aspect-video bg-black">
                       {clip.thumbnailUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={clip.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                        <img /* eslint-disable-line @next/next/no-img-element */ src={clip.thumbnailUrl} alt="" className="h-full w-full object-cover" />
                       ) : (
                         <div className="flex h-full items-center justify-center text-gray-500">
                           <Video className="h-8 w-8" />

@@ -34,11 +34,18 @@ export function verifySessionJwt(
   const expected = base64urlEncode(
     crypto.createHmac('sha256', secret).update(`${headerB64}.${bodyB64}`).digest()
   )
-  if (expected !== sig) return null
+  const a = Buffer.from(expected)
+  const b = Buffer.from(sig)
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null
   const padded = bodyB64.replace(/-/g, '+').replace(/_/g, '/')
   const padLen = (4 - (padded.length % 4)) % 4
   const bodyJson = Buffer.from(padded + '='.repeat(padLen), 'base64').toString('utf8')
-  const payload = JSON.parse(bodyJson) as Record<string, unknown>
+  let payload: Record<string, unknown>
+  try {
+    payload = JSON.parse(bodyJson) as Record<string, unknown>
+  } catch {
+    return null
+  }
   const exp = payload.exp
   if (typeof exp === 'number' && Date.now() >= exp * 1000) return null
   return payload

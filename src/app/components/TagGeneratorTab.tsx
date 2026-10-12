@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image'
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -116,7 +117,9 @@ export default function TagGeneratorTab({
     <div className="p-0">
       <div className="mb-3 flex justify-center gap-3">
         {bannerLogos.map((platform) => (
-          <img
+          <Image
+            width={40}
+            height={40}
             key={platform.id}
             src={platform.image}
             alt={platform.name}

@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image'
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
@@ -106,7 +107,9 @@ export default function AlgorithmInsightsSection({
 
         <div className="flex justify-center gap-3 mb-3">
           {platformsBannerLogos.map((platform) => (
-            <img
+            <Image
+              width={40}
+              height={40}
               key={platform.id}
               src={platform.image}
               alt={platform.name}
@@ -193,7 +196,9 @@ export default function AlgorithmInsightsSection({
                   <div
                     className={`relative p-2 rounded-xl ${darkMode ? 'bg-sdhq-dark-600' : 'bg-white'} shadow-lg`}
                   >
-                    <img
+                    <Image
+                      width={56}
+                      height={56}
                       src={platform.image}
                       alt={platform.name}
                       className="w-14 h-14 rounded-lg object-cover"
@@ -293,7 +298,9 @@ export default function AlgorithmInsightsSection({
                 <div
                   className={`shrink-0 rounded-xl p-1.5 shadow-md ${darkMode ? 'bg-sdhq-dark-700' : 'bg-white'}`}
                 >
-                  <img
+                  <Image
+                    width={48}
+                    height={48}
                     src={expandedPlatform.image}
                     alt=""
                     className="h-12 w-12 rounded-lg object-cover"

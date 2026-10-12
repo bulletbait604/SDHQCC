@@ -26,21 +26,20 @@ export function isValidInternalApiSecret(provided: string | null | undefined): b
   return safeEqualString(provided, expected)
 }
 
+export function safeEqual(provided: string, expected: string): boolean {
+  return safeEqualString(provided, expected)
+}
+
 /**
- * True for Vercel Cron invocations. Vercel sets `x-vercel-cron: 1` automatically —
- * no CRON_SECRET env var required.
- * Optional: if CRON_SECRET is set, Bearer auth is also accepted.
+ * True only for Vercel Cron invocations carrying `Authorization: Bearer $CRON_SECRET`.
+ * Vercel sends this header automatically when CRON_SECRET is set on the project.
+ * The `x-vercel-cron` header is NOT trusted (any client can send it).
+ * If CRON_SECRET is unset, cron requests are rejected (fail closed).
  */
-export function isValidCronRequest(req: NextRequest): boolean {
-  if (req.headers.get('x-vercel-cron') === '1') {
-    return true
-  }
+export function isValidCronRequest(req: Pick<NextRequest, 'headers'>): boolean {
   const cronSecret = (process.env.CRON_SECRET || '').trim()
-  if (cronSecret) {
-    const auth = req.headers.get('authorization') || ''
-    if (auth.startsWith('Bearer ') && safeEqualString(auth.slice(7), cronSecret)) {
-      return true
-    }
-  }
-  return isValidInternalApiSecret(req.headers.get(INTERNAL_API_SECRET_HEADER))
+  if (!cronSecret) return false
+  const auth = req.headers.get('authorization') || ''
+  if (!auth.startsWith('Bearer ')) return false
+  return safeEqualString(auth.slice(7), cronSecret)
 }

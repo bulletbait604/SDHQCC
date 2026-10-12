@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image'
 
 import { useState } from 'react'
 import { Copy } from 'lucide-react'
@@ -305,7 +306,9 @@ export default function Post4MePlatformResults({
         >
           <div className="flex items-center gap-3 mb-3 pb-3 border-b border-white/10">
             {platformImages[result.platformId] && (
-              <img
+              <Image
+                width={36}
+                height={36}
                 src={platformImages[result.platformId]}
                 alt=""
                 className="w-9 h-9 rounded-lg object-cover"

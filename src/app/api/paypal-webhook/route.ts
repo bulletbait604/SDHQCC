@@ -510,68 +510,7 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // LEGACY: old PayPal custom_id used |tokens| (same balance as coins today)
-          if (customId.includes('tokens')) {
-            const parts = customId.split('|')
-            const username = parts[0]
-            const packageType = parts[2]
-            const tokenCount = parseInt(parts[3], 10)
-
-            if (username && !isNaN(tokenCount)) {
-              // Update token balance (legacy - migrate to coins)
-              const client = await clientPromise
-              const db = client.db('sdhq')
-              
-              await db.collection('tokenBalances').updateOne(
-                { userId: username.toLowerCase() },
-                {
-                  $inc: {
-                    tokens: tokenCount,
-                    totalPurchased: tokenCount
-                  },
-                  $set: {
-                    updatedAt: new Date().toISOString()
-                  }
-                },
-                { upsert: true }
-              )
-              
-              // Log the purchase
-              await db.collection('tokenTransactions').insertOne({
-                userId: username.toLowerCase(),
-                type: 'purchase',
-                amount: tokenCount,
-                cost: amount,
-                currency: 'CAD',
-                orderId,
-                packageType,
-                timestamp: new Date().toISOString()
-              })
-              
-              // Update purchase record
-              await db.collection('tokenPurchases').updateOne(
-                { orderId },
-                {
-                  $set: {
-                    status: 'completed',
-                    completedAt: new Date().toISOString(),
-                    verifiedWithPayPal: true
-                  }
-                }
-              )
-              
-              await logActivity(username.toLowerCase(), 'token_purchase', `Purchased ${tokenCount} coins for $${amount} CAD (ID: ${orderId})`)
-              
-              console.log(`✅ ${tokenCount} coins purchased for ${username} (legacy custom_id)`)
-              return NextResponse.json({ 
-                status: 'success', 
-                username, 
-                tokens: tokenCount, 
-                type: 'token_purchase',
-                verifiedWithPayPal: true 
-              })
-            }
-          }
+          // Legacy |tokens| custom_ids are no longer fulfilled (no amount verification / idempotency).
 
           // Handle lifetime membership (format: username|lifetime)
           if (customId.includes('lifetime')) {

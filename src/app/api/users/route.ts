@@ -3,6 +3,8 @@ import clientPromise from '@/lib/mongodb'
 import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { isAllowlistedOwner } from '@/lib/ownerAllowlist'
 
+export const dynamic = 'force-dynamic'
+
 function canViewUserLists(role: string, username: string): boolean {
   return ['admin', 'owner'].includes(role) || isAllowlistedOwner(username)
 }

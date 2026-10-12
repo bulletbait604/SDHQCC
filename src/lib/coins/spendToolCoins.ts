@@ -1,3 +1,4 @@
+import type { Db } from 'mongodb'
 import clientPromise from '@/lib/mongodb'
 import type { VerifiedUser } from '@/lib/auth/verifyAuth'
 import { hasUnlimitedAccess } from '@/lib/auth/verifyAuth'
@@ -13,7 +14,8 @@ export type SpendToolCoinsResult =
 export async function spendToolCoins(
   user: VerifiedUser,
   tool: ToolCoinName,
-  amountOverride?: number
+  amountOverride?: number,
+  deps?: { db?: Db }
 ): Promise<SpendToolCoinsResult> {
   const listed = toolCoinCost(tool)
   if (listed === undefined && amountOverride === undefined) {
@@ -24,8 +26,7 @@ export async function spendToolCoins(
       ? Math.floor(amountOverride)
       : listed ?? 0
 
-  const client = await clientPromise
-  const db = client.db('sdhq')
+  const db = deps?.db ?? (await clientPromise).db('sdhq')
 
   if (hasUnlimitedAccess(user)) {
     await db.collection('coinTransactions').insertOne({
