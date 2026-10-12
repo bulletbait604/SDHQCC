@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { enforceAiRateLimit } from '@/lib/rateLimit'
 import clientPromise from '@/lib/mongodb'
 import { verifyAuth, hasUnlimitedAccess, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { resolveCoinBalanceUserId } from '@/lib/coinUserId'
@@ -58,6 +59,8 @@ function parsePost4MeSampleFrames(raw: unknown): Post4MeSampleFrame[] | null {
 export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth(request)
+    const limited = await enforceAiRateLimit('post4me', user.username)
+    if (limited) return limited
     const body = await request.json()
     const {
       r2FileKey,

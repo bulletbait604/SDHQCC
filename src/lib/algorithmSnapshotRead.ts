@@ -1,3 +1,4 @@
+import type { Db } from 'mongodb'
 import clientPromise from '@/lib/mongodb'
 
 export const ALGORITHM_SNAPSHOT_COLLECTION = 'algorithm_snapshots'
@@ -14,10 +15,11 @@ export type AlgorithmSnapshotPayload = {
   updatedPlatforms?: string[]
 }
 
-export async function readAlgorithmSnapshotFromMongo(): Promise<AlgorithmSnapshotPayload | null> {
+export async function readAlgorithmSnapshotFromMongo(
+  dbOverride?: Pick<Db, 'collection'>
+): Promise<AlgorithmSnapshotPayload | null> {
   try {
-    const client = await clientPromise
-    const db = client.db('sdhq')
+    const db = dbOverride ?? (await clientPromise).db('sdhq')
     const doc = await db
       .collection(ALGORITHM_SNAPSHOT_COLLECTION)
       .findOne<{ payload: AlgorithmSnapshotPayload }>({ _id: ALGORITHM_DOC_ID })

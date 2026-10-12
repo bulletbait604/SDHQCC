@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { enforceAiRateLimit } from '@/lib/rateLimit'
 import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { fetchKickChannel } from '@/lib/kick/fetchChannel'
 import { buildChannelInsights } from '@/lib/home/channelInsights'
@@ -12,6 +13,8 @@ const CACHE_MS = 24 * 60 * 60 * 1000
 export async function GET(request: NextRequest) {
   try {
     const user = await verifyAuth(request)
+    const limited = await enforceAiRateLimit('home/insights', user.username)
+    if (limited) return limited
     const refresh = request.nextUrl.searchParams.get('refresh') === '1'
     const mongo = await clientPromise
     const col = mongo.db('sdhq').collection('channelInsights')

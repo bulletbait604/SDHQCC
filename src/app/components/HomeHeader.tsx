@@ -74,7 +74,8 @@ export default function HomeHeader({
               <div className="flex items-start gap-3">
                 {user.profile_image_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <img // eslint-disable-line @next/next/no-img-element -- arbitrary Kick CDN hosts
+                    
                     src={user.profile_image_url}
                     alt=""
                     width={48}

@@ -1,7 +1,8 @@
 'use client'
+import dynamic from 'next/dynamic'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import CoinPurchase from '@/app/components/CoinPurchase'
+const CoinPurchase = dynamic(() => import('@/app/components/CoinPurchase'), { loading: () => null })
 import BannedUserScreen from '@/app/components/BannedUserScreen'
 import { type CreateSubTab } from '@/app/components/CreateTabHeader'
 import { type RdSubTab } from '@/app/components/RdTabHeader'
@@ -29,9 +30,9 @@ import {
 import { homeTranslations } from '@/lib/i18n/homeTranslations'
 import type { ActivityLogEntry } from '@/lib/home/types'
 import { usePayPalPublicConfig } from '@/hooks/usePayPalPublicConfig'
-import DonatePopup from '@/app/components/DonatePopup'
-import SubscribePopup from '@/app/components/SubscribePopup'
-import LifetimePassPopup from '@/app/components/LifetimePassPopup'
+const DonatePopup = dynamic(() => import('@/app/components/DonatePopup'), { loading: () => null })
+const SubscribePopup = dynamic(() => import('@/app/components/SubscribePopup'), { loading: () => null })
+const LifetimePassPopup = dynamic(() => import('@/app/components/LifetimePassPopup'), { loading: () => null })
 import { pollSubscriptionVerification } from '@/lib/paypal/pollSubscriptionVerification'
 import { useCoins } from '@/hooks/useCoins'
 import { useOwnerViewAs } from '@/hooks/useOwnerViewAs'
@@ -40,6 +41,7 @@ import { hasTabAccessForUser } from '@/lib/home/ownerIdentity'
 import { applyOwnerViewAs } from '@/lib/home/ownerViewAs'
 import { startKickLogin } from '@/lib/kick/startKickLogin'
 import { DEFAULT_HOME_TAB } from '@/lib/home/tabUrl'
+
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState(DEFAULT_HOME_TAB)

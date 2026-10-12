@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { enforceAiRateLimit } from '@/lib/rateLimit'
 import {
   analyzeThumbnailClipFromFrames,
   analyzeThumbnailReferenceClip,
@@ -51,6 +52,8 @@ function parseSampleFrames(raw: unknown): ThumbnailSampleFrame[] | null {
 export async function POST(req: NextRequest) {
   try {
     const user = await verifyAuth(req)
+    const limited = await enforceAiRateLimit('thumbnail-generator/analyze-clip', user.username)
+    if (limited) return limited
 
     const body = await req.json()
     const {

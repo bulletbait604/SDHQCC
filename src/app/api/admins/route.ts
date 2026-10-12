@@ -49,6 +49,6 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     if (error instanceof AuthError) return createAuthErrorResponse(error)
     console.error('Failed to update admins:', error)
-    return NextResponse.json({ message: 'Failed to update admins', error: String(error) }, { status: 500 })
+    return NextResponse.json({ message: 'Failed to update admins' }, { status: 500 })
   }
 }

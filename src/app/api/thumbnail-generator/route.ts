@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { enforceAiRateLimit } from '@/lib/rateLimit';
+import { thumbnailScope, userOwnsThumbnailKey, signedImageUrl } from "@/lib/thumbnailAccess";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { fal } from "@fal-ai/client";
 import { GoogleGenAI, Modality } from "@google/genai";
@@ -1433,6 +1435,8 @@ async function generateThumbnailFal(params: {
 export async function POST(req: NextRequest) {
   try {
     const user = await verifyAuth(req);
+    const limited = await enforceAiRateLimit('thumbnail-generator', user.username);
+    if (limited) return limited;
     const spend = await spendToolCoins(user, "thumbnail-generator");
     if (!spend.ok) {
       return NextResponse.json(
@@ -1542,7 +1546,11 @@ export async function POST(req: NextRequest) {
 
     if (typeof sourceImageKey === "string" && sourceImageKey.trim()) {
       const sk = sourceImageKey.trim();
-      if (!isSafeR2ObjectKey(sk) || !sk.startsWith("thumbnails/")) {
+      if (
+        !isSafeR2ObjectKey(sk) ||
+        !sk.startsWith("thumbnails/") ||
+        !userOwnsThumbnailKey(sk, user.username)
+      ) {
         return NextResponse.json(
           { error: "Invalid source image key" },
           { status: 400 }
@@ -1589,6 +1597,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const thumbScope = thumbnailScope(user.username, sessionId);
     const provider = thumbnailProvider();
     const clipFrameViralMode = !!(clipAnalysis && clipFrameUsed);
     let out;
@@ -1600,7 +1609,7 @@ export async function POST(req: NextRequest) {
               imageBase64: effectiveB64,
               mimeType: effectiveMime,
               platforms,
-              sessionId,
+              sessionId: thumbScope,
               clipFrameViralMode,
               platformId,
             })
@@ -1609,7 +1618,7 @@ export async function POST(req: NextRequest) {
               imageBase64: effectiveB64,
               mimeType: effectiveMime,
               platforms,
-              sessionId,
+              sessionId: thumbScope,
               clipFrameViralMode,
               platformId,
             });
@@ -1644,10 +1653,8 @@ export async function POST(req: NextRequest) {
         }
       : paintEstimate;
 
-    const encKey = encodeURIComponent(out.key);
-
     return NextResponse.json({
-      url: `/api/image?key=${encKey}`,
+      url: signedImageUrl(out.key),
       key: out.key,
       mimeType: out.mimeType,
       description: out.description,

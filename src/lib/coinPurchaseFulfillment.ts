@@ -1,4 +1,6 @@
+import type { Db } from 'mongodb'
 import clientPromise from '@/lib/mongodb'
+import { claimOrderOnce } from '@/lib/orderClaim'
 import {
   INTERNAL_API_SECRET_HEADER,
   getInternalApiSecret,
@@ -11,6 +13,10 @@ export type FulfillVerifiedCoinPurchaseParams = {
   amountCurrency?: string
   /** When set (client completion), custom_id username must match — prevents crediting someone else's order */
   assertUsername?: string
+  /** Test hook: inject a Db instead of the shared Mongo client. */
+  db?: Db
+  /** Skip the activity-log HTTP call (tests). */
+  skipActivityLog?: boolean
 }
 
 export type FulfillVerifiedCoinPurchaseResult =
@@ -120,8 +126,7 @@ export async function fulfillVerifiedCoinPurchase(
     }
   }
 
-  const client = await clientPromise
-  const db = client.db('sdhq')
+  const db = params.db ?? (await clientPromise).db('sdhq')
 
   const alreadyDone = await db.collection('coinPurchases').findOne({
     orderId,
@@ -134,6 +139,13 @@ export async function fulfillVerifiedCoinPurchase(
       coins: coinCount,
       username,
     }
+  }
+
+  // Atomic claim: webhook and client completion can race. Only the request that
+  // inserts the claim (unique _id = orderId) credits coins.
+  const claimed = await claimOrderOnce(db, 'coinPurchaseClaims', orderId)
+  if (!claimed) {
+    return { ok: true, duplicate: true, coins: coinCount, username }
   }
 
   await db.collection('coinBalances').updateOne(
@@ -191,7 +203,7 @@ export async function fulfillVerifiedCoinPurchase(
     timestamp: new Date().toISOString(),
   })
 
-  await logCoinPurchaseActivity(
+  if (!params.skipActivityLog) await logCoinPurchaseActivity(
     username,
     `Purchased ${coinCount} coins (${pricePart ?? amount} ${currency}) — order ${orderId}`
   )

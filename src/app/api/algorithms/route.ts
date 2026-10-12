@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
-import clientPromise from '@/lib/mongodb'
-import {
-  ALGORITHM_DOC_ID,
-  ALGORITHM_SNAPSHOT_COLLECTION,
-  readAlgorithmSnapshotFromMongo,
-  type AlgorithmSnapshotPayload,
-} from '@/lib/algorithmSnapshotRead'
+import type { AlgorithmSnapshotPayload } from '@/lib/algorithmSnapshotRead'
+import { readAlgorithmSnapshot, writeAlgorithmSnapshot } from '@/lib/algorithms/store'
 import {
   extractBalancedJsonObject,
   normalizeAlgorithmPlatformData,
@@ -41,33 +36,6 @@ function alreadyUpdatedThisUtcMonth(lastUpdated: string | null | undefined): boo
   return lu.getUTCFullYear() === now.getUTCFullYear() && lu.getUTCMonth() === now.getUTCMonth()
 }
 
-async function readDataFromMongo(): Promise<AlgorithmSnapshotPayload | null> {
-  try {
-    return await readAlgorithmSnapshotFromMongo()
-  } catch (error) {
-    console.error('[Algorithms] MongoDB read failed:', error)
-    return null
-  }
-}
-
-async function writeDataToMongo(payload: AlgorithmSnapshotPayload): Promise<void> {
-  const client = await clientPromise
-  await client
-    .db('sdhq')
-    .collection(ALGORITHM_SNAPSHOT_COLLECTION)
-    .updateOne(
-      { _id: ALGORITHM_DOC_ID },
-      {
-        $set: {
-          payload,
-          updatedAt: new Date().toISOString(),
-        },
-      },
-      { upsert: true }
-    )
-  console.log('[Algorithms] Saved to MongoDB')
-}
-
 const platforms = [
   { id: 'tiktok', name: 'TikTok' },
   { id: 'instagram', name: 'Instagram' },
@@ -76,114 +44,13 @@ const platforms = [
   { id: 'facebook-reels', name: 'Facebook Reels' }
 ]
 
-// GitHub configuration
-const GITHUB_USERNAME = process.env.GITHUB_USERNAME || 'your-username'
-const GITHUB_REPO = process.env.GITHUB_REPO || 'hashy-tag-databases'
-const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main'
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN
-
 async function readData(): Promise<AlgorithmSnapshotPayload> {
-  const fromMongo = await readDataFromMongo()
-  if (fromMongo) {
-    console.log('[Algorithms] Loaded from MongoDB')
-    return fromMongo
-  }
-
-  // GitHub mirror / legacy
-  if (GITHUB_TOKEN) {
-    try {
-      const url = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/contents/algorithm-data.json?ref=${GITHUB_BRANCH}`
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `token ${GITHUB_TOKEN}`,
-          'Accept': 'application/vnd.github.v3+json'
-        }
-      })
-      
-      if (response.ok) {
-        const fileData = await response.json()
-        const content = Buffer.from(fileData.content, 'base64').toString('utf-8')
-        console.log('[Algorithms] Loaded from GitHub')
-        return JSON.parse(content)
-      }
-    } catch (error) {
-      console.error('Error reading from GitHub:', error)
-    }
-  }
-  
-  // Fallback to local file
-  try {
-    const fs = await import('fs/promises')
-    const path = await import('path')
-    const filePath = path.join(process.cwd(), 'algorithm-data.json')
-    const data = await fs.readFile(filePath, 'utf-8')
-    console.log('[Algorithms] Loaded from local algorithm-data.json')
-    return JSON.parse(data)
-  } catch (error) {
-    return { data: {}, lastUpdated: null }
-  }
+  return readAlgorithmSnapshot()
 }
 
 async function writeData(data: AlgorithmSnapshotPayload) {
-  // Mongo is source of truth — must succeed or the refresh fails (keep prior snapshot).
-  await writeDataToMongo(data)
-
-  if (GITHUB_TOKEN) {
-    try {
-      // Get current file SHA
-      const getFileUrl = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/contents/algorithm-data.json?ref=${GITHUB_BRANCH}`
-      const fileResponse = await fetch(getFileUrl, {
-        headers: {
-          'Authorization': `token ${GITHUB_TOKEN}`,
-          'Accept': 'application/vnd.github.v3+json'
-        }
-      })
-      
-      let fileSha = null
-      if (fileResponse.ok) {
-        const fileData = await fileResponse.json()
-        fileSha = fileData.sha
-      }
-
-      // Upload to GitHub
-      const content = Buffer.from(JSON.stringify(data, null, 2)).toString('base64')
-      const putUrl = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/contents/algorithm-data.json?ref=${GITHUB_BRANCH}`
-      
-      const putBody = {
-        message: `Update algorithm data - ${new Date().toISOString()}`,
-        content: content,
-        sha: fileSha
-      }
-
-      const putResponse = await fetch(putUrl, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `token ${GITHUB_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(putBody)
-      })
-
-      if (!putResponse.ok) {
-        throw new Error(`Failed to save to GitHub: ${putResponse.status}`)
-      }
-      
-      console.log('Successfully saved algorithm data to GitHub')
-      return
-    } catch (error) {
-      console.error('Error writing to GitHub:', error)
-    }
-  }
-  
-  // Fallback to local file
-  try {
-    const fs = await import('fs/promises')
-    const path = await import('path')
-    const filePath = path.join(process.cwd(), 'algorithm-data.json')
-    await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8')
-  } catch (error) {
-    console.error('Error writing data locally:', error)
-  }
+  // Mongo is the source of truth — must succeed or the refresh fails (keep prior snapshot).
+  await writeAlgorithmSnapshot(data)
 }
 
 function parseAlgorithmJsonContent(content: string): unknown {

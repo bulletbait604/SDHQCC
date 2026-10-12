@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { enforceAiRateLimit } from '@/lib/rateLimit'
 import { fal } from '@fal-ai/client'
 import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 
@@ -41,7 +42,9 @@ function readFalImage(result: unknown): FalImage | null {
 
 export async function POST(request: NextRequest) {
   try {
-    await verifyAuth(request)
+    const user = await verifyAuth(request)
+    const limited = await enforceAiRateLimit('background-remover', user.username)
+    if (limited) return limited
 
     const falKey = process.env.FAL_KEY?.trim() || process.env.FAL_API_KEY?.trim()
     if (!falKey) {

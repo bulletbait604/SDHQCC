@@ -1,31 +1,45 @@
-import { MongoClient } from 'mongodb';
+import { MongoClient } from 'mongodb'
 
-if (!process.env.MONGODB_URI) {
-  throw new Error('Please set MONGODB_URI in your environment');
+/**
+ * Lazy MongoDB connection. Nothing connects (or throws) at import time, so
+ * `next build` and routes that never touch the DB work without MONGODB_URI.
+ * `await clientPromise` still works everywhere: the default export is a thenable
+ * that opens (and caches) one shared connection on first await.
+ */
+const globalWithMongo = globalThis as typeof globalThis & {
+  _mongoClientPromise?: Promise<MongoClient>
 }
 
-const uri = process.env.MONGODB_URI;
-const options = {};
-
-let client: MongoClient;
-let clientPromise: Promise<MongoClient>;
-
-if (process.env.NODE_ENV === 'development') {
-  // In development mode, use a global variable so that the value
-  // is preserved across module reloads caused by HMR (Hot Module Replacement).
-  let globalWithMongo = global as typeof globalThis & {
-    _mongoClientPromise?: Promise<MongoClient>;
-  };
-
+export function getMongoClient(): Promise<MongoClient> {
   if (!globalWithMongo._mongoClientPromise) {
-    client = new MongoClient(uri, options);
-    globalWithMongo._mongoClientPromise = client.connect();
+    const uri = process.env.MONGODB_URI
+    if (!uri) {
+      return Promise.reject(new Error('Please set MONGODB_URI in your environment'))
+    }
+    const p = new MongoClient(uri, {}).connect()
+    // Don't cache a failed connection forever.
+    p.catch(() => {
+      if (globalWithMongo._mongoClientPromise === p) globalWithMongo._mongoClientPromise = undefined
+    })
+    globalWithMongo._mongoClientPromise = p
   }
-  clientPromise = globalWithMongo._mongoClientPromise;
-} else {
-  // In production mode, it's best to not use a global variable.
-  client = new MongoClient(uri, options);
-  clientPromise = client.connect();
+  return globalWithMongo._mongoClientPromise
 }
 
-export default clientPromise;
+const lazyClientPromise = {
+  then<T1 = MongoClient, T2 = never>(
+    onFulfilled?: ((value: MongoClient) => T1 | PromiseLike<T1>) | null,
+    onRejected?: ((reason: unknown) => T2 | PromiseLike<T2>) | null
+  ) {
+    return getMongoClient().then(onFulfilled, onRejected)
+  },
+  catch<T = never>(onRejected?: ((reason: unknown) => T | PromiseLike<T>) | null) {
+    return getMongoClient().catch(onRejected)
+  },
+  finally(onFinally?: (() => void) | null) {
+    return getMongoClient().finally(onFinally)
+  },
+  [Symbol.toStringTag]: 'Promise',
+} as unknown as Promise<MongoClient>
+
+export default lazyClientPromise

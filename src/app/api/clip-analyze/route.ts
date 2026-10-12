@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { enforceAiRateLimit } from '@/lib/rateLimit'
 import { GoogleGenAI } from '@google/genai'
 import clientPromise from '@/lib/mongodb'
 import { verifyAuth, hasUnlimitedAccess, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
@@ -168,6 +169,8 @@ export async function POST(request: NextRequest) {
   
   try {
     const user = await verifyAuth(request)
+    const limited = await enforceAiRateLimit('clip-analyze', user.username)
+    if (limited) return limited
 
     console.log('[DEBUG] Clip Analyze API: Parsing request body...')
     const body = await request.json()
@@ -622,10 +625,11 @@ export async function POST(request: NextRequest) {
       
       // Handle all other errors
       const errorDetails = `Model: ${modelName}, HTTP ${httpStatus}: ${errorMessage}`
+      console.error('[Clip Analyze] Gemini failure:', errorDetails)
       return NextResponse.json({ 
         error: 'Analysis failed',
         userMessage: 'Gemini is having a tough time right now. Please check back later.',
-        details: errorDetails
+        ...(process.env.NODE_ENV !== 'production' ? { details: errorDetails } : {}),
       }, { status: 503 })
     }
       }

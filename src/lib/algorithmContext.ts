@@ -1,7 +1,7 @@
 /**
  * Shared live algorithm snapshot formatting for Post4Me, Clip Analyzer, etc.
  */
-import { readAlgorithmSnapshotFromMongo } from '@/lib/algorithmSnapshotRead'
+import { readAlgorithmSnapshot } from '@/lib/algorithms/store'
 import { normalizeAlgorithmPlatformData } from '@/lib/algorithmPlatformNormalize'
 
 const LABEL: Record<string, string> = {
@@ -31,7 +31,7 @@ export async function formatAlgorithmContextForPlatform(platformId: string): Pro
   const algorithmPlatformId = toAlgorithmPlatformId(platformId)
   const label = LABEL[algorithmPlatformId] || algorithmPlatformId
   try {
-    const snapshot = await readAlgorithmSnapshotFromMongo()
+    const snapshot = await readAlgorithmSnapshot()
     if (!snapshot?.data || typeof snapshot.data !== 'object') {
       return {
         algorithmPlatformId,
@@ -88,7 +88,7 @@ export async function formatThumbnailAlgorithmContextForPlatform(platformId: str
   const algorithmPlatformId = toAlgorithmPlatformId(platformId)
   const label = LABEL[algorithmPlatformId] || algorithmPlatformId
   try {
-    const snapshot = await readAlgorithmSnapshotFromMongo()
+    const snapshot = await readAlgorithmSnapshot()
     if (!snapshot?.data || typeof snapshot.data !== 'object') {
       return {
         algorithmPlatformId,

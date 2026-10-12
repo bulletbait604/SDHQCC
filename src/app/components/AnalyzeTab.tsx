@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image'
 
 import { Button } from '@/components/ui/button'
 import { Video } from 'lucide-react'
@@ -183,7 +184,9 @@ export default function AnalyzeTab({
   {/* Platform Logos */}
   <div className="flex justify-center gap-3 mb-3">
     {platformsBannerLogos.map((platform) => (
-      <img
+      <Image
+        width={40}
+        height={40}
         key={platform.id}
         src={platform.image}
         alt={platform.name}

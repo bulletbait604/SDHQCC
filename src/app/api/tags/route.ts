@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { enforceAiRateLimit } from '@/lib/rateLimit'
 import { GoogleGenAI } from '@google/genai'
 import { buildTagGeneratorPrompt } from '@/lib/tagGeneratorPrompt'
 import { estimateTagGenerationUsd } from '@/lib/estimatedInferenceCost'
@@ -258,6 +259,8 @@ export async function DELETE(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth(request)
+    const limited = await enforceAiRateLimit('tags', user.username)
+    if (limited) return limited
     const spend = await spendToolCoins(user, 'tag-generator')
     if (!spend.ok) {
       return NextResponse.json(
@@ -298,7 +301,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: 'Failed to generate tags',
-        details: errorMessage,
+        ...(process.env.NODE_ENV !== 'production' ? { details: errorMessage } : {}),
       },
       { status: 500 }
     )
