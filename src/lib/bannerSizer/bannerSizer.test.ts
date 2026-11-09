@@ -8,7 +8,10 @@ import {
   placementFor,
   youtubeSafeRect,
 } from './placement'
-import { bannerWarnings, previewFrames } from './previewFrames'
+import { bannerWarnings, previewFrames, subjectFocusRect } from './previewFrames'
+import { kickHeaderDesktopWindow, kickHeaderPhoneWindow, KICK_DESKTOP_REDUCED_BANNER_HEIGHT } from './kickDisplay'
+import { detectSubject, frameAroundSubject } from './subject'
+import { buildBannerAiInstruction, cleanBannerPrompt } from './aiPrompt'
 import { encodeUnderCap } from './encodeUnderCap'
 import { zipStore } from './zipStore'
 import { compositeSubjectOverFill, visiblePlacement } from './aiComposite'
@@ -65,7 +68,7 @@ test('official banner sizes stay tied to the checked specs', () => {
 })
 
 test('export filenames include the platform and pixel size', () => {
-  assert.equal(bannerExportFileName(bannerPreset('kick-channel')!), 'kick-channel-banner-1280x700.jpg')
+  assert.equal(bannerExportFileName(bannerPreset('kick-channel')!), 'kick-offline-header-1280x700.jpg')
   assert.equal(bannerExportFileName(bannerPreset('x-header')!), 'x-header-1500x500.jpg')
 })
 
@@ -149,6 +152,126 @@ test('zip store round-trips a jpeg name and payload', () => {
   const nameAt = 30
   assert.equal(new TextDecoder().decode(zip.slice(nameAt, nameAt + name.length)), name)
   assert.deepEqual(zip.slice(nameAt + name.length, nameAt + name.length + payload.length), payload)
+})
+
+test('Kick header preview is the measured short strip, not the full 1280x700 frame', () => {
+  const preset = bannerPreset('kick-channel')!
+  const desktop = kickHeaderDesktopWindow(preset.width, preset.height)
+  const phone = kickHeaderPhoneWindow(preset.width, preset.height)
+  assert.ok(Math.abs(desktop.width / desktop.height - 1324 / 134) < 0.001)
+  assert.ok(Math.abs(phone.width / phone.height - 390 / 44) < 0.001)
+  assert.ok(desktop.height < 160)
+  assert.ok(phone.height < 170)
+  assert.ok(desktop.y > 250 && desktop.y + desktop.height < 450)
+  assert.equal(desktop.x, 0)
+  assert.equal(phone.x, 0)
+  const frames = previewFrames(preset)
+  assert.deepEqual(frames.map((frame) => frame.id), ['desktop', 'mobile'])
+  assert.equal(frames[0]?.presentation, undefined)
+  assert.ok(frames.every((frame) => frame.window))
+  assert.match(frames[0]?.note || '', /134px/)
+  assert.match(preset.displayNote, /320px/)
+  assert.equal(KICK_DESKTOP_REDUCED_BANNER_HEIGHT, 320)
+  assert.equal(frames.some((frame) => frame.window && Math.abs(frame.window.height - 320) < 1), false)
+  const focus = subjectFocusRect(preset)
+  assert.ok(Math.abs(focus.height - desktop.height) < 0.01)
+})
+
+test('Kick ended-stream preview contains the 1920x1080 file instead of pretending it is the header', () => {
+  const preset = bannerPreset('kick-offline')!
+  assert.equal(preset.width, 1920)
+  assert.equal(preset.height, 1080)
+  const frames = previewFrames(preset)
+  assert.equal(frames.length, 2)
+  assert.equal(frames[0]?.presentation, 'contain')
+  assert.equal(frames[0]?.window, null)
+  assert.ok(Math.abs((frames[0]?.frameAspect || 0) - 1324 / 880) < 0.001)
+  assert.equal(frames[1]?.presentation, 'contain')
+  assert.ok(Math.abs((frames[1]?.frameAspect || 0) - 16 / 9) < 0.001)
+  assert.match(frames[0]?.note || '', /not the short header/i)
+  assert.match(preset.summary, /not the short header/i)
+})
+
+test('YouTube and Twitch preview frames stay on their own rules', () => {
+  const youtube = previewFrames(bannerPreset('youtube-channel')!)
+  assert.deepEqual(youtube.map((frame) => frame.id), ['tv', 'desktop', 'tablet', 'mobile'])
+  assert.equal(youtube[0]?.window, null)
+  const twitch = previewFrames(bannerPreset('twitch-profile')!)
+  assert.equal(twitch.length, 1)
+  assert.equal(twitch[0]?.window, null)
+  assert.equal(twitch[0]?.presentation, undefined)
+})
+
+test('subject detection frames a centered logo and ignores a full-bleed photo', () => {
+  const width = 80
+  const height = 60
+  const data = new Uint8Array(width * height * 4)
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = 240
+    data[i + 1] = 240
+    data[i + 2] = 240
+    data[i + 3] = 255
+  }
+  for (let y = 22; y < 38; y++) {
+    for (let x = 32; x < 48; x++) {
+      const index = (y * width + x) * 4
+      data[index] = 220
+      data[index + 1] = 20
+      data[index + 2] = 20
+    }
+  }
+  const box = detectSubject(data, width, height)
+  assert.ok(box.x > 0.2 && box.x < 0.45)
+  assert.ok(box.y > 0.15 && box.y < 0.45)
+  assert.ok(box.width < 0.5 && box.height < 0.6)
+  assert.ok(box.x + box.width / 2 > 0.4 && box.x + box.width / 2 < 0.6)
+
+  const flat = new Uint8Array(40 * 30 * 4)
+  for (let i = 0; i < flat.length; i += 4) {
+    flat[i] = (i / 4) % 40
+    flat[i + 1] = 80
+    flat[i + 2] = 120
+    flat[i + 3] = 255
+  }
+  const whole = detectSubject(flat, 40, 30)
+  assert.equal(whole.width, 1)
+  assert.equal(whole.height, 1)
+})
+
+test('framing a small centered logo zooms in and stays inside the Kick header strip', () => {
+  const subject = { x: 0.4, y: 0.42, width: 0.2, height: 0.16 }
+  const kick = bannerPreset('kick-channel')!
+  const focus = subjectFocusRect(kick)
+  const framed = frameAroundSubject(1000, 800, kick.width, kick.height, subject, focus)
+  assert.equal(framed.mode, 'subject')
+  const placed = placementFor(1000, 800, kick.width, kick.height, framed)
+  const cover = placementFor(1000, 800, kick.width, kick.height, { mode: 'crop', zoom: 1, panX: 0, panY: 0 })
+  assert.ok(placed.dw <= cover.dw + 0.5)
+  const centerX = placed.dx + (subject.x + subject.width / 2) * placed.dw
+  const centerY = placed.dy + (subject.y + subject.height / 2) * placed.dh
+  assert.ok(centerX > focus.x && centerX < focus.x + focus.width)
+  assert.ok(centerY > focus.y && centerY < focus.y + focus.height)
+  const wide = frameAroundSubject(2000, 2000, 1280, 700, { x: 0.4, y: 0.4, width: 0.2, height: 0.2 })
+  const widePlaced = placementFor(2000, 2000, 1280, 700, wide)
+  const wideCover = placementFor(2000, 2000, 1280, 700, { mode: 'crop', zoom: 1, panX: 0, panY: 0 })
+  assert.ok(widePlaced.dw > wideCover.dw)
+  assert.equal(widePlaced.coversFrame, true)
+})
+
+test('an edit prompt changes the Gemini instruction and a blank prompt only fills edges', () => {
+  const fill = buildBannerAiInstruction({ userPrompt: '   ', width: 1280, height: 700 })
+  assert.equal(fill.keepsOriginalSubject, true)
+  assert.match(fill.text, /Paint only the flat empty margins/)
+  const edit = buildBannerAiInstruction({
+    userPrompt: 'Darken the background and keep the logo sharp',
+    width: 640,
+    height: 134,
+  })
+  assert.equal(edit.keepsOriginalSubject, false)
+  assert.match(edit.text, /Darken the background and keep the logo sharp/)
+  assert.match(edit.text, /640 by 134/)
+  assert.equal(cleanBannerPrompt('a'.repeat(500)).length, 400)
+  assert.equal(cleanBannerPrompt(12), '')
 })
 
 test('AI composite keeps the original subject pixels', async () => {

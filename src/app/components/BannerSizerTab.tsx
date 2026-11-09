@@ -31,7 +31,8 @@ import {
   type FrameState,
   type Placement,
 } from '@/lib/bannerSizer/placement'
-import { bannerWarnings, previewFrames, type PreviewFrame } from '@/lib/bannerSizer/previewFrames'
+import { bannerWarnings, previewFrames, subjectFocusRect, type PreviewFrame } from '@/lib/bannerSizer/previewFrames'
+import { detectSubject, frameAroundSubject, type SubjectBox } from '@/lib/bannerSizer/subject'
 import { zipStore } from '@/lib/bannerSizer/zipStore'
 import { COIN_COSTS, type ToolType } from '@/hooks/useCoins'
 
@@ -41,6 +42,7 @@ const MODES: { id: BannerMode; label: string; hint: string }[] = [
   { id: 'crop', label: 'Auto fit', hint: 'Fills the banner and keeps the photo in proportion.' },
   { id: 'fit', label: 'Whole photo', hint: 'Shows everything and leaves empty edges.' },
   { id: 'stretch', label: 'Stretch', hint: 'Fills the frame even if it distorts.' },
+  { id: 'subject', label: 'Frame subject', hint: 'Crops around the logo or main subject on every platform.' },
   { id: 'ai', label: 'AI Fill', hint: 'Keeps the photo and generates the missing edges.' },
 ]
 
@@ -65,6 +67,25 @@ export interface BannerSizerTabProps {
 
 function frameKey(frame: FrameState): string {
   return [frame.mode, frame.zoom.toFixed(4), frame.panX.toFixed(4), frame.panY.toFixed(4)].join('|')
+}
+
+function resultKey(frame: FrameState, prompt: string): string {
+  return `${frameKey(frame)}|${prompt.trim()}`
+}
+
+function subjectFromImage(image: HTMLImageElement): SubjectBox {
+  const maxEdge = 160
+  const scale = Math.min(1, maxEdge / Math.max(image.naturalWidth, image.naturalHeight))
+  const width = Math.max(1, Math.round(image.naturalWidth * scale))
+  const height = Math.max(1, Math.round(image.naturalHeight * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return { x: 0, y: 0, width: 1, height: 1 }
+  ctx.drawImage(image, 0, 0, width, height)
+  const pixels = ctx.getImageData(0, 0, width, height)
+  return detectSubject(pixels.data, width, height)
 }
 
 function downloadBytes(bytes: Uint8Array, fileName: string, type: string) {
@@ -111,9 +132,10 @@ async function exportPreset(
   image: HTMLImageElement,
   preset: BannerPreset,
   frame: FrameState,
-  ai: AiResult | undefined
+  ai: AiResult | undefined,
+  prompt: string
 ): Promise<{ bytes: Uint8Array; withinCap: boolean; usedAi: boolean }> {
-  if (frame.mode === 'ai' && ai && ai.frameKey === frameKey(frame)) {
+  if (ai && ai.frameKey === resultKey(frame, prompt)) {
     const response = await fetch(ai.dataUrl)
     const bytes = new Uint8Array(await response.arrayBuffer())
     return { bytes, withinCap: ai.withinCap, usedAi: true }
@@ -157,6 +179,7 @@ export default function BannerSizerTab({
     Object.fromEntries(BANNER_PRESETS.map((item) => [item.id, defaultBannerSelected(item.id)]))
   )
   const [logo, setLogo] = useState({ x: 0.5, y: 0.5 })
+  const [prompt, setPrompt] = useState('')
   const [ai, setAi] = useState<Record<string, AiResult>>({})
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null)
   const [aiMissing, setAiMissing] = useState<string | null>(null)
@@ -174,7 +197,12 @@ export default function BannerSizerTab({
     ? bannerWarnings({ preset, frame, placement, logo })
     : []
   const aiResult = ai[preset.id]
-  const aiMatches = Boolean(aiResult && aiResult.frameKey === frameKey(frame))
+  const aiMatches = Boolean(aiResult && aiResult.frameKey === resultKey(frame, prompt))
+  const leadView = previewFrames(preset)[0]
+  const dragWindow =
+    leadView && leadView.presentation !== 'contain' && leadView.window
+      ? leadView.window
+      : { x: 0, y: 0, width: preset.width, height: preset.height }
   const coinCost = COIN_COSTS['banner-sizer']
 
   const panel = darkMode ? 'border-white/10 bg-sdhq-dark-900/70' : 'border-sdhq-cyan-100 bg-white'
@@ -185,7 +213,7 @@ export default function BannerSizerTab({
     void fetch('/api/banner-sizer', { credentials: 'include' })
       .then(async (res) => {
         const data = (await res.json().catch(() => ({}))) as { available?: boolean; missing?: string | null }
-        if (cancelled) return
+        if (cancelled || !res.ok) return
         setAiAvailable(Boolean(data.available))
         setAiMissing(data.missing || null)
       })
@@ -275,8 +303,8 @@ export default function BannerSizerTab({
     if (drag.logo && placement) {
       const localX = event.clientX - rect.left
       const localY = event.clientY - rect.top
-      const exportX = (localX / rect.width) * preset.width
-      const exportY = (localY / rect.height) * preset.height
+      const exportX = dragWindow.x + (localX / rect.width) * dragWindow.width
+      const exportY = dragWindow.y + (localY / rect.height) * dragWindow.height
       const nextX = (exportX - placement.dx) / placement.dw
       const nextY = (exportY - placement.dy) / placement.dh
       setLogo({
@@ -298,8 +326,8 @@ export default function BannerSizerTab({
       setError('Upload an image first.')
       return
     }
-    if (frame.mode !== 'ai') {
-      setError('Switch to AI Fill to extend the edges. Crop, Fit, and Stretch stay on this device.')
+    if (frame.mode !== 'ai' && frame.mode !== 'subject' && !prompt.trim()) {
+      setError('Switch to AI Fill, frame the subject, or write an edit prompt. Crop, Fit, and Stretch stay on this device.')
       return
     }
     if (!user) {
@@ -324,6 +352,7 @@ export default function BannerSizerTab({
           presetId: preset.id,
           imageDataUrl: sourceDataUrl(image),
           placement,
+          prompt: prompt.trim(),
         }),
       })
       const data = (await res.json().catch(() => ({}))) as {
@@ -347,7 +376,7 @@ export default function BannerSizerTab({
         setNotice(data.message || 'This photo already covers the banner.')
         return
       }
-      const key = frameKey(frame)
+      const key = resultKey(frame, prompt)
       setAi((current) => ({
         ...current,
         [preset.id]: {
@@ -362,7 +391,7 @@ export default function BannerSizerTab({
         username: user.username,
         timestamp: new Date().toISOString(),
         action: 'banner_sizer_fill',
-        details: `AI fill for ${preset.name} ${preset.width}x${preset.height}`,
+        details: `AI ${prompt.trim() ? 'edit' : 'fill'} for ${preset.name} ${preset.width}x${preset.height}${prompt.trim() ? `: ${prompt.trim().slice(0, 80)}` : ''}`,
       }
       onActivityLog(entry)
       void postActivityLog({ username: user.username, action: entry.action, details: entry.details })
@@ -378,7 +407,7 @@ export default function BannerSizerTab({
     setBusy('one')
     setError('')
     try {
-      const result = await exportPreset(image, preset, frame, aiResult)
+      const result = await exportPreset(image, preset, frame, aiResult, prompt)
       downloadBytes(result.bytes, bannerExportFileName(preset), 'image/jpeg')
       if (!result.withinCap && preset.maxBytes) {
         setNotice(`Saved ${bannerExportFileName(preset)}, but it is still over the ${formatByteLimit(preset.maxBytes)} guide.`)
@@ -408,7 +437,7 @@ export default function BannerSizerTab({
       const skippedAi: string[] = []
       for (const item of chosen) {
         const itemFrame = frames[item.id] || defaultFrame(image.naturalWidth, image.naturalHeight, item.width, item.height)
-        const result = await exportPreset(image, item, itemFrame, ai[item.id])
+        const result = await exportPreset(image, item, itemFrame, ai[item.id], prompt)
         if (itemFrame.mode === 'ai' && !result.usedAi) skippedAi.push(item.name)
         entries.push({ name: bannerExportFileName(item), data: result.bytes })
       }
@@ -433,6 +462,34 @@ export default function BannerSizerTab({
     ],
     []
   )
+
+  const applySubject = () => {
+    if (!image) {
+      setError('Upload an image first.')
+      return
+    }
+    setError('')
+    const box = subjectFromImage(image)
+    const next: Record<string, FrameState> = {}
+    for (const item of BANNER_PRESETS) {
+      next[item.id] = frameAroundSubject(
+        image.naturalWidth,
+        image.naturalHeight,
+        item.width,
+        item.height,
+        box,
+        subjectFocusRect(item)
+      )
+    }
+    setFrames(next)
+    setAi({})
+    const wholePhoto = box.width > 0.9 && box.height > 0.9
+    setNotice(
+      wholePhoto
+        ? 'No separate subject stood out from the background, so this matches Auto fit.'
+        : 'Framed the subject on every platform. Switch a card back to Auto fit if you wanted the whole photo.'
+    )
+  }
 
   const setPlatformOn = (id: string, on: boolean) => {
     setSelected((current) => ({ ...current, [id]: on }))
@@ -556,7 +613,7 @@ export default function BannerSizerTab({
                   const itemPlacement = image
                     ? placementFor(image.naturalWidth, image.naturalHeight, item.width, item.height, itemFrame)
                     : null
-                  const aiReady = Boolean(itemFrame.mode === 'ai' && ai[item.id]?.frameKey === frameKey(itemFrame))
+                  const aiReady = Boolean(ai[item.id]?.frameKey === resultKey(itemFrame, prompt))
                   const shownPlacement = aiReady
                     ? { dx: 0, dy: 0, dw: item.width, dh: item.height, coversFrame: true }
                     : itemPlacement
@@ -581,7 +638,22 @@ export default function BannerSizerTab({
                           {active ? ' · drag this preview to adjust' : ' · click to adjust this one'}
                         </span>
                       </button>
-                      <div className={`grid gap-2 p-2 ${previewFrames(item).length > 1 ? 'sm:grid-cols-2' : ''}`}>
+                      <div
+                        className={`grid gap-2 p-2 ${
+                          previewFrames(item).some((view) => {
+                            const aspect = view.presentation === 'contain'
+                              ? view.frameAspect || 1
+                              : view.window
+                                ? view.window.width / view.window.height
+                                : item.width / item.height
+                            return aspect > 4
+                          })
+                            ? ''
+                            : previewFrames(item).length > 1
+                              ? 'sm:grid-cols-2'
+                              : ''
+                        }`}
+                      >
                         {previewFrames(item).map((view, index) => (
                           <ChannelMock
                             key={view.id}
@@ -631,12 +703,22 @@ export default function BannerSizerTab({
               </a>
             </div>
             <p className={`mb-3 text-sm ${textClasses}`}>{preset.summary}</p>
-            <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
               {MODES.map((mode) => (
                 <button
                   key={mode.id}
                   type="button"
-                  onClick={() => updateFrame({ mode: mode.id })}
+                  onClick={() => {
+                    if (mode.id === 'subject') {
+                      applySubject()
+                      return
+                    }
+                    if (frame.mode === 'subject') {
+                      updateFrame({ mode: mode.id, zoom: 1, panX: 0, panY: 0 })
+                      return
+                    }
+                    updateFrame({ mode: mode.id })
+                  }}
                   className={`rounded-xl border px-2 py-2 text-left text-sm ${
                     frame.mode === mode.id
                       ? 'border-transparent bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 font-semibold text-black'
@@ -652,6 +734,19 @@ export default function BannerSizerTab({
                 </button>
               ))}
             </div>
+            <label className={`mb-3 block text-xs ${muted}`}>
+              Edit prompt
+              <textarea
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+                rows={2}
+                maxLength={400}
+                placeholder="Darken the background and keep the logo sharp"
+                className={`mt-1 w-full rounded-xl border px-3 py-2 text-sm ${
+                  darkMode ? 'border-white/10 bg-black/30 text-white' : 'border-sdhq-cyan-100 bg-white text-gray-900'
+                }`}
+              />
+            </label>
             <div className="flex flex-wrap items-center gap-3">
               <label className={`text-xs ${muted}`}>
                 Zoom
@@ -677,6 +772,16 @@ export default function BannerSizerTab({
               Animated GIF export is not included. This uses the first frame and downloads a still JPEG. Club will not crop a GIF, so a moving Club banner still has to be sized before upload.
             </p>
           ) : null}
+          {preset.id === 'kick-channel' ? (
+            <p className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm">
+              Kick Help still requires a 1280×700 minimum upload. The short preview is the measured on-screen crop: 134px tall on desktop and 44px tall on a phone, object-cover, centered. Those heights are from Kick’s CSS, not a published size. The 320px token is not this image’s height.
+            </p>
+          ) : null}
+          {preset.id === 'kick-offline' ? (
+            <p className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm">
+              This 1920×1080 file is the ended-stream image. Kick contains it in the player under the short header. On the Home tab while offline that player is covered, so viewers see the header strip instead.
+            </p>
+          ) : null}
           {preset.sizeStatus === 'estimated' ? (
             <p className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm">
               Club does not publish a pixel size. 1134×567 is the banner file served on club.com/bulletbait604, and the preview follows that measured 2:1 header.
@@ -699,9 +804,20 @@ export default function BannerSizerTab({
           {notice ? <p className={`rounded-xl border px-3 py-2 text-sm ${panel}`}>{notice}</p> : null}
 
           <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={runAi} disabled={!image || busy !== null || frame.mode !== 'ai' || aiAvailable === false || chosen.length === 0}>
+            <Button
+              type="button"
+              onClick={runAi}
+              disabled={
+                !image ||
+                busy !== null ||
+                aiAvailable === false ||
+                chosen.length === 0 ||
+                (frame.mode !== 'ai' && frame.mode !== 'subject' && !prompt.trim())
+              }
+            >
               {busy === 'ai' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-              Generate AI fill{hasUnlimitedAccess ? '' : ` · ${coinCost} coins`}
+              {prompt.trim() ? 'Apply AI edit' : 'Generate AI fill'}
+              {hasUnlimitedAccess ? '' : ` · ${coinCost} coins`}
             </Button>
             <Button type="button" variant="outline" onClick={downloadOne} disabled={!image || busy !== null || chosen.length === 0}>
               {busy === 'one' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
@@ -718,7 +834,9 @@ export default function BannerSizerTab({
             </p>
           ) : (
             <p className={`text-xs ${muted}`}>
-              AI fill uses the thumbnail generator’s Gemini image model. Your original photo is pasted back on top so it is not stretched.
+              {prompt.trim()
+                ? 'An edit prompt uses the thumbnail generator’s Gemini image model and follows your text. Kick login and 2 coins apply. Crop, fit, stretch, and Frame subject still work without the key.'
+                : 'AI fill uses the thumbnail generator’s Gemini image model. With no prompt, your original photo is pasted back on top so it is not stretched.'}
             </p>
           )}
 
@@ -790,7 +908,7 @@ function StageImage({
   placement: Placement
 }) {
   return (
-    <div className="relative h-full w-full bg-[#111114]">
+    <div className="relative h-full w-full overflow-hidden bg-[#111114]">
       <div
         className="absolute"
         style={{
@@ -799,11 +917,24 @@ function StageImage({
           width: `${(placement.dw / preset.width) * 100}%`,
           height: `${(placement.dh / preset.height) * 100}%`,
           backgroundImage: `url("${imageUrl}")`,
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: 'center',
           backgroundSize: '100% 100%',
         }}
       />
     </div>
   )
+}
+
+function fittedFrameStyle(exportAspect: number, frameAspect: number, mode: 'contain' | 'cover') {
+  const exportWider = exportAspect >= frameAspect
+  const spanWidth = mode === 'contain' ? exportWider : !exportWider
+  if (spanWidth) {
+    const height = (frameAspect / exportAspect) * 100
+    return { left: '0%', width: '100%', height: `${height}%`, top: `${(100 - height) / 2}%` }
+  }
+  const width = (exportAspect / frameAspect) * 100
+  return { top: '0%', height: '100%', width: `${width}%`, left: `${(100 - width) / 2}%` }
 }
 
 function siteChrome(id: string): { name: string; accent: string } {
@@ -846,7 +977,65 @@ function ChannelMock({
 }) {
   const windowRect = view.window || { x: 0, y: 0, width: preset.width, height: preset.height }
   const site = siteChrome(preset.id)
-  const avatarOverBanner = preset.id.startsWith('kick') || preset.id.startsWith('youtube') || preset.id.startsWith('club')
+  const avatarOverBanner = preset.id.startsWith('youtube') || preset.id.startsWith('club')
+  const contain = view.presentation === 'contain'
+  const frameAspect = view.frameAspect || preset.width / preset.height
+  const exportAspect = preset.width / preset.height
+  const stageProps = interactive
+    ? {
+        ref: stageRef,
+        tabIndex: 0,
+        role: 'application' as const,
+        'aria-label': `${preset.name} preview. Drag to reposition.`,
+        onPointerDown,
+        onPointerMove,
+        onPointerUp,
+        onKeyDown,
+      }
+    : {}
+  const renderExport = () => (
+    <>
+      {imageUrl && placement ? (
+        <div
+          className="absolute"
+          style={{
+            left: `${(placement.dx / preset.width) * 100}%`,
+            top: `${(placement.dy / preset.height) * 100}%`,
+            width: `${(placement.dw / preset.width) * 100}%`,
+            height: `${(placement.dh / preset.height) * 100}%`,
+            backgroundImage: `url("${imageUrl}")`,
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            backgroundSize: '100% 100%',
+          }}
+        />
+      ) : null}
+      {view.marks.map((mark) => (
+        <div
+          key={mark.id}
+          className={`pointer-events-none absolute border-2 border-dashed ${mark.tone === 'safe' ? 'border-sdhq-green-400' : 'border-amber-300'}`}
+          style={{
+            left: `${(mark.rect.x / preset.width) * 100}%`,
+            top: `${(mark.rect.y / preset.height) * 100}%`,
+            width: `${(mark.rect.width / preset.width) * 100}%`,
+            height: `${(mark.rect.height / preset.height) * 100}%`,
+          }}
+        />
+      ))}
+      {logo && placement ? (
+        <button
+          type="button"
+          data-logo="1"
+          aria-label="Text or logo marker"
+          className="absolute z-10 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-sdhq-green-500 shadow"
+          style={{
+            left: `${((placement.dx + logo.x * placement.dw) / preset.width) * 100}%`,
+            top: `${((placement.dy + logo.y * placement.dh) / preset.height) * 100}%`,
+          }}
+        />
+      ) : null}
+    </>
+  )
   return (
     <div>
       <p className={`mb-1 text-[11px] font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{view.label}</p>
@@ -857,65 +1046,40 @@ function ChannelMock({
           <span className="text-[10px] text-white/50">Your channel</span>
         </div>
         <div className={avatarOverBanner ? 'relative pb-3' : ''}>
-          <div
-            ref={interactive ? stageRef : undefined}
-            tabIndex={interactive ? 0 : undefined}
-            role={interactive ? 'application' : undefined}
-            aria-label={interactive ? `${preset.name} preview. Drag to reposition.` : undefined}
-            onPointerDown={interactive ? onPointerDown : undefined}
-            onPointerMove={interactive ? onPointerMove : undefined}
-            onPointerUp={interactive ? onPointerUp : undefined}
-            onKeyDown={interactive ? onKeyDown : undefined}
-            className={`relative overflow-hidden bg-[#111114] ${interactive ? 'cursor-grab' : ''}`}
-            style={{ aspectRatio: `${windowRect.width} / ${windowRect.height}` }}
-          >
-            <div
-              className="absolute"
-              style={{
-                width: `${(preset.width / windowRect.width) * 100}%`,
-                height: `${(preset.height / windowRect.height) * 100}%`,
-                left: `${(-windowRect.x / windowRect.width) * 100}%`,
-                top: `${(-windowRect.y / windowRect.height) * 100}%`,
-              }}
-            >
-              {imageUrl && placement ? (
+          <div className="relative overflow-hidden bg-[#111114]" style={{ paddingTop: `${(contain ? 1 / frameAspect : windowRect.height / windowRect.width) * 100}%` }}>
+            {contain ? (
+              <div className="absolute inset-0 overflow-hidden">
+                {view.blurredBackdrop ? (
+                  <div className="pointer-events-none absolute opacity-40" style={fittedFrameStyle(exportAspect, frameAspect, 'cover')}>
+                    <div className="relative h-full w-full" style={{ filter: 'blur(8px)', transform: 'scale(1.04)' }}>
+                      {renderExport()}
+                    </div>
+                  </div>
+                ) : null}
+                <div className={`absolute overflow-hidden ${interactive ? 'cursor-grab' : ''}`} style={fittedFrameStyle(exportAspect, frameAspect, 'contain')} {...stageProps}>
+                  <div className="absolute inset-0">{renderExport()}</div>
+                </div>
+              </div>
+            ) : (
+              <div className={`absolute inset-0 overflow-hidden ${interactive ? 'cursor-grab' : ''}`} {...stageProps}>
                 <div
                   className="absolute"
                   style={{
-                    left: `${(placement.dx / preset.width) * 100}%`,
-                    top: `${(placement.dy / preset.height) * 100}%`,
-                    width: `${(placement.dw / preset.width) * 100}%`,
-                    height: `${(placement.dh / preset.height) * 100}%`,
-                    backgroundImage: `url("${imageUrl}")`,
-                    backgroundSize: '100% 100%',
+                    width: `${(preset.width / windowRect.width) * 100}%`,
+                    height: `${(preset.height / windowRect.height) * 100}%`,
+                    left: `${(-windowRect.x / windowRect.width) * 100}%`,
+                    top: `${(-windowRect.y / windowRect.height) * 100}%`,
                   }}
-                />
-              ) : null}
-              {view.marks.map((mark) => (
-                <div
-                  key={mark.id}
-                  className={`pointer-events-none absolute border-2 border-dashed ${mark.tone === 'safe' ? 'border-sdhq-green-400' : 'border-amber-300'}`}
-                  style={{
-                    left: `${(mark.rect.x / preset.width) * 100}%`,
-                    top: `${(mark.rect.y / preset.height) * 100}%`,
-                    width: `${(mark.rect.width / preset.width) * 100}%`,
-                    height: `${(mark.rect.height / preset.height) * 100}%`,
-                  }}
-                />
-              ))}
-              {logo && placement ? (
-                <button
-                  type="button"
-                  data-logo="1"
-                  aria-label="Text or logo marker"
-                  className="absolute z-10 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-sdhq-green-500 shadow"
-                  style={{
-                    left: `${((placement.dx + logo.x * placement.dw) / preset.width) * 100}%`,
-                    top: `${((placement.dy + logo.y * placement.dh) / preset.height) * 100}%`,
-                  }}
-                />
-              ) : null}
-            </div>
+                >
+                  {renderExport()}
+                  {preset.id === 'kick-channel' ? (
+                    <span className="pointer-events-none absolute left-[2%] top-1/2 z-10 -translate-y-1/2 rounded bg-black/80 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-white">
+                      OFFLINE
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            )}
           </div>
           {avatarOverBanner ? (
             <span

@@ -1,4 +1,4 @@
-export type BannerMode = 'crop' | 'fit' | 'stretch' | 'ai'
+export type BannerMode = 'crop' | 'fit' | 'stretch' | 'subject' | 'ai'
 
 export interface FrameState {
   mode: BannerMode
@@ -64,14 +64,14 @@ export function placementFor(
 
   const cover = Math.max(dstW / srcW, dstH / srcH)
   const contain = Math.min(dstW / srcW, dstH / srcH)
-  const base = frame.mode === 'crop' ? cover : contain
+  const base = frame.mode === 'crop' || frame.mode === 'subject' ? cover : contain
   const zoom = Number.isFinite(frame.zoom) ? clamp(frame.zoom, 0.2, 6) : 1
   const dw = srcW * base * zoom
   const dh = srcH * base * zoom
   let dx = (dstW - dw) / 2 + frame.panX * dstW
   let dy = (dstH - dh) / 2 + frame.panY * dstH
 
-  if (frame.mode === 'crop' && dw >= dstW && dh >= dstH) {
+  if ((frame.mode === 'crop' || frame.mode === 'subject') && dw >= dstW && dh >= dstH) {
     dx = clamp(dx, dstW - dw, 0)
     dy = clamp(dy, dstH - dh, 0)
   }
