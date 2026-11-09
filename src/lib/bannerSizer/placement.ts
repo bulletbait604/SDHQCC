@@ -26,21 +26,22 @@ export interface Rect {
 
 export const DEFAULT_ZOOM = 1
 
-export function defaultFrame(srcW: number, srcH: number, dstW: number, dstH: number): FrameState {
+/**
+ * A new upload fills every banner immediately.
+ * Cover keeps the photo's proportions. It does not letterbox or stretch.
+ */
+export function defaultFrame(
+  _srcW?: number,
+  _srcH?: number,
+  _dstW?: number,
+  _dstH?: number
+): FrameState {
   return {
-    mode: shouldDefaultToAiFill(srcW, srcH, dstW, dstH) ? 'ai' : 'crop',
+    mode: 'crop',
     zoom: DEFAULT_ZOOM,
     panX: 0,
     panY: 0,
   }
-}
-
-/** AI fill is the default when the photo is the wrong shape or smaller than the banner. */
-export function shouldDefaultToAiFill(srcW: number, srcH: number, dstW: number, dstH: number): boolean {
-  if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) return false
-  const aspectOff = Math.abs(srcW / srcH - dstW / dstH) / (dstW / dstH) > 0.02
-  const tooSmall = srcW + 0.5 < dstW || srcH + 0.5 < dstH
-  return aspectOff || tooSmall
 }
 
 export function clamp(value: number, min: number, max: number): number {

@@ -1,7 +1,16 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
-import { Crop, Download, Image as ImageIcon, Loader2, RectangleHorizontal, Upload, Wand2, X } from 'lucide-react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  type RefObject,
+} from 'react'
+import { Crop, Download, Image as ImageIcon, Loader2, Upload, Wand2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { postActivityLog } from '@/lib/home/activityLogUtils'
 import type { ActivityLogEntry } from '@/lib/home/types'
@@ -9,6 +18,7 @@ import {
   BANNER_PRESETS,
   bannerExportFileName,
   bannerPresetsInGroup,
+  defaultBannerSelected,
   formatByteLimit,
   sizeStatusLabel,
   type BannerPreset,
@@ -28,10 +38,10 @@ import { COIN_COSTS, type ToolType } from '@/hooks/useCoins'
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/gif'
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024
 const MODES: { id: BannerMode; label: string; hint: string }[] = [
-  { id: 'crop', label: 'Crop', hint: 'Cut the photo to the banner shape.' },
-  { id: 'fit', label: 'Fit', hint: 'Show the whole photo and leave empty edges.' },
-  { id: 'stretch', label: 'Stretch', hint: 'Fill the frame even if it distorts.' },
-  { id: 'ai', label: 'AI Fill', hint: 'Keep the photo and generate the missing edges.' },
+  { id: 'crop', label: 'Auto fit', hint: 'Fills the banner and keeps the photo in proportion.' },
+  { id: 'fit', label: 'Whole photo', hint: 'Shows everything and leaves empty edges.' },
+  { id: 'stretch', label: 'Stretch', hint: 'Fills the frame even if it distorts.' },
+  { id: 'ai', label: 'AI Fill', hint: 'Keeps the photo and generates the missing edges.' },
 ]
 
 interface AiResult {
@@ -144,7 +154,7 @@ export default function BannerSizerTab({
   const [activeId, setActiveId] = useState(BANNER_PRESETS[0]!.id)
   const [frames, setFrames] = useState<Record<string, FrameState>>({})
   const [selected, setSelected] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(BANNER_PRESETS.map((preset) => [preset.id, true]))
+    Object.fromEntries(BANNER_PRESETS.map((item) => [item.id, defaultBannerSelected(item.id)]))
   )
   const [logo, setLogo] = useState({ x: 0.5, y: 0.5 })
   const [ai, setAi] = useState<Record<string, AiResult>>({})
@@ -154,12 +164,12 @@ export default function BannerSizerTab({
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
 
-  const preset = bannerPresetById(activeId)
+  const chosen = BANNER_PRESETS.filter((item) => selected[item.id])
+  const preset = chosen.find((item) => item.id === activeId) || chosen[0] || BANNER_PRESETS[0]!
   const frame = frames[preset.id] || defaultFrame(1, 1, preset.width, preset.height)
   const placement = image
     ? placementFor(image.naturalWidth, image.naturalHeight, preset.width, preset.height, frame)
     : null
-  const views = previewFrames(preset)
   const warnings = image && placement
     ? bannerWarnings({ preset, frame, placement, logo })
     : []
@@ -193,7 +203,7 @@ export default function BannerSizerTab({
     const onWheel = (event: WheelEvent) => {
       event.preventDefault()
       setFrames((current) => {
-        const prev = current[preset.id] || { mode: 'ai' as const, zoom: 1, panX: 0, panY: 0 }
+        const prev = current[preset.id] || { mode: 'crop' as const, zoom: 1, panX: 0, panY: 0 }
         const nextZoom = Math.min(6, Math.max(0.2, prev.zoom * (event.deltaY < 0 ? 1.06 : 0.94)))
         return { ...current, [preset.id]: { ...prev, zoom: nextZoom } }
       })
@@ -424,6 +434,11 @@ export default function BannerSizerTab({
     []
   )
 
+  const setPlatformOn = (id: string, on: boolean) => {
+    setSelected((current) => ({ ...current, [id]: on }))
+    if (on) setActiveId(id)
+  }
+
   return (
     <div>
       <p className={`mx-auto mb-4 max-w-3xl text-center text-sm ${textClasses}`}>{description}</p>
@@ -489,9 +504,9 @@ export default function BannerSizerTab({
                       <input
                         type="checkbox"
                         className="mt-2"
-                        checked={selected[item.id] !== false}
-                        aria-label={`Include ${item.name} in zip`}
-                        onChange={(event) => setSelected((current) => ({ ...current, [item.id]: event.target.checked }))}
+                        checked={Boolean(selected[item.id])}
+                        aria-label={`Show ${item.name} preview`}
+                        onChange={(event) => setPlatformOn(item.id, event.target.checked)}
                       />
                       <button
                         type="button"
@@ -519,10 +534,93 @@ export default function BannerSizerTab({
         </div>
 
         <div className="space-y-3">
+          <section className={`rounded-2xl border p-3 ${panel}`} aria-label="Selected platform previews">
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {image ? `${chosen.length} live preview${chosen.length === 1 ? '' : 's'}` : 'Pick platforms, then upload'}
+                </h4>
+                <p className={`text-sm ${textClasses}`}>
+                  {image
+                    ? 'Each checked platform is already resized. All of them stay on screen, and each uses that site’s own shape.'
+                    : 'Check Kick, Twitch, YouTube, or any other banner. The same photo is fit to every one you leave on.'}
+                </p>
+              </div>
+            </div>
+            {chosen.length === 0 ? (
+              <p className={`text-sm ${muted}`}>Select at least one platform to see its preview.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {chosen.map((item) => {
+                  const itemFrame = frames[item.id] || defaultFrame(image?.naturalWidth, image?.naturalHeight, item.width, item.height)
+                  const itemPlacement = image
+                    ? placementFor(image.naturalWidth, image.naturalHeight, item.width, item.height, itemFrame)
+                    : null
+                  const aiReady = Boolean(itemFrame.mode === 'ai' && ai[item.id]?.frameKey === frameKey(itemFrame))
+                  const shownPlacement = aiReady
+                    ? { dx: 0, dy: 0, dw: item.width, dh: item.height, coversFrame: true }
+                    : itemPlacement
+                  const shownUrl = aiReady ? ai[item.id]!.dataUrl : imageUrl
+                  const active = item.id === preset.id
+                  return (
+                    <article
+                      key={item.id}
+                      className={`overflow-hidden rounded-2xl border ${
+                        active
+                          ? 'border-sdhq-cyan-400 ring-2 ring-sdhq-cyan-400'
+                          : darkMode
+                            ? 'border-white/10'
+                            : 'border-sdhq-cyan-100'
+                      }`}
+                    >
+                      <button type="button" onClick={() => setActiveId(item.id)} className="w-full px-3 py-2 text-left">
+                        <span className={`block text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{item.name}</span>
+                        <span className={`block text-[11px] ${muted}`}>
+                          {item.width}×{item.height}
+                          {item.maxBytes ? ` · ${formatByteLimit(item.maxBytes)}` : ''}
+                          {active ? ' · drag this preview to adjust' : ' · click to adjust this one'}
+                        </span>
+                      </button>
+                      <div className={`grid gap-2 p-2 ${previewFrames(item).length > 1 ? 'sm:grid-cols-2' : ''}`}>
+                        {previewFrames(item).map((view, index) => (
+                          <ChannelMock
+                            key={view.id}
+                            darkMode={darkMode}
+                            preset={item}
+                            view={view}
+                            imageUrl={shownUrl}
+                            placement={shownPlacement}
+                            interactive={active && index === 0 && itemFrame.mode !== 'ai'}
+                            logo={active && index === 0 ? logo : null}
+                            stageRef={active && index === 0 ? stageRef : undefined}
+                            onPointerDown={active && index === 0 ? onPointerDown : undefined}
+                            onPointerMove={active && index === 0 ? onPointerMove : undefined}
+                            onPointerUp={active && index === 0 ? () => { dragRef.current = null } : undefined}
+                            onKeyDown={
+                              active && index === 0
+                                ? (event) => {
+                                    const step = event.shiftKey ? 0.04 : 0.012
+                                    if (event.key === 'ArrowLeft') updateFrame({ panX: frame.panX - step })
+                                    if (event.key === 'ArrowRight') updateFrame({ panX: frame.panX + step })
+                                    if (event.key === 'ArrowUp') updateFrame({ panY: frame.panY - step })
+                                    if (event.key === 'ArrowDown') updateFrame({ panY: frame.panY + step })
+                                  }
+                                : undefined
+                            }
+                          />
+                        ))}
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+
           <div className={`rounded-2xl border p-3 ${panel}`}>
             <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
               <div>
-                <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{preset.name}</h4>
+                <h4 className={`text-base font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Adjust {preset.name}</h4>
                 <p className={`text-xs ${muted}`}>
                   {preset.width}×{preset.height} px · {sizeStatusLabel(preset.sizeStatus)} · {preset.fileTypes}
                 </p>
@@ -533,7 +631,6 @@ export default function BannerSizerTab({
               </a>
             </div>
             <p className={`mb-3 text-sm ${textClasses}`}>{preset.summary}</p>
-
             <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {MODES.map((mode) => (
                 <button
@@ -555,76 +652,7 @@ export default function BannerSizerTab({
                 </button>
               ))}
             </div>
-
-            <div
-              ref={stageRef}
-              tabIndex={0}
-              role="application"
-              aria-label="Banner canvas. Drag to reposition. Arrow keys nudge. Scroll to zoom."
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={() => {
-                dragRef.current = null
-              }}
-              onKeyDown={(event) => {
-                const step = event.shiftKey ? 0.04 : 0.012
-                if (event.key === 'ArrowLeft') updateFrame({ panX: frame.panX - step })
-                if (event.key === 'ArrowRight') updateFrame({ panX: frame.panX + step })
-                if (event.key === 'ArrowUp') updateFrame({ panY: frame.panY - step })
-                if (event.key === 'ArrowDown') updateFrame({ panY: frame.panY + step })
-              }}
-              className="relative mx-auto w-full max-w-3xl cursor-grab overflow-hidden rounded-xl bg-[#111114] outline outline-2 outline-sdhq-cyan-500/80"
-              style={{ aspectRatio: `${preset.width} / ${preset.height}` }}
-            >
-              {image && imageUrl && placement ? (
-                <>
-                  <div
-                    className="absolute"
-                    style={{
-                      left: `${(placement.dx / preset.width) * 100}%`,
-                      top: `${(placement.dy / preset.height) * 100}%`,
-                      width: `${(placement.dw / preset.width) * 100}%`,
-                      height: `${(placement.dh / preset.height) * 100}%`,
-                      backgroundImage: `url("${imageUrl}")`,
-                      backgroundSize: '100% 100%',
-                      backgroundRepeat: 'no-repeat',
-                    }}
-                  />
-                  <button
-                    type="button"
-                    data-logo="1"
-                    aria-label="Text or logo marker"
-                    className="absolute z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-sdhq-green-500 shadow"
-                    style={{
-                      left: `${((placement.dx + logo.x * placement.dw) / preset.width) * 100}%`,
-                      top: `${((placement.dy + logo.y * placement.dh) / preset.height) * 100}%`,
-                    }}
-                  />
-                  {views
-                    .flatMap((view) => view.marks)
-                    .filter((mark, index, all) => all.findIndex((other) => other.id === mark.id && other.tone === mark.tone) === index)
-                    .map((mark) => (
-                    <div
-                      key={mark.id}
-                      className={`pointer-events-none absolute border-2 border-dashed ${
-                        mark.tone === 'safe' ? 'border-sdhq-green-400' : 'border-amber-400'
-                      }`}
-                      style={{
-                        left: `${(mark.rect.x / preset.width) * 100}%`,
-                        top: `${(mark.rect.y / preset.height) * 100}%`,
-                        width: `${(mark.rect.width / preset.width) * 100}%`,
-                        height: `${(mark.rect.height / preset.height) * 100}%`,
-                      }}
-                    />
-                  ))}
-                </>
-              ) : (
-                <div className="flex h-full min-h-40 items-center justify-center px-6 text-center text-sm text-white/70">
-                  The crop box is the exact banner shape. Upload a photo to move it.
-                </div>
-              )}
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <label className={`text-xs ${muted}`}>
                 Zoom
                 <input
@@ -640,7 +668,7 @@ export default function BannerSizerTab({
               <Button type="button" variant="outline" onClick={() => image && updateFrame(defaultFrame(image.naturalWidth, image.naturalHeight, preset.width, preset.height))}>
                 Reset position
               </Button>
-              <span className={`text-xs ${muted}`}>Drag the green dot onto your logo or title.</span>
+              <span className={`text-xs ${muted}`}>Drag the highlighted preview. The green dot marks a logo or title.</span>
             </div>
           </div>
 
@@ -671,22 +699,22 @@ export default function BannerSizerTab({
           {notice ? <p className={`rounded-xl border px-3 py-2 text-sm ${panel}`}>{notice}</p> : null}
 
           <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={runAi} disabled={!image || busy !== null || frame.mode !== 'ai' || aiAvailable === false}>
+            <Button type="button" onClick={runAi} disabled={!image || busy !== null || frame.mode !== 'ai' || aiAvailable === false || chosen.length === 0}>
               {busy === 'ai' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
               Generate AI fill{hasUnlimitedAccess ? '' : ` · ${coinCost} coins`}
             </Button>
-            <Button type="button" variant="outline" onClick={downloadOne} disabled={!image || busy !== null}>
+            <Button type="button" variant="outline" onClick={downloadOne} disabled={!image || busy !== null || chosen.length === 0}>
               {busy === 'one' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
               Download this banner
             </Button>
-            <Button type="button" variant="outline" onClick={downloadZip} disabled={!image || busy !== null}>
+            <Button type="button" variant="outline" onClick={downloadZip} disabled={!image || busy !== null || chosen.length === 0}>
               {busy === 'zip' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Crop className="mr-2 h-4 w-4" />}
               Download zip
             </Button>
           </div>
           {aiAvailable === false ? (
             <p className={`text-xs ${muted}`}>
-              AI fill is off until {aiMissing || 'GEMINI_API'} is available. Crop, fit, stretch, and export still work. No new key was added.
+              AI fill is off until {aiMissing || 'GEMINI_API'} is available. Auto fit, whole photo, stretch, and export still work.
             </p>
           ) : (
             <p className={`text-xs ${muted}`}>
@@ -696,7 +724,7 @@ export default function BannerSizerTab({
 
           {frame.mode === 'ai' && imageUrl && placement ? (
             <div className="grid gap-3 md:grid-cols-2">
-              <CompareCard title="Before" darkMode={darkMode} note="Your photo, placed without stretching." width={preset.width} height={preset.height}>
+              <CompareCard title="Before" darkMode={darkMode} note="Your photo on this platform, placed without stretching." width={preset.width} height={preset.height}>
                 <StageImage imageUrl={imageUrl} preset={preset} placement={placement} />
               </CompareCard>
               <CompareCard
@@ -719,31 +747,11 @@ export default function BannerSizerTab({
               </CompareCard>
             </div>
           ) : null}
-
-          <div className={`rounded-2xl border p-3 ${panel}`}>
-            <div className="mb-2 flex items-center gap-2">
-              <RectangleHorizontal className="h-4 w-4 text-sdhq-cyan-500" />
-              <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>How this banner sits</h4>
-            </div>
-            {preset.id === 'youtube-channel' ? (
-              <p className={`mb-3 text-xs ${muted}`}>{views[0]?.note}</p>
-            ) : null}
-            <div className={`grid gap-3 ${views.length > 1 ? 'md:grid-cols-2' : ''}`}>
-              {views.map((view) => (
-                <ChannelMock key={view.id} darkMode={darkMode} preset={preset} view={view} imageUrl={imageUrl} placement={placement} />
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>
   )
 }
-
-function bannerPresetById(id: string): BannerPreset {
-  return BANNER_PRESETS.find((preset) => preset.id === id) || BANNER_PRESETS[0]!
-}
-
 function CompareCard({
   title,
   note,
@@ -798,67 +806,131 @@ function StageImage({
   )
 }
 
+function siteChrome(id: string): { name: string; accent: string } {
+  if (id.startsWith('kick')) return { name: 'Kick', accent: '#53fc18' }
+  if (id.startsWith('twitch')) return { name: 'Twitch', accent: '#9146ff' }
+  if (id.startsWith('youtube')) return { name: 'YouTube', accent: '#ff4e45' }
+  if (id.startsWith('club')) return { name: 'Club', accent: '#6d4aff' }
+  if (id.startsWith('x-')) return { name: 'X', accent: '#e7e9ea' }
+  if (id.startsWith('facebook')) return { name: 'Facebook', accent: '#1877f2' }
+  if (id.startsWith('discord')) return { name: 'Discord', accent: '#5865f2' }
+  return { name: 'Preview', accent: '#22d3ee' }
+}
+
 function ChannelMock({
   darkMode,
   preset,
   view,
   imageUrl,
   placement,
+  interactive,
+  logo,
+  stageRef,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onKeyDown,
 }: {
   darkMode: boolean
   preset: BannerPreset
   view: PreviewFrame
   imageUrl: string | null
   placement: Placement | null
+  interactive?: boolean
+  logo?: { x: number; y: number } | null
+  stageRef?: RefObject<HTMLDivElement>
+  onPointerDown?: (event: ReactPointerEvent<HTMLDivElement>) => void
+  onPointerMove?: (event: ReactPointerEvent<HTMLDivElement>) => void
+  onPointerUp?: () => void
+  onKeyDown?: (event: ReactKeyboardEvent<HTMLDivElement>) => void
 }) {
   const windowRect = view.window || { x: 0, y: 0, width: preset.width, height: preset.height }
+  const site = siteChrome(preset.id)
+  const avatarOverBanner = preset.id.startsWith('kick') || preset.id.startsWith('youtube') || preset.id.startsWith('club')
   return (
     <div>
-      <p className={`mb-1 text-xs font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{view.label}</p>
-      <div className={`overflow-hidden rounded-xl border ${darkMode ? 'border-white/10 bg-black' : 'border-gray-200 bg-gray-950'}`}>
-        <div className="flex items-center gap-2 px-3 py-2">
-          <span className="h-6 w-6 rounded-full bg-sdhq-cyan-500" />
-          <span className="text-xs text-white/80">Your channel</span>
+      <p className={`mb-1 text-[11px] font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{view.label}</p>
+      <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0b0d10]">
+        <div className="flex items-center gap-2 px-2 py-1.5">
+          <span className="h-4 w-4 rounded-full" style={{ background: site.accent }} />
+          <span className="text-[11px] font-semibold text-white">{site.name}</span>
+          <span className="text-[10px] text-white/50">Your channel</span>
         </div>
-        <div className="relative overflow-hidden bg-[#111114]" style={{ aspectRatio: `${windowRect.width} / ${windowRect.height}` }}>
+        <div className={avatarOverBanner ? 'relative pb-3' : ''}>
           <div
-            className="absolute"
-            style={{
-              width: `${(preset.width / windowRect.width) * 100}%`,
-              height: `${(preset.height / windowRect.height) * 100}%`,
-              left: `${(-windowRect.x / windowRect.width) * 100}%`,
-              top: `${(-windowRect.y / windowRect.height) * 100}%`,
-            }}
+            ref={interactive ? stageRef : undefined}
+            tabIndex={interactive ? 0 : undefined}
+            role={interactive ? 'application' : undefined}
+            aria-label={interactive ? `${preset.name} preview. Drag to reposition.` : undefined}
+            onPointerDown={interactive ? onPointerDown : undefined}
+            onPointerMove={interactive ? onPointerMove : undefined}
+            onPointerUp={interactive ? onPointerUp : undefined}
+            onKeyDown={interactive ? onKeyDown : undefined}
+            className={`relative overflow-hidden bg-[#111114] ${interactive ? 'cursor-grab' : ''}`}
+            style={{ aspectRatio: `${windowRect.width} / ${windowRect.height}` }}
           >
-            {imageUrl && placement ? (
-              <div
-                className="absolute"
-                style={{
-                  left: `${(placement.dx / preset.width) * 100}%`,
-                  top: `${(placement.dy / preset.height) * 100}%`,
-                  width: `${(placement.dw / preset.width) * 100}%`,
-                  height: `${(placement.dh / preset.height) * 100}%`,
-                  backgroundImage: `url("${imageUrl}")`,
-                  backgroundSize: '100% 100%',
-                }}
-              />
-            ) : null}
-            {view.marks.map((mark) => (
-              <div
-                key={mark.id}
-                className={`absolute border-2 border-dashed ${mark.tone === 'safe' ? 'border-sdhq-green-400' : 'border-amber-300'}`}
-                style={{
-                  left: `${(mark.rect.x / preset.width) * 100}%`,
-                  top: `${(mark.rect.y / preset.height) * 100}%`,
-                  width: `${(mark.rect.width / preset.width) * 100}%`,
-                  height: `${(mark.rect.height / preset.height) * 100}%`,
-                }}
-              />
-            ))}
+            <div
+              className="absolute"
+              style={{
+                width: `${(preset.width / windowRect.width) * 100}%`,
+                height: `${(preset.height / windowRect.height) * 100}%`,
+                left: `${(-windowRect.x / windowRect.width) * 100}%`,
+                top: `${(-windowRect.y / windowRect.height) * 100}%`,
+              }}
+            >
+              {imageUrl && placement ? (
+                <div
+                  className="absolute"
+                  style={{
+                    left: `${(placement.dx / preset.width) * 100}%`,
+                    top: `${(placement.dy / preset.height) * 100}%`,
+                    width: `${(placement.dw / preset.width) * 100}%`,
+                    height: `${(placement.dh / preset.height) * 100}%`,
+                    backgroundImage: `url("${imageUrl}")`,
+                    backgroundSize: '100% 100%',
+                  }}
+                />
+              ) : null}
+              {view.marks.map((mark) => (
+                <div
+                  key={mark.id}
+                  className={`pointer-events-none absolute border-2 border-dashed ${mark.tone === 'safe' ? 'border-sdhq-green-400' : 'border-amber-300'}`}
+                  style={{
+                    left: `${(mark.rect.x / preset.width) * 100}%`,
+                    top: `${(mark.rect.y / preset.height) * 100}%`,
+                    width: `${(mark.rect.width / preset.width) * 100}%`,
+                    height: `${(mark.rect.height / preset.height) * 100}%`,
+                  }}
+                />
+              ))}
+              {logo && placement ? (
+                <button
+                  type="button"
+                  data-logo="1"
+                  aria-label="Text or logo marker"
+                  className="absolute z-10 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-sdhq-green-500 shadow"
+                  style={{
+                    left: `${((placement.dx + logo.x * placement.dw) / preset.width) * 100}%`,
+                    top: `${((placement.dy + logo.y * placement.dh) / preset.height) * 100}%`,
+                  }}
+                />
+              ) : null}
+            </div>
           </div>
+          {avatarOverBanner ? (
+            <span
+              className="absolute bottom-0 left-3 h-8 w-8 rounded-full border-2 border-[#0b0d10]"
+              style={{ background: site.accent }}
+            />
+          ) : null}
+        </div>
+        <div className="flex items-center justify-between px-3 py-2">
+          <span className="text-[11px] font-semibold text-white">Your channel</span>
+          <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold text-black" style={{ background: site.accent }}>
+            {site.name}
+          </span>
         </div>
       </div>
-      {preset.id === 'youtube-channel' ? null : <p className={`mt-1 text-[11px] ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{view.note}</p>}
     </div>
   )
 }

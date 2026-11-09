@@ -1,12 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import sharp from 'sharp'
-import { bannerExportFileName, bannerPreset, BANNER_PRESETS } from './presets'
+import { BANNER_PRESETS, bannerExportFileName, bannerPreset, defaultBannerSelected } from './presets'
 import {
   defaultFrame,
   leftAlignedCoverWindow,
   placementFor,
-  shouldDefaultToAiFill,
   youtubeSafeRect,
 } from './placement'
 import { bannerWarnings, previewFrames } from './previewFrames'
@@ -96,11 +95,18 @@ test('Facebook cover windows stay left aligned at the published aspects', () => 
   assert.equal(frames[1]?.marks[0]?.rect.width, 196)
 })
 
-test('AI fill is the default only when the photo needs extending', () => {
-  assert.equal(shouldDefaultToAiFill(1000, 1000, 1280, 700), true)
-  assert.equal(shouldDefaultToAiFill(1280, 700, 1280, 700), false)
-  assert.equal(defaultFrame(400, 400, 1920, 1080).mode, 'ai')
-  assert.equal(defaultFrame(1280, 700, 1280, 700).mode, 'crop')
+test('a generic photo auto-fits every selected platform without stretching', () => {
+  const ids = ['kick-channel', 'twitch-profile', 'youtube-channel']
+  assert.deepEqual(ids.filter((id) => defaultBannerSelected(id)), ids)
+  for (const id of ids) {
+    const preset = bannerPreset(id)!
+    const frame = defaultFrame(1200, 800, preset.width, preset.height)
+    assert.equal(frame.mode, 'crop')
+    const placed = placementFor(1200, 800, preset.width, preset.height, frame)
+    assert.equal(placed.coversFrame, true)
+    assert.ok(Math.abs(placed.dw / placed.dh - 1200 / 800) < 0.01)
+  }
+  assert.equal(defaultBannerSelected('club-profile'), false)
 })
 
 test('crop mode covers the frame and fit mode does not stretch', () => {

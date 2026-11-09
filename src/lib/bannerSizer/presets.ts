@@ -209,6 +209,13 @@ export const BANNER_PRESETS: BannerPreset[] = [
   },
 ]
 
+/** Kick, Twitch, and YouTube are checked first so those three previews show together. */
+export const DEFAULT_BANNER_SELECTION = ['kick-channel', 'twitch-profile', 'youtube-channel'] as const
+
+export function defaultBannerSelected(id: string): boolean {
+  return (DEFAULT_BANNER_SELECTION as readonly string[]).includes(id)
+}
+
 const PRESET_BY_ID = new Map(BANNER_PRESETS.map((preset) => [preset.id, preset]))
 
 export function bannerPreset(id: string): BannerPreset | undefined {
