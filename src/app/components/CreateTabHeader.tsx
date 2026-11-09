@@ -1,10 +1,18 @@
 'use client'
 
-import { Hash, Image as ImageIcon, Scissors, Send } from 'lucide-react'
+import { Hash, Image as ImageIcon, RectangleHorizontal, Scissors, Send } from 'lucide-react'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
-export type CreateSubTab = 'thumbnail' | 'tags' | 'background' | 'post4me'
+export type CreateSubTab = 'thumbnail' | 'tags' | 'background' | 'post4me' | 'banners'
+
+export interface CreateTabLabels {
+  thumbnail: string
+  tags: string
+  background: string
+  post4me: string
+  banners: string
+}
 
 const SUB_TAB_META: Record<
   CreateSubTab,
@@ -14,27 +22,16 @@ const SUB_TAB_META: Record<
   tags: { icon: Hash, shortLabel: 'Tags' },
   background: { icon: Scissors, shortLabel: 'Background' },
   post4me: { icon: Send, shortLabel: 'Post4Me' },
+  banners: { icon: RectangleHorizontal, shortLabel: 'Banners' },
 }
 
-export function createTabTitle(
-  subTab: CreateSubTab,
-  labels: { thumbnail: string; tags: string; background: string; post4me: string }
-): string {
-  switch (subTab) {
-    case 'thumbnail':
-      return labels.thumbnail
-    case 'tags':
-      return labels.tags
-    case 'background':
-      return labels.background
-    case 'post4me':
-      return labels.post4me
-  }
+export function createTabTitle(subTab: CreateSubTab, labels: CreateTabLabels): string {
+  return labels[subTab]
 }
 
 interface Props {
   activeSubTab: CreateSubTab
-  labels: { thumbnail: string; tags: string; background: string; post4me: string }
+  labels: CreateTabLabels
   pickToolLabel: string
   darkMode: boolean
   tabListClasses: string
@@ -59,18 +56,11 @@ export default function CreateTabHeader({
           {pickToolLabel}
         </p>
       </div>
-      <TabsList className={cn('mx-auto mb-4 grid w-full max-w-3xl grid-cols-2 rounded-2xl p-1.5 sm:grid-cols-4', tabListClasses)}>
+      <TabsList className={cn('mx-auto mb-4 grid h-auto w-full max-w-5xl grid-cols-2 gap-1 rounded-2xl p-1.5 sm:grid-cols-5', tabListClasses)}>
         {(Object.keys(SUB_TAB_META) as CreateSubTab[]).map((id) => {
           const meta = SUB_TAB_META[id]
           const Icon = meta.icon
-          const label =
-            id === 'thumbnail'
-              ? labels.thumbnail
-              : id === 'tags'
-                ? labels.tags
-                : id === 'post4me'
-                  ? labels.post4me
-                  : labels.background
+          const label = labels[id]
           return (
             <TabsTrigger
               key={id}
@@ -81,8 +71,8 @@ export default function CreateTabHeader({
               )}
             >
               <Icon className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline truncate">{label}</span>
-              <span className="sm:hidden">{meta.shortLabel}</span>
+              <span className="hidden truncate lg:inline">{label}</span>
+              <span className="lg:hidden">{meta.shortLabel}</span>
             </TabsTrigger>
           )
         })}

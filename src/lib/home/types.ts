@@ -71,6 +71,7 @@ export type ActivityLogAction =
   | 'sync_completed'
   | 'role_updated'
   | 'thumbnail_generation'
+  | 'banner_sizer_fill'
   | 'post4me_generation'
   | 'token_grant'
   | 'token_purchase'
