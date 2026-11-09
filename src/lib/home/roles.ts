@@ -76,6 +76,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     post4me: true,
     'background-remover': true,
     'banner-sizer': true,
+    'emote-maker': true,
   },
   subscriber: {
     home: true,
@@ -90,6 +91,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     post4me: true,
     'background-remover': true,
     'banner-sizer': true,
+    'emote-maker': true,
   },
   subscriber_lifetime: {
     home: true,
@@ -104,6 +106,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     post4me: true,
     'background-remover': true,
     'banner-sizer': true,
+    'emote-maker': true,
   },
   editor: {
     home: true,
@@ -118,6 +121,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     post4me: true,
     'background-remover': true,
     'banner-sizer': true,
+    'emote-maker': true,
   },
   admin: {
     home: true,
@@ -132,6 +136,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     post4me: true,
     'background-remover': true,
     'banner-sizer': true,
+    'emote-maker': true,
   },
   owner: {
     home: true,
@@ -146,6 +151,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     post4me: true,
     'background-remover': true,
     'banner-sizer': true,
+    'emote-maker': true,
   },
   tester: {
     home: true,
@@ -160,6 +166,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     post4me: true,
     'background-remover': true,
     'banner-sizer': true,
+    'emote-maker': true,
   },
 }
 

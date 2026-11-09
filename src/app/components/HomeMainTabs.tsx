@@ -14,6 +14,7 @@ import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
 import Post4MeTab from '@/app/components/Post4MeTab'
 import BackgroundRemoverTab from '@/app/components/BackgroundRemoverTab'
 import BannerSizerTab from '@/app/components/BannerSizerTab'
+import EmoteMakerTab from '@/app/components/EmoteMakerTab'
 import AnalyzeTab from '@/app/components/AnalyzeTab'
 import TrendingVidsTab from '@/app/components/TrendingVidsTab'
 import SettingsTab from '@/app/components/SettingsTab'
@@ -272,6 +273,7 @@ export default function HomeMainTabs({
                 background: t.backgroundRemover,
                 post4me: t.post4me,
                 banners: t.bannerSizer,
+                emotes: t.emoteMaker,
               }}
               pickToolLabel={t.createPickTool}
               darkMode={darkMode}
@@ -343,6 +345,20 @@ export default function HomeMainTabs({
                 textClasses={textClasses}
                 subtitleClasses={subtitleClasses}
                 description={t.bannerSizerDesc}
+                user={user}
+                hasEnoughCoins={hasEnoughCoins}
+                hasUnlimitedAccess={hasUnlimitedAccess}
+                refreshBalance={refreshBalance}
+                onActivityLog={onActivityLog}
+              />
+            </TabsContent>
+
+            <TabsContent value="emotes">
+              <EmoteMakerTab
+                darkMode={darkMode}
+                textClasses={textClasses}
+                subtitleClasses={subtitleClasses}
+                description={t.emoteMakerDesc}
                 user={user}
                 hasEnoughCoins={hasEnoughCoins}
                 hasUnlimitedAccess={hasUnlimitedAccess}
