@@ -1,3 +1,9 @@
+import {
+  KICK_ENDED_STREAM_DESKTOP_BOX,
+  KICK_ENDED_STREAM_PHONE_ASPECT,
+  kickHeaderDesktopWindow,
+  kickHeaderPhoneWindow,
+} from './kickDisplay'
 import type { BannerPreset } from './presets'
 import {
   leftAlignedCoverWindow,
@@ -24,6 +30,14 @@ export interface PreviewFrame {
   /** Visible region of the export. The whole file when null. */
   window: Rect | null
   marks: PreviewMark[]
+  /**
+   * crop clips the export to window.
+   * contain letterboxes the whole export inside frameAspect.
+   */
+  presentation?: 'crop' | 'contain'
+  /** Width / height of the on-screen box when presentation is contain. */
+  frameAspect?: number
+  blurredBackdrop?: boolean
 }
 
 export function previewFrames(preset: BannerPreset): PreviewFrame[] {
@@ -143,6 +157,53 @@ export function previewFrames(preset: BannerPreset): PreviewFrame[] {
     ]
   }
 
+  if (preset.id === 'kick-channel') {
+    const desktop = kickHeaderDesktopWindow(preset.width, preset.height)
+    const phone = kickHeaderPhoneWindow(preset.width, preset.height)
+    return [
+      {
+        id: 'desktop',
+        label: 'Desktop header',
+        note: '134px tall at lg, object-cover, centered. The 1324×134 box was measured at a 1920px-wide window. This crop is from Kick’s CSS, not from Kick Help. Export stays 1280×700.',
+        window: desktop,
+        marks: [],
+      },
+      {
+        id: 'mobile',
+        label: 'Phone header',
+        note: '44px tall, full width, object-cover, centered. Shown here at a 390px-wide phone. Kick does not publish this height.',
+        window: phone,
+        marks: [],
+      },
+    ]
+  }
+
+  if (preset.id === 'kick-offline') {
+    const desktopAspect = KICK_ENDED_STREAM_DESKTOP_BOX.width / KICK_ENDED_STREAM_DESKTOP_BOX.height
+    return [
+      {
+        id: 'desktop-player',
+        label: 'Desktop player',
+        note: 'Object-contain in the measured 1324×880 player box, over a blurred cover. On the Home tab while offline this layer is covered by the profile row. It is not the short header.',
+        window: null,
+        marks: [],
+        presentation: 'contain',
+        frameAspect: desktopAspect,
+        blurredBackdrop: true,
+      },
+      {
+        id: 'phone-player',
+        label: 'Phone player',
+        note: 'Under the 44px header the phone player is 16:9, and object-contain shows this 1920×1080 file in full. The Home tab still covers it with the profile.',
+        window: null,
+        marks: [],
+        presentation: 'contain',
+        frameAspect: KICK_ENDED_STREAM_PHONE_ASPECT,
+        blurredBackdrop: true,
+      },
+    ]
+  }
+
   if (preset.id === 'twitch-profile') {
     return [
       {
@@ -166,6 +227,15 @@ export function previewFrames(preset: BannerPreset): PreviewFrame[] {
   ]
 }
 
+/** Tightest crop window, used to keep a subject inside what viewers see. */
+export function subjectFocusRect(preset: BannerPreset): Rect {
+  const windows = previewFrames(preset)
+    .filter((frame) => frame.presentation !== 'contain' && frame.window)
+    .map((frame) => frame.window as Rect)
+  if (windows.length === 0) return { x: 0, y: 0, width: preset.width, height: preset.height }
+  return windows.reduce((tight, rect) => (rect.height < tight.height ? rect : tight))
+}
+
 export function bannerWarnings(input: {
   preset: BannerPreset
   frame: FrameState
@@ -187,6 +257,11 @@ export function bannerWarnings(input: {
 
   const point = logoPoint(placement, logo)
   const frames = previewFrames(preset)
+  const focus = subjectFocusRect(preset)
+  const hasCrop = frames.some((frame) => frame.presentation !== 'contain' && frame.window)
+  if (hasCrop && !pointInRect(point.x, point.y, focus)) {
+    warnings.push(`${preset.name}: the text/logo marker sits outside the area viewers see.`)
+  }
   const seen = new Set<string>()
   for (const frameView of frames) {
     for (const mark of frameView.marks) {

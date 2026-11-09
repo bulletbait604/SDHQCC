@@ -32,7 +32,7 @@ export const homeTranslations = {
       'Upload a photo and remove the background behind the main subject with AI.',
     bannerSizer: 'Banner Sizer',
     bannerSizerDesc:
-      'Upload one image and pick the platforms. Each one is resized immediately, and every selected platform stays on screen in its own layout.',
+      'Upload one image and pick the platforms. Each preview uses that site’s crop. Frame the subject, or describe an edit for AI.',
     post4me: 'Post4Me',
     post4meDesc:
       'Upload a clip of any length. We analyze a random 5-minute slice and write algorithm-optimized copy for each platform — formatted for TikTok captions or YouTube separate fields.',
@@ -98,7 +98,7 @@ export const homeTranslations = {
       'Sube una foto y elimina el fondo detrás del sujeto principal con IA.',
     bannerSizer: 'Tamaño de banner',
     bannerSizerDesc:
-      'Sube una imagen y elige las plataformas. Cada una se ajusta al momento, y todas las elegidas siguen en pantalla con su propio diseño.',
+      'Sube una imagen y elige las plataformas. Cada vista usa el recorte real del sitio. Encuadra el sujeto o describe una edición para la IA.',
     post4me: 'Post4Me',
     post4meDesc:
       'Sube un clip de cualquier duración. Analizamos un fragmento aleatorio de 5 minutos y generamos título, descripción y etiquetas optimizados.',
@@ -164,7 +164,7 @@ export const homeTranslations = {
       'Importez une photo et supprimez l’arrière-plan derrière le sujet principal avec l’IA.',
     bannerSizer: 'Taille de bannière',
     bannerSizerDesc:
-      'Importez une image et choisissez les plateformes. Chacune est redimensionnée tout de suite, et toutes les plateformes cochées restent à l’écran.',
+      'Importez une image et choisissez les plateformes. Chaque aperçu suit le recadrage du site. Cadrez le sujet, ou décrivez une retouche pour l’IA.',
     post4me: 'Post4Me',
     post4meDesc:
       'Importez un clip de n’importe quelle durée. Nous analysons un extrait aléatoire de 5 minutes et générons titre, description et tags optimisés.',
@@ -230,7 +230,7 @@ export const homeTranslations = {
       'Laden Sie ein Foto hoch und entfernen Sie den Hintergrund hinter dem Hauptmotiv mit KI.',
     bannerSizer: 'Bannergröße',
     bannerSizerDesc:
-      'Laden Sie ein Bild hoch und wählen Sie die Plattformen. Jede wird sofort angepasst, und alle gewählten Plattformen bleiben gleichzeitig sichtbar.',
+      'Laden Sie ein Bild hoch und wählen Sie die Plattformen. Jede Vorschau nutzt den Zuschnitt der Seite. Motiv einrahmen oder eine KI-Bearbeitung beschreiben.',
     post4me: 'Post4Me',
     post4meDesc:
       'Laden Sie einen Clip beliebiger Länge hoch. Wir analysieren einen zufälligen 5-Minuten-Ausschnitt und liefern Titel, Beschreibung und Tags.',

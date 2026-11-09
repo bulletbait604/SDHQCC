@@ -32,7 +32,7 @@ export const BANNER_PRESETS: BannerPreset[] = [
   {
     id: 'kick-channel',
     group: 'streaming',
-    name: 'Kick channel banner',
+    name: 'Kick offline header',
     width: 1280,
     height: 700,
     sizeStatus: 'minimum',
@@ -40,16 +40,17 @@ export const BANNER_PRESETS: BannerPreset[] = [
     maxBytesNote: 'Maximum file size 4 MB.',
     fileTypes: 'JPG, JPEG, PNG',
     fileTypesShort: 'JPG, JPEG, PNG',
-    summary: 'Minimum 1280×700. Kick does not publish a maximum pixel size or a desktop/mobile crop.',
+    summary:
+      'This is the short strip viewers see when the channel is offline. Export at least 1280×700, Kick Help’s minimum. The 44px and 134px preview crops are measured from Kick’s live CSS, not published as a pixel size.',
     displayNote:
-      'Kick says this banner image is shown at the top of the channel page. No separate desktop or mobile crop is published, so the preview is the full 1280×700 frame.',
+      'Measured 9 Nov 2026. Kick’s header image uses object-fit: cover and object-position: center. Phones show it 44px tall. Desktop (lg) shows it 134px tall. At a 1920px-wide window the column was 1324×134, so a 1280×700 upload keeps only a thin centered band. Kick also defines --channel-desktop-reduced-banner-height: 320px, but that token is a desktop margin utility and is not this image’s height, so there is no 320px preview. An OFFLINE label sits on the left of the strip.',
     sourceLabel: 'Kick Help — How to update your profile',
     sourceUrl: 'https://help.kick.com/en/articles/7120563-how-to-update-your-profile',
   },
   {
     id: 'kick-offline',
     group: 'streaming',
-    name: 'Kick offline banner',
+    name: 'Kick ended-stream image',
     width: 1920,
     height: 1080,
     sizeStatus: 'exact',
@@ -57,9 +58,10 @@ export const BANNER_PRESETS: BannerPreset[] = [
     maxBytesNote: 'Maximum file size 4 MB.',
     fileTypes: 'JPG, JPEG, PNG',
     fileTypesShort: 'JPG, JPEG, PNG',
-    summary: '1920×1080. Kick asks for a 1080p image when the stream has ended.',
+    summary:
+      'Separate 1920×1080 upload for when the stream has ended. This is not the short header on the Home tab while the channel is offline.',
     displayNote:
-      'Kick specifies 1920×1080 for the channel offline banner and does not publish an extra crop. The preview is the full 16:9 frame.',
+      'Kick places this file under the 44px or 134px header, object-contain, over a blurred object-cover copy. On the Home tab while offline it was in the DOM at about 1324×880 on a 1920px window and was not visible: the page goes from the short header to the profile row. The preview shows that contained player, not a full-bleed 16:9 header.',
     sourceLabel: 'Kick Help — How to update your profile',
     sourceUrl: 'https://help.kick.com/en/articles/7120563-how-to-update-your-profile',
   },
