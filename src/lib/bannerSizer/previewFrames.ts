@@ -2,6 +2,7 @@ import type { BannerPreset } from './presets'
 import {
   leftAlignedCoverWindow,
   logoPoint,
+  objectCoverWindow,
   pointInRect,
   rectContains,
   youtubeSafeRect,
@@ -9,6 +10,18 @@ import {
   type Placement,
   type Rect,
 } from './placement'
+
+/**
+ * Kick offline header display boxes, measured on kick.com in November 2026.
+ * The channel banner image uses object-fit: cover and object-position: center.
+ * Heights come from --channel-desktop-banner-height (134px) and
+ * --channel-mobile-banner-height (44px).
+ * Desktop width is the channel column at a 1440px window (844px, after the
+ * 256px sidebar and 340px chat). Phone width is a 390px viewport, full bleed.
+ * The downloaded file is still the 1280×700 minimum. This is not the 1920×1080 ended-stream image.
+ */
+export const KICK_OFFLINE_HEADER_DESKTOP = { width: 844, height: 134 }
+export const KICK_OFFLINE_HEADER_PHONE = { width: 390, height: 44 }
 
 export interface PreviewMark {
   id: string
@@ -28,6 +41,37 @@ export interface PreviewFrame {
 
 export function previewFrames(preset: BannerPreset): PreviewFrame[] {
   const full = { x: 0, y: 0, width: preset.width, height: preset.height }
+
+  if (preset.id === 'kick-channel') {
+    const desktop = objectCoverWindow(
+      preset.width,
+      preset.height,
+      KICK_OFFLINE_HEADER_DESKTOP.width,
+      KICK_OFFLINE_HEADER_DESKTOP.height
+    )
+    const phone = objectCoverWindow(
+      preset.width,
+      preset.height,
+      KICK_OFFLINE_HEADER_PHONE.width,
+      KICK_OFFLINE_HEADER_PHONE.height
+    )
+    return [
+      {
+        id: 'desktop',
+        label: 'Desktop',
+        note: 'Kick shows the 1280×700 offline header as a 134px-tall strip. At a 1440px window that strip is 844×134, object-fit cover, centered. The download is still the full file.',
+        window: desktop,
+        marks: [],
+      },
+      {
+        id: 'phone',
+        label: 'Phone',
+        note: 'On a 390px-wide phone the same file is a 44px-tall strip across the screen, object-fit cover, centered. This is the offline header, not the 1920×1080 ended-stream image.',
+        window: phone,
+        marks: [],
+      },
+    ]
+  }
 
   if (preset.id === 'youtube-channel') {
     const safe = youtubeSafeRect(preset.width, preset.height)
@@ -175,14 +219,10 @@ export function bannerWarnings(input: {
   const warnings: string[] = []
   const { preset, frame, placement, logo } = input
   if (frame.mode === 'stretch') {
-    warnings.push('Stretch fills the frame by distorting the photo. Faces and logos can look wide or tall.')
+    warnings.push('Stretch fills the official size by distorting the photo. Faces and logos can look wide or tall.')
   }
-  if ((frame.mode === 'fit' || frame.mode === 'ai') && !placement.coversFrame) {
-    warnings.push(
-      frame.mode === 'ai'
-        ? 'Empty edges are where AI fill paints. The original photo is placed without stretching.'
-        : 'Fit keeps the whole photo and leaves empty edges. Nothing is cropped or stretched.'
-    )
+  if (frame.mode === 'ai' && !placement.coversFrame) {
+    warnings.push('Empty edges are where AI fill paints. The original photo stays in proportion until you generate it.')
   }
 
   const point = logoPoint(placement, logo)
@@ -211,6 +251,15 @@ export function bannerWarnings(input: {
       if (mark.tone === 'danger' && pointInRect(point.x, point.y, mark.rect)) {
         seen.add(mark.id + mark.tone)
         warnings.push(`The text/logo marker is inside “${mark.label}”. Move it if that artwork has to stay readable.`)
+      }
+    }
+    if (frameView.window && !pointInRect(point.x, point.y, frameView.window)) {
+      const key = `outside:${frameView.id}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        warnings.push(
+          `The text/logo marker sits outside the ${frameView.label.toLowerCase()} view of ${preset.name}. Drag the preview so it stays in that strip.`
+        )
       }
     }
   }

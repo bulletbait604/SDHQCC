@@ -1,4 +1,7 @@
-export type BannerMode = 'crop' | 'fit' | 'stretch' | 'ai'
+/** The only adjustment choices. Crop is the default. */
+export const BANNER_ADJUSTMENTS = ['crop', 'ai', 'stretch'] as const
+
+export type BannerMode = (typeof BANNER_ADJUSTMENTS)[number]
 
 export interface FrameState {
   mode: BannerMode
@@ -27,8 +30,9 @@ export interface Rect {
 export const DEFAULT_ZOOM = 1
 
 /**
- * A new upload fills every banner immediately.
- * Cover keeps the photo's proportions. It does not letterbox or stretch.
+ * A new upload crops into every banner.
+ * Crop covers the official export and keeps the photo's proportions, centered,
+ * so a logo in the middle of the photo stays inside the part viewers actually see.
  */
 export function defaultFrame(
   _srcW?: number,
@@ -64,6 +68,7 @@ export function placementFor(
 
   const cover = Math.max(dstW / srcW, dstH / srcH)
   const contain = Math.min(dstW / srcW, dstH / srcH)
+  // Crop cuts to the export. AI Fill keeps the whole photo so the model can paint the gaps.
   const base = frame.mode === 'crop' ? cover : contain
   const zoom = Number.isFinite(frame.zoom) ? clamp(frame.zoom, 0.2, 6) : 1
   const dw = srcW * base * zoom
@@ -122,6 +127,25 @@ export function youtubeSafeRect(width: number, height: number): Rect {
  * Computer aspect is 16:9. Mobile aspect is 2.4:1.
  * Both are taken from the 851×315 file by keeping the left edge.
  */
+/**
+ * Region of an image that object-fit: cover and object-position: center would show
+ * inside a display box. Coordinates are in the image's own pixels.
+ */
+export function objectCoverWindow(imageW: number, imageH: number, boxW: number, boxH: number): Rect {
+  if (imageW <= 0 || imageH <= 0 || boxW <= 0 || boxH <= 0) {
+    return { x: 0, y: 0, width: Math.max(0, imageW), height: Math.max(0, imageH) }
+  }
+  const scale = Math.max(boxW / imageW, boxH / imageH)
+  const width = boxW / scale
+  const height = boxH / scale
+  return {
+    x: (imageW - width) / 2,
+    y: (imageH - height) / 2,
+    width,
+    height,
+  }
+}
+
 export function leftAlignedCoverWindow(
   fileW: number,
   fileH: number,

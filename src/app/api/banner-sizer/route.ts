@@ -5,6 +5,7 @@ import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verif
 import { spendToolCoins } from '@/lib/coins/spendToolCoins'
 import { bannerPreset } from '@/lib/bannerSizer/presets'
 import { buildAiModelInput, compositeSubjectOverFill, type PlacedRect } from '@/lib/bannerSizer/aiComposite'
+import { buildFillPrompt } from '@/lib/bannerSizer/fillPrompt'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -69,15 +70,10 @@ async function generateFill(input: {
   jpeg: Buffer
   width: number
   height: number
+  prompt: string
 }): Promise<{ buffer: Buffer; model: string }> {
   const genAI = new GoogleGenAI({ apiKey: input.apiKey })
-  const prompt = [
-    'Extend this banner to the edges of the frame.',
-    `The frame is ${input.width} by ${input.height} pixels.`,
-    'The photograph is already placed in the frame. Do not move, crop, stretch, or redraw the existing subject, face, logo, or text.',
-    'Paint only the flat empty margins so the scene continues. Do not add words, logos, watermarks, or a border.',
-    'Return one image with the same aspect ratio as the input.',
-  ].join(' ')
+  const prompt = input.prompt
 
   let lastError: unknown = null
   for (const model of imageModelCandidates()) {
@@ -137,7 +133,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const body = (await request.json()) as { presetId?: unknown; imageDataUrl?: unknown; placement?: unknown }
+    const body = (await request.json()) as {
+      presetId?: unknown
+      imageDataUrl?: unknown
+      placement?: unknown
+      prompt?: unknown
+    }
     const preset = typeof body.presetId === 'string' ? bannerPreset(body.presetId) : undefined
     if (!preset) return NextResponse.json({ error: 'Unknown banner preset.' }, { status: 400 })
 
@@ -174,6 +175,7 @@ export async function POST(request: NextRequest) {
       jpeg: modelInput.jpeg,
       width: modelInput.modelWidth,
       height: modelInput.modelHeight,
+      prompt: buildFillPrompt(modelInput.modelWidth, modelInput.modelHeight, typeof body.prompt === 'string' ? body.prompt : ''),
     })
     const composited = await compositeSubjectOverFill({
       source: image.buffer,

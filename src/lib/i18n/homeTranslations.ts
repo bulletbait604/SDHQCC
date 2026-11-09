@@ -32,7 +32,17 @@ export const homeTranslations = {
       'Upload a photo and remove the background behind the main subject with AI.',
     bannerSizer: 'Banner Sizer',
     bannerSizerDesc:
-      'Upload one image and pick the platforms. Each one is resized immediately, and every selected platform stays on screen in its own layout.',
+      'Upload one image, then Crop, AI Fill, or Stretch it. Every selected platform stays on screen the way that site actually shows the banner.',
+    bannerModeCrop: 'Crop',
+    bannerModeCropHint: 'Cuts the photo into each banner and keeps the middle in view. Drag to adjust.',
+    bannerModeAi: 'AI Fill',
+    bannerModeAiHint: 'Extends the photo to the official size with Gemini. Uses the edit prompt. Costs 2 coins.',
+    bannerModeStretch: 'Stretch',
+    bannerModeStretchHint: 'Scales the photo to the official size, even if it distorts.',
+    bannerPromptLabel: 'Edit prompt',
+    bannerPromptHint:
+      'Describe how AI Fill should extend or edit the image. This section stays visible. Crop and Stretch do not send it.',
+    bannerPromptPlaceholder: 'Continue the background and keep the logo in the center.',
     post4me: 'Post4Me',
     post4meDesc:
       'Upload a clip of any length. We analyze a random 5-minute slice and write algorithm-optimized copy for each platform — formatted for TikTok captions or YouTube separate fields.',
@@ -98,7 +108,17 @@ export const homeTranslations = {
       'Sube una foto y elimina el fondo detrás del sujeto principal con IA.',
     bannerSizer: 'Tamaño de banner',
     bannerSizerDesc:
-      'Sube una imagen y elige las plataformas. Cada una se ajusta al momento, y todas las elegidas siguen en pantalla con su propio diseño.',
+      'Sube una imagen y elige Recortar, Relleno IA o Estirar. Cada plataforma seleccionada se ve como ese sitio muestra el banner.',
+    bannerModeCrop: 'Recortar',
+    bannerModeCropHint: 'Recorta la foto al marco de cada plataforma y mantiene el centro a la vista. Puedes ajustarlo.',
+    bannerModeAi: 'Relleno IA',
+    bannerModeAiHint: 'Amplía la foto al tamaño oficial con Gemini. Usa el texto. Cuesta 2 monedas.',
+    bannerModeStretch: 'Estirar',
+    bannerModeStretchHint: 'Escala la foto al tamaño oficial, aunque se deforme.',
+    bannerPromptLabel: 'Texto de edición',
+    bannerPromptHint:
+      'Describe cómo Relleno IA debe ampliar o editar la imagen. Esta sección siempre está visible. Recortar y Estirar no la envían.',
+    bannerPromptPlaceholder: 'Continúa el fondo y mantén el logo en el centro.',
     post4me: 'Post4Me',
     post4meDesc:
       'Sube un clip de cualquier duración. Analizamos un fragmento aleatorio de 5 minutos y generamos título, descripción y etiquetas optimizados.',
@@ -164,7 +184,17 @@ export const homeTranslations = {
       'Importez une photo et supprimez l’arrière-plan derrière le sujet principal avec l’IA.',
     bannerSizer: 'Taille de bannière',
     bannerSizerDesc:
-      'Importez une image et choisissez les plateformes. Chacune est redimensionnée tout de suite, et toutes les plateformes cochées restent à l’écran.',
+      'Importez une image, puis choisissez Recadrer, Remplissage IA ou Étirer. Chaque plateforme cochée reste à l’écran comme le site affiche le bandeau.',
+    bannerModeCrop: 'Recadrer',
+    bannerModeCropHint: 'Découpe la photo dans chaque cadre et garde le centre visible. Vous pouvez encore ajuster.',
+    bannerModeAi: 'Remplissage IA',
+    bannerModeAiHint: 'Étend la photo à la taille officielle avec Gemini. Utilise le texte. Coûte 2 pièces.',
+    bannerModeStretch: 'Étirer',
+    bannerModeStretchHint: 'Met la photo à la taille officielle, même si elle se déforme.',
+    bannerPromptLabel: 'Consigne d’édition',
+    bannerPromptHint:
+      'Décrivez comment le Remplissage IA doit étendre ou modifier l’image. Cette section reste visible. Recadrer et Étirer ne l’envoient pas.',
+    bannerPromptPlaceholder: 'Prolonger l’arrière-plan et garder le logo au centre.',
     post4me: 'Post4Me',
     post4meDesc:
       'Importez un clip de n’importe quelle durée. Nous analysons un extrait aléatoire de 5 minutes et générons titre, description et tags optimisés.',
@@ -230,7 +260,17 @@ export const homeTranslations = {
       'Laden Sie ein Foto hoch und entfernen Sie den Hintergrund hinter dem Hauptmotiv mit KI.',
     bannerSizer: 'Bannergröße',
     bannerSizerDesc:
-      'Laden Sie ein Bild hoch und wählen Sie die Plattformen. Jede wird sofort angepasst, und alle gewählten Plattformen bleiben gleichzeitig sichtbar.',
+      'Laden Sie ein Bild hoch und wählen Sie Zuschneiden, KI-Füllung oder Strecken. Jede gewählte Plattform bleibt so sichtbar, wie die Seite das Banner zeigt.',
+    bannerModeCrop: 'Zuschneiden',
+    bannerModeCropHint: 'Schneidet das Foto auf jeden Rahmen zu und hält die Mitte im Bild. Der Ausschnitt lässt sich verschieben.',
+    bannerModeAi: 'KI-Füllung',
+    bannerModeAiHint: 'Erweitert das Foto mit Gemini auf die offizielle Größe. Nutzt den Text. Kostet 2 Münzen.',
+    bannerModeStretch: 'Strecken',
+    bannerModeStretchHint: 'Skaliert das Foto auf die offizielle Größe, auch wenn es verzerrt.',
+    bannerPromptLabel: 'Bearbeitungstext',
+    bannerPromptHint:
+      'Beschreiben Sie, wie die KI-Füllung das Bild erweitern oder bearbeiten soll. Dieser Bereich bleibt immer sichtbar. Zuschneiden und Strecken senden ihn nicht.',
+    bannerPromptPlaceholder: 'Hintergrund fortsetzen und das Logo in der Mitte halten.',
     post4me: 'Post4Me',
     post4meDesc:
       'Laden Sie einen Clip beliebiger Länge hoch. Wir analysieren einen zufälligen 5-Minuten-Ausschnitt und liefern Titel, Beschreibung und Tags.',

@@ -34,15 +34,13 @@ import {
 import { bannerWarnings, previewFrames, type PreviewFrame } from '@/lib/bannerSizer/previewFrames'
 import { zipStore } from '@/lib/bannerSizer/zipStore'
 import { COIN_COSTS, type ToolType } from '@/hooks/useCoins'
+import { homeTranslations } from '@/lib/i18n/homeTranslations'
+import type { HomeLanguage } from '@/lib/home/types'
+import { BANNER_ADJUSTMENTS } from '@/lib/bannerSizer/placement'
+import { BANNER_PROMPT_MAX } from '@/lib/bannerSizer/fillPrompt'
 
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/gif'
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024
-const MODES: { id: BannerMode; label: string; hint: string }[] = [
-  { id: 'crop', label: 'Auto fit', hint: 'Fills the banner and keeps the photo in proportion.' },
-  { id: 'fit', label: 'Whole photo', hint: 'Shows everything and leaves empty edges.' },
-  { id: 'stretch', label: 'Stretch', hint: 'Fills the frame even if it distorts.' },
-  { id: 'ai', label: 'AI Fill', hint: 'Keeps the photo and generates the missing edges.' },
-]
 
 interface AiResult {
   dataUrl: string
@@ -61,10 +59,23 @@ export interface BannerSizerTabProps {
   hasUnlimitedAccess: boolean
   refreshBalance: () => void
   onActivityLog: (entry: ActivityLogEntry) => void
+  language?: HomeLanguage
 }
 
-function frameKey(frame: FrameState): string {
-  return [frame.mode, frame.zoom.toFixed(4), frame.panX.toFixed(4), frame.panY.toFixed(4)].join('|')
+function frameKey(frame: FrameState, prompt: string): string {
+  return [frame.mode, frame.zoom.toFixed(4), frame.panX.toFixed(4), frame.panY.toFixed(4), prompt.trim()].join('|')
+}
+
+function visibleWindow(preset: BannerPreset) {
+  const view = previewFrames(preset)[0]
+  return view?.window || { x: 0, y: 0, width: preset.width, height: preset.height }
+}
+
+function previewIsStrip(preset: BannerPreset): boolean {
+  return previewFrames(preset).some((view) => {
+    const windowRect = view.window || { width: preset.width, height: preset.height }
+    return windowRect.height > 0 && windowRect.width / windowRect.height > 4
+  })
 }
 
 function downloadBytes(bytes: Uint8Array, fileName: string, type: string) {
@@ -111,9 +122,10 @@ async function exportPreset(
   image: HTMLImageElement,
   preset: BannerPreset,
   frame: FrameState,
-  ai: AiResult | undefined
+  ai: AiResult | undefined,
+  prompt: string
 ): Promise<{ bytes: Uint8Array; withinCap: boolean; usedAi: boolean }> {
-  if (frame.mode === 'ai' && ai && ai.frameKey === frameKey(frame)) {
+  if (frame.mode === 'ai' && ai && ai.frameKey === frameKey(frame, prompt)) {
     const response = await fetch(ai.dataUrl)
     const bytes = new Uint8Array(await response.arrayBuffer())
     return { bytes, withinCap: ai.withinCap, usedAi: true }
@@ -144,7 +156,15 @@ export default function BannerSizerTab({
   hasUnlimitedAccess,
   refreshBalance,
   onActivityLog,
+  language = 'en',
 }: BannerSizerTabProps) {
+  const copy = homeTranslations[language] ?? homeTranslations.en
+  const modeCopy: Record<BannerMode, { label: string; hint: string }> = {
+    crop: { label: copy.bannerModeCrop, hint: copy.bannerModeCropHint },
+    ai: { label: copy.bannerModeAi, hint: copy.bannerModeAiHint },
+    stretch: { label: copy.bannerModeStretch, hint: copy.bannerModeStretchHint },
+  }
+  const modes = BANNER_ADJUSTMENTS.map((id) => ({ id, ...modeCopy[id] }))
   const fileRef = useRef<HTMLInputElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ x: number; y: number; panX: number; panY: number; logo: boolean } | null>(null)
@@ -156,6 +176,8 @@ export default function BannerSizerTab({
   const [selected, setSelected] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(BANNER_PRESETS.map((item) => [item.id, defaultBannerSelected(item.id)]))
   )
+  const [mode, setMode] = useState<BannerMode>('crop')
+  const [prompt, setPrompt] = useState('')
   const [logo, setLogo] = useState({ x: 0.5, y: 0.5 })
   const [ai, setAi] = useState<Record<string, AiResult>>({})
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null)
@@ -166,7 +188,8 @@ export default function BannerSizerTab({
 
   const chosen = BANNER_PRESETS.filter((item) => selected[item.id])
   const preset = chosen.find((item) => item.id === activeId) || chosen[0] || BANNER_PRESETS[0]!
-  const frame = frames[preset.id] || defaultFrame(1, 1, preset.width, preset.height)
+  const storedFrame = frames[preset.id] || defaultFrame(1, 1, preset.width, preset.height)
+  const frame = { ...storedFrame, mode }
   const placement = image
     ? placementFor(image.naturalWidth, image.naturalHeight, preset.width, preset.height, frame)
     : null
@@ -174,7 +197,7 @@ export default function BannerSizerTab({
     ? bannerWarnings({ preset, frame, placement, logo })
     : []
   const aiResult = ai[preset.id]
-  const aiMatches = Boolean(aiResult && aiResult.frameKey === frameKey(frame))
+  const aiMatches = Boolean(aiResult && aiResult.frameKey === frameKey(frame, prompt))
   const coinCost = COIN_COSTS['banner-sizer']
 
   const panel = darkMode ? 'border-white/10 bg-sdhq-dark-900/70' : 'border-sdhq-cyan-100 bg-white'
@@ -201,16 +224,17 @@ export default function BannerSizerTab({
     const stage = stageRef.current
     if (!stage) return
     const onWheel = (event: WheelEvent) => {
+      if (mode === 'stretch') return
       event.preventDefault()
       setFrames((current) => {
-        const prev = current[preset.id] || { mode: 'crop' as const, zoom: 1, panX: 0, panY: 0 }
+        const prev = current[preset.id] || { mode, zoom: 1, panX: 0, panY: 0 }
         const nextZoom = Math.min(6, Math.max(0.2, prev.zoom * (event.deltaY < 0 ? 1.06 : 0.94)))
-        return { ...current, [preset.id]: { ...prev, zoom: nextZoom } }
+        return { ...current, [preset.id]: { ...prev, mode, zoom: nextZoom } }
       })
     }
     stage.addEventListener('wheel', onWheel, { passive: false })
     return () => stage.removeEventListener('wheel', onWheel)
-  }, [preset.id])
+  }, [preset.id, mode])
 
   useEffect(() => {
     return () => {
@@ -255,10 +279,16 @@ export default function BannerSizerTab({
   }
 
   const updateFrame = (patch: Partial<FrameState>) => {
+    if (patch.mode) setMode(patch.mode)
     setFrames((current) => {
       const prev = current[preset.id] || frame
-      return { ...current, [preset.id]: { ...prev, ...patch } }
+      return { ...current, [preset.id]: { ...prev, ...patch, mode: patch.mode || mode } }
     })
+  }
+
+  const frameFor = (item: BannerPreset): FrameState => {
+    const stored = frames[item.id] || defaultFrame(image?.naturalWidth, image?.naturalHeight, item.width, item.height)
+    return { ...stored, mode }
   }
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -272,11 +302,12 @@ export default function BannerSizerTab({
     const stage = stageRef.current
     if (!drag || !stage || !image) return
     const rect = stage.getBoundingClientRect()
+    const windowRect = visibleWindow(preset)
     if (drag.logo && placement) {
       const localX = event.clientX - rect.left
       const localY = event.clientY - rect.top
-      const exportX = (localX / rect.width) * preset.width
-      const exportY = (localY / rect.height) * preset.height
+      const exportX = windowRect.x + (localX / rect.width) * windowRect.width
+      const exportY = windowRect.y + (localY / rect.height) * windowRect.height
       const nextX = (exportX - placement.dx) / placement.dw
       const nextY = (exportY - placement.dy) / placement.dh
       setLogo({
@@ -286,8 +317,8 @@ export default function BannerSizerTab({
       return
     }
     updateFrame({
-      panX: drag.panX + (event.clientX - drag.x) / rect.width,
-      panY: drag.panY + (event.clientY - drag.y) / rect.height,
+      panX: drag.panX + ((event.clientX - drag.x) / rect.width) * (windowRect.width / preset.width),
+      panY: drag.panY + ((event.clientY - drag.y) / rect.height) * (windowRect.height / preset.height),
     })
   }
 
@@ -299,7 +330,7 @@ export default function BannerSizerTab({
       return
     }
     if (frame.mode !== 'ai') {
-      setError('Switch to AI Fill to extend the edges. Crop, Fit, and Stretch stay on this device.')
+      setError('Switch to AI Fill to extend the edges. Crop and Stretch stay on this device.')
       return
     }
     if (!user) {
@@ -324,6 +355,7 @@ export default function BannerSizerTab({
           presetId: preset.id,
           imageDataUrl: sourceDataUrl(image),
           placement,
+          prompt,
         }),
       })
       const data = (await res.json().catch(() => ({}))) as {
@@ -347,7 +379,7 @@ export default function BannerSizerTab({
         setNotice(data.message || 'This photo already covers the banner.')
         return
       }
-      const key = frameKey(frame)
+      const key = frameKey(frame, prompt)
       setAi((current) => ({
         ...current,
         [preset.id]: {
@@ -378,7 +410,7 @@ export default function BannerSizerTab({
     setBusy('one')
     setError('')
     try {
-      const result = await exportPreset(image, preset, frame, aiResult)
+      const result = await exportPreset(image, preset, frame, aiResult, prompt)
       downloadBytes(result.bytes, bannerExportFileName(preset), 'image/jpeg')
       if (!result.withinCap && preset.maxBytes) {
         setNotice(`Saved ${bannerExportFileName(preset)}, but it is still over the ${formatByteLimit(preset.maxBytes)} guide.`)
@@ -407,8 +439,8 @@ export default function BannerSizerTab({
       const entries = []
       const skippedAi: string[] = []
       for (const item of chosen) {
-        const itemFrame = frames[item.id] || defaultFrame(image.naturalWidth, image.naturalHeight, item.width, item.height)
-        const result = await exportPreset(image, item, itemFrame, ai[item.id])
+        const itemFrame = frameFor(item)
+        const result = await exportPreset(image, item, itemFrame, ai[item.id], prompt)
         if (itemFrame.mode === 'ai' && !result.usedAi) skippedAi.push(item.name)
         entries.push({ name: bannerExportFileName(item), data: result.bytes })
       }
@@ -552,11 +584,11 @@ export default function BannerSizerTab({
             ) : (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {chosen.map((item) => {
-                  const itemFrame = frames[item.id] || defaultFrame(image?.naturalWidth, image?.naturalHeight, item.width, item.height)
+                  const itemFrame = frameFor(item)
                   const itemPlacement = image
                     ? placementFor(image.naturalWidth, image.naturalHeight, item.width, item.height, itemFrame)
                     : null
-                  const aiReady = Boolean(itemFrame.mode === 'ai' && ai[item.id]?.frameKey === frameKey(itemFrame))
+                  const aiReady = Boolean(itemFrame.mode === 'ai' && ai[item.id]?.frameKey === frameKey(itemFrame, prompt))
                   const shownPlacement = aiReady
                     ? { dx: 0, dy: 0, dw: item.width, dh: item.height, coversFrame: true }
                     : itemPlacement
@@ -578,10 +610,14 @@ export default function BannerSizerTab({
                         <span className={`block text-[11px] ${muted}`}>
                           {item.width}×{item.height}
                           {item.maxBytes ? ` · ${formatByteLimit(item.maxBytes)}` : ''}
-                          {active ? ' · drag this preview to adjust' : ' · click to adjust this one'}
+                          {active
+                            ? mode === 'stretch'
+                              ? ' · stretched to the official size'
+                              : ' · drag this preview to adjust'
+                            : ' · click to adjust this one'}
                         </span>
                       </button>
-                      <div className={`grid gap-2 p-2 ${previewFrames(item).length > 1 ? 'sm:grid-cols-2' : ''}`}>
+                      <div className={`grid gap-2 p-2 ${previewFrames(item).length > 1 && !previewIsStrip(item) ? 'sm:grid-cols-2' : ''}`}>
                         {previewFrames(item).map((view, index) => (
                           <ChannelMock
                             key={view.id}
@@ -590,7 +626,7 @@ export default function BannerSizerTab({
                             view={view}
                             imageUrl={shownUrl}
                             placement={shownPlacement}
-                            interactive={active && index === 0 && itemFrame.mode !== 'ai'}
+                            interactive={active && index === 0 && itemFrame.mode !== 'stretch'}
                             logo={active && index === 0 ? logo : null}
                             stageRef={active && index === 0 ? stageRef : undefined}
                             onPointerDown={active && index === 0 ? onPointerDown : undefined}
@@ -631,27 +667,46 @@ export default function BannerSizerTab({
               </a>
             </div>
             <p className={`mb-3 text-sm ${textClasses}`}>{preset.summary}</p>
-            <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {MODES.map((mode) => (
+            <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {modes.map((item) => (
                 <button
-                  key={mode.id}
+                  key={item.id}
                   type="button"
-                  onClick={() => updateFrame({ mode: mode.id })}
+                  onClick={() => setMode(item.id)}
                   className={`rounded-xl border px-2 py-2 text-left text-sm ${
-                    frame.mode === mode.id
+                    mode === item.id
                       ? 'border-transparent bg-gradient-to-r from-sdhq-cyan-500 to-sdhq-green-500 font-semibold text-black'
                       : darkMode
                         ? 'border-white/10 text-white'
                         : 'border-sdhq-cyan-100 text-gray-800'
                   }`}
                 >
-                  {mode.label}
-                  <span className={`mt-0.5 block text-[11px] font-normal ${frame.mode === mode.id ? 'text-black/70' : muted}`}>
-                    {mode.hint}
+                  {item.label}
+                  <span className={`mt-0.5 block text-[11px] font-normal ${mode === item.id ? 'text-black/70' : muted}`}>
+                    {item.hint}
                   </span>
                 </button>
               ))}
             </div>
+            <section className={`mb-3 rounded-xl border p-3 ${darkMode ? 'border-white/10' : 'border-sdhq-cyan-100'}`} aria-label={copy.bannerPromptLabel}>
+              <label className={`block text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`} htmlFor="banner-edit-prompt">
+                {copy.bannerPromptLabel}
+              </label>
+              <p className={`mb-2 text-xs ${muted}`}>{copy.bannerPromptHint}</p>
+              <textarea
+                id="banner-edit-prompt"
+                value={prompt}
+                maxLength={BANNER_PROMPT_MAX}
+                rows={3}
+                placeholder={copy.bannerPromptPlaceholder}
+                onChange={(event) => setPrompt(event.target.value.slice(0, BANNER_PROMPT_MAX))}
+                className={`w-full rounded-lg border px-3 py-2 text-sm outline-none ${
+                  darkMode
+                    ? 'border-white/10 bg-black/30 text-white placeholder:text-gray-500'
+                    : 'border-sdhq-cyan-100 bg-white text-gray-900 placeholder:text-gray-400'
+                }`}
+              />
+            </section>
             <div className="flex flex-wrap items-center gap-3">
               <label className={`text-xs ${muted}`}>
                 Zoom
@@ -662,13 +717,18 @@ export default function BannerSizerTab({
                   max={4}
                   step={0.01}
                   value={frame.zoom}
+                  disabled={mode === 'stretch'}
                   onChange={(event) => updateFrame({ zoom: Number(event.target.value) })}
                 />
               </label>
-              <Button type="button" variant="outline" onClick={() => image && updateFrame(defaultFrame(image.naturalWidth, image.naturalHeight, preset.width, preset.height))}>
+              <Button type="button" variant="outline" onClick={() => updateFrame({ zoom: 1, panX: 0, panY: 0 })}>
                 Reset position
               </Button>
-              <span className={`text-xs ${muted}`}>Drag the highlighted preview. The green dot marks a logo or title.</span>
+              <span className={`text-xs ${muted}`}>
+                {mode === 'stretch'
+                  ? 'Stretch ignores position. Switch to Crop to drag the highlighted preview.'
+                  : 'Drag the highlighted preview. The green dot marks a logo or title.'}
+              </span>
             </div>
           </div>
 
@@ -714,7 +774,7 @@ export default function BannerSizerTab({
           </div>
           {aiAvailable === false ? (
             <p className={`text-xs ${muted}`}>
-              AI fill is off until {aiMissing || 'GEMINI_API'} is available. Auto fit, whole photo, stretch, and export still work.
+              AI fill is off until {aiMissing || 'GEMINI_API'} is available. Crop, Stretch, and export still work.
             </p>
           ) : (
             <p className={`text-xs ${muted}`}>
