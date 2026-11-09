@@ -329,6 +329,7 @@ export default function SettingsTab({
               <option value="tag_generation">Tag Generation</option>
               <option value="thumbnail_generation">Thumbnail Generation</option>
               <option value="banner_sizer_fill">Banner Sizer</option>
+              <option value="emote_generation">Emote Maker</option>
               <option value="clip_analysis">Clip Analysis</option>
               <option value="coin_purchase">Coin Purchase</option>
               <option value="lifetime_payment">Lifetime Purchase</option>
@@ -422,6 +423,7 @@ export default function SettingsTab({
                   case 'tag_generation': return 'text-pink-400'
                   case 'thumbnail_generation': return 'text-amber-400'
                   case 'banner_sizer_fill': return 'text-emerald-400'
+                  case 'emote_generation': return 'text-lime-400'
                   case 'clip_analysis': return 'text-violet-400'
                   case 'clip_reanalysis': return 'text-violet-300'
                   default: return 'text-sdhq-cyan-500'

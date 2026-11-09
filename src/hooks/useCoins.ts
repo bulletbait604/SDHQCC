@@ -19,6 +19,7 @@ export const COIN_COSTS = {
   post4me: 2,
   'background-remover': 0,
   'banner-sizer': 2,
+  'emote-maker': 2,
   'content-analyzer': 2,
 } as const
 

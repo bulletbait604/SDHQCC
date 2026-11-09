@@ -33,6 +33,9 @@ export const homeTranslations = {
     bannerSizer: 'Banner Sizer',
     bannerSizerDesc:
       'Upload one image and pick the platforms. Each preview uses that site’s crop. Frame the subject, or describe an edit for AI.',
+    emoteMaker: 'Emote Maker',
+    emoteMakerDesc:
+      'Describe an emote or upload art you already have. Export transparent files at the real sizes for Kick, Twitch, YouTube, Club, Discord, and FrankerFaceZ.',
     post4me: 'Post4Me',
     post4meDesc:
       'Upload a clip of any length. We analyze a random 5-minute slice and write algorithm-optimized copy for each platform — formatted for TikTok captions or YouTube separate fields.',
@@ -99,6 +102,9 @@ export const homeTranslations = {
     bannerSizer: 'Tamaño de banner',
     bannerSizerDesc:
       'Sube una imagen y elige las plataformas. Cada vista usa el recorte real del sitio. Encuadra el sujeto o describe una edición para la IA.',
+    emoteMaker: 'Creador de emotes',
+    emoteMakerDesc:
+      'Describe un emote o sube un dibujo que ya tengas. Exporta archivos transparentes en los tamaños reales de Kick, Twitch, YouTube, Club, Discord y FrankerFaceZ.',
     post4me: 'Post4Me',
     post4meDesc:
       'Sube un clip de cualquier duración. Analizamos un fragmento aleatorio de 5 minutos y generamos título, descripción y etiquetas optimizados.',
@@ -165,6 +171,9 @@ export const homeTranslations = {
     bannerSizer: 'Taille de bannière',
     bannerSizerDesc:
       'Importez une image et choisissez les plateformes. Chaque aperçu suit le recadrage du site. Cadrez le sujet, ou décrivez une retouche pour l’IA.',
+    emoteMaker: 'Créateur d’emotes',
+    emoteMakerDesc:
+      'Décrivez un emote ou importez un dessin. Exportez des fichiers transparents aux tailles réelles de Kick, Twitch, YouTube, Club, Discord et FrankerFaceZ.',
     post4me: 'Post4Me',
     post4meDesc:
       'Importez un clip de n’importe quelle durée. Nous analysons un extrait aléatoire de 5 minutes et générons titre, description et tags optimisés.',
@@ -231,6 +240,9 @@ export const homeTranslations = {
     bannerSizer: 'Bannergröße',
     bannerSizerDesc:
       'Laden Sie ein Bild hoch und wählen Sie die Plattformen. Jede Vorschau nutzt den Zuschnitt der Seite. Motiv einrahmen oder eine KI-Bearbeitung beschreiben.',
+    emoteMaker: 'Emote-Maker',
+    emoteMakerDesc:
+      'Beschreibe ein Emote oder lade vorhandene Grafik hoch. Exportiere transparente Dateien in den echten Größen für Kick, Twitch, YouTube, Club, Discord und FrankerFaceZ.',
     post4me: 'Post4Me',
     post4meDesc:
       'Laden Sie einen Clip beliebiger Länge hoch. Wir analysieren einen zufälligen 5-Minuten-Ausschnitt und liefern Titel, Beschreibung und Tags.',
