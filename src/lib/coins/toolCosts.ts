@@ -6,6 +6,7 @@ export const TOOL_COIN_COSTS = {
   'home-clip-analyze': 3,
   post4me: 2,
   'background-remover': 0,
+  'banner-sizer': 2,
   'content-analyzer': 2,
 } as const
 

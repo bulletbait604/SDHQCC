@@ -75,6 +75,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'clip-analyzer': true,
     post4me: true,
     'background-remover': true,
+    'banner-sizer': true,
   },
   subscriber: {
     home: true,
@@ -88,6 +89,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'clip-analyzer': true,
     post4me: true,
     'background-remover': true,
+    'banner-sizer': true,
   },
   subscriber_lifetime: {
     home: true,
@@ -101,6 +103,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'clip-analyzer': true,
     post4me: true,
     'background-remover': true,
+    'banner-sizer': true,
   },
   editor: {
     home: true,
@@ -114,6 +117,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'clip-analyzer': true,
     post4me: true,
     'background-remover': true,
+    'banner-sizer': true,
   },
   admin: {
     home: true,
@@ -127,6 +131,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'clip-analyzer': true,
     post4me: true,
     'background-remover': true,
+    'banner-sizer': true,
   },
   owner: {
     home: true,
@@ -140,6 +145,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'clip-analyzer': true,
     post4me: true,
     'background-remover': true,
+    'banner-sizer': true,
   },
   tester: {
     home: true,
@@ -153,6 +159,7 @@ export const TAB_PERMISSIONS: Record<Role, Record<string, boolean>> = {
     'clip-analyzer': true,
     post4me: true,
     'background-remover': true,
+    'banner-sizer': true,
   },
 }
 

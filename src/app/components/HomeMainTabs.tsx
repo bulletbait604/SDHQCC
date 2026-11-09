@@ -13,6 +13,7 @@ import TagGeneratorTab from '@/app/components/TagGeneratorTab'
 import ThumbnailGenerator from '@/app/components/ThumbnailGenerator'
 import Post4MeTab from '@/app/components/Post4MeTab'
 import BackgroundRemoverTab from '@/app/components/BackgroundRemoverTab'
+import BannerSizerTab from '@/app/components/BannerSizerTab'
 import AnalyzeTab from '@/app/components/AnalyzeTab'
 import TrendingVidsTab from '@/app/components/TrendingVidsTab'
 import SettingsTab from '@/app/components/SettingsTab'
@@ -270,6 +271,7 @@ export default function HomeMainTabs({
                 tags: t.tagGeneratorFree,
                 background: t.backgroundRemover,
                 post4me: t.post4me,
+                banners: t.bannerSizer,
               }}
               pickToolLabel={t.createPickTool}
               darkMode={darkMode}
@@ -334,6 +336,20 @@ export default function HomeMainTabs({
                 />
               </TabsContent>
             )}
+
+            <TabsContent value="banners">
+              <BannerSizerTab
+                darkMode={darkMode}
+                textClasses={textClasses}
+                subtitleClasses={subtitleClasses}
+                description={t.bannerSizerDesc}
+                user={user}
+                hasEnoughCoins={hasEnoughCoins}
+                hasUnlimitedAccess={hasUnlimitedAccess}
+                refreshBalance={refreshBalance}
+                onActivityLog={onActivityLog}
+              />
+            </TabsContent>
           </div>
         </Tabs>
       </TabsContent>
