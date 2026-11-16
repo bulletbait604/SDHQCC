@@ -2,12 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { fetchKickChannel, fetchKickLeaderboards } from '@/lib/kick/fetchChannel'
 import clientPromise from '@/lib/mongodb'
+import { loadTwitchDashboard } from '@/lib/twitch/dashboard'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
     const user = await verifyAuth(request)
+    if (user.provider === 'twitch') {
+      const dashboard = await loadTwitchDashboard(user.id)
+      return NextResponse.json({
+        channel: dashboard.channel,
+        leaderboard: dashboard.leaderboard,
+        boards: dashboard.boards,
+      })
+    }
     const slug = user.username
     const channel = await fetchKickChannel(slug)
     const leaderboard = await fetchKickLeaderboards(slug, channel.channelId)
