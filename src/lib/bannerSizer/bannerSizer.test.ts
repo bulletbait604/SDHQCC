@@ -3,14 +3,17 @@ import assert from 'node:assert/strict'
 import sharp from 'sharp'
 import { BANNER_PRESETS, bannerExportFileName, bannerPreset, defaultBannerSelected } from './presets'
 import {
+  BANNER_ADJUSTMENTS,
   defaultFrame,
   leftAlignedCoverWindow,
+  objectCoverWindow,
   placementFor,
   youtubeSafeRect,
 } from './placement'
-import { bannerWarnings, previewFrames, subjectFocusRect } from './previewFrames'
-import { kickHeaderDesktopWindow, kickHeaderPhoneWindow, KICK_DESKTOP_REDUCED_BANNER_HEIGHT } from './kickDisplay'
-import { detectSubject, frameAroundSubject } from './subject'
+import { bannerWarnings, previewFrames, KICK_OFFLINE_HEADER_DESKTOP, KICK_OFFLINE_HEADER_PHONE } from './previewFrames'
+import { buildFillPrompt, sanitizeBannerPrompt, BANNER_PROMPT_MAX } from './fillPrompt'
+import { KICK_DESKTOP_REDUCED_BANNER_HEIGHT } from './kickDisplay'
+import { detectSubject } from './subject'
 import { buildBannerAiInstruction, cleanBannerPrompt } from './aiPrompt'
 import { encodeUnderCap } from './encodeUnderCap'
 import { zipStore } from './zipStore'
@@ -43,33 +46,24 @@ test('official banner sizes stay tied to the checked specs', () => {
   assert.equal(youtube?.height, 1440)
   assert.equal(youtube?.maxBytes, 6 * 1024 * 1024)
 
-  const club = bannerPreset('club-profile')
-  assert.equal(club?.sizeStatus, 'estimated')
-  assert.equal(club?.width, 1134)
-  assert.equal(club?.height, 567)
-  assert.equal(club?.maxBytes, 10 * 1024 * 1024)
-
-  const x = bannerPreset('x-header')
-  assert.equal(x?.width, 1500)
-  assert.equal(x?.height, 500)
-
   const facebook = bannerPreset('facebook-page-cover')
   assert.equal(facebook?.width, 851)
   assert.equal(facebook?.height, 315)
 
-  const discord = bannerPreset('discord-server')
-  assert.equal(discord?.width, 960)
-  assert.equal(discord?.height, 540)
-
-  const profile = bannerPreset('discord-profile')
-  assert.equal(profile?.width, 600)
-  assert.equal(profile?.height, 240)
-  assert.equal(BANNER_PRESETS.length, 10)
+  assert.equal(bannerPreset('club-profile'), undefined)
+  assert.equal(bannerPreset('x-header'), undefined)
+  assert.equal(bannerPreset('discord-server'), undefined)
+  assert.equal(BANNER_PRESETS.length, 6)
+  assert.deepEqual(
+    BANNER_PRESETS.map((preset) => preset.id),
+    ['kick-channel', 'kick-offline', 'twitch-profile', 'twitch-player', 'youtube-channel', 'facebook-page-cover']
+  )
 })
 
 test('export filenames include the platform and pixel size', () => {
   assert.equal(bannerExportFileName(bannerPreset('kick-channel')!), 'kick-offline-header-1280x700.jpg')
-  assert.equal(bannerExportFileName(bannerPreset('x-header')!), 'x-header-1500x500.jpg')
+  assert.equal(bannerExportFileName(bannerPreset('kick-offline')!), 'kick-ended-stream-1920x1080.jpg')
+  assert.equal(bannerExportFileName(bannerPreset('facebook-page-cover')!), 'facebook-page-cover-851x315.jpg')
 })
 
 test('YouTube safe area scales from 1235x338 at the minimum upload', () => {
@@ -98,8 +92,13 @@ test('Facebook cover windows stay left aligned at the published aspects', () => 
   assert.equal(frames[1]?.marks[0]?.rect.width, 196)
 })
 
-test('a generic photo auto-fits every selected platform without stretching', () => {
-  const ids = ['kick-channel', 'twitch-profile', 'youtube-channel']
+test('adjustment choices are only crop, AI fill, and stretch, and crop is the default', () => {
+  assert.deepEqual([...BANNER_ADJUSTMENTS], ['crop', 'ai', 'stretch'])
+  assert.equal(defaultFrame().mode, 'crop')
+})
+
+test('a generic photo crops into every selected platform without stretching', () => {
+  const ids = ['kick-channel', 'twitch-profile', 'youtube-channel', 'facebook-page-cover']
   assert.deepEqual(ids.filter((id) => defaultBannerSelected(id)), ids)
   for (const id of ids) {
     const preset = bannerPreset(id)!
@@ -110,18 +109,73 @@ test('a generic photo auto-fits every selected platform without stretching', () 
     assert.ok(Math.abs(placed.dw / placed.dh - 1200 / 800) < 0.01)
   }
   assert.equal(defaultBannerSelected('club-profile'), false)
+  assert.equal(defaultBannerSelected('twitch-player'), false)
 })
 
-test('crop mode covers the frame and fit mode does not stretch', () => {
+test('crop covers the frame, AI fill keeps proportions, and stretch fills the official size', () => {
   const crop = placementFor(1000, 1000, 1280, 700, { mode: 'crop', zoom: 1, panX: 0, panY: 0 })
   assert.equal(crop.coversFrame, true)
   assert.ok(Math.abs(crop.dw / crop.dh - 1) < 0.001)
-  const fit = placementFor(1000, 1000, 1280, 700, { mode: 'fit', zoom: 1, panX: 0, panY: 0 })
-  assert.equal(fit.coversFrame, false)
-  assert.ok(Math.abs(fit.dw / fit.dh - 1) < 0.001)
+  const ai = placementFor(1000, 1000, 1280, 700, { mode: 'ai', zoom: 1, panX: 0, panY: 0 })
+  assert.equal(ai.coversFrame, false)
+  assert.ok(Math.abs(ai.dw / ai.dh - 1) < 0.001)
+  assert.ok(ai.dw < 1280)
   const stretch = placementFor(1000, 1000, 1280, 700, { mode: 'stretch', zoom: 1, panX: 0, panY: 0 })
   assert.equal(stretch.dw, 1280)
   assert.equal(stretch.dh, 700)
+  assert.equal(stretch.coversFrame, true)
+})
+
+test('Kick offline header preview is the short centered strip, not the full upload or the ended stream', () => {
+  assert.equal(KICK_OFFLINE_HEADER_DESKTOP.height, 134)
+  assert.equal(KICK_OFFLINE_HEADER_DESKTOP.width, 844)
+  assert.equal(KICK_OFFLINE_HEADER_PHONE.height, 44)
+  assert.equal(KICK_OFFLINE_HEADER_PHONE.width, 390)
+
+  const header = bannerPreset('kick-channel')!
+  const frames = previewFrames(header)
+  assert.deepEqual(frames.map((frame) => frame.id), ['desktop', 'phone'])
+  const desktop = frames[0]!.window!
+  const phone = frames[1]!.window!
+  assert.deepEqual(desktop, objectCoverWindow(1280, 700, 844, 134))
+  assert.deepEqual(phone, objectCoverWindow(1280, 700, 390, 44))
+  assert.ok(Math.abs(desktop.width - 1280) < 0.01)
+  assert.ok(desktop.height < 250)
+  assert.ok(desktop.height > 180)
+  assert.ok(Math.abs(desktop.y - (700 - desktop.height) / 2) < 0.01)
+  assert.ok(phone.height < desktop.height)
+  assert.ok(phone.height > 120)
+  assert.match(frames[1]?.note || '', /44px/)
+  assert.match(frames[0]?.note || '', /134px/)
+
+  const ended = bannerPreset('kick-offline')!
+  assert.equal(ended.width, 1920)
+  assert.equal(ended.height, 1080)
+  assert.equal(previewFrames(ended)[0]?.window, null)
+  assert.match(ended.displayNote, /not the short offline header/i)
+})
+
+test('a centered logo stays inside the Kick header strip and an edge logo does not', () => {
+  const preset = bannerPreset('kick-channel')!
+  const frame = defaultFrame(1200, 1200, preset.width, preset.height)
+  const placement = placementFor(1200, 1200, preset.width, preset.height, frame)
+  const centered = bannerWarnings({ preset, frame, placement, logo: { x: 0.5, y: 0.5 } })
+  assert.equal(centered.some((line) => /outside the desktop view/.test(line)), false)
+  assert.equal(centered.some((line) => /outside the phone view/.test(line)), false)
+  const edge = bannerWarnings({ preset, frame, placement, logo: { x: 0.5, y: 0.02 } })
+  assert.equal(edge.some((line) => /outside the desktop view of Kick offline header/.test(line)), true)
+  assert.equal(edge.some((line) => /outside the phone view of Kick offline header/.test(line)), true)
+})
+
+test('the edit prompt is included in AI fill and stays a bounded single line', () => {
+  const prompt = buildFillPrompt(1280, 700, '  neon city edges \n keep the logo ')
+  assert.match(prompt, /1280 by 700/)
+  assert.match(prompt, /neon city edges keep the logo/)
+  assert.match(prompt, /Do not move, crop, stretch, or redraw/)
+  const empty = buildFillPrompt(1200, 480, '   ')
+  assert.match(empty, /Continue the existing scene naturally/)
+  assert.equal(sanitizeBannerPrompt('x'.repeat(800)).length, BANNER_PROMPT_MAX)
+  assert.equal(sanitizeBannerPrompt(12), '')
 })
 
 test('safe-area warning fires when the logo marker leaves the YouTube box', () => {
@@ -154,27 +208,15 @@ test('zip store round-trips a jpeg name and payload', () => {
   assert.deepEqual(zip.slice(nameAt + name.length, nameAt + name.length + payload.length), payload)
 })
 
-test('Kick header preview is the measured short strip, not the full 1280x700 frame', () => {
-  const preset = bannerPreset('kick-channel')!
-  const desktop = kickHeaderDesktopWindow(preset.width, preset.height)
-  const phone = kickHeaderPhoneWindow(preset.width, preset.height)
-  assert.ok(Math.abs(desktop.width / desktop.height - 1324 / 134) < 0.001)
-  assert.ok(Math.abs(phone.width / phone.height - 390 / 44) < 0.001)
-  assert.ok(desktop.height < 160)
-  assert.ok(phone.height < 170)
-  assert.ok(desktop.y > 250 && desktop.y + desktop.height < 450)
-  assert.equal(desktop.x, 0)
-  assert.equal(phone.x, 0)
-  const frames = previewFrames(preset)
-  assert.deepEqual(frames.map((frame) => frame.id), ['desktop', 'mobile'])
-  assert.equal(frames[0]?.presentation, undefined)
-  assert.ok(frames.every((frame) => frame.window))
-  assert.match(frames[0]?.note || '', /134px/)
-  assert.match(preset.displayNote, /320px/)
+test('Kick header preview does not use the 320px margin token as the strip height', () => {
   assert.equal(KICK_DESKTOP_REDUCED_BANNER_HEIGHT, 320)
-  assert.equal(frames.some((frame) => frame.window && Math.abs(frame.window.height - 320) < 1), false)
-  const focus = subjectFocusRect(preset)
-  assert.ok(Math.abs(focus.height - desktop.height) < 0.01)
+  const frames = previewFrames(bannerPreset('kick-channel')!)
+  assert.equal(
+    frames.some((frame) => frame.window && Math.abs(frame.window.height - 320) < 1),
+    false
+  )
+  assert.ok((frames[0]?.window?.height || 0) < 250)
+  assert.ok((frames[1]?.window?.height || 0) < (frames[0]?.window?.height || 0))
 })
 
 test('Kick ended-stream preview contains the 1920x1080 file instead of pretending it is the header', () => {
@@ -189,7 +231,7 @@ test('Kick ended-stream preview contains the 1920x1080 file instead of pretendin
   assert.equal(frames[1]?.presentation, 'contain')
   assert.ok(Math.abs((frames[1]?.frameAspect || 0) - 16 / 9) < 0.001)
   assert.match(frames[0]?.note || '', /not the short header/i)
-  assert.match(preset.summary, /not the short header/i)
+  assert.match(preset.summary, /not the short offline header/i)
 })
 
 test('YouTube and Twitch preview frames stay on their own rules', () => {
@@ -238,24 +280,9 @@ test('subject detection frames a centered logo and ignores a full-bleed photo', 
   assert.equal(whole.height, 1)
 })
 
-test('framing a small centered logo zooms in and stays inside the Kick header strip', () => {
-  const subject = { x: 0.4, y: 0.42, width: 0.2, height: 0.16 }
-  const kick = bannerPreset('kick-channel')!
-  const focus = subjectFocusRect(kick)
-  const framed = frameAroundSubject(1000, 800, kick.width, kick.height, subject, focus)
-  assert.equal(framed.mode, 'subject')
-  const placed = placementFor(1000, 800, kick.width, kick.height, framed)
-  const cover = placementFor(1000, 800, kick.width, kick.height, { mode: 'crop', zoom: 1, panX: 0, panY: 0 })
-  assert.ok(placed.dw <= cover.dw + 0.5)
-  const centerX = placed.dx + (subject.x + subject.width / 2) * placed.dw
-  const centerY = placed.dy + (subject.y + subject.height / 2) * placed.dh
-  assert.ok(centerX > focus.x && centerX < focus.x + focus.width)
-  assert.ok(centerY > focus.y && centerY < focus.y + focus.height)
-  const wide = frameAroundSubject(2000, 2000, 1280, 700, { x: 0.4, y: 0.4, width: 0.2, height: 0.2 })
-  const widePlaced = placementFor(2000, 2000, 1280, 700, wide)
-  const wideCover = placementFor(2000, 2000, 1280, 700, { mode: 'crop', zoom: 1, panX: 0, panY: 0 })
-  assert.ok(widePlaced.dw > wideCover.dw)
-  assert.equal(widePlaced.coversFrame, true)
+test('subject framing is not one of the banner adjustments', () => {
+  assert.equal((BANNER_ADJUSTMENTS as readonly string[]).includes('subject'), false)
+  assert.equal(defaultFrame().mode, 'crop')
 })
 
 test('an edit prompt changes the Gemini instruction and a blank prompt only fills edges', () => {

@@ -37,26 +37,15 @@ test('official emote sizes stay tied to the checked specs', () => {
   )
   assert.equal(youtube?.maxBytes, 1024 * 1024)
 
-  const club = emotePreset('club-emote')
-  assert.equal(club?.outputs[0]?.width, 500)
-  assert.equal(club?.maxBytes, 512 * 1024)
+  const facebook = emotePreset('facebook-sticker')
+  assert.equal(facebook?.kind, 'badge')
+  assert.deepEqual(facebook?.outputs, [{ width: 240, height: 240 }])
+  assert.equal(facebook?.requiresTransparency, true)
+  assert.match(facebook?.summary || '', /not a chat emote/i)
 
-  const discord = emotePreset('discord-emoji')
-  assert.equal(discord?.outputs[0]?.width, 128)
-  assert.equal(discord?.maxBytes, 256 * 1024)
-  assert.equal(discord?.byteCap, 'exclusive')
-
-  const sticker = emotePreset('discord-sticker')
-  assert.equal(sticker?.outputs[0]?.width, 320)
-  assert.equal(sticker?.outputs[0]?.height, 320)
-  assert.equal(sticker?.maxBytes, 512 * 1024)
-
-  const ffz = emotePreset('ffz-emote')
-  assert.deepEqual(
-    ffz?.outputs.map((output) => output.width),
-    [128, 64, 32]
-  )
-  assert.equal(ffz?.maxBytes, null)
+  assert.equal(emotePreset('club-emote'), undefined)
+  assert.equal(emotePreset('discord-emoji'), undefined)
+  assert.equal(emotePreset('ffz-emote'), undefined)
 
   const badge = emotePreset('twitch-badge')
   assert.equal(badge?.kind, 'badge')
@@ -76,7 +65,7 @@ test('export filenames include the platform and pixel size', () => {
   assert.equal(emoteExportFileName(emotePreset('kick-emote')!, { width: 500, height: 500 }), 'kick-emote-500x500.png')
   assert.equal(byteCapLabel(emotePreset('kick-emote')!), 'Under 1 MB')
   assert.equal(byteCapLabel(emotePreset('twitch-badge')!), 'Max 25 KB')
-  assert.equal(byteCapLabel(emotePreset('ffz-emote')!), 'No file-size cap published')
+  assert.equal(byteCapLabel(emotePreset('facebook-sticker')!), 'No file-size cap published')
   assert.equal(fitsByteCap(100 * 1024, emotePreset('twitch-emote')!), false)
   assert.equal(fitsByteCap(100 * 1024 - 1, emotePreset('twitch-emote')!), true)
   assert.equal(fitsByteCap(25 * 1024, emotePreset('twitch-badge')!), true)

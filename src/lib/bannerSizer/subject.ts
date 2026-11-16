@@ -119,7 +119,7 @@ export function frameAroundSubject(
   if (dw >= safeFocus.width) dx = clamp(dx, safeFocus.x + safeFocus.width - dw, safeFocus.x)
   if (dh >= safeFocus.height) dy = clamp(dy, safeFocus.y + safeFocus.height - dh, safeFocus.y)
   return {
-    mode: 'subject',
+    mode: 'crop',
     zoom,
     panX: (dx - (dstW - dw) / 2) / dstW,
     panY: (dy - (dstH - dh) / 2) / dstH,

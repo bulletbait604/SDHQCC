@@ -345,6 +345,7 @@ export default function HomeMainTabs({
                 textClasses={textClasses}
                 subtitleClasses={subtitleClasses}
                 description={t.bannerSizerDesc}
+                language={language}
                 user={user}
                 hasEnoughCoins={hasEnoughCoins}
                 hasUnlimitedAccess={hasUnlimitedAccess}

@@ -21,6 +21,8 @@ export interface AlgorithmData {
   titleTips: string
   descriptionTips: string
   summaries?: string[]
+  sourceLabel?: string
+  sourceUrl?: string
 }
 
 export interface Platform {

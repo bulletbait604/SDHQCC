@@ -31,6 +31,24 @@ export const DEFAULT_PLATFORMS: Platform[] = [
     image: 'https://iili.io/Bepazil.png',
     data: null,
   },
+  {
+    id: 'x',
+    name: 'X',
+    image: '/platforms/x.png',
+    data: null,
+  },
+  {
+    id: 'twitch',
+    name: 'Twitch',
+    image: '/platforms/twitch.png',
+    data: null,
+  },
+  {
+    id: 'kick',
+    name: 'Kick',
+    image: '/platforms/kick.png',
+    data: null,
+  },
 ]
 
 export function platformsBannerLogos(platforms: Platform[]): Platform[] {

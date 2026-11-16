@@ -3,14 +3,9 @@ import sharp from 'sharp'
 import { GoogleGenAI, Modality } from '@google/genai'
 import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { spendToolCoins } from '@/lib/coins/spendToolCoins'
-import { buildBannerAiInstruction, cleanBannerPrompt } from '@/lib/bannerSizer/aiPrompt'
 import { bannerPreset } from '@/lib/bannerSizer/presets'
-import {
-  buildAiModelInput,
-  compositeSubjectOverFill,
-  fitGeneratedToBanner,
-  type PlacedRect,
-} from '@/lib/bannerSizer/aiComposite'
+import { buildAiModelInput, compositeSubjectOverFill, type PlacedRect } from '@/lib/bannerSizer/aiComposite'
+import { buildFillPrompt, sanitizeBannerPrompt } from '@/lib/bannerSizer/fillPrompt'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -142,7 +137,7 @@ export async function POST(request: NextRequest) {
       placement?: unknown
       prompt?: unknown
     }
-    const userPrompt = cleanBannerPrompt(body.prompt)
+    const userPrompt = sanitizeBannerPrompt(body.prompt)
     const preset = typeof body.presetId === 'string' ? bannerPreset(body.presetId) : undefined
     if (!preset) return NextResponse.json({ error: 'Unknown banner preset.' }, { status: 400 })
 
@@ -174,31 +169,19 @@ export async function POST(request: NextRequest) {
       height: preset.height,
       placed: placement,
     })
-    const instruction = buildBannerAiInstruction({
-      userPrompt,
-      width: modelInput.modelWidth,
-      height: modelInput.modelHeight,
-    })
     const generated = await generateFill({
       apiKey,
       jpeg: modelInput.jpeg,
-      instruction: instruction.text,
+      instruction: buildFillPrompt(modelInput.modelWidth, modelInput.modelHeight, userPrompt),
     })
-    const composited = instruction.keepsOriginalSubject
-      ? await compositeSubjectOverFill({
-          source: image.buffer,
-          fill: generated.buffer,
-          width: preset.width,
-          height: preset.height,
-          placed: placement,
-          maxBytes: preset.maxBytes,
-        })
-      : await fitGeneratedToBanner({
-          fill: generated.buffer,
-          width: preset.width,
-          height: preset.height,
-          maxBytes: preset.maxBytes,
-        })
+    const composited = await compositeSubjectOverFill({
+      source: image.buffer,
+      fill: generated.buffer,
+      width: preset.width,
+      height: preset.height,
+      placed: placement,
+      maxBytes: preset.maxBytes,
+    })
 
     const meta = await sharp(composited.jpeg).metadata()
     return NextResponse.json({

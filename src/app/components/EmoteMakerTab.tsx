@@ -132,11 +132,12 @@ export default function EmoteMakerTab({
   const muted = subtitleClasses
   const groups = useMemo(
     () =>
-      [
-        { id: 'streaming' as const, label: 'Streaming' },
-        { id: 'chat' as const, label: 'Chat apps' },
-        { id: 'badges' as const, label: 'Badges' },
-      ] satisfies Array<{ id: EmoteGroup; label: string }>,
+      (
+        [
+          { id: 'streaming' as const, label: 'Emotes' },
+          { id: 'badges' as const, label: 'Badges and stickers' },
+        ] satisfies Array<{ id: EmoteGroup; label: string }>
+      ).filter((group) => emotePresetsInGroup(group.id).length > 0),
     []
   )
 
@@ -546,7 +547,6 @@ export default function EmoteMakerTab({
             <div key={group.id} className={`rounded-2xl border p-2 ${panel}`}>
               <p className={`px-2 py-1 text-xs font-bold uppercase tracking-wide ${muted}`}>
                 {group.label}
-                {group.id === 'badges' ? ' · not emotes' : ''}
               </p>
               <div className="space-y-1">
                 {emotePresetsInGroup(group.id).map((item) => {
