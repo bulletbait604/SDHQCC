@@ -10,6 +10,8 @@ export type NormalizedAlgorithmPlatform = {
   titleTips: string
   descriptionTips: string
   summaries: string[]
+  sourceLabel?: string
+  sourceUrl?: string
 }
 
 function asTrimmedString(value: unknown, max = 4000): string {
@@ -39,6 +41,10 @@ export function normalizeAlgorithmPlatformData(
   const titleTips = asTrimmedString(rec.titleTips)
   const descriptionTips = asTrimmedString(rec.descriptionTips)
   const summaries = asStringArray(rec.summaries)
+  const sourceLabel = asTrimmedString(rec.sourceLabel, 160)
+  const sourceUrl = /^https:\/\/\S+$/.test(asTrimmedString(rec.sourceUrl, 300))
+    ? asTrimmedString(rec.sourceUrl, 300)
+    : ''
 
   const filledTips = [keyChanges, editingTips, postingTips, titleTips, descriptionTips].filter(
     (s) => s.length >= 40
@@ -56,7 +62,9 @@ export function normalizeAlgorithmPlatformData(
     summaries:
       summaries.length > 0
         ? summaries
-        : ['Review full tips below', 'Focus on early hooks', 'Post at peak local times'],
+        : ['Review full tips below', 'Focus on early hooks', 'Use your own audience hours'],
+    ...(sourceLabel ? { sourceLabel } : {}),
+    ...(sourceUrl ? { sourceUrl } : {}),
   }
 }
 

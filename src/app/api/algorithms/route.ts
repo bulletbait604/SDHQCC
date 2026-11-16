@@ -19,6 +19,7 @@ import {
   isValidInternalApiSecret,
 } from '@/lib/internalApi'
 import { setAlgorithmRefreshImpl, type AlgorithmRefreshOpts } from '@/lib/algorithms/refreshRunner'
+import editorialSnapshot from '../../../../algorithm-data.json'
 
 export const dynamic = 'force-dynamic'
 
@@ -73,8 +74,26 @@ const platforms = [
   { id: 'instagram', name: 'Instagram' },
   { id: 'youtube-shorts', name: 'YouTube Shorts' },
   { id: 'youtube-long', name: 'YouTube Long' },
-  { id: 'facebook-reels', name: 'Facebook Reels' }
+  { id: 'facebook-reels', name: 'Facebook Reels' },
+  { id: 'x', name: 'X' },
+  { id: 'twitch', name: 'Twitch' },
+  { id: 'kick', name: 'Kick' },
 ]
+
+type EditorialFile = {
+  data?: Record<string, unknown>
+  lastUpdated?: string | null
+  provider?: string
+}
+
+function editorialPayload(): AlgorithmSnapshotPayload {
+  const file = editorialSnapshot as EditorialFile
+  return {
+    data: file.data && typeof file.data === 'object' ? file.data : {},
+    lastUpdated: file.lastUpdated || null,
+    provider: file.provider || 'editorial',
+  }
+}
 
 // GitHub configuration
 const GITHUB_USERNAME = process.env.GITHUB_USERNAME || 'your-username'
@@ -201,32 +220,28 @@ function parseAlgorithmJsonContent(content: string): unknown {
 }
 
 function buildAlgorithmResearchPrompt(platform: string): string {
-  // Mid-size monthly snapshot (~$0.02–$0.10 on Flash-Lite for all 5 platforms; budget OK to ~$0.20).
-  return `You are an expert social media algorithm analyst. Research the current ${platform} recommendation system for creators (2026).
+  return `You are researching the current ${platform} recommendation system for creators.
 
-Cover, with concrete numbers where possible:
-1) Ranking / distribution signals (watch time, completion, shares, saves, comments, rewatches, follows)
-2) What changed recently vs outdated advice
-3) Editing: length, first 1–3s hook, pacing, captions/text, trending audio, watermark/cross-post risk
-4) Posting: local-time windows (give examples for US Eastern, UK, AU + say convert to local), frequency
-5) Metadata: titles/captions, tag count/placement, sound-search keywords
+Use only claims you can tie to an official platform page (help center, creator blog, or transparency post). Do not invent percentages, test-audience sizes, clock times, hashtag counts, or video-length targets. If the platform has not published a number, say that it has not published one.
+
+Write plain language. Each field is 3 to 5 short lines separated by newline characters, not a paragraph.
 
 Return ONLY valid JSON (no markdown):
 {
-  "keyChanges": "150-220 words: how ${platform} ranks/distributes content now + recent shifts",
-  "editingTips": "150-220 words: length, pacing, hooks, on-screen text, trending audio, watermark cleanup",
-  "postingTips": "150-220 words: best windows with clock times, frequency, batch vs spaced posting",
-  "titleTips": "100-150 words: first-3s hook formulas, CTR/title/caption patterns that work on ${platform}",
-  "descriptionTips": "100-150 words: captions, hashtag/keyword strategy (counts), sound search phrases, links/CTA",
+  "keyChanges": "how ${platform} says it ranks or distributes content",
+  "editingTips": "practical editing notes that do not pretend to be unpublished rules",
+  "postingTips": "what the platform has said about when or how often to post, or that it has not published a schedule",
+  "titleTips": "how titles or first lines are used, without a made-up character count",
+  "descriptionTips": "captions, tags, and links, without a made-up tag count",
   "summaries": [
-    "insight max 8 words",
-    "insight max 8 words",
-    "insight max 8 words",
-    "insight max 8 words",
-    "insight max 8 words"
-  ]
-}
-Be specific and actionable. Prefer current 2026 practices over generic advice.`
+    "one short line",
+    "one short line",
+    "one short line",
+    "one short line"
+  ],
+  "sourceLabel": "name of the official page",
+  "sourceUrl": "https:// official page"
+}`
 }
 
 // Primary: Gemini Flash-Lite (Google AI) — cheapest stable text model for this job
@@ -464,104 +479,46 @@ async function researchAlgorithm(platform: string, maxTokens: number = 1000): Pr
 }
 
 // Placeholder data to show until AI research completes
-const placeholderData = {
-  'tiktok': {
-    keyChanges: 'TikTok algorithm prioritizes watch time and engagement. Content that keeps users watching longer gets promoted. The algorithm considers likes, comments, shares, and video completion rates.',
-    editingTips: 'Use trending sounds, fast cuts, and on-screen text. Hook viewers in the first 3 seconds. Keep videos under 60 seconds for best performance. Add captions for accessibility.',
-    postingTips: 'Post consistently, 3-5 times a day during peak hours (7-9 AM, 12-2 PM, 5-7 PM). Test different times to find when your audience is most active.',
-    titleTips: 'Use engaging questions or strong calls to action. Keep captions concise but descriptive. Use relevant hashtags (3-5) in your niche.',
-    descriptionTips: 'Include relevant hashtags, ask questions to encourage comments, and use emojis strategically. Add a call-to-action to boost engagement.',
-    summaries: [
-      'Trending sounds boost reach',
-      '3-second hooks matter most',
-      'Post 3-5x daily for growth',
-      'Watch time drives promotion'
-    ]
-  },
-  'instagram': {
-    keyChanges: 'Instagram algorithm favors engagement, interests, and timeliness. Reels are currently prioritized in the feed. The algorithm considers likes, comments, saves, shares, and time spent on posts.',
-    editingTips: 'High-quality visuals are essential. Use trending audio for Reels. Create diverse content formats (carousels, Reels, Stories). Use text overlays for accessibility.',
-    postingTips: 'Post during optimal times (11 AM-1 PM, 7-9 PM). Use all features including Reels, Stories, and Lives. Consistency is key - aim for daily posts.',
-    titleTips: 'Use strong hooks, emojis, and clear value propositions. Keep feed captions short but informative. Reels can have longer, more detailed captions.',
-    descriptionTips: 'Use relevant hashtags (5-10), include call-to-actions, and ask engaging questions. Utilize keywords for search optimization.',
-    summaries: [
-      'Reels get priority in feed',
-      'Saves matter more than likes',
-      'Daily posts build momentum',
-      'Trending audio increases reach'
-    ]
-  },
-  'youtube-shorts': {
-    keyChanges: 'YouTube Shorts algorithm focuses on watch time, loop rate, and engagement within the Shorts feed. Shorts that get rewatched perform better. The algorithm considers views, likes, comments, and shares.',
-    editingTips: 'Use vertical video format (9:16). Fast pacing with captivating hooks in the first 3 seconds. Use YouTube Shorts features like text and stickers.',
-    postingTips: 'Post daily, especially during prime mobile usage hours (6-10 AM, 6-10 PM). Consistency helps build momentum with the algorithm.',
-    titleTips: 'Create short, descriptive, keyword-rich titles. Include #Shorts in your title or description for better discoverability.',
-    descriptionTips: 'Write brief descriptions with relevant hashtags. Link to related long-form content to drive traffic to your main videos.',
-    summaries: [
-      'Vertical 9:16 format required',
-      'Loop rate drives promotion',
-      'Daily uploads build momentum',
-      'Link to long-form content'
-    ]
-  },
-  'youtube-long': {
-    keyChanges: 'YouTube long-form algorithm prioritizes watch time, audience retention, and personalized recommendations. Videos that keep viewers watching longer get recommended more.',
-    editingTips: 'Focus on high-quality production with clear audio. Use engaging storytelling and strong intros/outros. Add chapters for longer videos to improve navigation.',
-    postingTips: 'Maintain a consistent schedule. Optimize for SEO with relevant keywords. Promote across other platforms. Analyze audience retention data regularly.',
-    titleTips: 'Create compelling, keyword-rich titles that create curiosity or clearly state value. Your thumbnail is equally important for CTR.',
-    descriptionTips: 'Write detailed descriptions with keywords, timestamps, links to resources, and social media. Encourage comments and engagement.',
-    summaries: [
-      'Watch time is king here',
-      'Thumbnails affect CTR heavily',
-      'Consistent schedule builds subs',
-      'Chapters improve retention'
-    ]
-  },
-  'facebook-reels': {
-    keyChanges: 'Facebook Reels algorithm emphasizes entertainment, discovery, and creator consistency. Similar to Instagram Reels. Content that sparks conversation and sharing performs better.',
-    editingTips: 'Use vertical video format with trending audio. Create engaging visuals with text overlays. Keep content concise and entertaining.',
-    postingTips: 'Post regularly during peak Facebook usage (9-11 AM, 1-3 PM). Cross-post from Instagram Reels for efficiency. Test different content types.',
-    titleTips: 'Write catchy, benefit-driven titles. Use emojis and clear calls to action. Make it clear what value viewers will get.',
-    descriptionTips: 'Include relevant hashtags, ask engaging questions, and add links to other content or products when appropriate.',
-    summaries: [
-      'Entertainment value is priority',
-      'Cross-post from Instagram',
-      'Comments drive more reach',
-      'Peak times: 9-11 AM, 1-3 PM'
-    ]
-  }
-}
+const placeholderData = editorialPayload().data as Record<string, {
+  keyChanges: string
+  editingTips: string
+  postingTips: string
+  titleTips: string
+  descriptionTips: string
+  summaries: string[]
+  sourceLabel?: string
+  sourceUrl?: string
+}>
 
 function sanitizeSnapshotForClients(storedData: AlgorithmSnapshotPayload): AlgorithmSnapshotPayload {
+  const editorial = editorialPayload()
+  // The reviewed file wins for every platform it covers, so a stale model
+  // snapshot in Mongo cannot keep unverified numbers on the Educate tab.
+  const merged: Record<string, unknown> = {
+    ...(storedData.data || {}),
+    ...(editorial.data || {}),
+  }
   const data: Record<string, unknown> = {}
-  for (const [id, raw] of Object.entries(storedData.data || {})) {
+  for (const [id, raw] of Object.entries(merged)) {
     const normalized = normalizeAlgorithmPlatformData(raw)
     if (normalized) data[id] = normalized
   }
-  // Fill any missing platforms from placeholders so the landing never renders null crashes
   for (const p of platforms) {
-    if (!data[p.id] && placeholderData[p.id as keyof typeof placeholderData]) {
-      data[p.id] = placeholderData[p.id as keyof typeof placeholderData]
+    if (!data[p.id] && placeholderData[p.id]) {
+      const normalized = normalizeAlgorithmPlatformData(placeholderData[p.id])
+      if (normalized) data[p.id] = normalized
     }
   }
   return {
     ...storedData,
     data,
-    lastUpdated: storedData.lastUpdated || new Date().toISOString(),
+    lastUpdated: editorial.lastUpdated || storedData.lastUpdated || new Date().toISOString(),
+    provider: editorial.provider || storedData.provider,
   }
 }
 
 export async function GET() {
   const storedData = await readData()
-
-  // If no stored data exists, return placeholder data
-  if (!storedData.lastUpdated || Object.keys(storedData.data || {}).length === 0) {
-    return NextResponse.json({
-      data: placeholderData,
-      lastUpdated: new Date().toISOString(),
-    })
-  }
-
   return NextResponse.json(sanitizeSnapshotForClients(storedData))
 }
 

@@ -137,6 +137,27 @@ export async function buildAiModelInput(input: {
  * Resize the generated fill to the exact banner, then paste the original photo
  * back on top so faces and logos are not redrawn or stretched.
  */
+export async function fitGeneratedToBanner(input: {
+  fill: Buffer
+  width: number
+  height: number
+  maxBytes: number | null
+}): Promise<{ jpeg: Buffer; withinCap: boolean; quality: number }> {
+  const resized = await sharp(input.fill)
+    .resize(input.width, input.height, { fit: 'fill' })
+    .png()
+    .toBuffer()
+  const encoded = await encodeUnderCap(async (quality) => {
+    const buf = await sharp(resized).jpeg({ quality: Math.round(quality * 100), mozjpeg: true }).toBuffer()
+    return new Uint8Array(buf)
+  }, input.maxBytes)
+  return {
+    jpeg: Buffer.from(encoded.bytes),
+    withinCap: encoded.withinCap,
+    quality: encoded.quality,
+  }
+}
+
 export async function compositeSubjectOverFill(input: {
   source: Buffer
   fill: Buffer

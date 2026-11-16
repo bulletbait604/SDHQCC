@@ -1,10 +1,10 @@
 'use client'
 
-import { Hash, Image as ImageIcon, RectangleHorizontal, Scissors, Send } from 'lucide-react'
+import { Hash, Image as ImageIcon, RectangleHorizontal, Scissors, Send, Smile } from 'lucide-react'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
-export type CreateSubTab = 'thumbnail' | 'tags' | 'background' | 'post4me' | 'banners'
+export type CreateSubTab = 'thumbnail' | 'tags' | 'background' | 'post4me' | 'banners' | 'emotes'
 
 export interface CreateTabLabels {
   thumbnail: string
@@ -12,6 +12,7 @@ export interface CreateTabLabels {
   background: string
   post4me: string
   banners: string
+  emotes: string
 }
 
 const SUB_TAB_META: Record<
@@ -23,6 +24,7 @@ const SUB_TAB_META: Record<
   background: { icon: Scissors, shortLabel: 'Background' },
   post4me: { icon: Send, shortLabel: 'Post4Me' },
   banners: { icon: RectangleHorizontal, shortLabel: 'Banners' },
+  emotes: { icon: Smile, shortLabel: 'Emotes' },
 }
 
 export function createTabTitle(subTab: CreateSubTab, labels: CreateTabLabels): string {
@@ -56,7 +58,7 @@ export default function CreateTabHeader({
           {pickToolLabel}
         </p>
       </div>
-      <TabsList className={cn('mx-auto mb-4 grid h-auto w-full max-w-5xl grid-cols-2 gap-1 rounded-2xl p-1.5 sm:grid-cols-5', tabListClasses)}>
+      <TabsList className={cn('mx-auto mb-4 grid h-auto w-full max-w-5xl grid-cols-2 gap-1 rounded-2xl p-1.5 sm:grid-cols-3 lg:flex lg:flex-wrap lg:justify-center', tabListClasses)}>
         {(Object.keys(SUB_TAB_META) as CreateSubTab[]).map((id) => {
           const meta = SUB_TAB_META[id]
           const Icon = meta.icon
@@ -66,12 +68,12 @@ export default function CreateTabHeader({
               key={id}
               value={id}
               className={cn(
-                'flex items-center justify-center gap-1.5 text-xs sm:text-sm',
+                'flex h-auto min-h-10 items-center justify-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs sm:text-sm',
                 tabTriggerClasses
               )}
             >
               <Icon className="w-4 h-4 shrink-0" />
-              <span className="hidden truncate lg:inline">{label}</span>
+              <span className="hidden lg:inline">{label}</span>
               <span className="lg:hidden">{meta.shortLabel}</span>
             </TabsTrigger>
           )

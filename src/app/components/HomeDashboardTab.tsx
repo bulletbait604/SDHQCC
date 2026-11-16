@@ -204,9 +204,9 @@ export default function HomeDashboardTab({
   const analysis = clipAnalyzer.clipAnalysisResult
 
   return (
-    <div className={`${cardClasses} ${tabPanelClasses} space-y-5`}>
+    <div className={`${cardClasses} ${tabPanelClasses} space-y-3`}>
       <section
-        className={`relative overflow-hidden rounded-2xl px-5 py-8 text-center sm:px-8 sm:py-10 ${
+        className={`relative overflow-hidden rounded-xl px-4 py-3 text-center sm:px-5 sm:py-4 ${
           darkMode
             ? 'bg-gradient-to-br from-sdhq-dark-900 via-sdhq-dark-800 to-emerald-950/40'
             : 'bg-gradient-to-br from-cyan-50 via-white to-emerald-50'
@@ -214,21 +214,21 @@ export default function HomeDashboardTab({
       >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.18),transparent_55%)]" />
         <div className="relative">
-          <p className={`mb-2 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.2em] ${muted}`}>
-            <Home className="h-3.5 w-3.5 text-sdhq-cyan-400" />
+          <p className={`mb-1 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${muted}`}>
+            <Home className="h-3 w-3 text-sdhq-cyan-400" />
             Creator home
           </p>
-          <h2 className="text-3xl font-black tracking-tight sm:text-5xl">
+          <h2 className="text-2xl font-black tracking-tight sm:text-3xl">
             <span className={title}>Educate. Create. </span>
             <span className="bg-gradient-to-r from-sdhq-cyan-400 to-sdhq-green-400 bg-clip-text text-transparent">
               GROW!
             </span>
           </h2>
-          <p className={`mx-auto mt-3 max-w-xl text-sm sm:text-base ${muted}`}>
+          <p className={`mx-auto mt-1 max-w-xl text-xs sm:text-sm ${muted}`}>
             Welcome back, {user.display_name}. Your Kick snapshot, channel story, and recent clips live here.
           </p>
           {onOpenTab ? (
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
               <QuickLink label="Educate" icon={<GraduationCap className="h-3.5 w-3.5" />} onClick={() => onOpenTab('educate')} />
               <QuickLink label="Create" icon={<Wand2 className="h-3.5 w-3.5" />} onClick={() => onOpenTab('create')} />
               <QuickLink label="Analyze" icon={<BarChart3 className="h-3.5 w-3.5" />} onClick={() => onOpenTab('analyze')} />
@@ -238,7 +238,7 @@ export default function HomeDashboardTab({
       </section>
 
       {channel && !channelLoading ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
           <StatChip darkMode={darkMode} label="Followers" value={formatCount(channel.followersCount)} />
           <StatChip
             darkMode={darkMode}
@@ -271,8 +271,8 @@ export default function HomeDashboardTab({
             </Button>
           </div>
         ) : channel ? (
-          <div className="p-4 sm:p-5">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="p-2.5 sm:p-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               {channel.isLive ? (
                 <div className="flex items-center gap-2 text-sm font-semibold text-red-400">
                   <Radio className="h-4 w-4 animate-pulse" />
@@ -304,7 +304,7 @@ export default function HomeDashboardTab({
                 </a>
               </div>
             </div>
-            <div className="mx-auto w-[33%] min-w-[12rem] max-w-full overflow-hidden rounded-xl bg-black shadow-lg">
+            <div className="mx-auto w-full max-w-[220px] overflow-hidden rounded-lg bg-black shadow-md sm:max-w-[260px]">
               <div className="aspect-video w-full">
                 <iframe
                   title={`${channel.displayName} on Kick`}
@@ -324,15 +324,15 @@ export default function HomeDashboardTab({
         ) : null}
       </section>
 
-      <section className={`${panel} p-4 sm:p-5`}>
-        <div className="mb-4">
-          <h3 className={`flex items-center gap-2 text-xl font-bold ${title}`}>
-            <Trophy className="h-5 w-5 text-sdhq-cyan-400" />
+      <section className={`${panel} p-2.5 sm:p-3`}>
+        <div className="mb-2">
+          <h3 className={`flex items-center gap-1.5 text-base font-bold ${title}`}>
+            <Trophy className="h-4 w-4 text-sdhq-cyan-400" />
             Channel Leaderboards
           </h3>
-          <p className={`mt-1 text-xs ${muted}`}>Gifted subs and KICKs, each with week / month / lifetime</p>
+          <p className={`text-[11px] ${muted}`}>Top 10 gifted subs and KICKs. Week, month, or lifetime.</p>
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-2 lg:grid-cols-2">
           <LeaderboardCard
             darkMode={darkMode}
             title="Gifted Subs"
@@ -354,9 +354,9 @@ export default function HomeDashboardTab({
         </div>
       </section>
 
-      <section className={`${panel} p-4 sm:p-5`}>
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h3 className={`text-xl font-bold ${title}`}>Your Channel Insights</h3>
+      <section className={`${panel} p-2.5 sm:p-3`}>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h3 className={`text-base font-bold ${title}`}>Your Channel Insights</h3>
           <Button
             variant="outline"
             size="sm"
@@ -374,7 +374,7 @@ export default function HomeDashboardTab({
         ) : insightsError && !insights && socials.length === 0 ? (
           <p className="text-sm text-red-400">{insightsError}</p>
         ) : insights || socials.length ? (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-2">
             {insights ? (
               <>
                 <InsightCard darkMode={darkMode} label="Streamer Background" body={insights.streamerBackground} />
@@ -388,7 +388,7 @@ export default function HomeDashboardTab({
               </>
             ) : null}
             <div
-              className={`sm:col-span-2 rounded-xl border p-4 ${
+              className={`sm:col-span-2 rounded-lg border p-2.5 ${
                 darkMode ? 'border-white/10 bg-sdhq-dark-900/40' : 'border-sdhq-cyan-100 bg-cyan-50/40'
               }`}
             >
@@ -429,9 +429,9 @@ export default function HomeDashboardTab({
         ) : null}
       </section>
 
-      <section className={`${panel} p-4 sm:p-5`}>
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h3 className={`text-xl font-bold ${title}`}>Recent Clips</h3>
+      <section className={`${panel} p-2.5 sm:p-3`}>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h3 className={`text-base font-bold ${title}`}>Recent Clips</h3>
           <p className={`text-xs ${muted}`}>Showing {visibleClips.length} of {Math.min(clips.length, PAGE_SIZE)}</p>
         </div>
         {clipsLoading ? (
@@ -601,14 +601,14 @@ function StatChip({
 }) {
   return (
     <div
-      className={`rounded-xl border px-3 py-2 ${
+      className={`rounded-lg border px-2 py-1 ${
         darkMode ? 'border-white/10 bg-sdhq-dark-800/60' : 'border-sdhq-cyan-100 bg-white/80'
       }`}
     >
       <p className={`text-[10px] font-semibold uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
         {label}
       </p>
-      <p className={`truncate text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{value}</p>
+      <p className={`truncate text-xs font-bold sm:text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>{value}</p>
     </div>
   )
 }
@@ -634,9 +634,9 @@ function LeaderboardCard({
   const heading = darkMode ? 'text-white' : 'text-gray-900'
   const rows = rowsForPeriod(board, period)
   return (
-    <div className={`rounded-xl border p-3 ${darkMode ? 'border-white/10 bg-sdhq-dark-900/40' : 'border-sdhq-cyan-100 bg-cyan-50/30'}`}>
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <p className={`inline-flex items-center gap-1.5 text-sm font-bold ${heading}`}>
+    <div className={`rounded-lg border p-2 ${darkMode ? 'border-white/10 bg-sdhq-dark-900/40' : 'border-sdhq-cyan-100 bg-cyan-50/30'}`}>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <p className={`inline-flex items-center gap-1 text-xs font-bold ${heading}`}>
           {icon}
           {title}
         </p>
@@ -664,23 +664,31 @@ function LeaderboardCard({
       ) : rows.length === 0 ? (
         <p className={`text-sm ${muted}`}>No entries in this period. Try another tab.</p>
       ) : (
-        <ol className="space-y-1.5">
+        <ol className="space-y-0.5">
           {rows.map((entry) => (
-            <li key={`${title}-${entry.userId || entry.username}`} className="flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className={`w-5 text-center text-xs font-black ${entry.rank === 1 ? 'text-sdhq-cyan-400' : muted}`}>
+            <li key={`${title}-${entry.userId || entry.username}`} className="flex items-center justify-between gap-1.5">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <span className={`w-4 text-center text-[10px] font-black ${entry.rank === 1 ? 'text-sdhq-cyan-400' : muted}`}>
                   {entry.rank}
+                </span>
+                <span
+                  aria-hidden
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${
+                    darkMode ? 'bg-white/10 text-sdhq-cyan-200' : 'bg-white text-sdhq-cyan-800'
+                  }`}
+                >
+                  {entry.username.slice(0, 1).toUpperCase()}
                 </span>
                 <a
                   href={entry.profileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`truncate text-sm font-semibold hover:underline ${heading}`}
+                  className={`truncate text-xs font-semibold hover:underline ${heading}`}
                 >
                   {entry.username}
                 </a>
               </div>
-              <span className={`shrink-0 text-xs font-bold ${heading}`}>
+              <span className={`shrink-0 text-[11px] font-bold ${heading}`}>
                 {formatCount(entry.quantity)} {unit}
               </span>
             </li>
@@ -702,18 +710,18 @@ function InsightCard({
 }) {
   return (
     <div
-      className={`rounded-xl border p-4 ${
+      className={`rounded-lg border p-2.5 ${
         darkMode ? 'border-white/10 bg-sdhq-dark-900/40' : 'border-sdhq-cyan-100 bg-cyan-50/40'
       }`}
     >
       <p
-        className={`mb-1 text-xs font-semibold uppercase tracking-wide ${
+        className={`mb-0.5 text-[10px] font-semibold uppercase tracking-wide ${
           darkMode ? 'text-sdhq-cyan-300' : 'text-sdhq-cyan-700'
         }`}
       >
         {label}
       </p>
-      <p className={`text-sm leading-relaxed ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>{body}</p>
+      <p className={`text-xs leading-snug ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>{body}</p>
     </div>
   )
 }

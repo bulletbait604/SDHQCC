@@ -13,6 +13,13 @@ test('legacy resource-hub links still open Educate', () => {
   assert.equal(parseHomeTabFromSearch('?tab=resource-hub').tab, 'educate')
 })
 
+test('emote maker is a normal Create sub tab', () => {
+  const parsed = parseHomeTabFromSearch('?tab=create&create=emotes')
+  assert.equal(parsed.tab, 'create')
+  assert.equal(parsed.create, 'emotes')
+  assert.equal(buildTabQuery({ tab: 'create', create: 'emotes' }).get('create'), 'emotes')
+})
+
 test('banner sizer is a normal Create sub tab', () => {
   const parsed = parseHomeTabFromSearch('?tab=create&create=banners')
   assert.equal(parsed.tab, 'create')

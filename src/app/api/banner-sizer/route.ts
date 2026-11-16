@@ -5,7 +5,7 @@ import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verif
 import { spendToolCoins } from '@/lib/coins/spendToolCoins'
 import { bannerPreset } from '@/lib/bannerSizer/presets'
 import { buildAiModelInput, compositeSubjectOverFill, type PlacedRect } from '@/lib/bannerSizer/aiComposite'
-import { buildFillPrompt } from '@/lib/bannerSizer/fillPrompt'
+import { buildFillPrompt, sanitizeBannerPrompt } from '@/lib/bannerSizer/fillPrompt'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -68,12 +68,10 @@ function coversFrame(placed: PlacedRect, width: number, height: number): boolean
 async function generateFill(input: {
   apiKey: string
   jpeg: Buffer
-  width: number
-  height: number
-  prompt: string
+  instruction: string
 }): Promise<{ buffer: Buffer; model: string }> {
   const genAI = new GoogleGenAI({ apiKey: input.apiKey })
-  const prompt = input.prompt
+  const prompt = input.instruction
 
   let lastError: unknown = null
   for (const model of imageModelCandidates()) {
@@ -139,6 +137,7 @@ export async function POST(request: NextRequest) {
       placement?: unknown
       prompt?: unknown
     }
+    const userPrompt = sanitizeBannerPrompt(body.prompt)
     const preset = typeof body.presetId === 'string' ? bannerPreset(body.presetId) : undefined
     if (!preset) return NextResponse.json({ error: 'Unknown banner preset.' }, { status: 400 })
 
@@ -149,10 +148,10 @@ export async function POST(request: NextRequest) {
     const placement = readPlacement(body.placement, preset.width, preset.height)
     if (!placement) return NextResponse.json({ error: 'The crop placement is invalid.' }, { status: 400 })
 
-    if (coversFrame(placement, preset.width, preset.height)) {
+    if (!userPrompt && coversFrame(placement, preset.width, preset.height)) {
       return NextResponse.json({
         covered: true,
-        message: 'This photo already covers the banner, so there are no edges to fill.',
+        message: 'This photo already covers the banner, so there are no edges to fill. Add an edit prompt if you want the image changed.',
       })
     }
 
@@ -173,9 +172,7 @@ export async function POST(request: NextRequest) {
     const generated = await generateFill({
       apiKey,
       jpeg: modelInput.jpeg,
-      width: modelInput.modelWidth,
-      height: modelInput.modelHeight,
-      prompt: buildFillPrompt(modelInput.modelWidth, modelInput.modelHeight, typeof body.prompt === 'string' ? body.prompt : ''),
+      instruction: buildFillPrompt(modelInput.modelWidth, modelInput.modelHeight, userPrompt),
     })
     const composited = await compositeSubjectOverFill({
       source: image.buffer,

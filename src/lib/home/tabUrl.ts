@@ -14,7 +14,7 @@ export const DEFAULT_RND_SUB: RdSubTab = 'trending-vids'
 const TAB_QUERY_KEYS = ['tab', 'create', 'rnd', 'apps'] as const
 
 const MAIN_TABS = new Set(['home', 'educate', 'create', 'analyze', 'kick-clips', 'settings', 'rnd', 'user-apps'])
-const CREATE_SUBS = new Set<CreateSubTab>(['tags', 'thumbnail', 'post4me', 'background', 'banners'])
+const CREATE_SUBS = new Set<CreateSubTab>(['tags', 'thumbnail', 'post4me', 'background', 'banners', 'emotes'])
 const RND_SUBS = new Set<RdSubTab>(['trending-vids'])
 
 /** Legacy ?tab= names from older links. */

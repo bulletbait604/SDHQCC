@@ -21,6 +21,8 @@ export interface AlgorithmData {
   titleTips: string
   descriptionTips: string
   summaries?: string[]
+  sourceLabel?: string
+  sourceUrl?: string
 }
 
 export interface Platform {
@@ -72,6 +74,7 @@ export type ActivityLogAction =
   | 'role_updated'
   | 'thumbnail_generation'
   | 'banner_sizer_fill'
+  | 'emote_generation'
   | 'post4me_generation'
   | 'token_grant'
   | 'token_purchase'

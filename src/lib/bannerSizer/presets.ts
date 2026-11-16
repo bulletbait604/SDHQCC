@@ -58,7 +58,7 @@ export const BANNER_PRESETS: BannerPreset[] = [
     maxBytesNote: 'Maximum file size 4 MB.',
     fileTypes: 'JPG, JPEG, PNG',
     fileTypesShort: 'JPG, JPEG, PNG',
-    summary: '1920×1080. Kick asks for a 1080p image in the player after a stream ends.',
+    summary: '1920×1080 image for the player after a stream ends. This is not the short offline header.',
     displayNote:
       'This is the ended-stream image, shown in the player with object-fit contain. Kick specifies 1920×1080 and does not publish an extra crop, so the preview is the full 16:9 frame. It is not the short offline header.',
     sourceLabel: 'Kick Help — How to update your profile',
@@ -120,42 +120,6 @@ export const BANNER_PRESETS: BannerPreset[] = [
     sourceUrl: 'https://support.google.com/youtube/answer/10456525',
   },
   {
-    id: 'club-profile',
-    group: 'social',
-    name: 'Club profile banner',
-    width: 1134,
-    height: 567,
-    sizeStatus: 'estimated',
-    maxBytes: 10 * 1024 * 1024,
-    maxBytesNote: 'Maximum file size 10 MB. GIFs cannot be cropped on upload.',
-    fileTypes: 'Image or GIF. Animated GIF export is not included; a still JPEG is exported instead.',
-    fileTypesShort: 'Image or GIF',
-    summary:
-      'Club does not publish pixel dimensions. 1134×567 (2:1) is the background image currently served for club.com/bulletbait604.',
-    displayNote:
-      'Desktop and phone views of that public profile both showed the full 2:1 banner, with the avatar overlapping the lower-left. That overlap is measured from the live page, not from a Club size chart. Static images can be cropped in Club’s editor; GIFs cannot, so a GIF must already be the right size.',
-    sourceLabel: 'Club docs — Updating your profile',
-    sourceUrl: 'https://docs.club.com/general/understanding-your-account-management-tools/updating-your-profile',
-  },
-  {
-    id: 'x-header',
-    group: 'social',
-    name: 'X header',
-    width: 1500,
-    height: 500,
-    sizeStatus: 'recommended',
-    maxBytes: 2 * 1024 * 1024,
-    maxBytesNote:
-      'X publishes a 2 MB maximum for profile photos in the upload-help article. A separate header cap is not stated, so exports stay under 2 MB.',
-    fileTypes: 'JPEG, GIF, or PNG. Animated GIFs are not supported for the header.',
-    fileTypesShort: 'JPEG, GIF, PNG',
-    summary: 'Recommended header (banner) size 1500×500.',
-    displayNote:
-      'X publishes the recommended header size and does not publish a separate desktop or mobile crop. The preview is the full 1500×500 frame.',
-    sourceLabel: 'X Help — How to customize your profile',
-    sourceUrl: 'https://help.x.com/en/managing-your-account/how-to-customize-your-profile',
-  },
-  {
     id: 'facebook-page-cover',
     group: 'social',
     name: 'Facebook Page cover',
@@ -174,44 +138,15 @@ export const BANNER_PRESETS: BannerPreset[] = [
     sourceLabel: 'Facebook Help — Page profile picture and cover photo dimensions',
     sourceUrl: 'https://www.facebook.com/help/125379114252045',
   },
-  {
-    id: 'discord-server',
-    group: 'social',
-    name: 'Discord server banner',
-    width: 960,
-    height: 540,
-    sizeStatus: 'recommended',
-    maxBytes: null,
-    maxBytesNote: 'Discord does not publish a file-size cap for server banners. Upload at least 960×540.',
-    fileTypes: 'Image or GIF. Animated banners need Boosting Level 3. This tool exports a still JPEG.',
-    fileTypesShort: 'Image or GIF',
-    summary: 'Recommended 960×540 (16:9). A 1920×1080 upload is resized by Discord. Keep the top 48 px simple.',
-    displayNote:
-      'Discord says the top 48 px of the file should stay free of busy imagery so the server title stays readable. A separate phone crop is not published.',
-    sourceLabel: 'Discord Support — Server Banners',
-    sourceUrl: 'https://support.discord.com/hc/en-us/articles/360028716472-Server-Banners',
-  },
-  {
-    id: 'discord-profile',
-    group: 'social',
-    name: 'Discord profile banner',
-    width: 600,
-    height: 240,
-    sizeStatus: 'minimum',
-    maxBytes: 10 * 1024 * 1024,
-    maxBytesNote: 'PNG, JPG, and animated GIFs under 10 MB. Nitro is required to upload one.',
-    fileTypes: 'PNG, JPG, GIF',
-    fileTypesShort: 'PNG, JPG, GIF',
-    summary: 'Recommended minimum 600×240.',
-    displayNote:
-      'Discord publishes the minimum size and file rules, not a desktop versus mobile crop. The preview is the full 600×240 frame. Animated GIF export is not included.',
-    sourceLabel: 'Discord Support — Per-server profiles',
-    sourceUrl: 'https://support.discord.com/hc/en-us/articles/4409388345495-Per-Server-Profiles',
-  },
 ]
 
-/** Kick, Twitch, and YouTube are checked first so those three previews show together. */
-export const DEFAULT_BANNER_SELECTION = ['kick-channel', 'twitch-profile', 'youtube-channel'] as const
+/** One banner from each supported platform starts selected. */
+export const DEFAULT_BANNER_SELECTION = [
+  'kick-channel',
+  'twitch-profile',
+  'youtube-channel',
+  'facebook-page-cover',
+] as const
 
 export function defaultBannerSelected(id: string): boolean {
   return (DEFAULT_BANNER_SELECTION as readonly string[]).includes(id)

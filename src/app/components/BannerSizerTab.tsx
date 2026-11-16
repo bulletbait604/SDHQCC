@@ -575,7 +575,7 @@ export default function BannerSizerTab({
                 <p className={`text-sm ${textClasses}`}>
                   {image
                     ? 'Each checked platform is already resized. All of them stay on screen, and each uses that site’s own shape.'
-                    : 'Check Kick, Twitch, YouTube, or any other banner. The same photo is fit to every one you leave on.'}
+                    : 'Check YouTube, Facebook, Twitch, and Kick. The same photo is fit to every one you leave on.'}
                 </p>
               </div>
             </div>
@@ -734,12 +734,7 @@ export default function BannerSizerTab({
 
           {isGif ? (
             <p className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm">
-              Animated GIF export is not included. This uses the first frame and downloads a still JPEG. Club will not crop a GIF, so a moving Club banner still has to be sized before upload.
-            </p>
-          ) : null}
-          {preset.sizeStatus === 'estimated' ? (
-            <p className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm">
-              Club does not publish a pixel size. 1134×567 is the banner file served on club.com/bulletbait604, and the preview follows that measured 2:1 header.
+              Animated GIF export is not included. This uses the first frame and downloads a still JPEG.
             </p>
           ) : null}
           {preset.sizeStatus === 'unpublished' ? (
@@ -870,10 +865,7 @@ function siteChrome(id: string): { name: string; accent: string } {
   if (id.startsWith('kick')) return { name: 'Kick', accent: '#53fc18' }
   if (id.startsWith('twitch')) return { name: 'Twitch', accent: '#9146ff' }
   if (id.startsWith('youtube')) return { name: 'YouTube', accent: '#ff4e45' }
-  if (id.startsWith('club')) return { name: 'Club', accent: '#6d4aff' }
-  if (id.startsWith('x-')) return { name: 'X', accent: '#e7e9ea' }
   if (id.startsWith('facebook')) return { name: 'Facebook', accent: '#1877f2' }
-  if (id.startsWith('discord')) return { name: 'Discord', accent: '#5865f2' }
   return { name: 'Preview', accent: '#22d3ee' }
 }
 

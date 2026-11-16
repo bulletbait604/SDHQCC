@@ -32,7 +32,7 @@ export const homeTranslations = {
       'Upload a photo and remove the background behind the main subject with AI.',
     bannerSizer: 'Banner Sizer',
     bannerSizerDesc:
-      'Upload one image, then Crop, AI Fill, or Stretch it. Every selected platform stays on screen the way that site actually shows the banner.',
+      'Upload one image, then Crop, AI Fill, or Stretch it for YouTube, Facebook, Twitch, and Kick.',
     bannerModeCrop: 'Crop',
     bannerModeCropHint: 'Cuts the photo into each banner and keeps the middle in view. Drag to adjust.',
     bannerModeAi: 'AI Fill',
@@ -43,6 +43,9 @@ export const homeTranslations = {
     bannerPromptHint:
       'Describe how AI Fill should extend or edit the image. This section stays visible. Crop and Stretch do not send it.',
     bannerPromptPlaceholder: 'Continue the background and keep the logo in the center.',
+    emoteMaker: 'Emote Maker',
+    emoteMakerDesc:
+      'Describe an emote or upload art you already have. Export files at the official sizes for YouTube, Facebook, Twitch, and Kick.',
     post4me: 'Post4Me',
     post4meDesc:
       'Upload a clip of any length. We analyze a random 5-minute slice and write algorithm-optimized copy for each platform — formatted for TikTok captions or YouTube separate fields.',
@@ -108,7 +111,7 @@ export const homeTranslations = {
       'Sube una foto y elimina el fondo detrás del sujeto principal con IA.',
     bannerSizer: 'Tamaño de banner',
     bannerSizerDesc:
-      'Sube una imagen y elige Recortar, Relleno IA o Estirar. Cada plataforma seleccionada se ve como ese sitio muestra el banner.',
+      'Sube una imagen y elige Recortar, Relleno IA o Estirar para YouTube, Facebook, Twitch y Kick.',
     bannerModeCrop: 'Recortar',
     bannerModeCropHint: 'Recorta la foto al marco de cada plataforma y mantiene el centro a la vista. Puedes ajustarlo.',
     bannerModeAi: 'Relleno IA',
@@ -119,6 +122,9 @@ export const homeTranslations = {
     bannerPromptHint:
       'Describe cómo Relleno IA debe ampliar o editar la imagen. Esta sección siempre está visible. Recortar y Estirar no la envían.',
     bannerPromptPlaceholder: 'Continúa el fondo y mantén el logo en el centro.',
+    emoteMaker: 'Creador de emotes',
+    emoteMakerDesc:
+      'Describe un emote o sube un dibujo. Exporta archivos en los tamaños oficiales de YouTube, Facebook, Twitch y Kick.',
     post4me: 'Post4Me',
     post4meDesc:
       'Sube un clip de cualquier duración. Analizamos un fragmento aleatorio de 5 minutos y generamos título, descripción y etiquetas optimizados.',
@@ -184,7 +190,7 @@ export const homeTranslations = {
       'Importez une photo et supprimez l’arrière-plan derrière le sujet principal avec l’IA.',
     bannerSizer: 'Taille de bannière',
     bannerSizerDesc:
-      'Importez une image, puis choisissez Recadrer, Remplissage IA ou Étirer. Chaque plateforme cochée reste à l’écran comme le site affiche le bandeau.',
+      'Importez une image, puis Recadrer, Remplissage IA ou Étirer pour YouTube, Facebook, Twitch et Kick.',
     bannerModeCrop: 'Recadrer',
     bannerModeCropHint: 'Découpe la photo dans chaque cadre et garde le centre visible. Vous pouvez encore ajuster.',
     bannerModeAi: 'Remplissage IA',
@@ -195,6 +201,9 @@ export const homeTranslations = {
     bannerPromptHint:
       'Décrivez comment le Remplissage IA doit étendre ou modifier l’image. Cette section reste visible. Recadrer et Étirer ne l’envoient pas.',
     bannerPromptPlaceholder: 'Prolonger l’arrière-plan et garder le logo au centre.',
+    emoteMaker: 'Créateur d’emotes',
+    emoteMakerDesc:
+      'Décrivez un emote ou importez un dessin. Exportez des fichiers aux tailles officielles de YouTube, Facebook, Twitch et Kick.',
     post4me: 'Post4Me',
     post4meDesc:
       'Importez un clip de n’importe quelle durée. Nous analysons un extrait aléatoire de 5 minutes et générons titre, description et tags optimisés.',
@@ -260,7 +269,7 @@ export const homeTranslations = {
       'Laden Sie ein Foto hoch und entfernen Sie den Hintergrund hinter dem Hauptmotiv mit KI.',
     bannerSizer: 'Bannergröße',
     bannerSizerDesc:
-      'Laden Sie ein Bild hoch und wählen Sie Zuschneiden, KI-Füllung oder Strecken. Jede gewählte Plattform bleibt so sichtbar, wie die Seite das Banner zeigt.',
+      'Bild hochladen, dann Zuschneiden, KI-Füllung oder Strecken für YouTube, Facebook, Twitch und Kick.',
     bannerModeCrop: 'Zuschneiden',
     bannerModeCropHint: 'Schneidet das Foto auf jeden Rahmen zu und hält die Mitte im Bild. Der Ausschnitt lässt sich verschieben.',
     bannerModeAi: 'KI-Füllung',
@@ -271,6 +280,9 @@ export const homeTranslations = {
     bannerPromptHint:
       'Beschreiben Sie, wie die KI-Füllung das Bild erweitern oder bearbeiten soll. Dieser Bereich bleibt immer sichtbar. Zuschneiden und Strecken senden ihn nicht.',
     bannerPromptPlaceholder: 'Hintergrund fortsetzen und das Logo in der Mitte halten.',
+    emoteMaker: 'Emote-Maker',
+    emoteMakerDesc:
+      'Emote beschreiben oder vorhandene Grafik hochladen. Export in den offiziellen Größen für YouTube, Facebook, Twitch und Kick.',
     post4me: 'Post4Me',
     post4meDesc:
       'Laden Sie einen Clip beliebiger Länge hoch. Wir analysieren einen zufälligen 5-Minuten-Ausschnitt und liefern Titel, Beschreibung und Tags.',

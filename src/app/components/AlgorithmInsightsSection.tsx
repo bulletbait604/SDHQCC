@@ -20,6 +20,8 @@ export interface AlgorithmData {
   titleTips: string
   descriptionTips: string
   summaries?: string[]
+  sourceLabel?: string
+  sourceUrl?: string
 }
 
 export interface AlgorithmPlatform {
@@ -39,6 +41,14 @@ function platformAccentGradient(platformId: string): string {
       return 'from-red-500 via-red-600 to-red-700'
     case 'youtube-long':
       return 'from-red-600 via-red-700 to-red-800'
+    case 'facebook-reels':
+      return 'from-blue-500 via-blue-600 to-indigo-600'
+    case 'x':
+      return 'from-zinc-500 via-zinc-300 to-white'
+    case 'twitch':
+      return 'from-purple-500 via-violet-500 to-fuchsia-500'
+    case 'kick':
+      return 'from-green-400 via-emerald-400 to-lime-300'
     default:
       return 'from-blue-500 via-blue-600 to-blue-700'
   }
@@ -188,23 +198,23 @@ export default function AlgorithmInsightsSection({
               <div
                 className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${platformAccentGradient(platform.id)}`}
               />
-              <div className="p-4">
-                <div className="flex items-center space-x-3 mb-3">
+              <div className="p-3">
+                <div className="flex items-center space-x-2 mb-2">
                   <div
-                    className={`relative p-2 rounded-xl ${darkMode ? 'bg-sdhq-dark-600' : 'bg-white'} shadow-lg`}
+                    className={`relative p-1.5 rounded-lg ${darkMode ? 'bg-sdhq-dark-600' : 'bg-white'} shadow`}
                   >
                     <img
                       src={platform.image}
-                      alt={platform.name}
-                      className="w-14 h-14 rounded-lg object-cover"
+                      alt=""
+                      className="w-8 h-8 rounded-md object-cover"
                     />
                   </div>
-                  <h4 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  <h4 className={`text-base font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                     {platform.name}
                   </h4>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {platform.data ? (
                     <>
                       {Array.isArray(platform.data.summaries) &&
@@ -225,9 +235,7 @@ export default function AlgorithmInsightsSection({
                                       : 'bg-gradient-to-r from-sdhq-green-400 to-sdhq-green-300 group-hover:scale-125'
                               }`}
                             />
-                            <p
-                              className={`${textClasses} text-base leading-relaxed group-hover:translate-x-1 transition-transform duration-300`}
-                            >
+                            <p className={`${textClasses} text-sm leading-snug`}>
                               {summary}
                             </p>
                           </div>
@@ -240,7 +248,17 @@ export default function AlgorithmInsightsSection({
                           <p className={`${textClasses} text-base`}>Title & description guides</p>
                         </>
                       )}
-                      <div className="pt-4 mt-3 border-t border-gray-200 dark:border-sdhq-dark-600">
+                      {platform.data.sourceUrl ? (
+                        <a
+                          href={platform.data.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`block text-xs underline ${darkMode ? 'text-sdhq-cyan-300' : 'text-sdhq-cyan-700'}`}
+                        >
+                          Source: {platform.data.sourceLabel || 'Official page'}
+                        </a>
+                      ) : null}
+                      <div className="pt-2 mt-2 border-t border-gray-200 dark:border-sdhq-dark-600">
                         <Button
                           variant="outline"
                           size="sm"
