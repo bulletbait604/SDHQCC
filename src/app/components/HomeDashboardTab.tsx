@@ -21,6 +21,13 @@ import type { KickUser } from '@/lib/home/types'
 import type { KickChannelSnapshot, KickClipCard } from '@/lib/kick/channelSnapshot'
 import type { ChannelInsights } from '@/lib/home/channelInsightsTypes'
 import { emptyKickLeaderboard, type KickLeaderboard, type KickLeaderboardPeriod } from '@/lib/kick/leaderboard'
+
+type BoardCopy = { title: string; unit: string; empty: string }
+
+const KICK_BOARDS: { left: BoardCopy; right: BoardCopy } = {
+  left: { title: 'Gifted Subs', unit: 'subs', empty: '' },
+  right: { title: 'KICKs', unit: 'KICKs', empty: '' },
+}
 import type { useClipAnalyzer } from '@/hooks/useClipAnalyzer'
 import ClipEditSuggestionsPanel from '@/app/components/ClipEditSuggestionsPanel'
 import { toolCoinCost } from '@/lib/coins/toolCosts'
@@ -85,6 +92,7 @@ export default function HomeDashboardTab({
 }: Props) {
   const [channel, setChannel] = useState<KickChannelSnapshot | null>(null)
   const [leaderboard, setLeaderboard] = useState<KickLeaderboard>(emptyKickLeaderboard)
+  const [boards, setBoards] = useState(KICK_BOARDS)
   const [giftedPeriod, setGiftedPeriod] = useState<'week' | 'month' | 'lifetime'>('week')
   const [kicksPeriod, setKicksPeriod] = useState<'week' | 'month' | 'lifetime'>('week')
   const [channelError, setChannelError] = useState('')
@@ -113,6 +121,11 @@ export default function HomeDashboardTab({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Could not load channel')
       setChannel(data.channel as KickChannelSnapshot)
+      if (data.boards?.left?.title && data.boards?.right?.title) {
+        setBoards({ left: data.boards.left, right: data.boards.right })
+      } else {
+        setBoards(KICK_BOARDS)
+      }
       setLeaderboard(
         data.leaderboard?.giftedSubs && data.leaderboard?.kicks
           ? (data.leaderboard as KickLeaderboard)
@@ -225,7 +238,7 @@ export default function HomeDashboardTab({
             </span>
           </h2>
           <p className={`mx-auto mt-1 max-w-xl text-xs sm:text-sm ${muted}`}>
-            Welcome back, {user.display_name}. Your Kick snapshot, channel story, and recent clips live here.
+            Welcome back, {user.display_name}. Your {user.provider === 'twitch' ? 'Twitch' : 'Kick'} snapshot, channel story, and recent clips live here.
           </p>
           {onOpenTab ? (
             <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
@@ -243,7 +256,11 @@ export default function HomeDashboardTab({
           <StatChip
             darkMode={darkMode}
             label={channel.isLive ? 'Live viewers' : 'Subscribers'}
-            value={formatCount(channel.isLive ? channel.viewerCount : channel.subscriberCount)}
+            value={
+              channel.subscriberUnavailable && !channel.isLive
+                ? 'n/a'
+                : formatCount(channel.isLive ? channel.viewerCount : channel.subscriberCount)
+            }
           />
           <StatChip darkMode={darkMode} label="Category" value={channel.category || '—'} />
           <StatChip
@@ -299,25 +316,36 @@ export default function HomeDashboardTab({
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 font-semibold text-sdhq-cyan-300 hover:underline"
                 >
-                  {channel.isLive ? 'Watch on Kick' : 'Open Kick channel'}
+                  {channel.source === 'twitch-helix'
+                    ? channel.isLive
+                      ? 'Watch on Twitch'
+                      : 'Open Twitch channel'
+                    : channel.isLive
+                      ? 'Watch on Kick'
+                      : 'Open Kick channel'}
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>
               </div>
             </div>
             <div className="mx-auto w-full max-w-[220px] overflow-hidden rounded-lg bg-black shadow-md sm:max-w-[260px]">
               <div className="aspect-video w-full">
-                <iframe
-                  title={`${channel.displayName} on Kick`}
-                  src={
-                    channel.isLive
-                      ? `${channel.playerEmbedUrl}?autoplay=true&muted=true`
-                      : channel.playerEmbedUrl
-                  }
-                  className="h-full w-full border-0"
-                  allow="autoplay; fullscreen; picture-in-picture"
-                  allowFullScreen
-                  scrolling="no"
-                />
+                {channel.previewImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={channel.previewImageUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <iframe
+                    title={`${channel.displayName} on Kick`}
+                    src={
+                      channel.isLive
+                        ? `${channel.playerEmbedUrl}?autoplay=true&muted=true`
+                        : channel.playerEmbedUrl
+                    }
+                    className="h-full w-full border-0"
+                    allow="autoplay; fullscreen; picture-in-picture"
+                    allowFullScreen
+                    scrolling="no"
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -335,18 +363,20 @@ export default function HomeDashboardTab({
         <div className="grid gap-2 lg:grid-cols-2">
           <LeaderboardCard
             darkMode={darkMode}
-            title="Gifted Subs"
+            title={boards.left.title}
             icon={<Gift className="h-4 w-4" />}
-            unit="subs"
+            unit={boards.left.unit}
+            empty={boards.left.empty}
             board={leaderboard.giftedSubs}
             period={giftedPeriod}
             onPeriodChange={setGiftedPeriod}
           />
           <LeaderboardCard
             darkMode={darkMode}
-            title="KICKs"
+            title={boards.right.title}
             icon={<Trophy className="h-4 w-4" />}
-            unit="KICKs"
+            unit={boards.right.unit}
+            empty={boards.right.empty}
             board={leaderboard.kicks}
             period={kicksPeriod}
             onPeriodChange={setKicksPeriod}
@@ -442,8 +472,9 @@ export default function HomeDashboardTab({
           <p className="text-sm text-red-400">{clipsError}</p>
         ) : clips.length === 0 ? (
           <p className={`text-sm ${muted}`}>
-            Kick does not publish an official clips API yet, so this list uses public Kick pages. If it stays empty,
-            this channel may not have public clips, or Kick blocked the lookup.
+            {channel?.source === 'twitch-helix'
+              ? 'No public Twitch clips came back for this channel.'
+              : 'Kick does not publish an official clips API yet, so this list uses public Kick pages. If it stays empty, this channel may not have public clips, or Kick blocked the lookup.'}
           </p>
         ) : (
           <>
@@ -618,6 +649,7 @@ function LeaderboardCard({
   title,
   icon,
   unit,
+  empty = '',
   board,
   period,
   onPeriodChange,
@@ -626,6 +658,7 @@ function LeaderboardCard({
   title: string
   icon: ReactNode
   unit: string
+  empty?: string
   board: KickLeaderboardPeriod
   period: 'week' | 'month' | 'lifetime'
   onPeriodChange: (next: 'week' | 'month' | 'lifetime') => void
@@ -660,9 +693,9 @@ function LeaderboardCard({
         </div>
       </div>
       {!board.enabled && rows.length === 0 ? (
-        <p className={`text-sm ${muted}`}>No {title.toLowerCase()} leaderboard yet.</p>
+        <p className={`text-xs ${muted}`}>{empty || `No ${title.toLowerCase()} leaderboard yet.`}</p>
       ) : rows.length === 0 ? (
-        <p className={`text-sm ${muted}`}>No entries in this period. Try another tab.</p>
+        <p className={`text-xs ${muted}`}>{empty || 'No entries in this period. Try another tab.'}</p>
       ) : (
         <ol className="space-y-0.5">
           {rows.map((entry) => (

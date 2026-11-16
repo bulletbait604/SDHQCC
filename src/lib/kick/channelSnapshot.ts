@@ -26,7 +26,11 @@ export type KickChannelSnapshot = {
   socials: ExtractedSocial[]
   playerEmbedUrl: string
   channelUrl: string
-  source: 'kick-public-api' | 'kick-web-api' | 'kick-merged'
+  source: 'kick-public-api' | 'kick-web-api' | 'kick-merged' | 'twitch-helix'
+  /** Set when Twitch will not return a subscriber total. */
+  subscriberUnavailable?: boolean
+  /** Still image used instead of the Kick player embed. */
+  previewImageUrl?: string | null
 }
 
 export type KickClipCard = {

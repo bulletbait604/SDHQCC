@@ -6,6 +6,7 @@ export interface KickUser {
   display_name: string
   profile_image_url?: string
   role?: string
+  provider?: 'kick' | 'twitch'
   kick?: {
     provider?: 'kick'
     lastSyncedAt?: string

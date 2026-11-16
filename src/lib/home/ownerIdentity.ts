@@ -22,7 +22,13 @@ export function isAllowlistedAdmin(username: string | null | undefined): boolean
  * Owner role in Mongo/JWT is reserved for the site owner account.
  * Allowlisted admins stay admin even if Mongo still says free.
  */
-export function resolveSiteRole(username: string, role: Role | undefined): Role {
+export function resolveSiteRole(username: string, role: Role | undefined, provider?: string): Role {
+  // The owner and admin allowlists are Kick usernames. A Twitch login with the
+  // same name must not inherit that role.
+  if (provider === 'twitch') {
+    if (!role || role === 'owner') return 'free'
+    return role
+  }
   if (isSiteOwner(username)) return 'owner'
   if (isAllowlistedAdmin(username)) return 'admin'
   if (role === 'owner') return 'admin'

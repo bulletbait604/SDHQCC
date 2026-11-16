@@ -3,6 +3,7 @@ import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verif
 import { fetchKickChannel } from '@/lib/kick/fetchChannel'
 import { buildChannelInsights } from '@/lib/home/channelInsights'
 import clientPromise from '@/lib/mongodb'
+import { loadTwitchDashboard } from '@/lib/twitch/dashboard'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -12,6 +13,10 @@ const CACHE_MS = 24 * 60 * 60 * 1000
 export async function GET(request: NextRequest) {
   try {
     const user = await verifyAuth(request)
+    if (user.provider === 'twitch') {
+      const dashboard = await loadTwitchDashboard(user.id)
+      return NextResponse.json({ insights: dashboard.insights, cached: false, updatedAt: new Date().toISOString() })
+    }
     const refresh = request.nextUrl.searchParams.get('refresh') === '1'
     const mongo = await clientPromise
     const col = mongo.db('sdhq').collection('channelInsights')

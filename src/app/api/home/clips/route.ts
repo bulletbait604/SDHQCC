@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth, AuthError, createAuthErrorResponse } from '@/lib/auth/verifyAuth'
 import { fetchKickChannel, fetchKickClips } from '@/lib/kick/fetchChannel'
+import { loadTwitchDashboard } from '@/lib/twitch/dashboard'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,6 +9,19 @@ export async function GET(request: NextRequest) {
   try {
     const user = await verifyAuth(request)
     const page = Math.max(1, Number(request.nextUrl.searchParams.get('page') || '1') || 1)
+    if (user.provider === 'twitch') {
+      const dashboard = await loadTwitchDashboard(user.id)
+      const pageSize = 25
+      const start = (page - 1) * pageSize
+      const clips = dashboard.clips.slice(start, start + pageSize)
+      return NextResponse.json({
+        clips,
+        page,
+        pageSize,
+        total: dashboard.clips.length,
+        hasMore: start + clips.length < dashboard.clips.length,
+      })
+    }
     const channel = await fetchKickChannel(user.username).catch(() => null)
     const all = await fetchKickClips(user.username, 25, channel?.channelId)
     const pageSize = 25

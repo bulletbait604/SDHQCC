@@ -75,6 +75,7 @@ export async function GET(req: NextRequest) {
       display_name: displayName,
       profile_image_url: profileUrl,
       role: authUser.role,
+      provider: authUser.provider === 'twitch' ? 'twitch' : 'kick',
       ...(ko?.lastSyncedAt
         ? {
             kick: {

@@ -19,7 +19,7 @@ export interface VerifiedUser {
   username: string
   role: UserRole
   email?: string
-  provider: 'kick' | 'credentials'
+  provider: 'kick' | 'credentials' | 'twitch'
 }
 
 const UNLIMITED_ROLES: UserRole[] = ['subscriber', 'subscriber_lifetime', 'admin', 'owner', 'tester']
@@ -98,6 +98,11 @@ export async function verifyAuth(req: NextRequest): Promise<VerifiedUser> {
   const db = client.db('sdhq')
   let dbUser = await db.collection('users').findOne({ username: user.username })
 
+  // Do not recreate a Twitch session as a Kick user row.
+  if (!dbUser && user.provider === 'twitch') {
+    throw new AuthError('User not found', 401)
+  }
+
   // Valid session but no Mongo row (deleted doc, replica lag, legacy token) — recreate minimal user
   if (!dbUser) {
     const now = new Date().toISOString()
@@ -122,7 +127,11 @@ export async function verifyAuth(req: NextRequest): Promise<VerifiedUser> {
     }
   }
 
-  const resolvedRole = resolveSiteRole(user.username, (dbUser.role as UserRole) || user.role || 'free')
+  const resolvedRole = resolveSiteRole(
+    user.username,
+    (dbUser.role as UserRole) || user.role || 'free',
+    user.provider
+  )
   user.role = resolvedRole
   if (dbUser.role !== resolvedRole) {
     await db.collection('users').updateOne(

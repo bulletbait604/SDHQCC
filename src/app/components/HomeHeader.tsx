@@ -40,6 +40,8 @@ export interface HomeHeaderProps {
   onOpenSettings: () => void
   onLogout: () => void
   onLogin: () => void
+  twitchLoginLabel?: string
+  onTwitchLogin?: () => void
 }
 
 export default function HomeHeader({
@@ -64,6 +66,8 @@ export default function HomeHeader({
   onOpenSettings,
   onLogout,
   onLogin,
+  twitchLoginLabel,
+  onTwitchLogin,
 }: HomeHeaderProps) {
   return (
     <header className={headerClasses}>
@@ -272,9 +276,16 @@ export default function HomeHeader({
                 </Button>
               </>
             ) : (
-              <Button onClick={onLogin} className="sdhq-button">
-                {loginLabel}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button onClick={onLogin} className="sdhq-button">
+                  {loginLabel}
+                </Button>
+                {twitchLoginLabel && onTwitchLogin ? (
+                  <Button type="button" variant="outline" size="sm" onClick={onTwitchLogin}>
+                    {twitchLoginLabel}
+                  </Button>
+                ) : null}
+              </div>
             )}
           </div>
         </div>

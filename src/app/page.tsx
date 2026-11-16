@@ -39,6 +39,7 @@ import { canSeeRndTab } from '@/lib/home/rndAccess'
 import { hasTabAccessForUser } from '@/lib/home/ownerIdentity'
 import { applyOwnerViewAs } from '@/lib/home/ownerViewAs'
 import { startKickLogin } from '@/lib/kick/startKickLogin'
+import { startTwitchLogin } from '@/lib/twitch/startTwitchLogin'
 import { DEFAULT_HOME_TAB } from '@/lib/home/tabUrl'
 
 export default function HomePage() {
@@ -57,6 +58,14 @@ export default function HomePage() {
   const [showDonatePopup, setShowDonatePopup] = useState(false)
   const [showCoinPurchase, setShowCoinPurchase] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
+  const [twitchLoginEnabled, setTwitchLoginEnabled] = useState(false)
+
+  useEffect(() => {
+    void fetch('/api/auth/providers')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setTwitchLoginEnabled(Boolean(data?.twitch)))
+      .catch(() => setTwitchLoginEnabled(false))
+  }, [])
 
   const closeCoinPurchase = useCallback(() => setShowCoinPurchase(false), [])
 
@@ -248,6 +257,10 @@ export default function HomePage() {
     void startKickLogin()
   }
 
+  const handleTwitchLogin = () => {
+    startTwitchLogin()
+  }
+
   const handleLogout = () => {
     if (isAdmin) logLogout()
     void sessionLogout()
@@ -309,6 +322,8 @@ export default function HomePage() {
         settingsLabel={t.settings}
         logoutLabel={t.logout}
         loginLabel={t.loginButton}
+        twitchLoginLabel={twitchLoginEnabled ? t.loginWithTwitch : undefined}
+        onTwitchLogin={twitchLoginEnabled ? handleTwitchLogin : undefined}
         onLanguageChange={handleLanguageChange}
         onToggleDarkMode={toggleDarkMode}
         onOpenCoinPurchase={() => setShowCoinPurchase(true)}
@@ -329,6 +344,8 @@ export default function HomePage() {
             description={t.description}
             loginButtonLabel={t.loginButton}
             onLogin={handleLogin}
+            twitchLoginLabel={twitchLoginEnabled ? t.loginWithTwitch : undefined}
+            onTwitchLogin={twitchLoginEnabled ? handleTwitchLogin : undefined}
           />
         ) : (
           <HomeMainTabs

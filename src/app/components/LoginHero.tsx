@@ -14,6 +14,8 @@ export interface LoginHeroProps {
   description: string
   loginButtonLabel: string
   onLogin: () => void
+  twitchLoginLabel?: string
+  onTwitchLogin?: () => void
 }
 
 const HIGHLIGHTS = [
@@ -30,6 +32,8 @@ export default function LoginHero({
   description,
   loginButtonLabel,
   onLogin,
+  twitchLoginLabel,
+  onTwitchLogin,
 }: LoginHeroProps) {
   return (
     <div className={`relative mt-3 overflow-hidden ${cardClasses}`}>
@@ -83,9 +87,21 @@ export default function LoginHero({
             )
           })}
         </div>
-        <Button onClick={onLogin} className="sdhq-button px-8 py-3 text-lg">
-          {loginButtonLabel}
-        </Button>
+        <div className="flex flex-col items-center gap-2 sm:flex-row">
+          <Button onClick={onLogin} className="sdhq-button px-8 py-3 text-lg">
+            {loginButtonLabel}
+          </Button>
+          {twitchLoginLabel && onTwitchLogin ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onTwitchLogin}
+              className="px-8 py-3 text-lg"
+            >
+              {twitchLoginLabel}
+            </Button>
+          ) : null}
+        </div>
       </div>
     </div>
   )

@@ -9,6 +9,8 @@ export async function resolveCoinBalanceUserId(
   db: Db,
   user: VerifiedUser
 ): Promise<string> {
+  if (user.provider === 'twitch') return `twitch:${user.id}`
+
   const canonical = user.username.toLowerCase()
   const legacyKick = String(user.id)
 
