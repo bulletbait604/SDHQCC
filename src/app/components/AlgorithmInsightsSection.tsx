@@ -31,6 +31,18 @@ export interface AlgorithmPlatform {
   data: AlgorithmData | null
 }
 
+/** Calendar date from an ISO timestamp, kept in UTC so the day does not shift. */
+export function formatReviewDate(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(date)
+}
+
 function platformAccentGradient(platformId: string): string {
   switch (platformId) {
     case 'tiktok':
@@ -127,18 +139,14 @@ export default function AlgorithmInsightsSection({
 
         <div className="flex flex-col items-center mb-4">
           <p className={`text-sm ${darkMode ? 'text-sdhq-green-400' : 'text-sdhq-green-600'} mb-2`}>
-            Powered By: Gemini 2.5 Flash-Lite
+            Reviewed {formatReviewDate(lastUpdated)} from official platform sources
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             {isLoadingAlgorithms && (
               <span className={`${subtitleClasses} text-base`}>Loading...</span>
             )}
             {algorithmError && <span className="text-red-500 text-base">{algorithmError}</span>}
-            <p className={`${subtitleClasses} text-base`}>Last updated: {lastUpdated}</p>
-            <p className={`${subtitleClasses} text-xs w-full text-center`}>
-              Auto-refreshes on the 1st of every month via Gemini Flash-Lite · used by Analyzer
-              &amp; Post4Me
-            </p>
+            <p className={`${subtitleClasses} text-base`}>Last updated: {formatReviewDate(lastUpdated)}</p>
           </div>
 
           {isAdmin && showAdminControls && (
